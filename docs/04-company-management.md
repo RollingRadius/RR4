@@ -31,14 +31,15 @@ During signup, users must choose between **joining an existing company** or **cr
 ### User Journey
 
 1. **Search for Company**
-   - User enters company name
-   - System searches database
-   - Returns matching companies
+   - User enters at least **3 letters** of company name
+   - System searches database after 3rd character
+   - Returns **top 3 matching companies only**
+   - Real-time search as user types
 
 2. **Select Company**
-   - User sees list of matches
+   - User sees max 3 matches
    - Each shows: Name, City, State, Business Type
-   - User selects one company
+   - User selects one company from the list
 
 3. **Submit Request**
    - Account created with "Pending User" role
@@ -74,10 +75,20 @@ During signup, users must choose between **joining an existing company** or **cr
 **Endpoint:** `GET /api/auth/companies/search`
 
 **Query Parameters:**
+- `q` (required): Search term - **minimum 3 characters**
+- `limit` (optional): Max results - **default and max is 3**
+
+**Example:**
 ```
-?q=ABC Logistics
-&limit=10
+?q=ABC
+&limit=3
 ```
+
+**Validation Rules:**
+- Minimum search length: 3 characters
+- Maximum results returned: 3 companies
+- Search is case-insensitive
+- Matches company name from start or contains
 
 **Response:**
 ```json
@@ -97,9 +108,39 @@ During signup, users must choose between **joining an existing company** or **cr
       "city": "Mumbai",
       "state": "Maharashtra",
       "business_type": "logistics"
+    },
+    {
+      "company_id": "uuid-3",
+      "company_name": "ABC Freight Services",
+      "city": "Delhi",
+      "state": "Delhi",
+      "business_type": "freight"
     }
   ],
-  "count": 2
+  "count": 3,
+  "query": "ABC",
+  "has_more": true
+}
+```
+
+**Error Response (Less than 3 characters):**
+```json
+{
+  "success": false,
+  "error": "search_too_short",
+  "message": "Please enter at least 3 characters to search",
+  "min_length": 3
+}
+```
+
+**Response (No matches):**
+```json
+{
+  "success": true,
+  "companies": [],
+  "count": 0,
+  "query": "XYZ",
+  "message": "No companies found matching 'XYZ'"
 }
 ```
 
@@ -110,16 +151,16 @@ During signup, users must choose between **joining an existing company** or **cr
 ### User Journey
 
 1. **Fill Company Form**
-   - Company information
-   - Legal details (GSTIN, PAN)
-   - Contact information
-   - Business address
+   - Company information (required)
+   - Legal details (optional - can be added later)
+   - Contact information (required)
+   - Business address (required)
 
 2. **Validate Details**
-   - GSTIN format validation
-   - PAN format validation
-   - GSTIN-PAN linkage check
-   - All fields validated
+   - GSTIN format validation (if provided)
+   - PAN format validation (if provided)
+   - GSTIN-PAN linkage check (if both provided)
+   - All required fields validated
 
 3. **Submit Registration**
    - Company created
@@ -160,14 +201,16 @@ During signup, users must choose between **joining an existing company** or **cr
 
 ---
 
-#### Section 2: Legal Information
+#### Section 2: Legal Information (Optional)
 
 | Field | Type | Required | Format |
 |-------|------|----------|--------|
-| GSTIN | Text | ✅ Yes | `29ABCDE1234F1Z5` (15 chars) |
-| PAN Number | Text | ✅ Yes | `ABCDE1234F` (10 chars) |
-| Registration Number | Text | ✅ Yes | Company registration no. |
+| GSTIN | Text | ❌ No | `29ABCDE1234F1Z5` (15 chars) |
+| PAN Number | Text | ❌ No | `ABCDE1234F` (10 chars) |
+| Registration Number | Text | ❌ No | Company registration no. |
 | Registration Date | Date | ❌ No | DD/MM/YYYY |
+
+**Note:** Legal information can be added later from company settings if not provided during registration.
 
 **GSTIN Format:**
 - 2 digits (state code)
@@ -208,12 +251,23 @@ During signup, users must choose between **joining an existing company** or **cr
 
 **Endpoint:** `POST /api/auth/companies/validate`
 
+**Note:** This endpoint is only called if legal information is provided. All fields are optional.
+
 **Request:**
 ```json
 {
   "gstin": "29ABCDE1234F1Z5",
   "pan_number": "ABCDE1234F",
   "registration_number": "U63040KA2024PTC123456"
+}
+```
+
+**Request (Minimal - Skip Validation):**
+```json
+{
+  "gstin": null,
+  "pan_number": null,
+  "registration_number": null
 }
 ```
 
@@ -284,7 +338,7 @@ POST /api/auth/signup
 
 ---
 
-### Create New Company
+### Create New Company (With Legal Information)
 
 ```json
 POST /api/auth/signup
@@ -304,6 +358,54 @@ POST /api/auth/signup
     "pan_number": "ABCDE1234F",
     "registration_number": "U63040KA2024PTC123456",
     "registration_date": "2024-01-15",
+    "business_email": "info@xyztransport.com",
+    "business_phone": "+91-1234567890",
+    "address": "123 Transport Lane, Business District",
+    "city": "Bangalore",
+    "state": "Karnataka",
+    "pincode": "560001",
+    "country": "India"
+  },
+  "terms_accepted": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "user_id": "user-uuid",
+  "company_id": "new-company-uuid",
+  "company_name": "XYZ Transport Solutions",
+  "role": "Owner",
+  "capabilities": ["*"],
+  "status": "pending_verification",
+  "message": "Verification email sent. You are now the Owner."
+}
+```
+
+---
+
+### Create New Company (Without Legal Information)
+
+```json
+POST /api/auth/signup
+
+{
+  "full_name": "Jane Smith",
+  "username": "janesmith",
+  "email": "jane@newcompany.com",
+  "phone": "+91-9876543210",
+  "password": "SecurePass123!",
+  "auth_method": "email",
+  "company_type": "new",
+  "company_details": {
+    "company_name": "XYZ Transport Solutions",
+    "business_type": "transportation",
+    "gstin": null,
+    "pan_number": null,
+    "registration_number": null,
+    "registration_date": null,
     "business_email": "info@xyztransport.com",
     "business_phone": "+91-1234567890",
     "address": "123 Transport Lane, Business District",
@@ -382,10 +484,10 @@ CREATE TABLE organizations (
     id UUID PRIMARY KEY,
     company_name VARCHAR(255) NOT NULL,
     business_type VARCHAR(50),
-    gstin VARCHAR(15) UNIQUE,
-    pan_number VARCHAR(10),
-    registration_number VARCHAR(100),
-    registration_date DATE,
+    gstin VARCHAR(15) UNIQUE NULL,              -- Optional, can be NULL
+    pan_number VARCHAR(10) NULL,                -- Optional, can be NULL
+    registration_number VARCHAR(100) NULL,       -- Optional, can be NULL
+    registration_date DATE NULL,                 -- Optional, can be NULL
     business_email VARCHAR(255),
     business_phone VARCHAR(20),
     address TEXT,
@@ -398,6 +500,8 @@ CREATE TABLE organizations (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
+
+**Note:** Legal information fields (GSTIN, PAN, registration details) are optional and can be added later via company settings.
 
 ### User-Company Link
 
@@ -418,10 +522,15 @@ CREATE TABLE user_organizations (
 
 ## Frontend Validation
 
+**Note:** Validations are only applied if legal information fields are provided. Empty/null fields are allowed.
+
 ### GSTIN Validation (JavaScript/Dart)
 
 ```javascript
 function validateGSTIN(gstin) {
+  // Skip validation if field is empty
+  if (!gstin || gstin.trim() === '') return true;
+
   const pattern = /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}[Z]{1}[A-Z\d]{1}$/;
   return pattern.test(gstin);
 }
@@ -431,6 +540,9 @@ function validateGSTIN(gstin) {
 
 ```javascript
 function validatePAN(pan) {
+  // Skip validation if field is empty
+  if (!pan || pan.trim() === '') return true;
+
   const pattern = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
   return pattern.test(pan);
 }

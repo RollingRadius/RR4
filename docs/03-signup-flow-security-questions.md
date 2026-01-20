@@ -4,6 +4,13 @@
 
 Privacy-focused signup process for users who choose **not** to provide an email address.
 
+**Key Features:**
+- No email required
+- **Company selection is optional** - can skip and add later
+- Three options: Join existing company, create new company, or skip
+- Independent users can add/join company anytime from dashboard
+- Instant activation (no email verification needed)
+
 ---
 
 ## Complete Flow Diagram
@@ -28,9 +35,10 @@ Privacy-focused signup process for users who choose **not** to provide an email 
              │
              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    COMPANY SELECTION                         │
+│                    COMPANY SELECTION (OPTIONAL)              │
 ├─────────────────────────────────────────────────────────────┤
-│  (Same as email flow - Select Existing or Create New)       │
+│  Select: Existing Company | + Add New | Skip for Now        │
+│  (Can be added later from dashboard)                         │
 └────────────┬────────────────────────────────────────────────┘
              │
              ▼
@@ -73,10 +81,11 @@ Privacy-focused signup process for users who choose **not** to provide an email 
 │  4. Encrypt each answer with AES-256 + user salt             │
 │  5. Store encrypted answers in database                      │
 │  6. Create user account (status: ACTIVE immediately)         │
-│  7. Link to company (existing or new)                        │
-│  8. Assign role (Pending User or Owner)                      │
-│  9. Notify company admins (if joining existing)              │
-│  10. Log account creation                                    │
+│  7. IF company selected: Link to company (existing or new)   │
+│  8. IF company selected: Assign role (Pending User or Owner) │
+│  9. IF no company: Assign role "Independent User"            │
+│  10. Notify company admins (if joining existing)             │
+│  11. Log account creation                                    │
 └────────────┬────────────────────────────────────────────────┘
              │
              ▼
@@ -96,6 +105,11 @@ Privacy-focused signup process for users who choose **not** to provide an email 
 │    → Status: Active (Owner role)                             │
 │    → Full access to company immediately                      │
 │                                                              │
+│  IF SKIPPED COMPANY SELECTION:                               │
+│    → Status: Active (Independent User)                       │
+│    → Can add/join company later from dashboard               │
+│    → Limited functionality until company assigned            │
+│                                                              │
 │  📝 Note: Keep security question answers safe for recovery  │
 │                                                              │
 │  [Continue to Login]                                         │
@@ -109,6 +123,7 @@ Privacy-focused signup process for users who choose **not** to provide an email 
 | Feature | Email Flow | Security Questions Flow |
 |---------|-----------|------------------------|
 | **Email Required** | ✅ Yes | ❌ No (optional field left blank) |
+| **Company Selection** | Optional (can skip) | Optional (can skip) |
 | **Verification Step** | Email link verification | None (instant activation) |
 | **Account Status** | Pending → Active | Active immediately |
 | **Recovery Method** | Email link | Security questions |
@@ -238,6 +253,8 @@ POST /api/auth/signup
 ---
 
 ### Creating New Company
+
+**Note:** Legal information (GSTIN, PAN, registration details) is optional and can be added later from company settings.
 
 ```json
 POST /api/auth/signup

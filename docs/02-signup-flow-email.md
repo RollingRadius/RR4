@@ -4,6 +4,12 @@
 
 Standard signup process for users who provide an email address during registration.
 
+**Key Features:**
+- Email verification required
+- **Company selection is optional** - can skip and add later
+- Three options: Join existing company, create new company, or skip
+- Independent users can add/join company anytime from dashboard
+
 ---
 
 ## Complete Flow Diagram
@@ -28,39 +34,42 @@ Standard signup process for users who provide an email address during registrati
              │
              ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                    COMPANY SELECTION                         │
+│                    COMPANY SELECTION (OPTIONAL)              │
 ├─────────────────────────────────────────────────────────────┤
 │  Are you joining an existing company or creating a new one? │
 │                                                              │
-│  ┌──────────────────────┐  ┌──────────────────────┐        │
-│  │  Existing Company    │  │  + Add New Company   │        │
-│  │  Join your team      │  │  Become Owner        │        │
-│  └──────────────────────┘  └──────────────────────┘        │
-└────────────┬──────────────────────────┬─────────────────────┘
-             │                          │
-             ▼                          ▼
-    [Join Existing]              [Create New Company]
-             │                          │
-             ▼                          ▼
-┌──────────────────────┐  ┌─────────────────────────────────┐
-│  Search & Select     │  │  Company Registration Form      │
-│  Company             │  │  (GSTIN, PAN, Address, etc.)   │
-└──────────┬───────────┘  └────────────┬────────────────────┘
-           │                           │
-           └───────────┬───────────────┘
-                       │
-                       ▼
+│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────┐ │
+│  │ Existing Company │  │ + Add New Company│  │Skip Now ⏭│ │
+│  │ Join your team   │  │ Become Owner     │  │Add Later │ │
+│  └──────────────────┘  └──────────────────┘  └──────────┘ │
+└────────┬────────────────────┬──────────────────────┬────────┘
+         │                    │                      │
+         ▼                    ▼                      ▼
+  [Join Existing]    [Create New Company]      [Skip for now]
+         │                    │                      │
+         ▼                    ▼                      │
+┌──────────────────┐  ┌─────────────────────┐       │
+│ Search & Select  │  │ Company Reg Form    │       │
+│ Company          │  │ (GSTIN, PAN, etc.) │       │
+└────────┬─────────┘  └─────────┬───────────┘       │
+         │                      │                    │
+         └──────────┬───────────┘                    │
+                    │                                │
+                    └────────────┬───────────────────┘
+                                 │
+                                 ▼
 ┌─────────────────────────────────────────────────────────────┐
 │                    BACKEND PROCESSING                        │
 ├─────────────────────────────────────────────────────────────┤
 │  1. Validate all user data                                   │
 │  2. Create user account (status: pending_verification)       │
-│  3. Link to company (existing or new)                        │
-│  4. Assign role (Pending User or Owner)                      │
-│  5. Hash password with bcrypt                                │
-│  6. Generate email verification token (24h expiry)           │
-│  7. Send verification email                                  │
-│  8. Notify company admins (if joining existing)              │
+│  3. IF company selected: Link to company (existing or new)   │
+│  4. IF company selected: Assign role (Pending User or Owner) │
+│  5. IF no company: Assign role "Independent User"            │
+│  6. Hash password with bcrypt                                │
+│  7. Generate email verification token (24h expiry)           │
+│  8. Send verification email                                  │
+│  9. IF joining existing: Notify company admins               │
 └────────────┬────────────────────────────────────────────────┘
              │
              ▼
@@ -94,6 +103,11 @@ Standard signup process for users who provide an email address during registrati
 │    → Status: Active (Owner role)                             │
 │    → Full access to company                                  │
 │                                                              │
+│  IF SKIPPED COMPANY SELECTION:                               │
+│    → Status: Active (Independent User)                       │
+│    → Can add/join company later from dashboard               │
+│    → Limited functionality until company assigned            │
+│                                                              │
 │  [Continue to Dashboard]                                     │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -121,7 +135,9 @@ Standard signup process for users who provide an email address during registrati
 
 ---
 
-### Step 2: Company Selection
+### Step 2: Company Selection (Optional)
+
+**Note:** Users can skip this step and add/join a company later from their dashboard.
 
 #### Option A: Join Existing Company
 
@@ -141,21 +157,44 @@ Standard signup process for users who provide an email address during registrati
 **Required Information:**
 - Company Name
 - Business Type (dropdown)
-- GSTIN (15-char format validation)
-- PAN Number (10-char format validation)
-- Registration Number
 - Business Email & Phone
 - Complete Address (street, city, state, pincode)
 
+**Optional Information:**
+- GSTIN (15-char format validation)
+- PAN Number (10-char format validation)
+- Registration Number
+- Registration Date
+
+**Note:** Legal information (GSTIN, PAN, registration details) can be added later from company settings.
+
 **Validation:**
-- GSTIN format check
-- PAN format check
-- GSTIN-PAN linkage verification (API call)
+- GSTIN format check (if provided)
+- PAN format check (if provided)
+- GSTIN-PAN linkage verification (if both provided)
 
 **Result:**
 - Role: **Owner** (full capabilities)
 - Status: Active immediately
 - Company created and initialized
+
+#### Option C: Skip Company Selection
+
+**Flow:**
+1. User clicks "Skip for now"
+2. Account created without company
+3. Can add/join company later
+
+**Result:**
+- Role: **Independent User** (limited capabilities)
+- Status: Active after email verification
+- Can join/create company from dashboard later
+
+**When to Skip:**
+- Exploring the platform
+- Not sure which company to join
+- Want to evaluate before committing
+- Personal account without organization
 
 ---
 
@@ -260,6 +299,43 @@ POST /api/auth/signup
   "role": "Owner",
   "capabilities": ["*"],
   "message": "Verification email sent. You are now the Owner.",
+  "verification_expires_at": "2024-01-16T10:00:00Z"
+}
+```
+
+---
+
+### Skip Company Selection
+
+```json
+POST /api/auth/signup
+
+{
+  "full_name": "Alex Johnson",
+  "username": "alexjohnson789",
+  "email": "alex@personal.com",
+  "phone": "+1234567890",
+  "password": "SecurePass123!",
+  "auth_method": "email",
+  "company_type": null,
+  "terms_accepted": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "user_id": "user_uuid",
+  "username": "alexjohnson789",
+  "email": "alex@personal.com",
+  "status": "pending_verification",
+  "auth_method": "email",
+  "company_id": null,
+  "company_name": null,
+  "role": "Independent User",
+  "capabilities": ["profile.view", "profile.edit"],
+  "message": "Verification email sent. You can add a company later from your dashboard.",
   "verification_expires_at": "2024-01-16T10:00:00Z"
 }
 ```
