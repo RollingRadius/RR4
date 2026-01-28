@@ -1,0 +1,119 @@
+"""
+Fleet Management System - FastAPI Main Application
+Authentication & Company Management API
+"""
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from app.config import settings
+
+# Create FastAPI application
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="Fleet Management System API - Authentication & Company Management",
+    docs_url="/docs",  # Swagger UI
+    redoc_url="/redoc",  # ReDoc documentation
+    debug=settings.DEBUG
+)
+
+# Configure CORS
+# In development, allow all localhost origins
+# In production, this should be restricted to specific domains
+if settings.ENVIRONMENT == "development":
+    cors_origins = ["*"]  # Allow all origins in development
+else:
+    cors_origins = settings.allowed_origins_list
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
+
+
+@app.get("/", tags=["Health"])
+async def root():
+    """Health check endpoint"""
+    return {
+        "message": "Fleet Management System API",
+        "version": settings.APP_VERSION,
+        "status": "running",
+        "environment": settings.ENVIRONMENT
+    }
+
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """Detailed health check"""
+    return {
+        "status": "healthy",
+        "app_name": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "environment": settings.ENVIRONMENT
+    }
+
+
+# Exception handlers
+@app.exception_handler(404)
+async def not_found_handler(request, exc):
+    return JSONResponse(
+        status_code=404,
+        content={"detail": "Resource not found"}
+    )
+
+
+@app.exception_handler(500)
+async def internal_error_handler(request, exc):
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+
+
+# Application startup event
+@app.on_event("startup")
+async def startup_event():
+    """Initialize application on startup"""
+    print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    print(f"Environment: {settings.ENVIRONMENT}")
+    print(f"Debug mode: {settings.DEBUG}")
+    # Database connection will be established through dependency injection
+
+
+# Application shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    print(f"Shutting down {settings.APP_NAME}")
+
+
+# Import and include API routers
+from app.api.v1 import auth, company, driver, user, organization, reports, capabilities, custom_roles, templates, vehicles, profile
+
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(profile.router, prefix="/api/profile", tags=["Profile"])
+app.include_router(company.router, prefix="/api/companies", tags=["Companies"])
+app.include_router(driver.router, prefix="/api/drivers", tags=["Drivers"])
+app.include_router(vehicles.router, prefix="/api/vehicles", tags=["Vehicles"])
+app.include_router(user.router, prefix="/api/user", tags=["User Profile"])
+app.include_router(organization.router, prefix="/api/organizations", tags=["Organization Management"])
+app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
+app.include_router(capabilities.router, prefix="/api/capabilities", tags=["Capabilities"])
+app.include_router(custom_roles.router, prefix="/api/custom-roles", tags=["Custom Roles"])
+app.include_router(templates.router, prefix="/api/templates", tags=["Templates"])
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=settings.DEBUG
+    )

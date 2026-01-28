@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(py:*)",
+      "Bash(venv/Scripts/pip install:*)",
+      "Bash(venv/Scripts/python.exe -m pip:*)",
+      "Bash(venv/Scripts/python.exe:*)",
+      "Bash(psql:*)",
+      "Bash(venv/Scripts/alembic.exe upgrade:*)",
+      "Bash(start cmd /k \"venv\\\\Scripts\\\\activate && echo Backend Starting... && uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload\")",
+      "Bash(curl:*)",
+      "Bash(start cmd /k \"echo Flutter Starting... && flutter run -d chrome\")",
+      "Bash(dir:*)",
+      "Bash(python -m alembic:*)",
+      "Bash(python3 -m py_compile:*)",
+      "Bash(python -c:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(./venv/Scripts/python.exe -m alembic:*)",
+      "Bash(grep:*)",
+      "Bash(./venv/Scripts/python.exe:*)",
+      "Bash(timeout 60 flutter run:*)",
+      "Bash(ls:*)",
+      "Bash(call venvScriptsactivate)",
+      "Bash(python -m py_compile:*)"
+    ]
+  }
+}
