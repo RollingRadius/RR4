@@ -11,7 +11,7 @@ class CompanyApi {
   Future<List<CompanyModel>> searchCompanies(String query) async {
     try {
       final response = await _apiService.dio.get(
-        '/api/auth/companies/search',
+        '/api/companies/search',
         queryParameters: {
           'q': query,
           'limit': 3,
@@ -34,7 +34,7 @@ class CompanyApi {
   }) async {
     try {
       final response = await _apiService.dio.post(
-        '/api/auth/companies/validate',
+        '/api/companies/validate',
         data: {
           if (gstin != null) 'gstin': gstin,
           if (panNumber != null) 'pan_number': panNumber,
@@ -52,7 +52,7 @@ class CompanyApi {
       Map<String, dynamic> companyData) async {
     try {
       final response = await _apiService.dio.post(
-        '/api/auth/companies',
+        '/api/companies',
         data: companyData,
       );
 

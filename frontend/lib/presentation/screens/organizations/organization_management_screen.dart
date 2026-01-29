@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/providers/organization_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/data/services/organization_api.dart';
 
 class OrganizationManagementScreen extends ConsumerStatefulWidget {
   final String organizationId;
@@ -55,16 +56,27 @@ class _OrganizationManagementScreenState
         orgApi.getPendingUsers(widget.organizationId),
       ]);
 
-      setState(() {
-        _members = List<Map<String, dynamic>>.from(results[0]['members'] ?? []);
-        _pendingUsers = List<Map<String, dynamic>>.from(results[1]['pending_users'] ?? []);
-        _isLoading = false;
-      });
+      print('Members response: ${results[0]}');
+      print('Pending users response: ${results[1]}');
+
+      if (mounted) {
+        final pendingUsersList = List<Map<String, dynamic>>.from(results[1]['pending_users'] ?? []);
+        print('Pending users count: ${pendingUsersList.length}');
+
+        setState(() {
+          _members = List<Map<String, dynamic>>.from(results[0]['members'] ?? []);
+          _pendingUsers = pendingUsersList;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = e.toString();
-        _isLoading = false;
-      });
+      print('Error loading organization data: $e');
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to load organization data. Please try again.';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -280,7 +292,18 @@ class _OrganizationManagementScreenState
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.organizationName),
+            Row(
+              children: [
+                const Icon(Icons.business, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    widget.organizationName,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
             Text(
               'Organization Management',
               style: TextStyle(fontSize: 12, color: Colors.grey[300]),
@@ -435,14 +458,43 @@ class _OrganizationManagementScreenState
   }
 
   Widget _buildPendingTab() {
-    if (_pendingUsers.isEmpty) {
-      return const Center(
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
-            SizedBox(height: 16),
-            Text('No pending approvals'),
+            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const SizedBox(height: 16),
+            const Text('Error loading pending users'),
+            const SizedBox(height: 8),
+            Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadData,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_pendingUsers.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
+            const SizedBox(height: 16),
+            const Text('No pending approvals'),
+            const SizedBox(height: 8),
+            Text(
+              'Users who request to join will appear here',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
           ],
         ),
       );
@@ -477,6 +529,23 @@ class _OrganizationManagementScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(user['username'] ?? ''),
+                  const SizedBox(height: 4),
+                  if (user['requested_role'] != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'Requested: ${user['requested_role']}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 4),
                   Text(
                     user['email'] ?? user['phone'] ?? '',

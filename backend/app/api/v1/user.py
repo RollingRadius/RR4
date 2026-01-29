@@ -107,7 +107,7 @@ async def refresh_token(
         "full_name": current_user.full_name,
         "company_id": str(user_org.organization_id) if user_org else None,
         "company_name": user_org.organization.company_name if user_org and user_org.organization else None,
-        "role": user_org.role.name if user_org and user_org.role else "Independent User"
+        "role": user_org.role.role_name if user_org and user_org.role else "Independent User"
     }
 
 
@@ -125,7 +125,9 @@ async def get_user_organizations(
     """
     user_orgs = db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id
-    ).join(Organization).join(Role).all()
+    ).join(Organization).join(
+        Role, UserOrganization.role_id == Role.id
+    ).all()
 
     organizations = []
     for user_org in user_orgs:
@@ -133,7 +135,8 @@ async def get_user_organizations(
             organizations.append({
                 "organization_id": str(user_org.organization_id),
                 "organization_name": user_org.organization.company_name,
-                "role": user_org.role.name if user_org.role else None,
+                "role": user_org.role.role_name if user_org.role else None,
+                "role_key": user_org.role.role_key if user_org.role else None,
                 "status": user_org.status,
                 "joined_at": user_org.joined_at.isoformat(),
                 "is_active": user_org.is_active()

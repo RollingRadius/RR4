@@ -24,7 +24,18 @@
       "Bash(timeout 60 flutter run:*)",
       "Bash(ls:*)",
       "Bash(call venvScriptsactivate)",
-      "Bash(python -m py_compile:*)"
+      "Bash(python -m py_compile:*)",
+      "Bash(flutter doctor:*)",
+      "Bash(flutter devices:*)",
+      "Bash(flutter run:*)",
+      "Bash(flutter create:*)",
+      "Bash(timeout 60 tail:*)",
+      "Bash(powershell -command:*)",
+      "Bash(ipconfig:*)",
+      "Bash(findstr:*)",
+      "Bash(timeout 20 tail:*)",
+      "Bash(python -m uvicorn:*)",
+      "Bash(source:*)"
     ]
   }
 }

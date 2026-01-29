@@ -94,15 +94,17 @@ async def shutdown_event():
 
 
 # Import and include API routers
-from app.api.v1 import auth, company, driver, user, organization, reports, capabilities, custom_roles, templates, vehicles, profile
+from app.api.v1 import auth, company, driver, user, organization, reports, capabilities, custom_roles, templates, vehicles, profile, roles, organization_management
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(profile.router, prefix="/api/profile", tags=["Profile"])
+app.include_router(roles.router, prefix="/api/roles", tags=["Roles"])
 app.include_router(company.router, prefix="/api/companies", tags=["Companies"])
 app.include_router(driver.router, prefix="/api/drivers", tags=["Drivers"])
 app.include_router(vehicles.router, prefix="/api/vehicles", tags=["Vehicles"])
 app.include_router(user.router, prefix="/api/user", tags=["User Profile"])
 app.include_router(organization.router, prefix="/api/organizations", tags=["Organization Management"])
+app.include_router(organization_management.router, prefix="/api/organization", tags=["Organization Dashboard"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(capabilities.router, prefix="/api/capabilities", tags=["Capabilities"])
 app.include_router(custom_roles.router, prefix="/api/custom-roles", tags=["Custom Roles"])

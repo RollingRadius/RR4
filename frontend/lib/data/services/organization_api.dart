@@ -1,10 +1,38 @@
 import 'package:fleet_management/data/services/api_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
 
-/// Organization Management API Service
+/// Organization API Service (for multi-organization management)
 class OrganizationApi {
   final ApiService _apiService;
 
   OrganizationApi(this._apiService);
+
+  /// Get all organizations the user belongs to
+  Future<Map<String, dynamic>> getUserOrganizations() async {
+    try {
+      final response = await _apiService.dio.get(
+        '/api/user/organizations',
+      );
+
+      return response.data;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
+  /// Switch to a different organization
+  Future<Map<String, dynamic>> switchOrganization(String organizationId) async {
+    try {
+      final response = await _apiService.dio.post(
+        '/api/user/set-organization/$organizationId',
+      );
+
+      return response.data;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
 
   /// Get organization members
   Future<Map<String, dynamic>> getOrganizationMembers(
@@ -18,25 +46,27 @@ class OrganizationApi {
           'include_pending': includePending,
         },
       );
+
       return response.data;
     } catch (e) {
       throw _apiService.handleError(e);
     }
   }
 
-  /// Get pending users
+  /// Get pending users for an organization
   Future<Map<String, dynamic>> getPendingUsers(String organizationId) async {
     try {
       final response = await _apiService.dio.get(
         '/api/organizations/$organizationId/pending-users',
       );
+
       return response.data;
     } catch (e) {
       throw _apiService.handleError(e);
     }
   }
 
-  /// Approve a user
+  /// Approve a user to join the organization
   Future<Map<String, dynamic>> approveUser(
     String organizationId,
     String userId,
@@ -50,67 +80,71 @@ class OrganizationApi {
           'role_key': roleKey,
         },
       );
+
       return response.data;
     } catch (e) {
       throw _apiService.handleError(e);
     }
   }
 
-  /// Reject a user
+  /// Reject a user's request to join the organization
   Future<Map<String, dynamic>> rejectUser(
     String organizationId,
-    String userId, {
-    String? reason,
-  }) async {
+    String userId,
+  ) async {
     try {
       final response = await _apiService.dio.post(
         '/api/organizations/$organizationId/reject-user',
         data: {
           'user_id': userId,
-          if (reason != null) 'reason': reason,
         },
       );
+
       return response.data;
     } catch (e) {
       throw _apiService.handleError(e);
     }
   }
 
-  /// Update user role
+  /// Update a user's role in the organization
   Future<Map<String, dynamic>> updateUserRole(
     String organizationId,
     String userId,
     String roleKey,
   ) async {
     try {
-      final response = await _apiService.dio.post(
-        '/api/organizations/$organizationId/update-role',
+      final response = await _apiService.dio.put(
+        '/api/organizations/$organizationId/members/$userId/role',
         data: {
-          'user_id': userId,
           'role_key': roleKey,
         },
       );
+
       return response.data;
     } catch (e) {
       throw _apiService.handleError(e);
     }
   }
 
-  /// Remove user from organization
+  /// Remove a user from the organization
   Future<Map<String, dynamic>> removeUser(
     String organizationId,
     String userId,
   ) async {
     try {
-      final response = await _apiService.dio.post(
-        '/api/organizations/$organizationId/remove-user',
-        data: {
-          'user_id': userId,
-        },
+      final response = await _apiService.dio.delete(
+        '/api/organizations/$organizationId/members/$userId',
       );
+
       return response.data;
     } catch (e) {
       throw _apiService.handleError(e);
     }
   }
 }
+
+/// Organization API Provider
+final organizationApiProvider = Provider<OrganizationApi>((ref) {
+  final apiService = ref.watch(apiServiceProvider);
+  return OrganizationApi(apiService);
+});

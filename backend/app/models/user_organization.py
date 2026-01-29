@@ -30,6 +30,7 @@ class UserOrganization(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     organization_id = Column(UUID(as_uuid=True), ForeignKey('organizations.id', ondelete='CASCADE'), nullable=True, index=True)
     role_id = Column(UUID(as_uuid=True), ForeignKey('roles.id'), nullable=False)
+    requested_role_id = Column(UUID(as_uuid=True), ForeignKey('roles.id'), nullable=True)  # Role requested by user
 
     # Status
     status = Column(String(20), nullable=False, default='pending')  # 'pending', 'active', 'inactive'
@@ -42,7 +43,8 @@ class UserOrganization(Base):
     # Relationships
     user = relationship("User", foreign_keys=[user_id], back_populates="organizations")
     organization = relationship("Organization", back_populates="user_organizations")
-    role = relationship("Role", back_populates="user_organizations")
+    role = relationship("Role", foreign_keys=[role_id], back_populates="user_organizations")
+    requested_role = relationship("Role", foreign_keys=[requested_role_id])
     approver = relationship("User", foreign_keys=[approved_by])
 
     # Constraints

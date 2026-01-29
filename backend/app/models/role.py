@@ -38,6 +38,7 @@ class Role(Base):
     # Relationships
     user_organizations = relationship(
         "UserOrganization",
+        foreign_keys="[UserOrganization.role_id]",
         back_populates="role"
     )
     capabilities = relationship(

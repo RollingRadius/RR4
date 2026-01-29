@@ -188,7 +188,7 @@ class OrganizationService:
         # Get pending users
         pending_users = self.db.query(UserOrganization).options(
             joinedload(UserOrganization.user),
-            joinedload(UserOrganization.role)
+            joinedload(UserOrganization.requested_role)
         ).filter(
             UserOrganization.organization_id == organization_id,
             UserOrganization.status == 'pending'
@@ -197,18 +197,25 @@ class OrganizationService:
         # Format response
         users = []
         for user_org in pending_users:
-            if user_org.user and user_org.role:
+            if user_org.user:
+                # For pending users, show the requested role
+                requested_role = user_org.requested_role
+                role_name = requested_role.role_name if requested_role else 'No role requested'
+                role_key = requested_role.role_key if requested_role else None
+
                 users.append({
                     "user_id": str(user_org.user_id),
                     "username": user_org.user.username,
                     "full_name": user_org.user.full_name,
                     "email": user_org.user.email,
                     "phone": user_org.user.phone,
-                    "role": user_org.role.name,
-                    "role_key": user_org.role.role_key,
+                    "role": role_name,
+                    "role_key": role_key,
+                    "requested_role": role_name,
+                    "requested_role_key": role_key,
                     "status": user_org.status,
-                    "joined_at": user_org.joined_at,
-                    "approved_at": user_org.approved_at,
+                    "joined_at": user_org.joined_at.isoformat() if user_org.joined_at else None,
+                    "approved_at": user_org.approved_at.isoformat() if user_org.approved_at else None,
                     "is_pending": True,
                     "is_active": False
                 })

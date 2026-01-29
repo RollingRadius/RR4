@@ -1,122 +1,105 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:fleet_management/data/services/user_api.dart';
 import 'package:fleet_management/data/services/organization_api.dart';
-import 'package:fleet_management/providers/auth_provider.dart';
 
-/// Organization API Provider
-final organizationApiProvider = Provider<OrganizationApi>((ref) {
-  final apiService = ref.watch(apiServiceProvider);
-  return OrganizationApi(apiService);
-});
-
-/// Organization State
+/// Organization State (for multi-organization switching)
 class OrganizationState {
-  final List<Map<String, dynamic>> organizations;
   final String? currentOrganizationId;
+  final Map<String, dynamic>? currentOrganization;
+  final List<Map<String, dynamic>> organizations;
   final bool isLoading;
   final String? error;
 
   OrganizationState({
-    this.organizations = const [],
     this.currentOrganizationId,
+    this.currentOrganization,
+    this.organizations = const [],
     this.isLoading = false,
     this.error,
   });
 
+  /// Get active organizations (status == 'active')
+  List<Map<String, dynamic>> get activeOrganizations {
+    return organizations.where((org) => org['status'] == 'active').toList();
+  }
+
   OrganizationState copyWith({
-    List<Map<String, dynamic>>? organizations,
     String? currentOrganizationId,
+    Map<String, dynamic>? currentOrganization,
+    List<Map<String, dynamic>>? organizations,
     bool? isLoading,
     String? error,
   }) {
     return OrganizationState(
-      organizations: organizations ?? this.organizations,
       currentOrganizationId: currentOrganizationId ?? this.currentOrganizationId,
+      currentOrganization: currentOrganization ?? this.currentOrganization,
+      organizations: organizations ?? this.organizations,
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
   }
-
-  Map<String, dynamic>? get currentOrganization {
-    if (currentOrganizationId == null) return null;
-    try {
-      return organizations.firstWhere(
-        (org) => org['organization_id'] == currentOrganizationId,
-      );
-    } catch (e) {
-      return null;
-    }
-  }
-
-  bool get hasMultipleOrganizations => organizations.length > 1;
-
-  List<Map<String, dynamic>> get activeOrganizations {
-    return organizations.where((org) => org['is_active'] == true).toList();
-  }
 }
 
-/// Organization Notifier
+/// Organization Notifier (for multi-organization management)
 class OrganizationNotifier extends StateNotifier<OrganizationState> {
-  final UserApi _userApi;
+  final OrganizationApi _organizationApi;
 
-  OrganizationNotifier(this._userApi) : super(OrganizationState());
+  OrganizationNotifier(this._organizationApi) : super(OrganizationState());
 
-  /// Load user's organizations
+  /// Load all organizations the user belongs to
   Future<void> loadOrganizations() async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final organizations = await _userApi.getUserOrganizations();
+      final response = await _organizationApi.getUserOrganizations();
 
-      // Set the first active organization as current if not set
-      String? currentOrgId = state.currentOrganizationId;
-      if (currentOrgId == null && organizations.isNotEmpty) {
-        final firstActive = organizations.firstWhere(
-          (org) => org['is_active'] == true,
-          orElse: () => organizations.first,
-        );
-        currentOrgId = firstActive['organization_id'];
-      }
+      final organizations = (response['organizations'] as List)
+          .map((e) => e as Map<String, dynamic>)
+          .toList();
+
+      // Find current organization (the first active one or first in list)
+      final currentOrg = organizations.isNotEmpty
+          ? organizations.firstWhere(
+              (org) => org['status'] == 'active',
+              orElse: () => organizations.first,
+            )
+          : null;
 
       state = state.copyWith(
         organizations: organizations,
-        currentOrganizationId: currentOrgId,
+        currentOrganizationId: currentOrg?['organization_id'],
+        currentOrganization: currentOrg,
         isLoading: false,
       );
-    } catch (e) {
-      // Silently fail if unauthorized (user not logged in)
-      if (e.toString().contains('401') || e.toString().contains('Unauthorized')) {
-        state = state.copyWith(
-          isLoading: false,
-          organizations: [],
-        );
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          error: e.toString(),
-        );
-      }
-    }
-  }
-
-  /// Switch to a different organization
-  Future<bool> switchOrganization(String organizationId) async {
-    state = state.copyWith(isLoading: true, error: null);
-
-    try {
-      await _userApi.setActiveOrganization(organizationId);
-
-      state = state.copyWith(
-        currentOrganizationId: organizationId,
-        isLoading: false,
-      );
-
-      return true;
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         error: e.toString(),
       );
+    }
+  }
+
+  /// Switch to a different organization
+  Future<bool> switchOrganization(String organizationId) async {
+    try {
+      await _organizationApi.switchOrganization(organizationId);
+
+      // Find the organization in the list
+      final org = state.organizations.firstWhere(
+        (o) => o['organization_id'] == organizationId,
+        orElse: () => {},
+      );
+
+      if (org.isNotEmpty) {
+        state = state.copyWith(
+          currentOrganizationId: organizationId,
+          currentOrganization: org,
+        );
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      state = state.copyWith(error: e.toString());
       return false;
     }
   }
@@ -127,8 +110,9 @@ class OrganizationNotifier extends StateNotifier<OrganizationState> {
   }
 }
 
-/// Organization Provider
-final organizationProvider = StateNotifierProvider<OrganizationNotifier, OrganizationState>((ref) {
-  final userApi = ref.watch(userApiProvider);
-  return OrganizationNotifier(userApi);
+/// Organization Provider (for multi-organization management)
+final organizationProvider =
+    StateNotifierProvider<OrganizationNotifier, OrganizationState>((ref) {
+  final organizationApi = ref.watch(organizationApiProvider);
+  return OrganizationNotifier(organizationApi);
 });

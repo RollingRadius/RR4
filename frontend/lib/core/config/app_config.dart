@@ -3,7 +3,7 @@
 class AppConfig {
   // API Configuration
   static const String apiBaseUrl =
-      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8000');
+      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://192.168.1.4:8000');
 
   static const String apiVersion = '/api';
 

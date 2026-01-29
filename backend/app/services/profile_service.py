@@ -117,31 +117,9 @@ class ProfileService:
             self.db.add(user_org)
 
         elif role_type == 'driver':
-            # Create driver profile
-            if not profile_data.get('license_number'):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="License number required for driver role"
-                )
-
-            # Create driver record
-            driver = Driver(
-                id=uuid.uuid4(),
-                user_id=user.id,
-                driver_name=user.full_name,
-                phone=user.phone,
-                email=user.email,
-                license_number=profile_data['license_number'],
-                license_expiry=datetime.fromisoformat(profile_data['license_expiry']) if profile_data.get('license_expiry') else None,
-                status='available',
-                employment_type='permanent',
-                is_verified=True
-            )
-            self.db.add(driver)
-            self.db.flush()
-            driver_id = driver.id
-
-            # Set as Independent User (driver without company)
+            # For now, set as Independent User
+            # Driver record will be created when they join/create a company
+            # Store license info in user metadata if needed
             role = self._get_role_by_key('independent_user')
             user_org = UserOrganization(
                 user_id=user.id,
@@ -171,10 +149,15 @@ class ProfileService:
 
             # Set as Pending User
             role = self._get_role_by_key('pending_user')
+
+            # Get requested role if provided
+            requested_role_id = profile_data.get('requested_role_id')
+
             user_org = UserOrganization(
                 user_id=user.id,
                 organization_id=company.id,
                 role_id=role.id,
+                requested_role_id=requested_role_id,  # Store requested role
                 status='pending'
             )
             self.db.add(user_org)

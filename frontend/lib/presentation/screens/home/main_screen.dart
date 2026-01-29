@@ -214,8 +214,44 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  void _navigateToOrganizationManagement() {
+  Future<void> _navigateToOrganizationManagement() async {
+    // Show loading indicator
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              SizedBox(width: 16),
+              Text('Loading organizations...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+
+    // Load organizations first
+    await ref.read(organizationProvider.notifier).loadOrganizations();
+
+    if (!mounted) return;
+
     final orgState = ref.read(organizationProvider);
+
+    // Check for errors
+    if (orgState.error != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading organizations: ${orgState.error}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     if (orgState.currentOrganizationId != null && orgState.currentOrganization != null) {
       final orgId = orgState.currentOrganizationId!;
@@ -228,7 +264,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('No organization selected. Please join or create an organization first.'),
+          content: Text('No organization found. Please join or create an organization first.'),
+          backgroundColor: Colors.orange,
         ),
       );
     }

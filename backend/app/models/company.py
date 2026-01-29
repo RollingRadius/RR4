@@ -79,6 +79,11 @@ class Organization(Base):
     def __repr__(self):
         return f"<Organization(id={self.id}, name='{self.company_name}', city='{self.city}')>"
 
+    @property
+    def name(self) -> str:
+        """Convenience property to access company_name as name"""
+        return self.company_name
+
     def to_search_result(self):
         """Convert to search result format (for company search API)"""
         return {
