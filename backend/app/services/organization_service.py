@@ -201,7 +201,7 @@ class OrganizationService:
                 # For pending users, show the requested role
                 requested_role = user_org.requested_role
                 role_name = requested_role.role_name if requested_role else 'No role requested'
-                role_key = requested_role.role_key if requested_role else None
+                role_key = requested_role.role_key if requested_role else 'pending_user'
 
                 users.append({
                     "user_id": str(user_org.user_id),

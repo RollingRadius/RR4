@@ -35,7 +35,11 @@
       "Bash(findstr:*)",
       "Bash(timeout 20 tail:*)",
       "Bash(python -m uvicorn:*)",
-      "Bash(source:*)"
+      "Bash(source:*)",
+      "Bash(test:*)",
+      "Bash(netstat:*)",
+      "Bash(taskkill:*)",
+      "Bash(pkill:*)"
     ]
   }
 }

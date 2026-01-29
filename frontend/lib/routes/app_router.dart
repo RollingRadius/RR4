@@ -29,7 +29,7 @@ import 'package:fleet_management/presentation/screens/roles/custom_roles_screen.
 import 'package:fleet_management/presentation/screens/roles/create_custom_role_screen.dart';
 import 'package:fleet_management/presentation/screens/profile/profile_screen.dart';
 import 'package:fleet_management/presentation/screens/settings/settings_screen.dart';
-import 'package:fleet_management/presentation/screens/help/help_screen.dart';
+import 'package:fleet_management/presentation/screens/help/enhanced_help_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 
 /// App Router Provider
@@ -321,7 +321,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'help',
             pageBuilder: (context, state) => MaterialPage(
               key: state.pageKey,
-              child: const HelpScreen(),
+              child: const EnhancedHelpScreen(),
             ),
           ),
         ],
