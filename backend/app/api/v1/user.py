@@ -54,7 +54,7 @@ async def get_current_user_profile(
         response.update({
             "company_id": str(user_org.organization_id),
             "company_name": user_org.organization.company_name,
-            "role": user_org.role.name if user_org.role else None
+            "role": user_org.role.role_name if user_org.role else None
         })
 
     return response

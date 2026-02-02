@@ -407,25 +407,7 @@ class _QuickActionsGrid extends StatelessWidget {
             icon: Icons.help_outline_rounded,
             label: 'Help',
             color: AppTheme.infoColor,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Row(
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.white),
-                      SizedBox(width: 12),
-                      Text('Help center coming soon!'),
-                    ],
-                  ),
-                  backgroundColor: AppTheme.infoColor,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  margin: const EdgeInsets.all(16),
-                ),
-              );
-            },
+            onTap: () => context.push('/help'),
           ),
         ],
       ),
