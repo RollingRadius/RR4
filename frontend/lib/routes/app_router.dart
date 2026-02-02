@@ -16,6 +16,7 @@ import 'package:fleet_management/presentation/screens/home/dashboard_screen.dart
 import 'package:fleet_management/presentation/screens/home/main_screen.dart';
 import 'package:fleet_management/presentation/screens/vehicles/vehicles_list_screen.dart';
 import 'package:fleet_management/presentation/screens/vehicles/add_vehicle_screen.dart';
+import 'package:fleet_management/presentation/screens/vehicles/vehicle_details_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/drivers_list_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/add_driver_screen.dart';
 import 'package:fleet_management/presentation/screens/organizations/organization_selector_screen.dart';
@@ -30,6 +31,7 @@ import 'package:fleet_management/presentation/screens/roles/create_custom_role_s
 import 'package:fleet_management/presentation/screens/profile/profile_screen.dart';
 import 'package:fleet_management/presentation/screens/settings/settings_screen.dart';
 import 'package:fleet_management/presentation/screens/help/enhanced_help_screen.dart';
+import 'package:fleet_management/presentation/screens/help/help_center_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 
 /// App Router Provider
@@ -189,6 +191,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/vehicles/:id',
+            name: 'vehicle-details',
+            pageBuilder: (context, state) {
+              final vehicleId = state.pathParameters['id']!;
+              return MaterialPage(
+                key: state.pageKey,
+                child: VehicleDetailsScreen(vehicleId: vehicleId),
+              );
+            },
+          ),
+          GoRoute(
             path: '/drivers',
             name: 'drivers',
             pageBuilder: (context, state) => const NoTransitionPage(
@@ -321,7 +334,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'help',
             pageBuilder: (context, state) => MaterialPage(
               key: state.pageKey,
-              child: const EnhancedHelpScreen(),
+              child: const HelpCenterScreen(),
             ),
           ),
         ],

@@ -11,12 +11,18 @@ import uuid
 
 from app.models.driver import Driver, DriverLicense
 from app.models.company import Organization
+from app.models.user import User
+from app.models.role import Role
+from app.models.user_organization import UserOrganization
 from app.models.audit_log import AuditLog
+from app.core.security import hash_password
 from app.utils.constants import (
     AUDIT_ACTION_DRIVER_CREATED,
     AUDIT_ACTION_DRIVER_UPDATED,
     AUDIT_ACTION_DRIVER_DELETED,
-    ENTITY_TYPE_DRIVER
+    ENTITY_TYPE_DRIVER,
+    AUDIT_ACTION_USER_CREATED,
+    ENTITY_TYPE_USER
 )
 
 
@@ -33,15 +39,15 @@ class DriverService:
         driver_data: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Create a new driver with license information.
+        Create a new driver with license information and user account.
 
         Args:
             user_id: User creating the driver
             org_id: Organization ID
-            driver_data: Driver information including license
+            driver_data: Driver information including license, username, and password
 
         Returns:
-            Created driver information
+            Created driver information with user credentials
 
         Raises:
             HTTPException: If creation fails
@@ -55,6 +61,27 @@ class DriverService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Organization not found"
+            )
+
+        # Extract username and password from driver_data
+        username = driver_data.pop('username', None)
+        password = driver_data.pop('password', None)
+
+        if not username or not password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username and password are required to create driver user account"
+            )
+
+        # Check username uniqueness
+        existing_user = self.db.query(User).filter(
+            User.username == username
+        ).first()
+
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Username '{username}' is already taken"
             )
 
         # Check employee_id uniqueness within organization
@@ -93,10 +120,49 @@ class DriverService:
                 detail=f"License number '{license_data['license_number']}' is already registered"
             )
 
-        # Create driver
+        # Get the 'driver' role
+        driver_role = self.db.query(Role).filter(
+            Role.role_key == 'driver'
+        ).first()
+
+        if not driver_role:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Driver role not found in system. Please contact administrator."
+            )
+
+        # Create user account for driver
+        driver_user = User(
+            id=uuid.uuid4(),
+            username=username,
+            email=driver_data.get('email'),
+            phone=driver_data['phone'],
+            full_name=f"{driver_data['first_name']} {driver_data['last_name']}",
+            hashed_password=hash_password(password),
+            is_verified=True,  # Auto-verify driver accounts created by owner
+            profile_status='complete'
+        )
+
+        self.db.add(driver_user)
+        self.db.flush()  # Flush to get driver_user.id
+
+        # Create user-organization relationship with driver role
+        user_org = UserOrganization(
+            id=uuid.uuid4(),
+            user_id=driver_user.id,
+            organization_id=org_id,
+            role_id=driver_role.id,
+            status='active',
+            approved_by=user_id
+        )
+
+        self.db.add(user_org)
+
+        # Create driver profile
         driver = Driver(
             id=uuid.uuid4(),
             organization_id=org_id,
+            user_id=driver_user.id,  # Link to user account
             employee_id=driver_data['employee_id'],
             join_date=driver_data['join_date'],
             first_name=driver_data['first_name'],
@@ -133,8 +199,25 @@ class DriverService:
 
         self.db.add(license)
 
-        # Log audit event
-        audit_log = AuditLog(
+        # Log user creation audit event
+        user_audit_log = AuditLog(
+            user_id=user_id,
+            organization_id=org_id,
+            action=AUDIT_ACTION_USER_CREATED,
+            entity_type=ENTITY_TYPE_USER,
+            entity_id=driver_user.id,
+            details={
+                "username": username,
+                "full_name": driver_user.full_name,
+                "role": "driver",
+                "created_for": "driver_account"
+            }
+        )
+
+        self.db.add(user_audit_log)
+
+        # Log driver creation audit event
+        driver_audit_log = AuditLog(
             user_id=user_id,
             organization_id=org_id,
             action=AUDIT_ACTION_DRIVER_CREATED,
@@ -144,23 +227,31 @@ class DriverService:
                 "driver_name": driver.full_name,
                 "employee_id": driver.employee_id,
                 "license_number": license.license_number,
-                "license_type": license.license_type
+                "license_type": license.license_type,
+                "user_account": username
             }
         )
 
-        self.db.add(audit_log)
+        self.db.add(driver_audit_log)
 
         # Commit transaction
         self.db.commit()
         self.db.refresh(driver)
         self.db.refresh(license)
+        self.db.refresh(driver_user)
 
         return {
             "success": True,
-            "message": "Driver created successfully",
+            "message": "Driver and user account created successfully",
             "driver_id": str(driver.id),
+            "user_id": str(driver_user.id),
+            "username": username,
             "driver_name": driver.full_name,
-            "employee_id": driver.employee_id
+            "employee_id": driver.employee_id,
+            "credentials": {
+                "username": username,
+                "note": "Please provide these credentials to the driver"
+            }
         }
 
     def get_driver_by_id(

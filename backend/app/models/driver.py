@@ -32,6 +32,15 @@ class Driver(Base):
         index=True
     )
 
+    # User Account Reference (1-to-1 relationship)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        unique=True,
+        index=True
+    )
+
     # Employment Information
     employee_id = Column(String(50), nullable=False)
     join_date = Column(Date, nullable=False)
@@ -74,7 +83,8 @@ class Driver(Base):
 
     # Relationships
     organization = relationship("Organization")
-    creator = relationship("User")
+    user = relationship("User", foreign_keys=[user_id])
+    creator = relationship("User", foreign_keys=[created_by])
     license = relationship(
         "DriverLicense",
         back_populates="driver",

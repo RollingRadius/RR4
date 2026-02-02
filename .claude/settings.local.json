@@ -39,7 +39,22 @@
       "Bash(test:*)",
       "Bash(netstat:*)",
       "Bash(taskkill:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(xargs:*)",
+      "Bash(flutter clean:*)",
+      "Bash(wmic logicaldisk:*)",
+      "Bash(where:*)",
+      "Bash(\"C:\\\\Program Files\\\\PyManager\\\\python.exe\" --version)",
+      "Bash(.venvScriptspython.exe -m pip --version)",
+      "Bash(\"C:/Program Files/PyManager/python.exe\" --version)",
+      "Bash(where.exe:*)",
+      "Bash(powershell -Command \"Get-Command python* -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\")",
+      "Bash(\"C:/Program Files/PyManager/pymanager.exe\" --help)",
+      "Bash(\"C:/Program Files/PyManager/py.exe\" -0)",
+      "Bash(\"C:/Program Files/PyManager/py.exe\" --install 3.12)",
+      "Bash(winget install:*)",
+      "Bash(powershell.exe -File setup_venv.ps1)",
+      "Bash(.venvScriptspython.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)"
     ]
   }
 }

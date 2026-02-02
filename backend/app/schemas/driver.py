@@ -75,6 +75,10 @@ class DriverLicenseUpdate(BaseModel):
 
 class DriverCreateRequest(BaseModel):
     """Create new driver request"""
+    # User Account Information (for driver login)
+    username: str = Field(..., min_length=3, max_length=50, description="Username for driver login")
+    password: str = Field(..., min_length=8, description="Password for driver login (min 8 characters)")
+
     # Employment Information
     employee_id: str = Field(..., min_length=3, max_length=50)
     join_date: date
@@ -100,6 +104,28 @@ class DriverCreateRequest(BaseModel):
 
     # License Information (embedded)
     license: DriverLicenseCreate
+
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v):
+        """Validate username format (alphanumeric with underscores)"""
+        if not re.match(r'^[a-zA-Z0-9_]{3,50}$', v):
+            raise ValueError('Username must be 3-50 alphanumeric characters (letters, numbers, underscores only)')
+        return v
+
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        """Validate password strength"""
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters long')
+        if not re.search(r'[A-Z]', v):
+            raise ValueError('Password must contain at least one uppercase letter')
+        if not re.search(r'[a-z]', v):
+            raise ValueError('Password must contain at least one lowercase letter')
+        if not re.search(r'\d', v):
+            raise ValueError('Password must contain at least one digit')
+        return v
 
     @field_validator('employee_id')
     @classmethod
