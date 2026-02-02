@@ -196,6 +196,6 @@ async def set_active_organization(
         "token_type": "bearer",
         "organization_id": str(user_org.organization_id),
         "organization_name": user_org.organization.company_name,
-        "role": user_org.role.name if user_org.role else None,
+        "role": user_org.role.role_name if user_org.role else None,
         "message": "Organization context updated successfully"
     }

@@ -84,26 +84,9 @@ class _OrganizationManagementScreenState
     // Show role selection dialog
     final roleKey = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Approve $username'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Select a role to assign:'),
-            const SizedBox(height: 16),
-            _buildRoleOption('admin', 'Admin', 'Can manage members and settings'),
-            _buildRoleOption('dispatcher', 'Dispatcher', 'Can manage trips and assignments'),
-            _buildRoleOption('user', 'User', 'Standard access to features'),
-            _buildRoleOption('viewer', 'Viewer', 'Read-only access'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
+      builder: (context) => _RoleSelectionDialog(
+        title: 'Approve $username',
+        subtitle: 'Select a role to assign:',
       ),
     );
 
@@ -131,13 +114,6 @@ class _OrganizationManagementScreenState
     }
   }
 
-  Widget _buildRoleOption(String roleKey, String roleName, String description) {
-    return ListTile(
-      title: Text(roleName),
-      subtitle: Text(description),
-      onTap: () => Navigator.of(context).pop(roleKey),
-    );
-  }
 
   Future<void> _rejectUser(String userId, String username) async {
     final confirmed = await showDialog<bool>(
@@ -189,28 +165,9 @@ class _OrganizationManagementScreenState
   Future<void> _changeUserRole(String userId, String username, String currentRole) async {
     final roleKey = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Change Role for $username'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Current role: $currentRole'),
-            const SizedBox(height: 16),
-            const Text('Select new role:'),
-            const SizedBox(height: 8),
-            _buildRoleOption('admin', 'Admin', 'Can manage members and settings'),
-            _buildRoleOption('dispatcher', 'Dispatcher', 'Can manage trips and assignments'),
-            _buildRoleOption('user', 'User', 'Standard access to features'),
-            _buildRoleOption('viewer', 'Viewer', 'Read-only access'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-        ],
+      builder: (context) => _RoleSelectionDialog(
+        title: 'Change Role for $username',
+        subtitle: 'Current role: $currentRole\n\nSelect new role:',
       ),
     );
 
@@ -570,6 +527,143 @@ class _OrganizationManagementScreenState
               ),
             ),
           );
+        },
+      ),
+    );
+  }
+}
+
+/// Role selection dialog with all available roles
+class _RoleSelectionDialog extends StatefulWidget {
+  final String title;
+  final String subtitle;
+
+  const _RoleSelectionDialog({
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  State<_RoleSelectionDialog> createState() => _RoleSelectionDialogState();
+}
+
+class _RoleSelectionDialogState extends State<_RoleSelectionDialog> {
+  String? _selectedRole;
+
+  // Currently available roles in the backend
+  final List<Map<String, dynamic>> _roles = [
+    {
+      'key': 'admin',
+      'name': 'Admin',
+      'icon': Icons.admin_panel_settings,
+      'color': Colors.red,
+      'description': 'Can manage members and settings',
+    },
+    {
+      'key': 'dispatcher',
+      'name': 'Dispatcher',
+      'icon': Icons.assignment_ind,
+      'color': Colors.purple,
+      'description': 'Can manage trips and assignments',
+    },
+    {
+      'key': 'user',
+      'name': 'User',
+      'icon': Icons.person,
+      'color': Colors.blue,
+      'description': 'Standard access to features',
+    },
+    {
+      'key': 'viewer',
+      'name': 'Viewer',
+      'icon': Icons.visibility,
+      'color': Colors.grey,
+      'description': 'Read-only access',
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.subtitle,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: _roles.map((role) => _buildRoleOption(role)).toList(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _selectedRole != null
+              ? () => Navigator.of(context).pop(_selectedRole)
+              : null,
+          child: const Text('OK'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRoleOption(Map<String, dynamic> role) {
+    final isSelected = _selectedRole == role['key'];
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      color: isSelected ? role['color'].withOpacity(0.1) : null,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(
+          color: isSelected ? role['color'] : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: role['color'].withOpacity(0.2),
+          child: Icon(
+            role['icon'],
+            color: role['color'],
+            size: 20,
+          ),
+        ),
+        title: Text(
+          role['name'],
+          style: TextStyle(
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        subtitle: Text(
+          role['description'],
+          style: const TextStyle(fontSize: 12),
+        ),
+        trailing: isSelected
+            ? Icon(Icons.check_circle, color: role['color'])
+            : null,
+        onTap: () {
+          setState(() {
+            _selectedRole = role['key'];
+          });
         },
       ),
     );

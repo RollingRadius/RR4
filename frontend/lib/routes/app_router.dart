@@ -32,6 +32,10 @@ import 'package:fleet_management/presentation/screens/profile/profile_screen.dar
 import 'package:fleet_management/presentation/screens/settings/settings_screen.dart';
 import 'package:fleet_management/presentation/screens/help/enhanced_help_screen.dart';
 import 'package:fleet_management/presentation/screens/help/help_center_screen.dart';
+import 'package:fleet_management/presentation/screens/tracking/live_tracking_screen.dart';
+import 'package:fleet_management/presentation/screens/tracking/driver_history_screen.dart';
+import 'package:fleet_management/presentation/screens/tracking/geofence_management_screen.dart';
+import 'package:fleet_management/presentation/screens/tracking/route_optimizer_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 
 /// App Router Provider
@@ -265,6 +269,45 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ),
                 ),
               ),
+            ),
+          ),
+          // GPS Tracking Routes
+          GoRoute(
+            path: '/tracking/live',
+            name: 'tracking-live',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: LiveTrackingScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/tracking/history/:driverId',
+            name: 'tracking-history',
+            pageBuilder: (context, state) {
+              final driverId = state.pathParameters['driverId']!;
+              final extra = state.extra as Map<String, dynamic>?;
+              final driverName = extra?['driverName'] ?? 'Driver';
+              return MaterialPage(
+                key: state.pageKey,
+                child: DriverHistoryScreen(
+                  driverId: driverId,
+                  driverName: driverName,
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/tracking/geofences',
+            name: 'tracking-geofences',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: GeofenceManagementScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/tracking/routes',
+            name: 'tracking-routes',
+            pageBuilder: (context, state) => MaterialPage(
+              key: state.pageKey,
+              child: const RouteOptimizerScreen(),
             ),
           ),
           GoRoute(

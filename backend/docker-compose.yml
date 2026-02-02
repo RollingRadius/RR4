@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  # OSRM Routing Service
+  osrm:
+    image: osrm/osrm-backend:latest
+    container_name: fleet_osrm
+    volumes:
+      - ./osrm-data:/data
+    command: osrm-routed --algorithm mld /data/india-latest.osrm
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    networks:
+      - fleet-network
+
+  # Redis Cache (for location caching)
+  redis:
+    image: redis:7-alpine
+    container_name: fleet_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - fleet-network
+
+networks:
+  fleet-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local

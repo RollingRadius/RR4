@@ -94,7 +94,7 @@ async def shutdown_event():
 
 
 # Import and include API routers
-from app.api.v1 import auth, company, driver, user, organization, reports, capabilities, custom_roles, templates, vehicles, profile, roles, organization_management
+from app.api.v1 import auth, company, driver, user, organization, reports, capabilities, custom_roles, templates, vehicles, profile, roles, organization_management, tracking
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(profile.router, prefix="/api/profile", tags=["Profile"])
@@ -109,6 +109,7 @@ app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(capabilities.router, prefix="/api/capabilities", tags=["Capabilities"])
 app.include_router(custom_roles.router, prefix="/api/custom-roles", tags=["Custom Roles"])
 app.include_router(templates.router, prefix="/api/templates", tags=["Templates"])
+app.include_router(tracking.router, prefix="/api/v1", tags=["GPS Tracking"])
 
 
 if __name__ == "__main__":

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/settings_provider.dart';
+import 'package:fleet_management/providers/location_tracking_provider.dart';
+import 'package:fleet_management/data/services/location_service.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -92,64 +94,7 @@ class SettingsScreen extends ConsumerWidget {
 
                 // Location & Tracking Section
                 _buildSectionHeader(context, 'Location & Tracking'),
-                _buildSettingsCard(
-                  context,
-                  children: [
-                    _buildSwitchTile(
-                      context: context,
-                      title: 'GPS Tracking',
-                      subtitle: 'Enable location tracking for real-time updates',
-                      icon: Icons.location_on_outlined,
-                      value: settingsState.settings.gpsTrackingEnabled,
-                      onChanged: (value) {
-                        ref.read(settingsProvider.notifier).updateSetting(
-                              'gpsTrackingEnabled',
-                              value,
-                            );
-                      },
-                    ),
-                    if (settingsState.settings.gpsTrackingEnabled) ...[
-                      const Divider(height: 1),
-                      _buildSwitchTile(
-                        context: context,
-                        title: 'Background Tracking',
-                        subtitle: 'Continue tracking when app is in background',
-                        icon: Icons.gps_fixed,
-                        value: settingsState.settings.backgroundTracking,
-                        onChanged: (value) {
-                          ref.read(settingsProvider.notifier).updateSetting(
-                                'backgroundTracking',
-                                value,
-                              );
-                        },
-                        indented: true,
-                      ),
-                      const Divider(height: 1),
-                      _buildDropdownTile(
-                        context: context,
-                        title: 'Update Frequency',
-                        subtitle: 'How often to update location',
-                        icon: Icons.update,
-                        value: settingsState.settings.locationUpdateInterval,
-                        items: const {
-                          5: '5 seconds (High accuracy)',
-                          15: '15 seconds (Balanced)',
-                          30: '30 seconds (Battery saver)',
-                          60: '1 minute (Low frequency)',
-                        },
-                        onChanged: (value) {
-                          if (value != null) {
-                            ref.read(settingsProvider.notifier).updateSetting(
-                                  'locationUpdateInterval',
-                                  value,
-                                );
-                          }
-                        },
-                        indented: true,
-                      ),
-                    ],
-                  ],
-                ),
+                _buildTrackingSection(context, ref, settingsState),
                 const SizedBox(height: 24),
 
                 // Display Section
@@ -378,7 +323,7 @@ class SettingsScreen extends ConsumerWidget {
     String? subtitle,
     required IconData icon,
     required bool value,
-    required ValueChanged<bool> onChanged,
+    ValueChanged<bool>? onChanged,
     bool indented = false,
   }) {
     return Padding(
@@ -580,5 +525,258 @@ class SettingsScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildTrackingSection(
+    BuildContext context,
+    WidgetRef ref,
+    dynamic settingsState,
+  ) {
+    final trackingState = ref.watch(locationTrackingProvider);
+
+    return _buildSettingsCard(
+      context,
+      children: [
+        // Tracking Status Info
+        if (trackingState.trackingEnabled != null)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: trackingState.trackingEnabled!
+                  ? Colors.green.shade50
+                  : Colors.orange.shade50,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  trackingState.trackingEnabled!
+                      ? Icons.check_circle
+                      : Icons.info_outline,
+                  color: trackingState.trackingEnabled!
+                      ? Colors.green
+                      : Colors.orange,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    trackingState.trackingEnabled!
+                        ? 'GPS tracking enabled by administrator'
+                        : 'GPS tracking disabled by administrator',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: trackingState.trackingEnabled!
+                          ? Colors.green.shade900
+                          : Colors.orange.shade900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // Current Tracking Status
+        if (trackingState.isTracking)
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: Colors.blue.shade50,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation(Colors.blue),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text(
+                  'Currently tracking location',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
+                const Spacer(),
+                if (trackingState.lastUpdate != null)
+                  Text(
+                    'Last: ${_formatTime(trackingState.lastUpdate!)}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  ),
+              ],
+            ),
+          ),
+
+        // GPS Tracking Toggle
+        _buildSwitchTile(
+          context: context,
+          title: 'GPS Tracking',
+          subtitle: trackingState.trackingEnabled == true
+              ? 'Enable location tracking for real-time updates'
+              : 'Contact administrator to enable tracking',
+          icon: Icons.location_on_outlined,
+          value: settingsState.settings.gpsTrackingEnabled &&
+              (trackingState.trackingEnabled ?? false),
+          onChanged: trackingState.trackingEnabled == true
+              ? (value) {
+                  ref.read(settingsProvider.notifier).updateSetting(
+                        'gpsTrackingEnabled',
+                        value,
+                      );
+                  if (value) {
+                    ref
+                        .read(locationTrackingProvider.notifier)
+                        .startTracking();
+                  } else {
+                    ref
+                        .read(locationTrackingProvider.notifier)
+                        .stopTracking();
+                  }
+                }
+              : null,
+        ),
+
+        // Background Tracking (only if GPS enabled)
+        if (settingsState.settings.gpsTrackingEnabled &&
+            (trackingState.trackingEnabled ?? false)) ...[
+          const Divider(height: 1),
+          _buildSwitchTile(
+            context: context,
+            title: 'Background Tracking',
+            subtitle: 'Continue tracking when app is in background',
+            icon: Icons.gps_fixed,
+            value: settingsState.settings.backgroundTracking,
+            onChanged: (value) {
+              ref.read(settingsProvider.notifier).updateSetting(
+                    'backgroundTracking',
+                    value,
+                  );
+              // TODO: Start/stop background service
+            },
+            indented: true,
+          ),
+          const Divider(height: 1),
+          _buildDropdownTile(
+            context: context,
+            title: 'Update Frequency',
+            subtitle: 'How often to update location',
+            icon: Icons.update,
+            value: settingsState.settings.locationUpdateInterval,
+            items: const {
+              15: '15 seconds (High accuracy)',
+              30: '30 seconds (Balanced)',
+              60: '1 minute (Battery saver)',
+              120: '2 minutes (Low frequency)',
+            },
+            onChanged: (value) {
+              if (value != null) {
+                ref.read(settingsProvider.notifier).updateSetting(
+                      'locationUpdateInterval',
+                      value,
+                    );
+              }
+            },
+            indented: true,
+          ),
+          const Divider(height: 1),
+          _buildTile(
+            context: context,
+            title: 'View Live Tracking',
+            subtitle: 'See your current location on map',
+            icon: Icons.map_outlined,
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/tracking/live'),
+            indented: true,
+          ),
+        ],
+
+        // Permission Status
+        if (trackingState.permissionStatus != null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: trackingState.permissionStatus!.isGranted
+                  ? Colors.green.shade50
+                  : Colors.red.shade50,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  trackingState.permissionStatus!.isGranted
+                      ? Icons.check_circle
+                      : Icons.error_outline,
+                  size: 16,
+                  color: trackingState.permissionStatus!.isGranted
+                      ? Colors.green
+                      : Colors.red,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Location permission: ${trackingState.permissionStatus!.displayName}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+                if (!trackingState.permissionStatus!.isGranted)
+                  TextButton(
+                    onPressed: () async {
+                      await ref
+                          .read(locationTrackingProvider.notifier)
+                          .requestPermission();
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Grant', style: TextStyle(fontSize: 12)),
+                  ),
+              ],
+            ),
+          ),
+
+        // Error Display
+        if (trackingState.error != null)
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: Colors.red.shade50,
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    trackingState.error!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.red.shade900,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 16),
+                  onPressed: () {
+                    ref.read(locationTrackingProvider.notifier).clearError();
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+
+    if (diff.inSeconds < 60) {
+      return '${diff.inSeconds}s ago';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else {
+      return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
+    }
   }
 }

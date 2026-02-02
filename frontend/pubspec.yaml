@@ -35,6 +35,18 @@ dependencies:
   equatable: ^2.0.5
   intl: ^0.18.1
 
+  # GPS Tracking & Maps
+  flutter_map: ^6.0.0
+  latlong2: ^0.9.0
+  cached_network_image: ^3.3.0
+  geolocator: ^10.1.0
+  geocoding: ^2.1.0
+  permission_handler: ^11.0.0
+  flutter_background_service: ^5.0.0
+  flutter_local_notifications: ^16.3.0
+  flutter_polyline_points: ^2.0.0
+  vector_math: ^2.1.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -43,7 +55,7 @@ dev_dependencies:
   # Code Generation
   build_runner: ^2.4.7
   riverpod_generator: ^2.3.9
-  retrofit_generator: ^8.0.4
+  retrofit_generator: ^8.2.1
   json_serializable: ^6.7.1
 
 flutter:

@@ -128,7 +128,7 @@ class OrganizationService:
                     "full_name": user_org.user.full_name,
                     "email": user_org.user.email,
                     "phone": user_org.user.phone,
-                    "role": user_org.role.name,
+                    "role": user_org.role.role_name,
                     "role_key": user_org.role.role_key,
                     "status": user_org.status,
                     "joined_at": user_org.joined_at,
@@ -462,7 +462,7 @@ class OrganizationService:
                 detail="You cannot change your own role"
             )
 
-        old_role_name = user_org.role.name
+        old_role_name = user_org.role.role_name
 
         # Update role
         user_org.role_id = new_role.id
@@ -560,7 +560,7 @@ class OrganizationService:
             details={
                 "removed_user_id": str(user_id),
                 "username": username,
-                "role": user_org.role.name
+                "role": user_org.role.role_name
             }
         )
 

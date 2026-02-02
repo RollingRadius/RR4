@@ -13,6 +13,11 @@ class AddDriverScreen extends ConsumerStatefulWidget {
 class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
   final _formKey = GlobalKey<FormState>();
 
+  // Login Credentials Controllers
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
+
   // Basic Information Controllers
   final _employeeIdController = TextEditingController();
   final _firstNameController = TextEditingController();
@@ -69,6 +74,8 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
 
   @override
   void dispose() {
+    _usernameController.dispose();
+    _passwordController.dispose();
     _employeeIdController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
@@ -117,6 +124,36 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
     final pincodeRegex = RegExp(r'^\d{6}$');
     if (!pincodeRegex.hasMatch(value)) {
       return 'Pincode must be 6 digits';
+    }
+    return null;
+  }
+
+  String? _validateUsername(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Username is required';
+    }
+    final usernameRegex = RegExp(r'^[a-zA-Z0-9_]{3,50}$');
+    if (!usernameRegex.hasMatch(value)) {
+      return 'Username must be 3-50 characters (letters, numbers, underscore only)';
+    }
+    return null;
+  }
+
+  String? _validatePassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Password is required';
+    }
+    if (value.length < 8) {
+      return 'Password must be at least 8 characters';
+    }
+    if (!RegExp(r'[A-Z]').hasMatch(value)) {
+      return 'Password must contain at least one uppercase letter';
+    }
+    if (!RegExp(r'[a-z]').hasMatch(value)) {
+      return 'Password must contain at least one lowercase letter';
+    }
+    if (!RegExp(r'\d').hasMatch(value)) {
+      return 'Password must contain at least one digit';
     }
     return null;
   }
@@ -188,6 +225,8 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
     try {
       // Build driver data
       final Map<String, dynamic> driverData = {
+        'username': _usernameController.text.trim(),
+        'password': _passwordController.text,
         'employee_id': _employeeIdController.text.trim(),
         'first_name': _firstNameController.text.trim(),
         'last_name': _lastNameController.text.trim(),
@@ -289,6 +328,49 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                       'Basic Information',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
+                    const SizedBox(height: 16),
+                    // Login Credentials Section
+                    Text(
+                      'Login Credentials',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _usernameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Username *',
+                        border: OutlineInputBorder(),
+                        hintText: 'Alphanumeric and underscore only',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      validator: _validateUsername,
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: 'Password *',
+                        border: const OutlineInputBorder(),
+                        hintText: 'Min 8 chars with uppercase, lowercase, digit',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _obscurePassword = !_obscurePassword;
+                            });
+                          },
+                        ),
+                      ),
+                      validator: _validatePassword,
+                    ),
+                    const SizedBox(height: 20),
+                    const Divider(),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _employeeIdController,

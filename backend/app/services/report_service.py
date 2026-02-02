@@ -416,7 +416,7 @@ class ReportService:
                 "user_id": str(user.id),
                 "username": user.username,
                 "full_name": user.full_name,
-                "role": user_org.role.name if user_org.role else None,
+                "role": user_org.role.role_name if user_org.role else None,
                 "status": user_org.status,
                 "last_login": user.last_login,
                 "total_actions": action_count,
