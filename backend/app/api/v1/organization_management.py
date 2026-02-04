@@ -44,7 +44,7 @@ def verify_owner(current_user: User, db: Session) -> UserOrganization:
 
 
 @router.get("/my-organization", response_model=dict)
-async def get_my_organization(
+def get_my_organization(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -117,7 +117,7 @@ async def get_my_organization(
 
 
 @router.get("/employees", response_model=dict)
-async def get_employees(
+def get_employees(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
     role_filter: str = None,  # Optional: filter by role_key
@@ -202,7 +202,7 @@ async def get_employees(
 
 
 @router.put("/employees/{user_org_id}/role", response_model=dict)
-async def update_employee_role(
+def update_employee_role(
     user_org_id: str,
     new_role_id: str,
     current_user: User = Depends(get_current_user),
@@ -280,7 +280,7 @@ async def update_employee_role(
 
 
 @router.delete("/employees/{user_org_id}", response_model=dict)
-async def remove_employee(
+def remove_employee(
     user_org_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -331,7 +331,7 @@ async def remove_employee(
 
 
 @router.get("/statistics", response_model=dict)
-async def get_organization_statistics(
+def get_organization_statistics(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

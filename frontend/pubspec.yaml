@@ -43,7 +43,7 @@ dependencies:
   geocoding: ^2.1.0
   permission_handler: ^11.0.0
   flutter_background_service: ^5.0.0
-  flutter_local_notifications: ^16.3.0
+  # flutter_local_notifications: ^9.9.1  # Temporarily disabled - causing build issues
   flutter_polyline_points: ^2.0.0
   vector_math: ^2.1.4
 

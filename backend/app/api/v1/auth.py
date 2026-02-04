@@ -24,7 +24,7 @@ router = APIRouter()
 
 
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
-async def signup(
+def signup(
     signup_data: SignupRequest,
     db: Session = Depends(get_db)
 ):
@@ -74,7 +74,7 @@ async def signup(
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(
+def login(
     login_data: LoginRequest,
     db: Session = Depends(get_db)
 ):
@@ -106,7 +106,7 @@ async def login(
 
 
 @router.post("/verify-email", response_model=EmailVerificationResponse)
-async def verify_email(
+def verify_email(
     verification_data: EmailVerificationRequest,
     db: Session = Depends(get_db)
 ):
@@ -129,7 +129,7 @@ async def verify_email(
 
 
 @router.post("/verify-email-code", response_model=EmailVerificationResponse)
-async def verify_email_code(
+def verify_email_code(
     verification_data: EmailVerificationCodeRequest,
     db: Session = Depends(get_db)
 ):
@@ -160,7 +160,7 @@ async def verify_email_code(
 
 
 @router.post("/resend-verification")
-async def resend_verification(
+def resend_verification(
     resend_data: ResendVerificationRequest,
     db: Session = Depends(get_db)
 ):
@@ -179,7 +179,7 @@ async def resend_verification(
 
 
 @router.post("/forgot-password/email", response_model=PasswordResetResponse)
-async def forgot_password_email(
+def forgot_password_email(
     username: str,
     db: Session = Depends(get_db)
 ):
@@ -197,7 +197,7 @@ async def forgot_password_email(
 
 
 @router.get("/forgot-password/questions/{username}")
-async def get_user_security_questions(
+def get_user_security_questions(
     username: str,
     db: Session = Depends(get_db)
 ):
@@ -212,7 +212,7 @@ async def get_user_security_questions(
 
 
 @router.post("/forgot-password/verify-answers")
-async def verify_security_answers(
+def verify_security_answers(
     username: str,
     answers: list,
     db: Session = Depends(get_db)
@@ -230,7 +230,7 @@ async def verify_security_answers(
 
 
 @router.post("/reset-password")
-async def reset_password(
+def reset_password(
     reset_token: str,
     new_password: str,
     db: Session = Depends(get_db)
@@ -247,7 +247,7 @@ async def reset_password(
 
 
 @router.post("/recover-username", response_model=UsernameRecoveryResponse)
-async def recover_username(
+def recover_username(
     full_name: str,
     phone: str,
     answers: list,
@@ -270,7 +270,7 @@ async def recover_username(
 
 
 @router.get("/security-questions", response_model=SecurityQuestionsListResponse)
-async def get_security_questions(db: Session = Depends(get_db)):
+def get_security_questions(db: Session = Depends(get_db)):
     """
     Get list of available security questions.
 
@@ -304,7 +304,7 @@ async def get_security_questions(db: Session = Depends(get_db)):
 
 
 @router.get("/me")
-async def get_current_user():
+def get_current_user():
     """
     Get current user information.
 
@@ -323,7 +323,7 @@ async def get_current_user():
 
 
 @router.post("/logout")
-async def logout():
+def logout():
     """
     User logout.
 

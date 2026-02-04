@@ -18,6 +18,7 @@ from app.models.driver import Driver
 from app.models.vendor import Vendor
 from app.models.budget import Budget
 from app.models.audit_log import AuditLog
+from app.schemas.expense import ExpenseCreateRequest, ExpenseUpdateRequest, ExpenseApproveRequest
 from app.utils.constants import (
     AUDIT_ACTION_EXPENSE_CREATED,
     AUDIT_ACTION_EXPENSE_UPDATED,
@@ -52,7 +53,7 @@ class ExpenseService:
         self,
         user_id: str,
         org_id: str,
-        expense_data: Dict[str, Any]
+        expense_data: ExpenseCreateRequest
     ) -> Expense:
         """
         Create a new expense in draft status.
@@ -60,7 +61,7 @@ class ExpenseService:
         Args:
             user_id: User creating the expense
             org_id: Organization ID
-            expense_data: Expense information
+            expense_data: Validated expense information
 
         Returns:
             Created expense
@@ -80,9 +81,9 @@ class ExpenseService:
             )
 
         # Validate vehicle if provided
-        if expense_data.get('vehicle_id'):
+        if expense_data.vehicle_id:
             vehicle = self.db.query(Vehicle).filter(
-                Vehicle.id == expense_data['vehicle_id'],
+                Vehicle.id == expense_data.vehicle_id,
                 Vehicle.organization_id == org_id
             ).first()
 
@@ -93,9 +94,9 @@ class ExpenseService:
                 )
 
         # Validate driver if provided
-        if expense_data.get('driver_id'):
+        if expense_data.driver_id:
             driver = self.db.query(Driver).filter(
-                Driver.id == expense_data['driver_id'],
+                Driver.id == expense_data.driver_id,
                 Driver.organization_id == org_id
             ).first()
 
@@ -106,9 +107,9 @@ class ExpenseService:
                 )
 
         # Validate vendor if provided
-        if expense_data.get('vendor_id'):
+        if expense_data.vendor_id:
             vendor = self.db.query(Vendor).filter(
-                Vendor.id == expense_data['vendor_id'],
+                Vendor.id == expense_data.vendor_id,
                 Vendor.organization_id == org_id
             ).first()
 
@@ -119,9 +120,7 @@ class ExpenseService:
                 )
 
         # Calculate total amount
-        amount = expense_data['amount']
-        tax_amount = expense_data.get('tax_amount', Decimal('0'))
-        total_amount = amount + tax_amount
+        total_amount = expense_data.amount + expense_data.tax_amount
 
         # Generate expense number
         expense_number = self._generate_expense_number(org_id)
@@ -131,16 +130,16 @@ class ExpenseService:
             id=uuid.uuid4(),
             organization_id=org_id,
             expense_number=expense_number,
-            category=expense_data['category'],
-            description=expense_data['description'],
-            amount=amount,
-            tax_amount=tax_amount,
+            category=expense_data.category,
+            description=expense_data.description,
+            amount=expense_data.amount,
+            tax_amount=expense_data.tax_amount,
             total_amount=total_amount,
-            expense_date=expense_data['expense_date'],
-            vehicle_id=expense_data.get('vehicle_id'),
-            driver_id=expense_data.get('driver_id'),
-            vendor_id=expense_data.get('vendor_id'),
-            notes=expense_data.get('notes'),
+            expense_date=expense_data.expense_date,
+            vehicle_id=expense_data.vehicle_id,
+            driver_id=expense_data.driver_id,
+            vendor_id=expense_data.vendor_id,
+            notes=expense_data.notes,
             status='draft',
             created_by=user_id
         )
@@ -153,7 +152,7 @@ class ExpenseService:
             action=AUDIT_ACTION_EXPENSE_CREATED,
             entity_type=ENTITY_TYPE_EXPENSE,
             entity_id=str(expense.id),
-            details=f"Created expense {expense_number} for {expense_data['category']}"
+            details=f"Created expense {expense_number} for {expense_data.category}"
         )
         self.db.add(audit_log)
 
@@ -230,7 +229,7 @@ class ExpenseService:
         user_id: str,
         expense_id: str,
         org_id: str,
-        expense_data: Dict[str, Any]
+        expense_data: ExpenseUpdateRequest
     ) -> Expense:
         """
         Update expense (only if in draft or rejected status).
@@ -239,7 +238,7 @@ class ExpenseService:
             user_id: User updating the expense
             expense_id: Expense ID
             org_id: Organization ID
-            expense_data: Updated expense information
+            expense_data: Validated updated expense information
 
         Returns:
             Updated expense
@@ -261,32 +260,36 @@ class ExpenseService:
                 detail=f"Cannot edit expense in {expense.status} status"
             )
 
-        # Update fields if provided
-        if 'category' in expense_data:
-            expense.category = expense_data['category']
+        # Update fields if provided (using model_dump with exclude_unset)
+        update_data = expense_data.model_dump(exclude_unset=True)
 
-        if 'description' in expense_data:
-            expense.description = expense_data['description']
+        if 'category' in update_data:
+            expense.category = expense_data.category
 
-        if 'amount' in expense_data or 'tax_amount' in expense_data:
-            expense.amount = expense_data.get('amount', expense.amount)
-            expense.tax_amount = expense_data.get('tax_amount', expense.tax_amount)
+        if 'description' in update_data:
+            expense.description = expense_data.description
+
+        if 'amount' in update_data or 'tax_amount' in update_data:
+            if expense_data.amount is not None:
+                expense.amount = expense_data.amount
+            if expense_data.tax_amount is not None:
+                expense.tax_amount = expense_data.tax_amount
             expense.total_amount = expense.amount + expense.tax_amount
 
-        if 'expense_date' in expense_data:
-            expense.expense_date = expense_data['expense_date']
+        if 'expense_date' in update_data:
+            expense.expense_date = expense_data.expense_date
 
-        if 'vehicle_id' in expense_data:
-            expense.vehicle_id = expense_data['vehicle_id']
+        if 'vehicle_id' in update_data:
+            expense.vehicle_id = expense_data.vehicle_id
 
-        if 'driver_id' in expense_data:
-            expense.driver_id = expense_data['driver_id']
+        if 'driver_id' in update_data:
+            expense.driver_id = expense_data.driver_id
 
-        if 'vendor_id' in expense_data:
-            expense.vendor_id = expense_data['vendor_id']
+        if 'vendor_id' in update_data:
+            expense.vendor_id = expense_data.vendor_id
 
-        if 'notes' in expense_data:
-            expense.notes = expense_data['notes']
+        if 'notes' in update_data:
+            expense.notes = expense_data.notes
 
         # Create audit log
         audit_log = AuditLog(
@@ -356,8 +359,7 @@ class ExpenseService:
         user_id: str,
         expense_id: str,
         org_id: str,
-        approved: bool,
-        rejection_reason: Optional[str] = None
+        approval_data: ExpenseApproveRequest
     ) -> Expense:
         """
         Approve or reject expense.
@@ -366,8 +368,7 @@ class ExpenseService:
             user_id: User approving/rejecting
             expense_id: Expense ID
             org_id: Organization ID
-            approved: True to approve, False to reject
-            rejection_reason: Reason for rejection (required if rejected)
+            approval_data: Validated approval data with approved flag and rejection reason
 
         Returns:
             Updated expense
@@ -389,7 +390,7 @@ class ExpenseService:
                 detail=f"Cannot approve expense in {expense.status} status"
             )
 
-        if approved:
+        if approval_data.approved:
             expense.status = 'approved'
             expense.approved_at = datetime.now()
             expense.approved_by = user_id
@@ -401,19 +402,13 @@ class ExpenseService:
             action = AUDIT_ACTION_EXPENSE_APPROVED
             details = f"Approved expense {expense.expense_number}"
         else:
-            if not rejection_reason:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Rejection reason is required"
-                )
-
             expense.status = 'rejected'
             expense.approved_at = datetime.now()
             expense.approved_by = user_id
-            expense.rejection_reason = rejection_reason
+            expense.rejection_reason = approval_data.rejection_reason
 
             action = AUDIT_ACTION_EXPENSE_REJECTED
-            details = f"Rejected expense {expense.expense_number}: {rejection_reason}"
+            details = f"Rejected expense {expense.expense_number}: {approval_data.rejection_reason}"
 
         # Create audit log
         audit_log = AuditLog(

@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.get("/me")
-async def get_current_user_profile(
+def get_current_user_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -61,7 +61,7 @@ async def get_current_user_profile(
 
 
 @router.post("/refresh-token")
-async def refresh_token(
+def refresh_token(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -112,7 +112,7 @@ async def refresh_token(
 
 
 @router.get("/organizations")
-async def get_user_organizations(
+def get_user_organizations(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -150,7 +150,7 @@ async def get_user_organizations(
 
 
 @router.post("/set-organization/{organization_id}")
-async def set_active_organization(
+def set_active_organization(
     organization_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)

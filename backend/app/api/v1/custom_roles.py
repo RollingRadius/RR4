@@ -55,7 +55,7 @@ class SaveAsTemplateRequest(BaseModel):
 
 # API Endpoints
 @router.get("/", tags=["Custom Roles"])
-async def get_all_custom_roles(
+def get_all_custom_roles(
     include_templates: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.custom.view", AccessLevel.VIEW))
@@ -72,7 +72,7 @@ async def get_all_custom_roles(
 
 
 @router.post("/", tags=["Custom Roles"])
-async def create_custom_role(
+def create_custom_role(
     request: CreateCustomRoleRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.custom.create", AccessLevel.FULL))
@@ -98,7 +98,7 @@ async def create_custom_role(
 
 
 @router.post("/from-template", tags=["Custom Roles"])
-async def create_from_template(
+def create_from_template(
     request: CreateFromTemplateRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.custom.create", AccessLevel.FULL))
@@ -126,7 +126,7 @@ async def create_from_template(
 
 
 @router.get("/{custom_role_id}", tags=["Custom Roles"])
-async def get_custom_role(
+def get_custom_role(
     custom_role_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.custom.view", AccessLevel.VIEW))
@@ -145,7 +145,7 @@ async def get_custom_role(
 
 
 @router.put("/{custom_role_id}", tags=["Custom Roles"])
-async def update_custom_role(
+def update_custom_role(
     custom_role_id: str,
     request: UpdateCustomRoleRequest,
     db: Session = Depends(get_db),
@@ -174,7 +174,7 @@ async def update_custom_role(
 
 
 @router.delete("/{custom_role_id}", tags=["Custom Roles"])
-async def delete_custom_role(
+def delete_custom_role(
     custom_role_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.custom.delete", AccessLevel.FULL))
@@ -198,7 +198,7 @@ async def delete_custom_role(
 
 
 @router.post("/{custom_role_id}/clone", tags=["Custom Roles"])
-async def clone_custom_role(
+def clone_custom_role(
     custom_role_id: str,
     new_role_name: str = Body(..., embed=True),
     db: Session = Depends(get_db),
@@ -224,7 +224,7 @@ async def clone_custom_role(
 
 
 @router.get("/{custom_role_id}/capabilities", tags=["Custom Roles"])
-async def get_custom_role_capabilities(
+def get_custom_role_capabilities(
     custom_role_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.custom.view", AccessLevel.VIEW))
@@ -244,7 +244,7 @@ async def get_custom_role_capabilities(
 
 
 @router.post("/{custom_role_id}/capabilities", tags=["Custom Roles"])
-async def add_capability(
+def add_capability(
     custom_role_id: str,
     request: AddCapabilityRequest,
     db: Session = Depends(get_db),
@@ -271,7 +271,7 @@ async def add_capability(
 
 
 @router.delete("/{custom_role_id}/capabilities/{capability_key}", tags=["Custom Roles"])
-async def remove_capability(
+def remove_capability(
     custom_role_id: str,
     capability_key: str,
     db: Session = Depends(get_db),
@@ -296,7 +296,7 @@ async def remove_capability(
 
 
 @router.post("/{custom_role_id}/capabilities/bulk", tags=["Custom Roles"])
-async def bulk_update_capabilities(
+def bulk_update_capabilities(
     custom_role_id: str,
     request: BulkCapabilitiesRequest,
     db: Session = Depends(get_db),
@@ -321,7 +321,7 @@ async def bulk_update_capabilities(
 
 
 @router.get("/{custom_role_id}/impact-analysis", tags=["Custom Roles"])
-async def get_impact_analysis(
+def get_impact_analysis(
     custom_role_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.custom.view", AccessLevel.VIEW))
@@ -342,7 +342,7 @@ async def get_impact_analysis(
 
 
 @router.post("/{custom_role_id}/save-as-template", tags=["Custom Roles"])
-async def save_as_template(
+def save_as_template(
     custom_role_id: str,
     request: SaveAsTemplateRequest,
     db: Session = Depends(get_db),

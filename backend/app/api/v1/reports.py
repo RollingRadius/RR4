@@ -24,7 +24,7 @@ router = APIRouter()
 
 
 @router.get("/driver-list", response_model=DriverListReportResponse)
-async def get_driver_list_report(
+def get_driver_list_report(
     status_filter: Optional[str] = Query(None, description="Filter by status (active/inactive/on_leave/terminated)"),
     current_user: User = Depends(get_current_user),
     org_id: str = Depends(get_current_organization),
@@ -56,7 +56,7 @@ async def get_driver_list_report(
 
 
 @router.get("/license-expiry", response_model=LicenseExpiryReportResponse)
-async def get_license_expiry_report(
+def get_license_expiry_report(
     days_ahead: int = Query(90, ge=1, le=365, description="Look ahead this many days"),
     current_user: User = Depends(get_current_user),
     org_id: str = Depends(get_current_organization),
@@ -90,7 +90,7 @@ async def get_license_expiry_report(
 
 
 @router.get("/organization-summary", response_model=OrganizationSummaryReportResponse)
-async def get_organization_summary_report(
+def get_organization_summary_report(
     current_user: User = Depends(get_current_user),
     org_id: str = Depends(get_current_organization),
     db: Session = Depends(get_db)
@@ -120,7 +120,7 @@ async def get_organization_summary_report(
 
 
 @router.get("/audit-log", response_model=AuditLogReportResponse)
-async def get_audit_log_report(
+def get_audit_log_report(
     start_date: Optional[date] = Query(None, description="Start date (default: 30 days ago)"),
     end_date: Optional[date] = Query(None, description="End date (default: today)"),
     action_filter: Optional[str] = Query(None, description="Filter by action type"),
@@ -170,7 +170,7 @@ async def get_audit_log_report(
 
 
 @router.get("/user-activity", response_model=UserActivityReportResponse)
-async def get_user_activity_report(
+def get_user_activity_report(
     start_date: Optional[date] = Query(None, description="Start date (default: 30 days ago)"),
     end_date: Optional[date] = Query(None, description="End date (default: today)"),
     current_user: User = Depends(get_current_user),

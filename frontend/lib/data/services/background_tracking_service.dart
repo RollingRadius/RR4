@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_background_service_android/flutter_background_service_android.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart'; // Temporarily disabled
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -19,6 +19,8 @@ class BackgroundTrackingService {
     final service = FlutterBackgroundService();
 
     // Create notification channel for Android
+    // Temporarily disabled - flutter_local_notifications causing build issues
+    /*
     const androidChannel = AndroidNotificationChannel(
       _notificationChannelId,
       _notificationChannelName,
@@ -32,6 +34,7 @@ class BackgroundTrackingService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(androidChannel);
+    */
 
     // Configure background service
     await service.configure(

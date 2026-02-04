@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 @router.get("/available", response_model=RoleListResponse)
-async def get_available_roles(db: Session = Depends(get_db)):
+def get_available_roles(db: Session = Depends(get_db)):
     """
     Get all available roles for selection.
 
@@ -64,7 +64,7 @@ async def get_available_roles(db: Session = Depends(get_db)):
 
 
 @router.get("/my-role", response_model=dict)
-async def get_my_role(
+def get_my_role(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -126,7 +126,7 @@ async def get_my_role(
 
 
 @router.get("/pending-requests", response_model=dict)
-async def get_pending_role_requests(
+def get_pending_role_requests(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -200,7 +200,7 @@ async def get_pending_role_requests(
 
 
 @router.post("/approve-request/{user_org_id}", response_model=dict)
-async def approve_role_request(
+def approve_role_request(
     user_org_id: str,
     approved_role_id: str = None,  # Optional: owner can change the role
     current_user: User = Depends(get_current_user),
@@ -295,7 +295,7 @@ async def approve_role_request(
 
 
 @router.post("/reject-request/{user_org_id}", response_model=dict)
-async def reject_role_request(
+def reject_role_request(
     user_org_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)

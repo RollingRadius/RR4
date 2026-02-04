@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 @router.get("/search", response_model=CompanySearchResponse)
-async def search_companies(
+def search_companies(
     q: str = Query(..., min_length=3, description="Search query (min 3 characters)"),
     limit: int = Query(3, ge=1, le=3, description="Max results (max 3)"),
     db: Session = Depends(get_db)
@@ -56,7 +56,7 @@ async def search_companies(
 
 
 @router.post("/validate", response_model=CompanyValidationResponse)
-async def validate_company_details(
+def validate_company_details(
     validation_data: CompanyValidationRequest,
     db: Session = Depends(get_db)
 ):
@@ -89,7 +89,7 @@ async def validate_company_details(
 
 
 @router.post("/create", response_model=CompanyResponse, status_code=status.HTTP_201_CREATED)
-async def create_company(
+def create_company(
     company_data: CompanyCreateRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -148,7 +148,7 @@ async def create_company(
 
 
 @router.post("/join", response_model=CompanyJoinResponse)
-async def join_company(
+def join_company(
     join_data: CompanyJoinRequest,
     db: Session = Depends(get_db)
 ):
@@ -178,7 +178,7 @@ async def join_company(
 
 
 @router.get("/{company_id}", response_model=CompanyResponse)
-async def get_company_details(
+def get_company_details(
     company_id: str,
     db: Session = Depends(get_db)
 ):
@@ -204,7 +204,7 @@ async def get_company_details(
 
 
 @router.get("/", response_model=list)
-async def list_companies(
+def list_companies(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)

@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 @router.get("/status", response_model=ProfileStatusResponse)
-async def get_profile_status(
+def get_profile_status(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -43,7 +43,7 @@ async def get_profile_status(
 
 
 @router.post("/complete", response_model=ProfileCompletionResponse, status_code=status.HTTP_201_CREATED)
-async def complete_profile(
+def complete_profile(
     profile_data: ProfileCompletionRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -124,7 +124,7 @@ async def complete_profile(
 
 
 @router.post("/change-role", response_model=ProfileCompletionResponse)
-async def change_user_role(
+def change_user_role(
     profile_data: ProfileCompletionRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -198,7 +198,7 @@ async def change_user_role(
 
 
 @router.put("/update", response_model=ProfileStatusResponse)
-async def update_profile(
+def update_profile(
     profile_data: ProfileUpdateRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)

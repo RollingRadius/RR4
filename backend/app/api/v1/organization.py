@@ -23,7 +23,7 @@ router = APIRouter()
 
 
 @router.get("/{organization_id}/members", response_model=OrganizationMembersListResponse)
-async def get_organization_members(
+def get_organization_members(
     organization_id: str,
     include_pending: bool = Query(False, description="Include pending users"),
     current_user: User = Depends(get_current_user),
@@ -58,7 +58,7 @@ async def get_organization_members(
 
 
 @router.get("/{organization_id}/pending-users", response_model=PendingUsersResponse)
-async def get_pending_users(
+def get_pending_users(
     organization_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -88,7 +88,7 @@ async def get_pending_users(
 
 
 @router.post("/{organization_id}/approve-user", response_model=ApproveUserResponse)
-async def approve_user(
+def approve_user(
     organization_id: str,
     approve_data: ApproveUserRequest,
     current_user: User = Depends(get_current_user),
@@ -131,7 +131,7 @@ async def approve_user(
 
 
 @router.post("/{organization_id}/reject-user", response_model=RejectUserResponse)
-async def reject_user(
+def reject_user(
     organization_id: str,
     reject_data: RejectUserRequest,
     current_user: User = Depends(get_current_user),
@@ -167,7 +167,7 @@ async def reject_user(
 
 
 @router.post("/{organization_id}/update-role", response_model=UpdateUserRoleResponse)
-async def update_user_role(
+def update_user_role(
     organization_id: str,
     update_data: UpdateUserRoleRequest,
     current_user: User = Depends(get_current_user),
@@ -211,7 +211,7 @@ async def update_user_role(
 
 
 @router.post("/{organization_id}/remove-user", response_model=RemoveUserResponse)
-async def remove_user(
+def remove_user(
     organization_id: str,
     remove_data: RemoveUserRequest,
     current_user: User = Depends(get_current_user),

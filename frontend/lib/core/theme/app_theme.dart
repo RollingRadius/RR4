@@ -1,91 +1,127 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// Application Theme Configuration - Material You Design
+/// Professional Fleet Management Theme - Material You Design with Blue Color System
 class AppTheme {
-  // Primary Colors - Modern Blue Palette
-  static const Color primaryColor = Color(0xFF1976D2); // Deep Blue
-  static const Color primaryLight = Color(0xFF63A4FF);
-  static const Color primaryDark = Color(0xFF004BA0);
+  // ==================== PRIMARY BLUE SHADES ====================
+  static const Color primaryBlue = Color(0xFF1E40AF);        // Main brand blue
+  static const Color primaryBlueDark = Color(0xFF1E3A8A);    // Darker variant
+  static const Color primaryBlueLight = Color(0xFF3B82F6);   // Lighter variant
+  static const Color primaryBlueExtraLight = Color(0xFF60A5FA); // Extra light
 
-  // Accent Colors
-  static const Color secondaryColor = Color(0xFF26C6DA); // Cyan
-  static const Color successColor = Color(0xFF66BB6A); // Green
-  static const Color errorColor = Color(0xFFEF5350); // Red
-  static const Color warningColor = Color(0xFFFF9800); // Orange
-  static const Color infoColor = Color(0xFF42A5F5); // Light Blue
+  // ==================== ACCENT BLUES ====================
+  static const Color accentCyan = Color(0xFF06B6D4);         // For highlights & CTAs
+  static const Color accentSky = Color(0xFF0EA5E9);          // For status indicators
+  static const Color accentIndigo = Color(0xFF6366F1);       // For special actions
 
-  // Gradient Colors
+  // ==================== BACKGROUND & SURFACES ====================
+  static const Color bgPrimary = Color(0xFFF8FAFC);          // Main background (slate-50)
+  static const Color bgSecondary = Color(0xFFFFFFFF);        // Cards/surfaces
+  static const Color bgTertiary = Color(0xFFF1F5F9);         // Secondary surfaces (slate-100)
+
+  // ==================== TEXT COLORS ====================
+  static const Color textPrimary = Color(0xFF0F172A);        // Main text (slate-900)
+  static const Color textSecondary = Color(0xFF475569);      // Secondary text (slate-600)
+  static const Color textTertiary = Color(0xFF94A3B8);       // Muted text (slate-400)
+
+  // ==================== STATUS COLORS ====================
+  static const Color statusActive = Color(0xFF10B981);       // Green - Active/Online
+  static const Color statusWarning = Color(0xFFF59E0B);      // Amber - Warning
+  static const Color statusError = Color(0xFFEF4444);        // Red - Error/Offline
+  static const Color statusInfo = Color(0xFF3B82F6);         // Blue - Info
+  static const Color statusIdle = Color(0xFF6B7280);         // Gray - Idle
+
+  // Legacy compatibility colors
+  static const Color primaryColor = primaryBlue;
+  static const Color primaryLight = primaryBlueLight;
+  static const Color primaryDark = primaryBlueDark;
+  static const Color secondaryColor = accentCyan;
+  static const Color successColor = statusActive;
+  static const Color errorColor = statusError;
+  static const Color warningColor = statusWarning;
+  static const Color infoColor = statusInfo;
+  static const Color surfaceLight = bgPrimary;
+  static const Color surfaceDark = Color(0xFF121212);
+
+  // ==================== GRADIENT DEFINITIONS ====================
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF1976D2), Color(0xFF1565C0), Color(0xFF0D47A1)],
+    colors: [primaryBlue, primaryBlueDark, Color(0xFF1E3A8A)],
   );
 
   static const LinearGradient accentGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF26C6DA), Color(0xFF00ACC1), Color(0xFF00838F)],
+    colors: [accentCyan, Color(0xFF0891B2), Color(0xFF0E7490)],
   );
 
-  // Surface Colors
-  static const Color surfaceLight = Color(0xFFFAFAFA);
-  static const Color surfaceDark = Color(0xFF121212);
+  static const LinearGradient skyGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [accentSky, Color(0xFF0284C7), primaryBlue],
+  );
 
-  // Text Colors
-  static const Color textPrimary = Color(0xFF212121);
-  static const Color textSecondary = Color(0xFF757575);
-  static const Color textHint = Color(0xFFBDBDBD);
+  static const LinearGradient subtleBlueGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0xFFEFF6FF), Color(0xFFFFFFFF)],
+  );
 
-  // Light Theme - Modern Material You
+  // ==================== LIGHT THEME ====================
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
-    primaryColor: primaryColor,
+    primaryColor: primaryBlue,
 
     colorScheme: ColorScheme.light(
-      primary: primaryColor,
+      primary: primaryBlue,
       onPrimary: Colors.white,
-      primaryContainer: const Color(0xFFBBDEFB),
-      onPrimaryContainer: const Color(0xFF0D47A1),
+      primaryContainer: const Color(0xFFDBEAFE), // blue-100
+      onPrimaryContainer: primaryBlueDark,
 
-      secondary: secondaryColor,
+      secondary: accentCyan,
       onSecondary: Colors.white,
-      secondaryContainer: const Color(0xFFB2EBF2),
-      onSecondaryContainer: const Color(0xFF006064),
+      secondaryContainer: const Color(0xFFCFFAFE), // cyan-100
+      onSecondaryContainer: const Color(0xFF164E63),
 
-      tertiary: successColor,
+      tertiary: accentSky,
       onTertiary: Colors.white,
 
-      error: errorColor,
+      error: statusError,
       onError: Colors.white,
+      errorContainer: const Color(0xFFFEE2E2),
+      onErrorContainer: const Color(0xFF991B1B),
 
-      surface: surfaceLight,
+      surface: bgSecondary,
       onSurface: textPrimary,
 
-      surfaceContainerHighest: Colors.white,
-      outline: const Color(0xFFE0E0E0),
-      outlineVariant: const Color(0xFFF5F5F5),
+      surfaceContainerHighest: bgSecondary,
+      outline: const Color(0xFFE2E8F0), // slate-200
+      outlineVariant: const Color(0xFFF1F5F9), // slate-100
 
-      shadow: Colors.black.withOpacity(0.1),
+      shadow: Colors.black.withOpacity(0.08),
     ),
 
-    scaffoldBackgroundColor: const Color(0xFFF5F7FA),
+    scaffoldBackgroundColor: bgPrimary,
 
-    // AppBar Theme
+    // ==================== APP BAR ====================
     appBarTheme: AppBarTheme(
       elevation: 0,
       centerTitle: false,
-      scrolledUnderElevation: 1,
-      backgroundColor: Colors.white,
+      scrolledUnderElevation: 0,
+      backgroundColor: bgSecondary,
       foregroundColor: textPrimary,
       surfaceTintColor: Colors.transparent,
-      systemOverlayStyle: SystemUiOverlayStyle.dark,
+      systemOverlayStyle: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+      ),
       titleTextStyle: const TextStyle(
         color: textPrimary,
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: FontWeight.w600,
-        letterSpacing: 0.15,
+        letterSpacing: 0,
       ),
       iconTheme: const IconThemeData(
         color: textPrimary,
@@ -93,30 +129,30 @@ class AppTheme {
       ),
     ),
 
-    // Card Theme - Elevated with shadow
+    // ==================== CARD THEME ====================
     cardTheme: CardThemeData(
       elevation: 0,
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
-      shadowColor: Colors.black.withOpacity(0.08),
+      color: bgSecondary,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.black.withOpacity(0.05),
       margin: const EdgeInsets.all(0),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: const Color(0xFFE0E0E0).withOpacity(0.3),
+          color: const Color(0xFFE2E8F0).withOpacity(0.6),
           width: 1,
         ),
       ),
     ),
 
-    // Elevated Button - Modern with gradient support
+    // ==================== ELEVATED BUTTON ====================
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: primaryColor,
+        backgroundColor: primaryBlue,
         foregroundColor: Colors.white,
-        elevation: 2,
-        shadowColor: primaryColor.withOpacity(0.4),
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+        elevation: 0,
+        shadowColor: primaryBlue.withOpacity(0.3),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -128,12 +164,12 @@ class AppTheme {
       ),
     ),
 
-    // Outlined Button
+    // ==================== OUTLINED BUTTON ====================
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: primaryColor,
-        side: const BorderSide(color: primaryColor, width: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
+        foregroundColor: primaryBlue,
+        side: const BorderSide(color: primaryBlue, width: 1.5),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -145,10 +181,10 @@ class AppTheme {
       ),
     ),
 
-    // Text Button
+    // ==================== TEXT BUTTON ====================
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: primaryColor,
+        foregroundColor: primaryBlue,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
@@ -161,77 +197,78 @@ class AppTheme {
       ),
     ),
 
-    // Input Decoration - Modern with subtle borders
+    // ==================== INPUT DECORATION ====================
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      fillColor: bgSecondary,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
 
       // Default border
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
       ),
 
       // Enabled border
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFFE0E0E0), width: 1.5),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1.5),
       ),
 
       // Focused border
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: primaryColor, width: 2),
+        borderSide: const BorderSide(color: primaryBlue, width: 2),
       ),
 
       // Error border
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: errorColor, width: 1.5),
+        borderSide: const BorderSide(color: statusError, width: 1.5),
       ),
 
       // Focused error border
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: errorColor, width: 2),
+        borderSide: const BorderSide(color: statusError, width: 2),
       ),
 
       // Label style
       labelStyle: const TextStyle(
         color: textSecondary,
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: FontWeight.w500,
       ),
 
       // Floating label style
       floatingLabelStyle: const TextStyle(
-        color: primaryColor,
-        fontSize: 16,
+        color: primaryBlue,
+        fontSize: 15,
         fontWeight: FontWeight.w600,
       ),
 
       // Hint style
-      hintStyle: TextStyle(
-        color: textHint,
+      hintStyle: const TextStyle(
+        color: textTertiary,
         fontSize: 15,
         fontWeight: FontWeight.w400,
       ),
 
-      // Prefix icon style
+      // Prefix/suffix icon colors
       prefixIconColor: textSecondary,
+      suffixIconColor: textSecondary,
 
       // Error style
       errorStyle: const TextStyle(
-        color: errorColor,
+        color: statusError,
         fontSize: 13,
         fontWeight: FontWeight.w500,
       ),
     ),
 
-    // Floating Action Button
+    // ==================== FLOATING ACTION BUTTON ====================
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: primaryColor,
+      backgroundColor: primaryBlue,
       foregroundColor: Colors.white,
       elevation: 4,
       shape: RoundedRectangleBorder(
@@ -239,10 +276,10 @@ class AppTheme {
       ),
     ),
 
-    // Chip Theme
+    // ==================== CHIP THEME ====================
     chipTheme: ChipThemeData(
-      backgroundColor: const Color(0xFFF5F5F5),
-      selectedColor: primaryColor.withOpacity(0.2),
+      backgroundColor: bgTertiary,
+      selectedColor: primaryBlue.withOpacity(0.15),
       labelStyle: const TextStyle(
         color: textPrimary,
         fontSize: 14,
@@ -254,55 +291,67 @@ class AppTheme {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     ),
 
-    // Divider Theme
+    // ==================== DIVIDER THEME ====================
     dividerTheme: const DividerThemeData(
-      color: Color(0xFFE0E0E0),
+      color: Color(0xFFE2E8F0),
       thickness: 1,
       space: 1,
     ),
 
-    // Typography
+    // ==================== PROGRESS INDICATOR ====================
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: primaryBlue,
+      linearTrackColor: Color(0xFFE2E8F0),
+      circularTrackColor: Color(0xFFE2E8F0),
+    ),
+
+    // ==================== TYPOGRAPHY ====================
     textTheme: const TextTheme(
-      displayLarge: TextStyle(fontSize: 57, fontWeight: FontWeight.w400, letterSpacing: -0.25, color: textPrimary),
-      displayMedium: TextStyle(fontSize: 45, fontWeight: FontWeight.w400, letterSpacing: 0, color: textPrimary),
-      displaySmall: TextStyle(fontSize: 36, fontWeight: FontWeight.w400, letterSpacing: 0, color: textPrimary),
+      // Display
+      displayLarge: TextStyle(fontSize: 57, fontWeight: FontWeight.w400, letterSpacing: -0.25, color: textPrimary, height: 1.12),
+      displayMedium: TextStyle(fontSize: 45, fontWeight: FontWeight.w400, letterSpacing: 0, color: textPrimary, height: 1.16),
+      displaySmall: TextStyle(fontSize: 36, fontWeight: FontWeight.w400, letterSpacing: 0, color: textPrimary, height: 1.22),
 
-      headlineLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w600, letterSpacing: 0, color: textPrimary),
-      headlineMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, letterSpacing: 0, color: textPrimary),
-      headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: 0, color: textPrimary),
+      // Headlines
+      headlineLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w600, letterSpacing: 0, color: textPrimary, height: 1.25),
+      headlineMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w600, letterSpacing: 0, color: textPrimary, height: 1.29),
+      headlineSmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600, letterSpacing: 0, color: textPrimary, height: 1.33),
 
-      titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: 0, color: textPrimary),
-      titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0.15, color: textPrimary),
-      titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1, color: textPrimary),
+      // Titles
+      titleLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600, letterSpacing: 0, color: textPrimary, height: 1.27),
+      titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0.15, color: textPrimary, height: 1.5),
+      titleSmall: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1, color: textPrimary, height: 1.43),
 
-      bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: 0.5, color: textPrimary),
-      bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, letterSpacing: 0.25, color: textPrimary),
-      bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, letterSpacing: 0.4, color: textSecondary),
+      // Body
+      bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: 0.5, color: textPrimary, height: 1.5),
+      bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, letterSpacing: 0.25, color: textSecondary, height: 1.43),
+      bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w400, letterSpacing: 0.4, color: textTertiary, height: 1.33),
 
-      labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1, color: textPrimary),
-      labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5, color: textPrimary),
-      labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5, color: textSecondary),
+      // Labels
+      labelLarge: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1, color: textPrimary, height: 1.43),
+      labelMedium: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5, color: textPrimary, height: 1.33),
+      labelSmall: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5, color: textSecondary, height: 1.45),
     ),
   );
 
-  // Dark Theme
+  // ==================== DARK THEME ====================
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    primaryColor: primaryLight,
+    primaryColor: primaryBlueLight,
 
     colorScheme: ColorScheme.dark(
-      primary: primaryLight,
-      onPrimary: const Color(0xFF0D47A1),
-      primaryContainer: const Color(0xFF1565C0),
-      onPrimaryContainer: const Color(0xFFBBDEFB),
+      primary: primaryBlueLight,
+      onPrimary: primaryBlueDark,
+      primaryContainer: primaryBlueDark,
+      onPrimaryContainer: const Color(0xFFDBEAFE),
 
-      secondary: secondaryColor,
-      onSecondary: const Color(0xFF006064),
+      secondary: accentCyan,
+      onSecondary: const Color(0xFF164E63),
 
-      tertiary: successColor,
+      tertiary: accentSky,
 
-      error: errorColor,
+      error: statusError,
       onError: Colors.white,
 
       surface: const Color(0xFF1E1E1E),

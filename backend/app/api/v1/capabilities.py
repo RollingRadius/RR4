@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/", tags=["Capabilities"])
-async def get_all_capabilities(
+def get_all_capabilities(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -35,7 +35,7 @@ async def get_all_capabilities(
 
 
 @router.get("/categories", tags=["Capabilities"])
-async def get_capability_categories(
+def get_capability_categories(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -50,7 +50,7 @@ async def get_capability_categories(
 
 
 @router.get("/category/{category}", tags=["Capabilities"])
-async def get_capabilities_by_category(
+def get_capabilities_by_category(
     category: FeatureCategory,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -68,7 +68,7 @@ async def get_capabilities_by_category(
 
 
 @router.get("/{capability_key}", tags=["Capabilities"])
-async def get_capability(
+def get_capability(
     capability_key: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -87,7 +87,7 @@ async def get_capability(
 
 
 @router.get("/search", tags=["Capabilities"])
-async def search_capabilities(
+def search_capabilities(
     keyword: str = Query(..., min_length=2),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -105,7 +105,7 @@ async def search_capabilities(
 
 
 @router.get("/user/me", tags=["Capabilities"])
-async def get_my_capabilities(
+def get_my_capabilities(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -128,7 +128,7 @@ async def get_my_capabilities(
 
 
 @router.get("/user/{user_id}", tags=["Capabilities"])
-async def get_user_capabilities(
+def get_user_capabilities(
     user_id: str,
     organization_id: Optional[str] = Query(None),
     db: Session = Depends(get_db),
@@ -156,7 +156,7 @@ async def get_user_capabilities(
 
 
 @router.get("/user/{user_id}/check/{capability_key}", tags=["Capabilities"])
-async def check_user_capability(
+def check_user_capability(
     user_id: str,
     capability_key: str,
     required_level: str = Query(AccessLevel.VIEW),
@@ -189,7 +189,7 @@ async def check_user_capability(
 
 
 @router.post("/seed", tags=["Capabilities"])
-async def seed_capabilities(
+def seed_capabilities(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["super_admin"]))
 ):

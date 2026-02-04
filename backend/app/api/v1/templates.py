@@ -28,7 +28,7 @@ class CompareTemplatesRequest(BaseModel):
 
 # API Endpoints
 @router.get("/predefined", tags=["Templates"])
-async def get_all_predefined_templates(
+def get_all_predefined_templates(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.template.view", AccessLevel.VIEW))
 ):
@@ -44,7 +44,7 @@ async def get_all_predefined_templates(
 
 
 @router.get("/predefined/{role_key}", tags=["Templates"])
-async def get_predefined_template(
+def get_predefined_template(
     role_key: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.template.view", AccessLevel.VIEW))
@@ -63,7 +63,7 @@ async def get_predefined_template(
 
 
 @router.post("/merge", tags=["Templates"])
-async def merge_templates(
+def merge_templates(
     request: MergeTemplatesRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.template.use", AccessLevel.VIEW))
@@ -92,7 +92,7 @@ async def merge_templates(
 
 
 @router.post("/compare", tags=["Templates"])
-async def compare_templates(
+def compare_templates(
     request: CompareTemplatesRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.template.view", AccessLevel.VIEW))
@@ -115,7 +115,7 @@ async def compare_templates(
 
 
 @router.get("/custom", tags=["Templates"])
-async def get_custom_templates(
+def get_custom_templates(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.template.view", AccessLevel.VIEW))
 ):
@@ -131,7 +131,7 @@ async def get_custom_templates(
 
 
 @router.get("/custom/{custom_role_id}/sources", tags=["Templates"])
-async def get_template_sources(
+def get_template_sources(
     custom_role_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_capability("role.template.view", AccessLevel.VIEW))
@@ -152,7 +152,7 @@ async def get_template_sources(
 
 
 @router.post("/seed", tags=["Templates"])
-async def seed_predefined_roles(
+def seed_predefined_roles(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(["super_admin"]))
 ):

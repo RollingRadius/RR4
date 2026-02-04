@@ -38,7 +38,7 @@ app.add_middleware(
 
 
 @app.get("/", tags=["Health"])
-async def root():
+def root():
     """Health check endpoint"""
     return {
         "message": "Fleet Management System API",
@@ -49,7 +49,7 @@ async def root():
 
 
 @app.get("/health", tags=["Health"])
-async def health_check():
+def health_check():
     """Detailed health check"""
     return {
         "status": "healthy",
@@ -61,7 +61,7 @@ async def health_check():
 
 # Exception handlers
 @app.exception_handler(404)
-async def not_found_handler(request, exc):
+def not_found_handler(request, exc):
     return JSONResponse(
         status_code=404,
         content={"detail": "Resource not found"}
@@ -69,7 +69,7 @@ async def not_found_handler(request, exc):
 
 
 @app.exception_handler(500)
-async def internal_error_handler(request, exc):
+def internal_error_handler(request, exc):
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"}
@@ -94,7 +94,11 @@ async def shutdown_event():
 
 
 # Import and include API routers
-from app.api.v1 import auth, company, driver, user, organization, reports, capabilities, custom_roles, templates, vehicles, profile, roles, organization_management, tracking
+from app.api.v1 import (
+    auth, company, driver, user, organization, reports, capabilities,
+    custom_roles, templates, vehicles, profile, roles, organization_management,
+    tracking, expenses, invoices, payments, budgets
+)
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(profile.router, prefix="/api/profile", tags=["Profile"])
@@ -110,6 +114,12 @@ app.include_router(capabilities.router, prefix="/api/capabilities", tags=["Capab
 app.include_router(custom_roles.router, prefix="/api/custom-roles", tags=["Custom Roles"])
 app.include_router(templates.router, prefix="/api/templates", tags=["Templates"])
 app.include_router(tracking.router, prefix="/api/v1", tags=["GPS Tracking"])
+
+# Financial Management API routers
+app.include_router(expenses.router, prefix="/api/expenses", tags=["Expenses"])
+app.include_router(invoices.router, prefix="/api/invoices", tags=["Invoices"])
+app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
+app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])
 
 
 if __name__ == "__main__":

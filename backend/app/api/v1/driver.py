@@ -23,7 +23,7 @@ router = APIRouter()
 
 
 @router.post("", response_model=dict, status_code=status.HTTP_201_CREATED)
-async def create_driver(
+def create_driver(
     driver_data: DriverCreateRequest,
     current_user: User = Depends(get_current_user),
     org_id: str = Depends(get_current_organization),
@@ -94,7 +94,7 @@ async def create_driver(
 
 
 @router.get("", response_model=DriverListResponse)
-async def get_drivers(
+def get_drivers(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=100, description="Maximum records to return"),
     status: Optional[str] = Query(None, description="Filter by status (active/inactive/on_leave/terminated)"),
@@ -184,7 +184,7 @@ async def get_drivers(
 
 
 @router.get("/{driver_id}", response_model=DriverResponse)
-async def get_driver_details(
+def get_driver_details(
     driver_id: str,
     org_id: str = Depends(get_current_organization),
     current_user: User = Depends(get_current_user),
@@ -240,7 +240,7 @@ async def get_driver_details(
 
 
 @router.put("/{driver_id}", response_model=dict)
-async def update_driver(
+def update_driver(
     driver_id: str,
     update_data: DriverUpdateRequest,
     current_user: User = Depends(get_current_user),
@@ -299,7 +299,7 @@ async def update_driver(
 
 
 @router.delete("/{driver_id}", response_model=dict)
-async def delete_driver(
+def delete_driver(
     driver_id: str,
     current_user: User = Depends(get_current_user),
     org_id: str = Depends(get_current_organization),
@@ -340,7 +340,7 @@ async def delete_driver(
 
 
 @router.get("/{driver_id}/license-status", response_model=dict)
-async def check_license_expiry(
+def check_license_expiry(
     driver_id: str,
     org_id: str = Depends(get_current_organization),
     current_user: User = Depends(get_current_user),

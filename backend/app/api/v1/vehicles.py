@@ -39,7 +39,7 @@ router = APIRouter()
     summary="Create a new vehicle",
     description="Create a new vehicle in the fleet. Requires vehicle.create capability."
 )
-async def create_vehicle(
+def create_vehicle(
     vehicle_data: VehicleCreateRequest,
     current_user: User = Depends(get_current_user),
     org_id: str = Depends(get_current_organization),
@@ -96,7 +96,7 @@ async def create_vehicle(
     summary="Get list of vehicles",
     description="Get paginated list of vehicles with optional filters. Requires vehicle.view capability."
 )
-async def get_vehicles(
+def get_vehicles(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Number of records to return"),
     status: Optional[str] = Query(None, description="Filter by status (active, inactive, maintenance, decommissioned)"),
@@ -157,7 +157,7 @@ async def get_vehicles(
     summary="Get vehicle details",
     description="Get detailed information about a specific vehicle. Requires vehicle.view capability."
 )
-async def get_vehicle(
+def get_vehicle(
     vehicle_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     org_id: str = Depends(get_current_organization),
@@ -201,7 +201,7 @@ async def get_vehicle(
     summary="Update vehicle",
     description="Update vehicle information. Requires vehicle.edit capability."
 )
-async def update_vehicle(
+def update_vehicle(
     vehicle_id: uuid.UUID,
     update_data: VehicleUpdateRequest,
     current_user: User = Depends(get_current_user),
@@ -256,7 +256,7 @@ async def update_vehicle(
     summary="Delete vehicle",
     description="Soft delete a vehicle (sets status to decommissioned). Requires vehicle.delete capability."
 )
-async def delete_vehicle(
+def delete_vehicle(
     vehicle_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     org_id: str = Depends(get_current_organization),
@@ -299,7 +299,7 @@ async def delete_vehicle(
     summary="Assign driver to vehicle",
     description="Assign a driver to a vehicle. Requires vehicle.assign capability."
 )
-async def assign_driver_to_vehicle(
+def assign_driver_to_vehicle(
     vehicle_id: uuid.UUID,
     assignment_data: VehicleAssignDriverRequest,
     current_user: User = Depends(get_current_user),
@@ -356,7 +356,7 @@ async def assign_driver_to_vehicle(
     summary="Remove driver assignment from vehicle",
     description="Unassign driver from a vehicle. Requires vehicle.assign capability."
 )
-async def unassign_driver_from_vehicle(
+def unassign_driver_from_vehicle(
     vehicle_id: uuid.UUID,
     unassign_data: VehicleUnassignDriverRequest,
     current_user: User = Depends(get_current_user),
@@ -400,7 +400,7 @@ async def unassign_driver_from_vehicle(
     summary="Get expiring documents for vehicle",
     description="Get list of expiring documents and certificates. Requires vehicle.view capability."
 )
-async def get_expiring_documents(
+def get_expiring_documents(
     vehicle_id: uuid.UUID,
     days: int = Query(30, ge=1, le=365, description="Number of days to look ahead for expiry"),
     current_user: User = Depends(get_current_user),
@@ -450,7 +450,7 @@ async def get_expiring_documents(
     summary="Archive vehicle",
     description="Archive a vehicle (sets status to decommissioned). Requires vehicle.archive capability."
 )
-async def archive_vehicle(
+def archive_vehicle(
     vehicle_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     org_id: str = Depends(get_current_organization),

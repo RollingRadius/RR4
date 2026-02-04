@@ -57,7 +57,28 @@
       "Bash(.venvScriptspython.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)",
       "Bash(pip install:*)",
       "Bash(python -m pip install:*)",
-      "Bash(flutter pub run build_runner build:*)"
+      "Bash(flutter pub run build_runner build:*)",
+      "Bash(flutter build:*)",
+      "Bash(adb devices:*)",
+      "Bash(flutter install:*)",
+      "Bash(wc:*)",
+      "Bash(find:*)",
+      "Bash(python scripts/search.py:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(done)",
+      "Bash(powershell -Command \"\\(Get-Content ''auth.py''\\) -replace ''async def '', ''def '' | Set-Content ''auth.py''\")",
+      "Bash(powershell -Command \"\\(Get-Content ''tracking.py''\\) -replace ''async def '', ''def '' | Set-Content ''tracking.py''\")",
+      "Bash(powershell -Command \"\\(Get-Content ''user.py''\\) -replace ''async def '', ''def '' | Set-Content ''user.py''\")",
+      "Bash(powershell -Command \"\\(Get-Content ''roles.py''\\) -replace ''async def '', ''def '' | Set-Content ''roles.py''\")",
+      "Bash(powershell -Command \"\\(Get-Content ''profile.py''\\) -replace ''async def '', ''def '' | Set-Content ''profile.py''\")",
+      "Bash(powershell -Command \"\\(Get-Content ''organization_management.py''\\) -replace ''async def '', ''def '' | Set-Content ''organization_management.py''\")",
+      "Bash(powershell -Command \"\\(Get-Content ''company.py''\\) -replace ''async def '', ''def '' | Set-Content ''company.py''\")",
+      "Bash(powershell -Command \"\\(Get-Content ''organization.py''\\) -replace ''async def '', ''def '' | Set-Content ''organization.py''\")",
+      "Bash(powershell -Command \"\\(Get-Content ''reports.py''\\) -replace ''async def '', ''def '' | Set-Content ''reports.py''\")",
+      "Bash(powershell -Command \"\\(Get-Content ''capabilities.py''\\) -replace ''async def '', ''def '' | Set-Content ''capabilities.py''\")",
+      "Bash(powershell -Command \"\\(Get-Content ''custom_roles.py''\\) -replace ''async def '', ''def '' | Set-Content ''custom_roles.py''\")",
+      "Bash(powershell -Command \"\\(Get-Content ''templates.py''\\) -replace ''async def '', ''def '' | Set-Content ''templates.py''\")"
     ]
   }
 }
