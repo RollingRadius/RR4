@@ -79,7 +79,8 @@
       "Bash(powershell -Command \"\\(Get-Content ''capabilities.py''\\) -replace ''async def '', ''def '' | Set-Content ''capabilities.py''\")",
       "Bash(powershell -Command \"\\(Get-Content ''custom_roles.py''\\) -replace ''async def '', ''def '' | Set-Content ''custom_roles.py''\")",
       "Bash(powershell -Command \"\\(Get-Content ''templates.py''\\) -replace ''async def '', ''def '' | Set-Content ''templates.py''\")",
-      "Bash(docker:*)"
+      "Bash(docker:*)",
+      "Bash(openssl rand:*)"
     ]
   }
 }
