@@ -5,6 +5,7 @@ import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/routes/app_router.dart';
 import 'package:fleet_management/providers/settings_provider.dart';
+import 'package:fleet_management/providers/theme_provider.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -32,11 +33,12 @@ class FleetManagementApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeState = ref.watch(themeProvider);
 
     return MaterialApp.router(
       title: 'Fleet Management System',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: themeState.themeData, // Dynamic theme from branding
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,
       routerConfig: router,

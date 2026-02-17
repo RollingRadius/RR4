@@ -13,6 +13,7 @@ from app.models.company import Organization
 from app.models.user_organization import UserOrganization
 from app.models.role import Role
 from app.models.audit_log import AuditLog
+from app.models.organization_branding import OrganizationBranding
 from app.utils.validators import (
     validate_gstin, validate_pan, validate_gstin_pan_linkage,
     extract_pan_from_gstin
@@ -244,6 +245,14 @@ class CompanyService:
         )
 
         self.db.add(user_org)
+
+        # Create default branding for the organization
+        branding = OrganizationBranding(
+            id=uuid.uuid4(),
+            organization_id=company.id,
+            created_by=user_id
+        )
+        self.db.add(branding)
 
         # Log audit event
         audit_log = AuditLog(

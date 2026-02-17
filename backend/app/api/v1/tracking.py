@@ -50,7 +50,7 @@ def get_tracking_service(db: AsyncSession = Depends(get_db)) -> TrackingService:
     return TrackingService(db=db, redis_client=None)
 
 
-def check_capability(
+async def check_capability(
     capability: str,
     db: AsyncSession,
     current_user: User
@@ -65,7 +65,7 @@ def check_capability(
         )
 
 
-def get_driver_and_check_org(
+async def get_driver_and_check_org(
     driver_id: UUID,
     current_user: User,
     db: AsyncSession
@@ -98,7 +98,7 @@ def get_driver_and_check_org(
     summary="Create single location record",
     description="Submit a single GPS location for the current driver. Use batch endpoint for multiple locations."
 )
-def create_location(
+async def create_location(
     location_data: LocationCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -135,7 +135,7 @@ def create_location(
     summary="Create multiple location records",
     description="Submit batch of GPS locations (5-50 records). More efficient than single location endpoint."
 )
-def create_locations_batch(
+async def create_locations_batch(
     batch_data: LocationBatchCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -175,7 +175,7 @@ def create_locations_batch(
     summary="Get live locations for all drivers",
     description="Get latest location for each driver in organization. Cached for performance."
 )
-def get_live_locations(
+async def get_live_locations(
     driver_ids: Optional[List[UUID]] = Query(None, description="Filter by specific driver IDs"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -197,7 +197,7 @@ def get_live_locations(
     summary="Get current location for specific driver",
     description="Get the most recent location for a single driver"
 )
-def get_driver_location(
+async def get_driver_location(
     driver_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -227,7 +227,7 @@ def get_driver_location(
     summary="Get location history for driver",
     description="Get historical location data with pagination and date range filtering"
 )
-def get_driver_history(
+async def get_driver_history(
     driver_id: UUID,
     start_time: datetime = Query(..., description="Start of time range (ISO format)"),
     end_time: datetime = Query(..., description="End of time range (ISO format)"),
@@ -273,7 +273,7 @@ def get_driver_history(
     summary="Get geofence events",
     description="Get history of geofence entry/exit events with filtering"
 )
-def get_geofence_events(
+async def get_geofence_events(
     driver_id: Optional[UUID] = Query(None, description="Filter by driver"),
     zone_id: Optional[UUID] = Query(None, description="Filter by zone"),
     start_time: Optional[datetime] = Query(None, description="Start time filter"),
@@ -313,7 +313,7 @@ def get_geofence_events(
     summary="Report geofence event",
     description="Create a geofence event when driver enters or exits a zone"
 )
-def create_geofence_event(
+async def create_geofence_event(
     event_data: GeofenceEventCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -363,7 +363,7 @@ def create_geofence_event(
     summary="Optimize route",
     description="Optimize waypoint order using OSRM routing engine"
 )
-def optimize_route(
+async def optimize_route(
     request: RouteOptimizeRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -388,7 +388,7 @@ def optimize_route(
     summary="List saved routes",
     description="Get list of saved routes for organization"
 )
-def list_routes(
+async def list_routes(
     status_filter: Optional[str] = Query(None, description="Filter by status"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
@@ -438,7 +438,7 @@ def list_routes(
     summary="Create saved route",
     description="Save a route with waypoints"
 )
-def create_route(
+async def create_route(
     route_data: RouteCreate,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -470,7 +470,7 @@ def create_route(
     summary="Get route details",
     description="Get details of a specific saved route"
 )
-def get_route(
+async def get_route(
     route_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -500,7 +500,7 @@ def get_route(
     summary="Update route",
     description="Update a saved route"
 )
-def update_route(
+async def update_route(
     route_id: UUID,
     route_data: RouteUpdate,
     current_user: User = Depends(get_current_user),
@@ -548,7 +548,7 @@ def update_route(
     summary="Delete route",
     description="Delete a saved route"
 )
-def delete_route(
+async def delete_route(
     route_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -583,7 +583,7 @@ def delete_route(
     summary="Enable/disable tracking for driver",
     description="Admin endpoint to control GPS tracking for a driver"
 )
-def update_driver_tracking(
+async def update_driver_tracking(
     driver_id: UUID,
     tracking_update: DriverTrackingUpdate,
     current_user: User = Depends(get_current_user),
@@ -612,7 +612,7 @@ def update_driver_tracking(
     summary="Get tracking status for driver",
     description="Check if tracking is enabled for a driver"
 )
-def get_driver_tracking_status(
+async def get_driver_tracking_status(
     driver_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -644,7 +644,7 @@ def get_driver_tracking_status(
     summary="Get trip analytics",
     description="Calculate analytics for a driver's trip (distance, speed, stops)"
 )
-def get_trip_analytics(
+async def get_trip_analytics(
     driver_id: UUID = Query(..., description="Driver ID"),
     start_time: datetime = Query(..., description="Trip start time"),
     end_time: datetime = Query(..., description="Trip end time"),

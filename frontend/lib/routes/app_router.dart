@@ -30,6 +30,7 @@ import 'package:fleet_management/presentation/screens/roles/custom_roles_screen.
 import 'package:fleet_management/presentation/screens/roles/create_custom_role_screen.dart';
 import 'package:fleet_management/presentation/screens/profile/profile_screen.dart';
 import 'package:fleet_management/presentation/screens/settings/settings_screen.dart';
+import 'package:fleet_management/presentation/screens/settings/branding_settings_screen.dart';
 import 'package:fleet_management/presentation/screens/help/enhanced_help_screen.dart';
 import 'package:fleet_management/presentation/screens/help/help_center_screen.dart';
 import 'package:fleet_management/presentation/screens/tracking/live_tracking_screen.dart';
@@ -370,6 +371,14 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => MaterialPage(
               key: state.pageKey,
               child: const SettingsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/settings/branding',
+            name: 'branding-settings',
+            pageBuilder: (context, state) => MaterialPage(
+              key: state.pageKey,
+              child: const BrandingSettingsScreen(),
             ),
           ),
           GoRoute(

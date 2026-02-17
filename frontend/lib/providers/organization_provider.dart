@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/services/organization_api.dart';
+import 'package:fleet_management/providers/theme_provider.dart';
 
 /// Organization State (for multi-organization switching)
 class OrganizationState {
@@ -42,8 +43,9 @@ class OrganizationState {
 /// Organization Notifier (for multi-organization management)
 class OrganizationNotifier extends StateNotifier<OrganizationState> {
   final OrganizationApi _organizationApi;
+  final Ref _ref;
 
-  OrganizationNotifier(this._organizationApi) : super(OrganizationState());
+  OrganizationNotifier(this._organizationApi, this._ref) : super(OrganizationState());
 
   /// Load all organizations the user belongs to
   Future<void> loadOrganizations() async {
@@ -70,6 +72,11 @@ class OrganizationNotifier extends StateNotifier<OrganizationState> {
         currentOrganization: currentOrg,
         isLoading: false,
       );
+
+      // Load branding for current organization
+      if (currentOrg != null) {
+        _ref.read(themeProvider.notifier).loadBranding();
+      }
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -94,6 +101,10 @@ class OrganizationNotifier extends StateNotifier<OrganizationState> {
           currentOrganizationId: organizationId,
           currentOrganization: org,
         );
+
+        // Load branding for new organization
+        _ref.read(themeProvider.notifier).loadBranding();
+
         return true;
       }
 
@@ -114,5 +125,5 @@ class OrganizationNotifier extends StateNotifier<OrganizationState> {
 final organizationProvider =
     StateNotifierProvider<OrganizationNotifier, OrganizationState>((ref) {
   final organizationApi = ref.watch(organizationApiProvider);
-  return OrganizationNotifier(organizationApi);
+  return OrganizationNotifier(organizationApi, ref);
 });

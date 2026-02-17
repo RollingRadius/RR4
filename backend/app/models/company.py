@@ -63,6 +63,12 @@ class Organization(Base):
         back_populates="organization",
         cascade="all, delete-orphan"
     )
+    branding = relationship(
+        "OrganizationBranding",
+        back_populates="organization",
+        uselist=False,
+        cascade="all, delete-orphan"
+    )
 
     # Constraints
     __table_args__ = (

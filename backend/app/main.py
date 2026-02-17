@@ -6,6 +6,8 @@ Authentication & Company Management API
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+import os
 
 from app.config import settings
 
@@ -97,7 +99,7 @@ async def shutdown_event():
 from app.api.v1 import (
     auth, company, driver, user, organization, reports, capabilities,
     custom_roles, templates, vehicles, profile, roles, organization_management,
-    tracking, expenses, invoices, payments, budgets
+    tracking, expenses, invoices, payments, budgets, branding
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -114,12 +116,18 @@ app.include_router(capabilities.router, prefix="/api/capabilities", tags=["Capab
 app.include_router(custom_roles.router, prefix="/api/custom-roles", tags=["Custom Roles"])
 app.include_router(templates.router, prefix="/api/templates", tags=["Templates"])
 app.include_router(tracking.router, prefix="/api/v1", tags=["GPS Tracking"])
+app.include_router(branding.router, prefix="/api/v1/branding", tags=["Branding"])
 
 # Financial Management API routers
 app.include_router(expenses.router, prefix="/api/expenses", tags=["Expenses"])
 app.include_router(invoices.router, prefix="/api/invoices", tags=["Invoices"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])
+
+# Mount static files for logo uploads
+uploads_path = os.path.join(os.getcwd(), settings.UPLOAD_DIR)
+os.makedirs(uploads_path, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
 
 
 if __name__ == "__main__":
