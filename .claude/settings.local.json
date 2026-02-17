@@ -81,7 +81,13 @@
       "Bash(powershell -Command \"\\(Get-Content ''templates.py''\\) -replace ''async def '', ''def '' | Set-Content ''templates.py''\")",
       "Bash(docker:*)",
       "Bash(openssl rand:*)",
-      "Bash(powershell:*)"
+      "Bash(powershell:*)",
+      "Bash(backend/START_DOCKER.md:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(backend/start.bat:*)",
+      "Bash(backend/stop.bat:*)",
+      "Bash(backend/logs.bat:*)",
+      "Bash(chmod:*)"
     ]
   }
 }

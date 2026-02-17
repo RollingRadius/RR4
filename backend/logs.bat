@@ -1,12 +1,5 @@
 @echo off
-REM Fleet Management System - View Logs
-
+echo Fleet Management System Logs
+echo Press Ctrl+C to exit
 echo.
-echo ========================================
-echo Fleet Management System - Live Logs
-echo ========================================
-echo.
-echo Press Ctrl+C to stop viewing logs
-echo.
-
-docker-compose logs -f
+docker compose logs -f backend
