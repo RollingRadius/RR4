@@ -13,8 +13,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"  # Changed to 5433 to avoid conflict
+    # No external port - accessible only from backend container via Docker network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fleet_user -d fleet_db"]
       interval: 10s
@@ -40,8 +39,7 @@ services:
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
-    ports:
-      - "6379:6379"
+    # No external port - accessible only from backend container via Docker network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
