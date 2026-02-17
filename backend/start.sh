@@ -16,14 +16,34 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Check if Docker is running
-if ! docker info &> /dev/null; then
-    echo "❌ Docker is not running!"
-    echo "   Please start Docker Desktop and try again"
-    exit 1
-fi
+# Wait for Docker to be ready
+echo "⏳ Checking Docker status..."
+MAX_RETRIES=30
+RETRY_COUNT=0
 
-echo "✅ Docker is installed and running"
+while ! docker info &> /dev/null; do
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
+        echo "❌ Docker is not responding after 60 seconds!"
+        echo ""
+        echo "Please ensure:"
+        echo "  1. Docker Desktop is installed"
+        echo "  2. Docker Desktop is running (check system tray)"
+        echo "  3. Docker engine has fully started (may take 1-2 minutes)"
+        echo ""
+        echo "Then try again: ./start.sh"
+        exit 1
+    fi
+
+    if [ $RETRY_COUNT -eq 1 ]; then
+        echo "   Docker is starting up... (this may take 1-2 minutes)"
+    fi
+
+    echo "   Waiting for Docker... ($RETRY_COUNT/$MAX_RETRIES)"
+    sleep 2
+done
+
+echo "✅ Docker is ready!"
 echo ""
 
 # Create necessary directories
