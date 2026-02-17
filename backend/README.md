@@ -1,193 +1,300 @@
-# Fleet Management System - Backend API
+# 🚀 Fleet Management Backend
 
-FastAPI backend for Fleet Management System with authentication and company management.
+Clean Python FastAPI backend with white-label branding support.
 
-## Setup Instructions
+## 📋 Prerequisites
 
-### 1. Prerequisites
-- Python 3.10 or higher
-- PostgreSQL 14 or higher
-- pip (Python package manager)
+- Python 3.11+
+- PostgreSQL database running
+- Redis (optional, for caching)
 
-### 2. Installation
+## 🔧 Setup
+
+### 1. Create Virtual Environment
 
 ```bash
-# Create virtual environment
 python -m venv venv
+```
 
-# Activate virtual environment
-# On Windows:
+### 2. Activate Virtual Environment
+
+**Windows:**
+```bash
 venv\Scripts\activate
-# On Linux/Mac:
-source venv/bin/activate
+```
 
-# Install dependencies
+**Linux/Mac:**
+```bash
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 3. Configuration
+### 4. Configure Environment
 
-```bash
-# Copy environment example
-copy .env.example .env
+Create `.env` file in backend directory:
 
-# Edit .env with your settings:
-# - DATABASE_URL: PostgreSQL connection string
-# - SECRET_KEY: JWT secret (min 32 characters)
-# - ENCRYPTION_MASTER_KEY: Security questions encryption key (min 32 characters)
-# - SMTP settings for email functionality
+```env
+# Database
+DATABASE_URL=postgresql://fleet_user:fleet_password_2024@localhost:5432/fleet_db
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=fleet_db
+DB_USER=fleet_user
+DB_PASSWORD=fleet_password_2024
+
+# Application
+APP_NAME=Fleet Management System
+APP_VERSION=1.0.0
+ENVIRONMENT=development
+DEBUG=True
+SECRET_KEY=your-secret-key-here
+
+# Server
+HOST=0.0.0.0
+PORT=8000
+
+# File Uploads
+UPLOAD_DIR=./uploads
+MAX_UPLOAD_SIZE=10485760
+
+# CORS
+CORS_ORIGINS=["http://localhost:3000","http://localhost:8080","http://localhost:5173"]
 ```
 
-### 4. Database Setup
+### 5. Run Database Migrations
 
 ```bash
-# Create PostgreSQL database
-createdb fleet_db
-
-# Or using psql:
-psql -U postgres
-CREATE DATABASE fleet_db;
-\q
-
-# Initialize Alembic (if not already done)
-alembic init alembic
-
-# Run migrations
 alembic upgrade head
 ```
 
-### 5. Run Application
+### 6. Seed Initial Data (Optional)
 
 ```bash
-# Development mode with auto-reload
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# Or using the main.py directly
-python -m app.main
+python seed_capabilities.py
 ```
 
-### 6. API Documentation
+## 🚀 Start Server
+
+### Quick Start (Windows)
+
+```bash
+start.bat
+```
+
+### Manual Start
+
+```bash
+# Activate virtual environment first
+venv\Scripts\activate
+
+# Start server
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+## 📊 Endpoints
 
 Once running, access:
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
-- **Health Check**: http://localhost:8000/health
 
-## Project Structure
+- **API Docs:** http://localhost:8000/docs
+- **Health Check:** http://localhost:8000/health
+- **Branding API:** http://localhost:8000/api/v1/branding
+
+## 🎨 Branding Features
+
+The backend includes white-label branding support:
+
+### Get Branding
+```bash
+GET /api/v1/branding
+Authorization: Bearer {token}
+```
+
+### Update Colors
+```bash
+PUT /api/v1/branding
+Content-Type: application/json
+Authorization: Bearer {token}
+
+{
+  "colors": {
+    "primary_color": "#1E40AF",
+    "primary_dark": "#1E3A8A",
+    "primary_light": "#3B82F6",
+    "secondary_color": "#06B6D4",
+    "accent_color": "#0EA5E9",
+    "background_primary": "#F8FAFC",
+    "background_secondary": "#FFFFFF"
+  }
+}
+```
+
+### Upload Logo
+```bash
+POST /api/v1/branding/logo
+Content-Type: multipart/form-data
+Authorization: Bearer {token}
+
+file: [logo.png]
+```
+
+### Delete Logo
+```bash
+DELETE /api/v1/branding/logo
+Authorization: Bearer {token}
+```
+
+## 📁 Project Structure
 
 ```
 backend/
 ├── app/
-│   ├── main.py                 # FastAPI application
-│   ├── config.py               # Configuration management
-│   ├── database.py             # Database connection
-│   ├── models/                 # SQLAlchemy models
-│   ├── schemas/                # Pydantic schemas
-│   ├── api/                    # API endpoints
-│   │   └── v1/                 # API version 1
-│   ├── services/               # Business logic
-│   ├── core/                   # Core utilities
-│   │   ├── security.py         # Password hashing, JWT
-│   │   └── encryption.py       # Security questions encryption
-│   └── utils/                  # Helper functions
-├── alembic/                    # Database migrations
-├── tests/                      # Test files
-├── requirements.txt            # Python dependencies
-├── .env.example                # Environment template
-└── README.md                   # This file
+│   ├── api/          # API endpoints
+│   ├── models/       # Database models
+│   ├── schemas/      # Pydantic schemas
+│   ├── services/     # Business logic
+│   ├── core/         # Core functionality
+│   ├── utils/        # Utilities
+│   └── main.py       # FastAPI application
+├── alembic/          # Database migrations
+├── uploads/          # Uploaded files (logos)
+├── requirements.txt  # Python dependencies
+├── alembic.ini      # Alembic configuration
+└── README.md        # This file
 ```
 
-## Features
+## 🗄️ Database
 
-### Authentication
-- Email-based signup with verification
-- Security questions signup (no email required)
-- JWT authentication
-- Password recovery (email + security questions)
-- Username recovery
-- Account lockout after failed attempts
-
-### Company Management
-- Search companies by name
-- Join existing company
-- Create new company with optional GSTIN/PAN
-- GSTIN/PAN format validation
-
-### Security
-- Bcrypt password hashing
-- AES-256 encryption for security answers
-- PBKDF2 key derivation (100K iterations)
-- JWT token-based authentication
-- Rate limiting
-- Audit logging
-
-## API Endpoints
-
-### Authentication
-- `POST /api/auth/signup` - User signup
-- `POST /api/auth/login` - User login
-- `POST /api/auth/verify-email` - Email verification
-- `POST /api/auth/forgot-password` - Password recovery
-- `POST /api/auth/recover-username` - Username recovery
-- `GET /api/auth/security-questions` - Get security questions list
-
-### Company Management
-- `GET /api/companies/search` - Search companies
-- `POST /api/companies/validate` - Validate GSTIN/PAN
-- `POST /api/companies/create` - Create new company
-
-## Development
-
-### Running Tests
+### Run Migrations
 ```bash
-pytest
-```
-
-### Database Migrations
-```bash
-# Create new migration
-alembic revision --autogenerate -m "description"
-
-# Apply migrations
 alembic upgrade head
-
-# Rollback migration
-alembic downgrade -1
 ```
 
-### Code Quality
+### Create New Migration
 ```bash
-# Format code
-black app/
-
-# Type checking
-mypy app/
-
-# Linting
-ruff check app/
+alembic revision --autogenerate -m "description"
 ```
 
-## Environment Variables
+### Check Current Migration
+```bash
+alembic current
+```
 
-Key environment variables:
+### Migration History
+```bash
+alembic history
+```
 
-- `DATABASE_URL`: PostgreSQL connection string
-- `SECRET_KEY`: JWT signing secret (min 32 chars)
-- `ENCRYPTION_MASTER_KEY`: Security questions encryption (min 32 chars)
-- `SMTP_*`: Email configuration for verification emails
-- `MAX_FAILED_LOGIN_ATTEMPTS`: Account lockout threshold (default: 3)
-- `ACCOUNT_LOCKOUT_MINUTES`: Lockout duration (default: 30)
+## 🔧 Utilities
 
-## Security Notes
+### Initialize Database
+```bash
+python init-db.py
+```
 
-1. **Never commit** .env file or secrets to version control
-2. Use strong SECRET_KEY and ENCRYPTION_MASTER_KEY in production
-3. Enable HTTPS in production
-4. Configure proper CORS origins
-5. Use environment-specific configuration
-6. Rotate secrets regularly
-7. Monitor audit logs for suspicious activity
+### Reset Database (⚠️ Deletes all data)
+```bash
+python reset-db.py
+```
 
-## Support
+### Seed Capabilities
+```bash
+python seed_capabilities.py
+```
 
-For issues or questions, refer to the main project documentation.
+## 📦 Key Dependencies
+
+- **FastAPI** - Web framework
+- **SQLAlchemy** - ORM
+- **Alembic** - Database migrations
+- **Pydantic** - Data validation
+- **Uvicorn** - ASGI server
+- **PostgreSQL** - Database
+- **Python-multipart** - File uploads
+
+## 🛠️ Development
+
+### Install Dev Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### Run with Auto-reload
+```bash
+uvicorn app.main:app --reload
+```
+
+### Access Interactive API Docs
+http://localhost:8000/docs
+
+## 🔐 Authentication
+
+The API uses JWT tokens. Get a token by:
+
+```bash
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "username": "your_username",
+  "password": "your_password"
+}
+```
+
+Use the returned token in subsequent requests:
+```
+Authorization: Bearer {access_token}
+```
+
+## ✅ Health Check
+
+```bash
+curl http://localhost:8000/health
+```
+
+Response:
+```json
+{
+  "status": "healthy",
+  "app_name": "Fleet Management System",
+  "version": "1.0.0"
+}
+```
+
+## 📝 Environment Variables
+
+Required:
+- `DATABASE_URL` - PostgreSQL connection string
+- `SECRET_KEY` - JWT secret key
+
+Optional:
+- `DEBUG` - Enable debug mode (default: False)
+- `CORS_ORIGINS` - Allowed CORS origins
+- `UPLOAD_DIR` - Upload directory path (default: ./uploads)
+
+## 🚀 Production Deployment
+
+For production, use multiple workers:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+Or use Gunicorn:
+
+```bash
+gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+```
+
+## 📞 Support
+
+- API Documentation: http://localhost:8000/docs
+- Health Check: http://localhost:8000/health
+
+---
+
+**Built with FastAPI** | **White-Label Branding Enabled** 🎨
