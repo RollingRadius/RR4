@@ -37,9 +37,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy requirements file
 COPY requirements.txt .
 
-# Install Python dependencies with cache mount for better performance
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --user --no-warn-script-location -r requirements.txt
+# Install Python dependencies
+RUN pip install --user --no-warn-script-location -r requirements.txt
 
 # ============================================================================
 # Stage 3: Development - Full environment with hot reload

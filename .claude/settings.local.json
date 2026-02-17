@@ -88,7 +88,9 @@
       "Bash(backend/stop.bat:*)",
       "Bash(backend/logs.bat:*)",
       "Bash(chmod:*)",
-      "Bash(backend/check-docker.bat:*)"
+      "Bash(backend/check-docker.bat:*)",
+      "Bash(./start.sh:*)",
+      "Bash(docker-compose:*)"
     ]
   }
 }
