@@ -1,10 +1,10 @@
 # Fleet Management System - Backend Dockerfile
-# Multi-stage build for optimized, secure production image
+# Alpine-based build for smaller, faster images
 
 # ============================================================================
 # Stage 1: Base - Common dependencies and configuration
 # ============================================================================
-FROM python:3.11-slim AS base
+FROM python:3.11-alpine AS base
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -14,8 +14,8 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DEFAULT_TIMEOUT=100
 
 # Create app user with specific UID/GID for security
-RUN groupadd -g 1001 -r appgroup && \
-    useradd -r -u 1001 -g appgroup -m -d /home/appuser -s /bin/bash appuser
+RUN addgroup -g 1001 appgroup && \
+    adduser -D -u 1001 -G appgroup appuser
 
 # Set working directory
 WORKDIR /app
@@ -26,15 +26,13 @@ WORKDIR /app
 FROM base AS builder
 
 # Install build dependencies (only in builder stage)
-RUN apt-get update --allow-releaseinfo-change && \
-    apt-get install -y --no-install-recommends \
+RUN apk add --no-cache --virtual .build-deps \
     gcc \
     g++ \
-    python3-dev \
     musl-dev \
-    libpq-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+    python3-dev \
+    postgresql-dev \
+    linux-headers
 
 # Copy requirements file
 COPY requirements.txt .
@@ -42,19 +40,20 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --user --no-warn-script-location -r requirements.txt
 
+# Remove build dependencies
+RUN apk del .build-deps
+
 # ============================================================================
 # Stage 3: Development - Full environment with hot reload
 # ============================================================================
 FROM base AS development
 
 # Install runtime dependencies + development tools
-RUN apt-get update --allow-releaseinfo-change && \
-    apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     postgresql-client \
     curl \
-    vim && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+    bash \
+    vim
 
 # Copy Python packages from builder
 COPY --from=builder /root/.local /root/.local
@@ -88,12 +87,10 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 FROM base AS production
 
 # Install only runtime dependencies (no build tools)
-RUN apt-get update --allow-releaseinfo-change && \
-    apt-get install -y --no-install-recommends \
+RUN apk add --no-cache \
     postgresql-client \
-    curl && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+    curl \
+    bash
 
 # Copy Python packages from builder
 COPY --from=builder /root/.local /root/.local
