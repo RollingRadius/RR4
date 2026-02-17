@@ -1,0 +1,117 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: fleet_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fleet_db
+      POSTGRES_USER: fleet_user
+      POSTGRES_PASSWORD: fleet_password_2024
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fleet_user -d fleet_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - fleet-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # Redis Cache (for location caching and sessions)
+  redis:
+    image: redis:7-alpine
+    container_name: fleet_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - fleet-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: fleet_backend
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      DATABASE_URL: postgresql://fleet_user:fleet_password_2024@postgres:5432/fleet_db
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: fleet_db
+      DB_USER: fleet_user
+      DB_PASSWORD: fleet_password_2024
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
+      - ./alembic:/app/alembic
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - fleet-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  fleet-network:
+    driver: bridge
+    name: fleet_network
+
+volumes:
+  postgres_data:
+    name: fleet_postgres_data
+  redis_data:
+    name: fleet_redis_data
