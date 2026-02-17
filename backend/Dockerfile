@@ -26,13 +26,15 @@ WORKDIR /app
 FROM base AS builder
 
 # Install build dependencies (only in builder stage)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update --allow-releaseinfo-change && \
+    apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     python3-dev \
     musl-dev \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+    libpq-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Copy requirements file
 COPY requirements.txt .
@@ -46,11 +48,13 @@ RUN pip install --user --no-warn-script-location -r requirements.txt
 FROM base AS development
 
 # Install runtime dependencies + development tools
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update --allow-releaseinfo-change && \
+    apt-get install -y --no-install-recommends \
     postgresql-client \
     curl \
-    vim \
-    && rm -rf /var/lib/apt/lists/*
+    vim && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Copy Python packages from builder
 COPY --from=builder /root/.local /root/.local
@@ -84,11 +88,12 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 FROM base AS production
 
 # Install only runtime dependencies (no build tools)
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update --allow-releaseinfo-change && \
+    apt-get install -y --no-install-recommends \
     postgresql-client \
-    curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
 # Copy Python packages from builder
 COPY --from=builder /root/.local /root/.local
