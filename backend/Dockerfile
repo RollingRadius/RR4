@@ -37,8 +37,8 @@ RUN apk add --no-cache --virtual .build-deps \
 # Copy requirements file
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --user --no-warn-script-location -r requirements.txt
+# Install Python dependencies globally (not --user)
+RUN pip install --no-warn-script-location -r requirements.txt
 
 # Remove build dependencies
 RUN apk del .build-deps
@@ -53,13 +53,13 @@ RUN apk add --no-cache \
     postgresql-client \
     curl \
     bash \
-    vim
+    vim \
+    redis \
+    netcat-openbsd
 
-# Copy Python packages from builder
-COPY --from=builder /root/.local /root/.local
-
-# Add Python packages to PATH
-ENV PATH=/root/.local/bin:$PATH
+# Copy Python packages from builder (now in global site-packages)
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY --chown=appuser:appgroup . .
@@ -90,13 +90,13 @@ FROM base AS production
 RUN apk add --no-cache \
     postgresql-client \
     curl \
-    bash
+    bash \
+    redis \
+    netcat-openbsd
 
-# Copy Python packages from builder
-COPY --from=builder /root/.local /root/.local
-
-# Add Python packages to PATH
-ENV PATH=/root/.local/bin:$PATH
+# Copy Python packages from builder (now in global site-packages)
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code with proper ownership
 COPY --chown=appuser:appgroup ./app /app/app

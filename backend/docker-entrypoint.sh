@@ -23,16 +23,16 @@ echo "✅ PostgreSQL is ready!"
 # Wait for Redis to be ready
 echo "⏳ Waiting for Redis to be ready..."
 RETRY_COUNT=0
-while ! redis-cli -h redis ping > /dev/null 2>&1; do
+while ! nc -z redis 6379 > /dev/null 2>&1; do
   RETRY_COUNT=$((RETRY_COUNT+1))
-  if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
-    echo "⚠️  Redis failed to start, continuing without Redis..."
+  if [ $RETRY_COUNT -ge 15 ]; then
+    echo "⚠️  Redis connection timeout, continuing anyway..."
     break
   fi
-  echo "   Waiting for Redis... ($RETRY_COUNT/$MAX_RETRIES)"
+  echo "   Waiting for Redis... ($RETRY_COUNT/15)"
   sleep 1
 done
-if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+if [ $RETRY_COUNT -lt 15 ]; then
   echo "✅ Redis is ready!"
 fi
 
@@ -44,11 +44,16 @@ fi
 
 # Run database migrations
 echo "🔄 Running database migrations..."
-alembic upgrade head || {
-  echo "❌ Database migration failed!"
+if command -v alembic > /dev/null 2>&1; then
+  alembic upgrade head && echo "✅ Migrations completed!" || {
+    echo "⚠️  Database migration failed, but continuing..."
+    echo "   You may need to run migrations manually: docker-compose exec backend alembic upgrade head"
+  }
+else
+  echo "❌ Alembic not found in PATH!"
+  echo "   PATH=$PATH"
   exit 1
-}
-echo "✅ Migrations completed!"
+fi
 
 # Execute the main command
 echo "================================================"
