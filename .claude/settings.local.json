@@ -90,7 +90,10 @@
       "Bash(chmod:*)",
       "Bash(backend/check-docker.bat:*)",
       "Bash(./start.sh:*)",
-      "Bash(docker-compose:*)"
+      "Bash(docker-compose:*)",
+      "Bash(\"C:\\\\Users\\\\ACSS\\\\AppData\\\\Local\\\\Android\\\\sdk\\\\platform-tools\\\\adb.exe\" devices)",
+      "Bash(\"C:\\\\Users\\\\ACSS\\\\AppData\\\\Local\\\\Android\\\\sdk\\\\platform-tools\\\\adb.exe\" install -r \"E:\\\\Projects\\\\RR4\\\\frontend\\\\build\\\\app\\\\outputs\\\\flutter-apk\\\\app-release.apk\")",
+      "Bash(ssh root@fc3 'cd /home/RR4/backend && docker-compose exec backend alembic upgrade head')"
     ]
   }
 }

@@ -2,11 +2,11 @@
 /// Centralized configuration for API endpoints and app settings
 class AppConfig {
   // API Configuration
-  // For web/desktop development, use localhost
-  // For mobile device testing on local network, use computer's IP address (e.g., 192.168.1.3)
+  // Production server IP: 34.127.125.215
+  // For local development, use localhost or set API_BASE_URL environment variable
   // For Android emulator, use 10.0.2.2
   static const String apiBaseUrl =
-      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://localhost:8000');
+      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://34.127.125.215:8000');
 
   static const String apiVersion = '/api';
 
