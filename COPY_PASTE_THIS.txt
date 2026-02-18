@@ -1,0 +1,75 @@
+========================================
+FIX 500 ERROR - COPY & PASTE THIS
+========================================
+
+Your phone app is FINE.
+The problem is on the SERVER - database tables don't exist.
+
+========================================
+RUN THIS ONE COMMAND:
+========================================
+
+ssh root@fc3 'cd /home/RR4/backend && docker-compose exec backend alembic upgrade head && docker-compose exec backend python init-db.py && docker-compose restart backend'
+
+
+========================================
+WHAT IT DOES:
+========================================
+
+1. Connects to your server (fc3)
+2. Goes to backend directory
+3. Creates all database tables (users, companies, drivers, vehicles, etc.)
+4. Adds default data
+5. Restarts backend
+
+Takes: 10-30 seconds
+
+========================================
+AFTER RUNNING:
+========================================
+
+1. Open your phone
+2. Open "Fleet Management System" app
+3. Try signup - WILL WORK NOW!
+
+========================================
+TEST IN BROWSER:
+========================================
+
+http://34.127.125.215:8000/docs
+
+Click "auth" → "POST /api/auth/signup" → Try it out
+
+Fill in:
+- username: testuser
+- email: test@test.com
+- password: Test123!
+- full_name: Test User
+- phone: 1234567890
+- auth_method: email
+- terms_accepted: true
+
+Click Execute → Should work!
+
+========================================
+IF IT STILL FAILS:
+========================================
+
+Run these commands to check:
+
+ssh root@fc3
+cd /home/RR4/backend
+docker-compose logs backend | tail -50
+
+And share the output with me.
+
+========================================
+SUMMARY:
+========================================
+
+✅ Your phone app is correctly configured
+✅ Backend server is running
+❌ Database tables were never created
+🔧 FIX: Run the command above
+
+========================================
