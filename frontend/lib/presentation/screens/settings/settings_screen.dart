@@ -5,6 +5,7 @@ import 'package:fleet_management/providers/settings_provider.dart';
 import 'package:fleet_management/providers/location_tracking_provider.dart';
 import 'package:fleet_management/data/services/location_service.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -24,10 +25,13 @@ class SettingsScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16.0),
               children: [
                 // Notifications Section
-                _buildSectionHeader(context, 'Notifications'),
-                _buildSettingsCard(
-                  context,
-                  children: [
+                FadeSlide(
+                  delay: 0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionHeader(context, 'Notifications'),
+                      _buildSettingsCard(context, children: [
                     _buildSwitchTile(
                       context: context,
                       title: 'Push Notifications',
@@ -88,199 +92,212 @@ class SettingsScreen extends ConsumerWidget {
                         indented: true,
                       ),
                     ],
-                  ],
-                ),
+                  ]),
+                    ],
+                  ),
+                ),  // closes FadeSlide for Notifications
                 const SizedBox(height: 24),
 
                 // Location & Tracking Section
-                _buildSectionHeader(context, 'Location & Tracking'),
-                _buildTrackingSection(context, ref, settingsState),
+                FadeSlide(
+                  delay: 100,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionHeader(context, 'Location & Tracking'),
+                      _buildTrackingSection(context, ref, settingsState),
+                    ],
+                  ),
+                ),  // closes FadeSlide for Location
                 const SizedBox(height: 24),
 
                 // Display Section
-                _buildSectionHeader(context, 'Display'),
-                _buildSettingsCard(
-                  context,
-                  children: [
-                    _buildDropdownTile(
-                      context: context,
-                      title: 'Theme',
-                      subtitle: 'Choose app appearance',
-                      icon: Icons.palette_outlined,
-                      value: settingsState.settings.themeMode,
-                      items: const {
-                        'system': 'System Default',
-                        'light': 'Light',
-                        'dark': 'Dark',
-                      },
-                      onChanged: (value) {
-                        if (value != null) {
-                          ref.read(settingsProvider.notifier).updateSetting(
-                                'themeMode',
-                                value,
-                              );
-                        }
-                      },
-                    ),
-                    const Divider(height: 1),
-                    _buildSwitchTile(
-                      context: context,
-                      title: 'Compact View',
-                      subtitle: 'Show more items on screen',
-                      icon: Icons.view_compact_outlined,
-                      value: settingsState.settings.compactView,
-                      onChanged: (value) {
-                        ref.read(settingsProvider.notifier).updateSetting(
-                              'compactView',
-                              value,
-                            );
-                      },
-                    ),
-                  ],
-                ),
+                FadeSlide(
+                  delay: 200,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionHeader(context, 'Display'),
+                      _buildSettingsCard(context, children: [
+                        _buildDropdownTile(
+                          context: context,
+                          title: 'Theme',
+                          subtitle: 'Choose app appearance',
+                          icon: Icons.palette_outlined,
+                          value: settingsState.settings.themeMode,
+                          items: const {
+                            'system': 'System Default',
+                            'light': 'Light',
+                            'dark': 'Dark',
+                          },
+                          onChanged: (value) {
+                            if (value != null) {
+                              ref.read(settingsProvider.notifier).updateSetting('themeMode', value);
+                            }
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildSwitchTile(
+                          context: context,
+                          title: 'Compact View',
+                          subtitle: 'Show more items on screen',
+                          icon: Icons.view_compact_outlined,
+                          value: settingsState.settings.compactView,
+                          onChanged: (value) {
+                            ref.read(settingsProvider.notifier).updateSetting('compactView', value);
+                          },
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),  // closes FadeSlide for Display
                 const SizedBox(height: 24),
 
                 // Data & Storage Section
-                _buildSectionHeader(context, 'Data & Storage'),
-                _buildSettingsCard(
-                  context,
-                  children: [
-                    _buildSwitchTile(
-                      context: context,
-                      title: 'Auto-sync Data',
-                      subtitle: 'Automatically sync data when online',
-                      icon: Icons.sync,
-                      value: settingsState.settings.autoSync,
-                      onChanged: (value) {
-                        ref.read(settingsProvider.notifier).updateSetting(
-                              'autoSync',
-                              value,
-                            );
-                      },
-                    ),
-                    const Divider(height: 1),
-                    _buildSwitchTile(
-                      context: context,
-                      title: 'Offline Mode',
-                      subtitle: 'Cache data for offline access',
-                      icon: Icons.cloud_off_outlined,
-                      value: settingsState.settings.offlineMode,
-                      onChanged: (value) {
-                        ref.read(settingsProvider.notifier).updateSetting(
-                              'offlineMode',
-                              value,
-                            );
-                      },
-                    ),
-                    const Divider(height: 1),
-                    _buildTile(
-                      context: context,
-                      title: 'Clear Cache',
-                      subtitle: 'Free up storage space',
-                      icon: Icons.delete_outline,
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => _showClearCacheDialog(context, ref),
-                    ),
-                  ],
-                ),
+                FadeSlide(
+                  delay: 300,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionHeader(context, 'Data & Storage'),
+                      _buildSettingsCard(context, children: [
+                        _buildSwitchTile(
+                          context: context,
+                          title: 'Auto-sync Data',
+                          subtitle: 'Automatically sync data when online',
+                          icon: Icons.sync,
+                          value: settingsState.settings.autoSync,
+                          onChanged: (value) {
+                            ref.read(settingsProvider.notifier).updateSetting('autoSync', value);
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildSwitchTile(
+                          context: context,
+                          title: 'Offline Mode',
+                          subtitle: 'Cache data for offline access',
+                          icon: Icons.cloud_off_outlined,
+                          value: settingsState.settings.offlineMode,
+                          onChanged: (value) {
+                            ref.read(settingsProvider.notifier).updateSetting('offlineMode', value);
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildTile(
+                          context: context,
+                          title: 'Clear Cache',
+                          subtitle: 'Free up storage space',
+                          icon: Icons.delete_outline,
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => _showClearCacheDialog(context, ref),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),  // closes FadeSlide for Data & Storage
                 const SizedBox(height: 24),
 
                 // Privacy & Security Section
-                _buildSectionHeader(context, 'Privacy & Security'),
-                _buildSettingsCard(
-                  context,
-                  children: [
-                    _buildSwitchTile(
-                      context: context,
-                      title: 'Biometric Lock',
-                      subtitle: 'Use fingerprint/face ID to unlock app',
-                      icon: Icons.fingerprint,
-                      value: settingsState.settings.biometricLock,
-                      onChanged: (value) {
-                        ref.read(settingsProvider.notifier).updateSetting(
-                              'biometricLock',
-                              value,
-                            );
-                      },
-                    ),
-                    const Divider(height: 1),
-                    _buildSwitchTile(
-                      context: context,
-                      title: 'Share Analytics',
-                      subtitle: 'Help improve app with anonymous usage data',
-                      icon: Icons.analytics_outlined,
-                      value: settingsState.settings.shareAnalytics,
-                      onChanged: (value) {
-                        ref.read(settingsProvider.notifier).updateSetting(
-                              'shareAnalytics',
-                              value,
-                            );
-                      },
-                    ),
-                  ],
-                ),
+                FadeSlide(
+                  delay: 400,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionHeader(context, 'Privacy & Security'),
+                      _buildSettingsCard(context, children: [
+                        _buildSwitchTile(
+                          context: context,
+                          title: 'Biometric Lock',
+                          subtitle: 'Use fingerprint/face ID to unlock app',
+                          icon: Icons.fingerprint,
+                          value: settingsState.settings.biometricLock,
+                          onChanged: (value) {
+                            ref.read(settingsProvider.notifier).updateSetting('biometricLock', value);
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildSwitchTile(
+                          context: context,
+                          title: 'Share Analytics',
+                          subtitle: 'Help improve app with anonymous usage data',
+                          icon: Icons.analytics_outlined,
+                          value: settingsState.settings.shareAnalytics,
+                          onChanged: (value) {
+                            ref.read(settingsProvider.notifier).updateSetting('shareAnalytics', value);
+                          },
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),  // closes FadeSlide for Privacy
                 const SizedBox(height: 24),
 
                 // About Section
-                _buildSectionHeader(context, 'About'),
-                _buildSettingsCard(
-                  context,
-                  children: [
-                    _buildTile(
-                      context: context,
-                      title: 'App Version',
-                      subtitle: '1.0.0',
-                      icon: Icons.info_outline,
-                    ),
-                    const Divider(height: 1),
-                    _buildTile(
-                      context: context,
-                      title: 'Terms of Service',
-                      icon: Icons.description_outlined,
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        // TODO: Open terms of service
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Terms of Service')),
-                        );
-                      },
-                    ),
-                    const Divider(height: 1),
-                    _buildTile(
-                      context: context,
-                      title: 'Privacy Policy',
-                      icon: Icons.privacy_tip_outlined,
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () {
-                        // TODO: Open privacy policy
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Privacy Policy')),
-                        );
-                      },
-                    ),
-                    const Divider(height: 1),
-                    _buildTile(
-                      context: context,
-                      title: 'Help & Support',
-                      icon: Icons.help_outline,
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.push('/help'),
-                    ),
-                  ],
-                ),
+                FadeSlide(
+                  delay: 500,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionHeader(context, 'About'),
+                      _buildSettingsCard(context, children: [
+                        _buildTile(
+                          context: context,
+                          title: 'App Version',
+                          subtitle: '1.0.0',
+                          icon: Icons.info_outline,
+                        ),
+                        const Divider(height: 1),
+                        _buildTile(
+                          context: context,
+                          title: 'Terms of Service',
+                          icon: Icons.description_outlined,
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Terms of Service')),
+                            );
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildTile(
+                          context: context,
+                          title: 'Privacy Policy',
+                          icon: Icons.privacy_tip_outlined,
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Privacy Policy')),
+                            );
+                          },
+                        ),
+                        const Divider(height: 1),
+                        _buildTile(
+                          context: context,
+                          title: 'Help & Support',
+                          icon: Icons.help_outline,
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => context.push('/help'),
+                        ),
+                      ]),
+                    ],
+                  ),
+                ),  // closes FadeSlide for About
                 const SizedBox(height: 32),
 
                 // Reset Settings Button
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: OutlinedButton.icon(
-                    onPressed: () => _showResetDialog(context, ref),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Reset to Default Settings'),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      foregroundColor: Colors.orange,
-                      side: const BorderSide(color: Colors.orange),
+                FadeSlide(
+                  delay: 600,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: OutlinedButton.icon(
+                      onPressed: () => _showResetDialog(context, ref),
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Reset to Default Settings'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        foregroundColor: Colors.orange,
+                        side: const BorderSide(color: Colors.orange),
+                      ),
                     ),
                   ),
                 ),

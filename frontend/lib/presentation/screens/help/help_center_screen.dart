@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class HelpCenterScreen extends ConsumerStatefulWidget {
   const HelpCenterScreen({super.key});
@@ -25,11 +26,11 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
       body: CustomScrollView(
         slivers: [
           _buildAppBar(),
-          SliverToBoxAdapter(child: _buildSearchSection()),
-          SliverToBoxAdapter(child: _buildQuickActions()),
-          SliverToBoxAdapter(child: _buildPopularArticles()),
-          SliverToBoxAdapter(child: _buildCategories()),
-          SliverToBoxAdapter(child: _buildContactSupport()),
+          SliverToBoxAdapter(child: FadeSlide(delay: 0, child: _buildSearchSection())),
+          SliverToBoxAdapter(child: FadeSlide(delay: 100, child: _buildQuickActions())),
+          SliverToBoxAdapter(child: FadeSlide(delay: 200, child: _buildPopularArticles())),
+          SliverToBoxAdapter(child: FadeSlide(delay: 300, child: _buildCategories())),
+          SliverToBoxAdapter(child: FadeSlide(delay: 400, child: _buildContactSupport())),
           SliverToBoxAdapter(child: const SizedBox(height: 32)),
         ],
       ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class EmailVerificationScreen extends ConsumerStatefulWidget {
   final String? email;
@@ -95,52 +96,63 @@ class _EmailVerificationScreenState
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Email icon
-                Icon(
-                  Icons.mark_email_read,
-                  size: 100,
-                  color: Theme.of(context).primaryColor,
+                ScaleFade(
+                  delay: 0,
+                  duration: 600,
+                  child: Icon(
+                    Icons.mark_email_read,
+                    size: 100,
+                    color: Theme.of(context).primaryColor,
+                  ),
                 ),
                 const SizedBox(height: 32),
 
-                // Title
-                Text(
-                  'Verify Your Email',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                // Title + Instructions
+                FadeSlide(
+                  delay: 150,
+                  child: Column(
+                    children: [
+                      Text(
+                        'Verify Your Email',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                        textAlign: TextAlign.center,
                       ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 16),
-
-                // Instructions
-                if (widget.email != null) ...[
-                  Text(
-                    'We sent a verification code to:',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.email!,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).primaryColor,
+                      const SizedBox(height: 16),
+                      if (widget.email != null) ...[
+                        Text(
+                          'We sent a verification code to:',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                          textAlign: TextAlign.center,
                         ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                Text(
-                  'Please enter the verification code from your email below.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.email!,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).primaryColor,
+                              ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      Text(
+                        'Please enter the verification code from your email below.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                        textAlign: TextAlign.center,
                       ),
-                  textAlign: TextAlign.center,
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 32),
 
                 // Verification form
-                Card(
+                FadeSlide(
+                  delay: 300,
+                  child: Card(
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
                     child: Form(
@@ -193,29 +205,35 @@ class _EmailVerificationScreenState
                     ),
                   ),
                 ),
+                ),  // closes FadeSlide for Card
                 const SizedBox(height: 24),
 
-                // Resend link
-                TextButton(
-                  onPressed: () {
-                    // TODO: Implement resend verification email
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Verification email resent!'),
-                        backgroundColor: Colors.green,
+                // Resend + Back to login
+                FadeSlide(
+                  delay: 400,
+                  child: Column(
+                    children: [
+                      TextButton(
+                        onPressed: () {
+                          // TODO: Implement resend verification email
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Verification email resent!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        },
+                        child: const Text('Didn\'t receive the code? Resend'),
                       ),
-                    );
-                  },
-                  child: const Text('Didn\'t receive the code? Resend'),
-                ),
-
-                // Back to login
-                TextButton(
-                  onPressed: () {
-                    context.go(AppConstants.routeLogin);
-                  },
-                  child: const Text('Back to Login'),
-                ),
+                      TextButton(
+                        onPressed: () {
+                          context.go(AppConstants.routeLogin);
+                        },
+                        child: const Text('Back to Login'),
+                      ),
+                    ],
+                  ),
+                ),  // closes FadeSlide for buttons
               ],
             ),
           ),

@@ -499,10 +499,13 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
   }
 
   Widget _buildErrorState(String error) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
@@ -555,7 +558,9 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
               ),
             ),
           ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1522,10 +1527,13 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
@@ -1605,7 +1613,9 @@ class _EmptyState extends StatelessWidget {
                 ),
               ),
             ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -13,30 +13,93 @@ class DashboardScreen extends ConsumerStatefulWidget {
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen>
     with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
+  late AnimationController _controller;
+
+  // Section fade animations (opacity)
+  late Animation<double> _headerFade;
+  late Animation<double> _metricsFade;
+  late Animation<double> _statsFade;
+  late Animation<double> _actionsFade;
+  late Animation<double> _activityFade;
+
+  // Section slide animations (vertical offset)
+  late Animation<Offset> _metricsSlide;
+  late Animation<Offset> _statsSlide;
+  late Animation<Offset> _actionsSlide;
+  late Animation<Offset> _activitySlide;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(
+    _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1200),
     );
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOut,
-      ),
+    // Header: 0–35%
+    _headerFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.0, 0.35, curve: Curves.easeOut),
     );
 
-    _animationController.forward();
+    // Metrics: 15–50%
+    _metricsFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.15, 0.50, curve: Curves.easeOut),
+    );
+    _metricsSlide = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.15, 0.50, curve: Curves.easeOut),
+    ));
+
+    // Stats: 30–60%
+    _statsFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.30, 0.60, curve: Curves.easeOut),
+    );
+    _statsSlide = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.30, 0.60, curve: Curves.easeOut),
+    ));
+
+    // Actions + Fleet: 45–75%
+    _actionsFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.45, 0.75, curve: Curves.easeOut),
+    );
+    _actionsSlide = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.45, 0.75, curve: Curves.easeOut),
+    ));
+
+    // Activity: 60–100%
+    _activityFade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.60, 1.0, curve: Curves.easeOut),
+    );
+    _activitySlide = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.60, 1.0, curve: Curves.easeOut),
+    ));
+
+    _controller.forward();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -47,77 +110,110 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Determine screen breakpoints
         final isMobile = constraints.maxWidth < 600;
         final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
         final isDesktop = constraints.maxWidth >= 1024;
 
-        return FadeTransition(
-          opacity: _fadeAnimation,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Welcome Header - Responsive
-                _WelcomeHeader(
+        final hPad = isMobile ? 16.0 : 24.0;
+
+        return SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Welcome Header — full screen width, bottom-rounded
+              FadeTransition(
+                opacity: _headerFade,
+                child: _WelcomeHeader(
                   user: user,
                   isMobile: isMobile,
                   isTablet: isTablet,
                 ),
-                SizedBox(height: isMobile ? 20 : 32),
+              ),
+              SizedBox(height: isMobile ? 20 : 32),
+              // All remaining sections inside horizontal padding
+              Padding(
+                padding: EdgeInsets.fromLTRB(hPad, 0, hPad, hPad),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
 
-                // Key Metrics Overview - Responsive
-                _MetricsOverview(
-                  isMobile: isMobile,
-                  isTablet: isTablet,
+              // Metrics Overview
+              FadeTransition(
+                opacity: _metricsFade,
+                child: SlideTransition(
+                  position: _metricsSlide,
+                  child: _MetricsOverview(
+                    isMobile: isMobile,
+                    isTablet: isTablet,
+                  ),
                 ),
-                SizedBox(height: isMobile ? 20 : 32),
+              ),
+              SizedBox(height: isMobile ? 20 : 32),
 
-                // Stats Cards with adaptive grid
-                _StatsSection(
-                  isMobile: isMobile,
-                  isTablet: isTablet,
-                  isDesktop: isDesktop,
+              // Stats Cards
+              FadeTransition(
+                opacity: _statsFade,
+                child: SlideTransition(
+                  position: _statsSlide,
+                  child: _StatsSection(
+                    isMobile: isMobile,
+                    isTablet: isTablet,
+                    isDesktop: isDesktop,
+                  ),
                 ),
-                SizedBox(height: isMobile ? 20 : 32),
+              ),
+              SizedBox(height: isMobile ? 20 : 32),
 
-                // Quick Actions and Fleet Status - Adaptive Layout
-                isDesktop || isTablet
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 2,
-                            child: _QuickActionsSection(
+              // Quick Actions + Fleet Status
+              FadeTransition(
+                opacity: _actionsFade,
+                child: SlideTransition(
+                  position: _actionsSlide,
+                  child: isDesktop || isTablet
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: _QuickActionsSection(
+                                isMobile: isMobile,
+                                isTablet: isTablet,
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: _FleetStatusSection(),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            _QuickActionsSection(
                               isMobile: isMobile,
                               isTablet: isTablet,
                             ),
-                          ),
-                          const SizedBox(width: 20),
-                          Expanded(
-                            child: _FleetStatusSection(),
-                          ),
-                        ],
-                      )
-                    : Column(
-                        children: [
-                          _QuickActionsSection(
-                            isMobile: isMobile,
-                            isTablet: isTablet,
-                          ),
-                          const SizedBox(height: 20),
-                          _FleetStatusSection(),
-                        ],
-                      ),
-                SizedBox(height: isMobile ? 20 : 32),
+                            const SizedBox(height: 20),
+                            _FleetStatusSection(),
+                          ],
+                        ),
+                ),
+              ),
+              SizedBox(height: isMobile ? 20 : 32),
 
-                // Recent Activity
-                _RecentActivitySection(isMobile: isMobile),
-              ],
-            ),
-          ),
-        );
+              // Recent Activity
+              FadeTransition(
+                opacity: _activityFade,
+                child: SlideTransition(
+                  position: _activitySlide,
+                  child: _RecentActivitySection(isMobile: isMobile),
+                ),
+              ),
+                  ], // inner Column children
+                ),   // inner Column
+              ),     // Padding
+            ],       // outer Column children
+          ),         // outer Column
+        );           // SingleChildScrollView
       },
     );
   }
@@ -145,9 +241,13 @@ class _WelcomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      width: double.infinity,
       decoration: BoxDecoration(
         gradient: AppTheme.primaryGradient,
-        borderRadius: BorderRadius.circular(isMobile ? 20 : 24),
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(isMobile ? 28 : 32),
+          bottomRight: Radius.circular(isMobile ? 28 : 32),
+        ),
         boxShadow: [
           BoxShadow(
             color: AppTheme.primaryBlue.withOpacity(0.3),
@@ -157,7 +257,12 @@ class _WelcomeHeader extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: EdgeInsets.all(isMobile ? 20.0 : 28.0),
+        padding: EdgeInsets.fromLTRB(
+          isMobile ? 20.0 : 28.0,
+          isMobile ? 20.0 : 28.0,
+          isMobile ? 20.0 : 28.0,
+          isMobile ? 28.0 : 36.0, // extra bottom padding for the curve
+        ),
         child: isMobile
             ? Column(
                 children: [
@@ -570,7 +675,7 @@ class _StatsSection extends StatelessWidget {
       childAspectRatio = 1.4;
     } else {
       crossAxisCount = 1;
-      childAspectRatio = 2.5;
+      childAspectRatio = 1.9;
     }
 
     return GridView.builder(
@@ -623,13 +728,15 @@ class _StatCardState extends State<_StatCard> with SingleTickerProviderStateMixi
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<Offset> _slideAnimation;
+  // Animated counter: 0 → 1 applied to numeric values
+  late Animation<double> _valueAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 800),
     );
 
     _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
@@ -640,6 +747,14 @@ class _StatCardState extends State<_StatCard> with SingleTickerProviderStateMixi
       begin: const Offset(0, 0.3),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+
+    // Counter counts up during second half of the card animation
+    _valueAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.4, 1.0, curve: Curves.easeOut),
+      ),
+    );
 
     Future.delayed(Duration(milliseconds: widget.delay), () {
       if (mounted) _controller.forward();
@@ -663,75 +778,96 @@ class _StatCardState extends State<_StatCard> with SingleTickerProviderStateMixi
           child: InkWell(
             onTap: widget.onTap,
             borderRadius: BorderRadius.circular(20),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: widget.gradient,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: widget.gradient.colors.first.withOpacity(0.3),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Adapt padding and font size to available card height
+                final compact = constraints.maxHeight < 160;
+                final cardPadding = compact ? 14.0 : 20.0;
+                final iconPad = compact ? 9.0 : 12.0;
+                final iconSize = compact ? 24.0 : 28.0;
+                final valueFontSize = compact ? 28.0 : 36.0;
+
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: widget.gradient,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.gradient.colors.first.withOpacity(0.3),
+                        blurRadius: 16,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+                  padding: EdgeInsets.all(cardPadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(widget.icon, color: Colors.white, size: 28),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          '0%',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: EdgeInsets.all(iconPad),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.25),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Icon(widget.icon, color: Colors.white, size: iconSize),
                           ),
-                        ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              '0%',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Animated count-up for numeric values
+                          AnimatedBuilder(
+                            animation: _valueAnimation,
+                            builder: (context, _) {
+                              final numVal = int.tryParse(widget.value) ?? 0;
+                              final displayed = numVal > 0
+                                  ? (numVal * _valueAnimation.value).round().toString()
+                                  : widget.value;
+                              return Text(
+                                displayed,
+                                style: TextStyle(
+                                  fontSize: valueFontSize,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.title,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.95),
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.value,
-                        style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.title,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.95),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                );
+              },
             ),
           ),
         ),
@@ -820,6 +956,7 @@ class _QuickActionsGrid extends StatelessWidget {
             label: action['label'] as String,
             color: action['color'] as Color,
             onTap: () => context.push(action['route'] as String),
+            delay: index * 80,
           );
         },
       ),
@@ -832,64 +969,100 @@ class _QuickActionCard extends StatefulWidget {
   final String label;
   final Color color;
   final VoidCallback onTap;
+  final int delay;
 
   const _QuickActionCard({
     required this.icon,
     required this.label,
     required this.color,
     required this.onTap,
+    this.delay = 0,
   });
 
   @override
   State<_QuickActionCard> createState() => _QuickActionCardState();
 }
 
-class _QuickActionCardState extends State<_QuickActionCard> {
+class _QuickActionCardState extends State<_QuickActionCard>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _entryController;
+  late Animation<double> _entryScale;
+  late Animation<double> _entryFade;
   bool _isPressed = false;
 
   @override
+  void initState() {
+    super.initState();
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _entryScale = Tween<double>(begin: 0.7, end: 1.0).animate(
+      CurvedAnimation(parent: _entryController, curve: Curves.easeOutBack),
+    );
+    _entryFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _entryController, curve: Curves.easeOut),
+    );
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _entryController.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _entryController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _isPressed = true),
-      onTapUp: (_) {
-        setState(() => _isPressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _isPressed = false),
-      child: AnimatedScale(
-        scale: _isPressed ? 0.95 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        child: Container(
-          decoration: BoxDecoration(
-            color: widget.color.withOpacity(0.08),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: widget.color.withOpacity(0.2),
-              width: 1.5,
+    return FadeTransition(
+      opacity: _entryFade,
+      child: ScaleTransition(
+        scale: _entryScale,
+        child: GestureDetector(
+          onTapDown: (_) => setState(() => _isPressed = true),
+          onTapUp: (_) {
+            setState(() => _isPressed = false);
+            widget.onTap();
+          },
+          onTapCancel: () => setState(() => _isPressed = false),
+          child: AnimatedScale(
+            scale: _isPressed ? 0.95 : 1.0,
+            duration: const Duration(milliseconds: 100),
+            child: Container(
+              decoration: BoxDecoration(
+                color: widget.color.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: widget.color.withOpacity(0.2),
+                  width: 1.5,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: widget.color.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(widget.icon, size: 28, color: widget.color),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    widget.label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: widget.color,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: widget.color.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Icon(widget.icon, size: 28, color: widget.color),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                widget.label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: widget.color,
-                ),
-              ),
-            ],
           ),
         ),
       ),
@@ -926,6 +1099,8 @@ class _FleetStatusCard extends StatelessWidget {
       {'icon': Icons.cancel_rounded, 'label': 'Offline', 'count': 0, 'color': AppTheme.statusError},
     ];
 
+    final total = statuses.fold<int>(0, (sum, s) => sum + (s['count'] as int));
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -948,6 +1123,7 @@ class _FleetStatusCard extends StatelessWidget {
                     icon: s['icon'] as IconData,
                     label: s['label'] as String,
                     count: s['count'] as int,
+                    total: total,
                     color: s['color'] as Color,
                   ),
                 ))
@@ -961,52 +1137,79 @@ class _StatusItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final int count;
+  final int total;
   final Color color;
 
   const _StatusItem({
     required this.icon,
     required this.label,
     required this.count,
+    required this.total,
     required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final ratio = total > 0 ? count / total : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: color, size: 22),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 22),
             ),
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: color.withOpacity(0.3), width: 1),
-          ),
-          child: Text(
-            count.toString(),
-            style: TextStyle(
-              color: color,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+              ),
             ),
-          ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: color.withOpacity(0.3), width: 1),
+              ),
+              child: Text(
+                count.toString(),
+                style: TextStyle(
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Animated progress bar
+        TweenAnimationBuilder<double>(
+          tween: Tween<double>(begin: 0, end: ratio),
+          duration: const Duration(milliseconds: 1000),
+          curve: Curves.easeOut,
+          builder: (context, value, _) {
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: value,
+                minHeight: 4,
+                backgroundColor: color.withOpacity(0.12),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -1080,36 +1283,51 @@ class _RecentActivityList extends StatelessWidget {
         separatorBuilder: (_, __) => const Divider(height: 1),
         itemBuilder: (context, index) {
           final activity = activities[index];
-          return ListTile(
-            contentPadding: EdgeInsets.all(isMobile ? 16 : 20),
-            leading: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: (activity['color'] as Color).withOpacity(0.15),
-                borderRadius: BorderRadius.circular(12),
+          // Staggered slide-in per item
+          return TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: 1),
+            duration: Duration(milliseconds: 400 + index * 150),
+            curve: Curves.easeOut,
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: value,
+                child: Transform.translate(
+                  offset: Offset(0, 20 * (1 - value)),
+                  child: child,
+                ),
+              );
+            },
+            child: ListTile(
+              contentPadding: EdgeInsets.all(isMobile ? 16 : 20),
+              leading: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: (activity['color'] as Color).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  activity['icon'] as IconData,
+                  color: activity['color'] as Color,
+                  size: 24,
+                ),
               ),
-              child: Icon(
-                activity['icon'] as IconData,
-                color: activity['color'] as Color,
-                size: 24,
+              title: Text(
+                activity['title'] as String,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
               ),
-            ),
-            title: Text(
-              activity['title'] as String,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 15,
+              subtitle: Text(
+                activity['subtitle'] as String,
+                style: const TextStyle(fontSize: 13),
               ),
-            ),
-            subtitle: Text(
-              activity['subtitle'] as String,
-              style: const TextStyle(fontSize: 13),
-            ),
-            trailing: Text(
-              activity['time'] as String,
-              style: TextStyle(
-                fontSize: 12,
-                color: AppTheme.textSecondary,
+              trailing: Text(
+                activity['time'] as String,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppTheme.textSecondary,
+                ),
               ),
             ),
           );

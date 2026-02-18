@@ -6,6 +6,7 @@ import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/data/models/branding_model.dart';
 import 'package:fleet_management/providers/branding_provider.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class BrandingSettingsScreen extends ConsumerStatefulWidget {
   const BrandingSettingsScreen({super.key});
@@ -60,23 +61,23 @@ class _BrandingSettingsScreenState
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Logo Section
-                  _buildLogoSection(currentBranding),
+                  FadeSlide(delay: 0, child: _buildLogoSection(currentBranding)),
 
                   const SizedBox(height: 24),
 
                   // Colors Section
-                  _buildColorsSection(),
+                  FadeSlide(delay: 100, child: _buildColorsSection()),
 
                   const SizedBox(height: 24),
 
                   // Preview Section
-                  _buildPreviewSection(),
+                  FadeSlide(delay: 200, child: _buildPreviewSection()),
 
                   const SizedBox(height: 24),
 
                   // Messages
                   if (brandingState.successMessage != null)
-                    _buildSuccessMessage(brandingState.successMessage!),
+                    FadeSlide(delay: 300, child: _buildSuccessMessage(brandingState.successMessage!)),
 
                   if (brandingState.error != null)
                     _buildErrorMessage(brandingState.error!),

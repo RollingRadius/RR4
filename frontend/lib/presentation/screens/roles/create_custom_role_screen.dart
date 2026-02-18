@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/template_provider.dart';
 import 'package:fleet_management/providers/custom_role_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class CreateCustomRoleScreen extends ConsumerStatefulWidget {
   const CreateCustomRoleScreen({super.key});
@@ -42,7 +43,8 @@ class _CreateCustomRoleScreenState extends ConsumerState<CreateCustomRoleScreen>
       appBar: AppBar(
         title: const Text('Create Custom Role'),
       ),
-      body: Stepper(
+      body: PageEntrance(
+        child: Stepper(
         currentStep: _currentStep,
         onStepContinue: _onStepContinue,
         onStepCancel: _onStepCancel,
@@ -72,7 +74,8 @@ class _CreateCustomRoleScreenState extends ConsumerState<CreateCustomRoleScreen>
             isActive: _currentStep >= (_creationType == 'template' ? 3 : 2),
           ),
         ],
-      ),
+      ),  // closes Stepper
+      ),  // closes PageEntrance
     );
   }
 

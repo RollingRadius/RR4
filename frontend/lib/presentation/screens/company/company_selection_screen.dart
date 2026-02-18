@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class CompanySelectionScreen extends ConsumerWidget {
   final Map<String, dynamic>? signupData;
@@ -26,75 +27,91 @@ class CompanySelectionScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Header
-              Text(
-                'Company Association',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+              FadeSlide(
+                delay: 0,
+                child: Column(
+                  children: [
+                    Text(
+                      'Company Association',
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                      textAlign: TextAlign.center,
                     ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Choose how you want to proceed with your account',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose how you want to proceed with your account',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                      textAlign: TextAlign.center,
                     ),
-                textAlign: TextAlign.center,
+                  ],
+                ),
               ),
               const SizedBox(height: 32),
 
               // Option 1: Join Existing Company
               Expanded(
-                child: _SelectionCard(
-                  icon: Icons.business,
-                  title: 'Join Existing Company',
-                  description:
-                      'Search and join an existing company. You will be added as a Pending User until approved by the company owner.',
-                  color: Colors.blue,
-                  onTap: () {
-                    if (onSelectionComplete != null) {
-                      onSelectionComplete!('existing');
-                    }
-                    context.push('/company/search', extra: signupData);
-                  },
+                child: FadeSlide(
+                  delay: 100,
+                  child: _SelectionCard(
+                    icon: Icons.business,
+                    title: 'Join Existing Company',
+                    description:
+                        'Search and join an existing company. You will be added as a Pending User until approved by the company owner.',
+                    color: Colors.blue,
+                    onTap: () {
+                      if (onSelectionComplete != null) {
+                        onSelectionComplete!('existing');
+                      }
+                      context.push('/company/search', extra: signupData);
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
 
               // Option 2: Create New Company
               Expanded(
-                child: _SelectionCard(
-                  icon: Icons.add_business,
-                  title: 'Create New Company',
-                  description:
-                      'Register your company and become the Owner. You will have full control over your company and can invite team members.',
-                  color: Colors.green,
-                  onTap: () {
-                    if (onSelectionComplete != null) {
-                      onSelectionComplete!('new');
-                    }
-                    context.push('/company/create', extra: signupData);
-                  },
+                child: FadeSlide(
+                  delay: 200,
+                  child: _SelectionCard(
+                    icon: Icons.add_business,
+                    title: 'Create New Company',
+                    description:
+                        'Register your company and become the Owner. You will have full control over your company and can invite team members.',
+                    color: Colors.green,
+                    onTap: () {
+                      if (onSelectionComplete != null) {
+                        onSelectionComplete!('new');
+                      }
+                      context.push('/company/create', extra: signupData);
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
 
               // Option 3: Skip
               Expanded(
-                child: _SelectionCard(
-                  icon: Icons.person,
-                  title: 'Skip for Now',
-                  description:
-                      'Continue as an Independent User without company affiliation. You can join or create a company later from your profile.',
-                  color: Colors.grey,
-                  onTap: () {
-                    if (onSelectionComplete != null) {
-                      onSelectionComplete!('skip');
-                    }
+                child: FadeSlide(
+                  delay: 300,
+                  child: _SelectionCard(
+                    icon: Icons.person,
+                    title: 'Skip for Now',
+                    description:
+                        'Continue as an Independent User without company affiliation. You can join or create a company later from your profile.',
+                    color: Colors.grey,
+                    onTap: () {
+                      if (onSelectionComplete != null) {
+                        onSelectionComplete!('skip');
+                      }
 
-                    // Complete signup without company
-                    _handleSkipCompany(context, ref);
-                  },
+                      // Complete signup without company
+                      _handleSkipCompany(context, ref);
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

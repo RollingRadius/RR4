@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/invoice_provider.dart';
 import 'package:fleet_management/data/models/invoice_model.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 import 'package:intl/intl.dart';
 
 class InvoicesListScreen extends ConsumerStatefulWidget {
@@ -249,13 +250,17 @@ class _InvoicesListScreenState extends ConsumerState<InvoicesListScreen> {
                               itemCount: invoiceState.invoices.length,
                               itemBuilder: (context, index) {
                                 final invoice = invoiceState.invoices[index];
-                                return _InvoiceCard(
-                                  invoice: invoice,
-                                  onTap: () {
-                                    context.push('/invoices/${invoice.id}');
-                                  },
-                                  onDelete: () =>
-                                      _showDeleteConfirmation(context, invoice),
+                                return StaggeredItem(
+                                  index: index,
+                                  staggerMs: 80,
+                                  child: _InvoiceCard(
+                                    invoice: invoice,
+                                    onTap: () {
+                                      context.push('/invoices/${invoice.id}');
+                                    },
+                                    onDelete: () =>
+                                        _showDeleteConfirmation(context, invoice),
+                                  ),
                                 );
                               },
                             ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/expense_provider.dart';
 import 'package:fleet_management/data/models/expense_model.dart';
 import 'package:intl/intl.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class ExpenseDetailsScreen extends ConsumerStatefulWidget {
   final String expenseId;
@@ -192,9 +193,9 @@ class _ExpenseDetailsScreenState extends ConsumerState<ExpenseDetailsScreen>
       body: TabBarView(
         controller: _tabController,
         children: [
-          _OverviewTab(expense: _expense!),
-          _AttachmentsTab(expense: _expense!),
-          _HistoryTab(expense: _expense!),
+          PageEntrance(child: _OverviewTab(expense: _expense!)),
+          PageEntrance(child: _AttachmentsTab(expense: _expense!)),
+          PageEntrance(child: _HistoryTab(expense: _expense!)),
         ],
       ),
       bottomNavigationBar: _buildActionBar(),

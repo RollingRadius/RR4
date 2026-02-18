@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/providers/organization_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class CreateOrganizationScreen extends ConsumerStatefulWidget {
   const CreateOrganizationScreen({super.key});
@@ -165,95 +166,117 @@ class _CreateOrganizationScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Company Information',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _companyNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Company Name *',
-                  hintText: 'Enter company name',
-                  prefixIcon: Icon(Icons.business),
-                  border: OutlineInputBorder(),
+              FadeSlide(
+                delay: 0,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'Company Information',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _companyNameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Company Name *',
+                        hintText: 'Enter company name',
+                        prefixIcon: Icon(Icons.business),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Company name is required';
+                        }
+                        if (value.trim().length < 2) {
+                          return 'Company name must be at least 2 characters';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _businessTypeController,
+                      decoration: const InputDecoration(
+                        labelText: 'Business Type *',
+                        hintText: 'e.g., Transportation, Logistics',
+                        prefixIcon: Icon(Icons.category),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Business type is required';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Company name is required';
-                  }
-                  if (value.trim().length < 2) {
-                    return 'Company name must be at least 2 characters';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _businessTypeController,
-                decoration: const InputDecoration(
-                  labelText: 'Business Type *',
-                  hintText: 'e.g., Transportation, Logistics',
-                  prefixIcon: Icon(Icons.category),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Business type is required';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Contact Information',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              FadeSlide(
+                delay: 100,
+                child: const Text(
+                  'Contact Information',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ),
               const SizedBox(height: 16),
-              TextFormField(
-                controller: _businessEmailController,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Business Email *',
-                  hintText: 'company@example.com',
-                  prefixIcon: Icon(Icons.email),
-                  border: OutlineInputBorder(),
+              FadeSlide(
+                delay: 150,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextFormField(
+                      controller: _businessEmailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Business Email *',
+                        hintText: 'company@example.com',
+                        prefixIcon: Icon(Icons.email),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Business email is required';
+                        }
+                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                            .hasMatch(value)) {
+                          return 'Invalid email format';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _businessPhoneController,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Business Phone *',
+                        hintText: '+91 1234567890',
+                        prefixIcon: Icon(Icons.phone),
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Business phone is required';
+                        }
+                        if (value.trim().length < 10) {
+                          return 'Phone number must be at least 10 digits';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Business email is required';
-                  }
-                  if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                      .hasMatch(value)) {
-                    return 'Invalid email format';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _businessPhoneController,
-                keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'Business Phone *',
-                  hintText: '+91 1234567890',
-                  prefixIcon: Icon(Icons.phone),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Business phone is required';
-                  }
-                  if (value.trim().length < 10) {
-                    return 'Phone number must be at least 10 digits';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Address',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              FadeSlide(
+                delay: 200,
+                child: const Text(
+                  'Address',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -344,68 +367,76 @@ class _CreateOrganizationScreenState
                 ],
               ),
               const SizedBox(height: 24),
-              OutlinedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _showLegalInfo = !_showLegalInfo;
-                  });
-                },
-                icon: Icon(_showLegalInfo
-                    ? Icons.keyboard_arrow_up
-                    : Icons.keyboard_arrow_down),
-                label: Text(
-                  _showLegalInfo
-                      ? 'Hide Legal Information (Optional)'
-                      : 'Add Legal Information (Optional)',
+              FadeSlide(
+                delay: 300,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showLegalInfo = !_showLegalInfo;
+                        });
+                      },
+                      icon: Icon(_showLegalInfo
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down),
+                      label: Text(
+                        _showLegalInfo
+                            ? 'Hide Legal Information (Optional)'
+                            : 'Add Legal Information (Optional)',
+                      ),
+                    ),
+                    if (_showLegalInfo) ...[
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Legal Information',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _gstinController,
+                        decoration: const InputDecoration(
+                          labelText: 'GSTIN (Optional)',
+                          hintText: '15 characters',
+                          prefixIcon: Icon(Icons.receipt_long),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _validateGSTIN,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _panController,
+                        decoration: const InputDecoration(
+                          labelText: 'PAN Number (Optional)',
+                          hintText: '10 characters',
+                          prefixIcon: Icon(Icons.credit_card),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: _validatePAN,
+                      ),
+                    ],
+                    const SizedBox(height: 32),
+                    ElevatedButton(
+                      onPressed: _isCreating ? null : _handleCreate,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child: _isCreating
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Create Organization'),
+                    ),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: _isCreating ? null : () => context.pop(),
+                      child: const Text('Cancel'),
+                    ),
+                  ],
                 ),
-              ),
-              if (_showLegalInfo) ...[
-                const SizedBox(height: 16),
-                const Text(
-                  'Legal Information',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _gstinController,
-                  decoration: const InputDecoration(
-                    labelText: 'GSTIN (Optional)',
-                    hintText: '15 characters',
-                    prefixIcon: Icon(Icons.receipt_long),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: _validateGSTIN,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _panController,
-                  decoration: const InputDecoration(
-                    labelText: 'PAN Number (Optional)',
-                    hintText: '10 characters',
-                    prefixIcon: Icon(Icons.credit_card),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: _validatePAN,
-                ),
-              ],
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _isCreating ? null : _handleCreate,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isCreating
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Create Organization'),
-              ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: _isCreating ? null : () => context.pop(),
-                child: const Text('Cancel'),
               ),
             ],
           ),

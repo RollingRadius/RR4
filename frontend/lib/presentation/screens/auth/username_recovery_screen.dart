@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/data/models/security_question_model.dart';
 import 'package:fleet_management/providers/security_questions_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class UsernameRecoveryScreen extends ConsumerStatefulWidget {
   const UsernameRecoveryScreen({super.key});
@@ -130,25 +131,36 @@ class _UsernameRecoveryScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header
-                Icon(
-                  Icons.person_search,
-                  size: 80,
-                  color: Theme.of(context).primaryColor,
-                ),
-                const SizedBox(height: 24),
-
-                Text(
-                  'Forgot Your Username?',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                FadeSlide(
+                  delay: 0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ScaleFade(
+                        delay: 0,
+                        duration: 600,
+                        child: Icon(
+                          Icons.person_search,
+                          size: 80,
+                          color: Theme.of(context).primaryColor,
+                        ),
                       ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'We\'ll help you recover your username by verifying your identity',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
+                      const SizedBox(height: 24),
+                      Text(
+                        'Forgot Your Username?',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'We\'ll help you recover your username by verifying your identity',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[600],
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 32),
 

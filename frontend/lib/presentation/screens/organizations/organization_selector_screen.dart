@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/organization_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class OrganizationSelectorScreen extends ConsumerStatefulWidget {
   const OrganizationSelectorScreen({super.key});
@@ -92,51 +93,62 @@ class _OrganizationSelectorScreenState extends ConsumerState<OrganizationSelecto
                       padding: const EdgeInsets.all(16.0),
                       children: [
                         if (authState.user != null) ...[
-                          Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const CircleAvatar(
-                                        child: Icon(Icons.person),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              authState.user!.fullName,
-                                              style: Theme.of(context).textTheme.titleMedium,
-                                            ),
-                                            Text(
-                                              authState.user!.username,
-                                              style: Theme.of(context).textTheme.bodySmall,
-                                            ),
-                                          ],
+                          FadeSlide(
+                            delay: 0,
+                            child: Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const CircleAvatar(
+                                          child: Icon(Icons.person),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                authState.user!.fullName,
+                                                style: Theme.of(context).textTheme.titleMedium,
+                                              ),
+                                              Text(
+                                                authState.user!.username,
+                                                style: Theme.of(context).textTheme.bodySmall,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(height: 24),
                         ],
-                        Text(
-                          'Your Organizations',
-                          style: Theme.of(context).textTheme.titleLarge,
+                        FadeSlide(
+                          delay: 100,
+                          child: Text(
+                            'Your Organizations',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
                         ),
                         const SizedBox(height: 16),
-                        ...orgState.activeOrganizations.map((org) {
+                        ...orgState.activeOrganizations.asMap().entries.map((entry) {
+                          final index = entry.key;
+                          final org = entry.value;
                           final isSelected = org['organization_id'] == orgState.currentOrganizationId;
                           final isPending = org['status'] != 'active';
 
-                          return Card(
+                          return StaggeredItem(
+                            index: index,
+                            staggerMs: 80,
+                            child: Card(
                             elevation: isSelected ? 4 : 1,
                             color: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : null,
                             margin: const EdgeInsets.only(bottom: 12),
@@ -192,7 +204,8 @@ class _OrganizationSelectorScreenState extends ConsumerState<OrganizationSelecto
                                       }
                                     },
                             ),
-                          );
+                          ),  // closes Card
+                          );  // closes StaggeredItem
                         }).toList(),
                         if (orgState.activeOrganizations.isEmpty)
                           const Center(

@@ -5,6 +5,7 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/profile_provider.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -148,13 +149,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       body: profileState.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+          : PageEntrance(
+              child: SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Profile Header
-                  Center(
+                  ScaleFade(
+                    delay: 0,
+                    duration: 600,
+                    child: Center(
                     child: Column(
                       children: [
                         Stack(
@@ -210,8 +215,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 32),
+                  ),  // closes Center
+                ),    // closes ScaleFade
+                const SizedBox(height: 32),
 
                   // Edit Mode Banner
                   if (_isEditMode)
@@ -241,7 +247,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
 
                   // Profile Information Card
-                  Card(
+                  StaggeredItem(index: 0, staggerMs: 120, baseDelay: 200, child: Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -324,11 +330,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ],
                       ),
                     ),
-                  ),
+                  )),  // closes Personal Info Card + StaggeredItem
                   const SizedBox(height: 16),
 
                   // Role & Company Card
-                  Card(
+                  StaggeredItem(index: 1, staggerMs: 120, baseDelay: 200, child: Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -476,11 +482,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ],
                       ),
                     ),
-                  ),
+                  )),  // closes Role & Company Card + StaggeredItem
                   const SizedBox(height: 16),
 
                   // Account Status Card
-                  Card(
+                  StaggeredItem(index: 2, staggerMs: 120, baseDelay: 200, child: Card(
                     elevation: 2,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -515,10 +521,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
 
+                  ),  // closes StaggeredItem for Account Status Card
                   const SizedBox(height: 32),
                 ],
               ),
             ),
+          ),  // closes PageEntrance
     );
   }
 

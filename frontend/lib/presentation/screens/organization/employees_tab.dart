@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/providers/organization_dashboard_provider.dart';
 import 'package:fleet_management/providers/role_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class EmployeesTab extends ConsumerStatefulWidget {
   const EmployeesTab({super.key});
@@ -18,22 +19,21 @@ class _EmployeesTabState extends ConsumerState<EmployeesTab> {
   Widget build(BuildContext context) {
     final orgState = ref.watch(organizationDashboardProvider);
 
-    return Column(
-      children: [
-        // Filters
-        _buildFilters(),
-
-        // Employee List
-        Expanded(
-          child: orgState.isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : orgState.error != null
-                  ? _buildErrorState(orgState.error!)
-                  : orgState.employees.isEmpty
-                      ? _buildEmptyState()
-                      : _buildEmployeeList(orgState.employees),
-        ),
-      ],
+    return PageEntrance(
+      child: Column(
+        children: [
+          FadeSlide(delay: 0, child: _buildFilters()),
+          Expanded(
+            child: orgState.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : orgState.error != null
+                    ? _buildErrorState(orgState.error!)
+                    : orgState.employees.isEmpty
+                        ? _buildEmptyState()
+                        : _buildEmployeeList(orgState.employees),
+          ),
+        ],
+      ),
     );
   }
 
@@ -148,7 +148,11 @@ class _EmployeesTabState extends ConsumerState<EmployeesTab> {
         padding: const EdgeInsets.all(16.0),
         itemCount: employees.length,
         itemBuilder: (context, index) {
-          return _buildEmployeeCard(employees[index]);
+          return StaggeredItem(
+            index: index,
+            staggerMs: 70,
+            child: _buildEmployeeCard(employees[index]),
+          );
         },
       ),
     );

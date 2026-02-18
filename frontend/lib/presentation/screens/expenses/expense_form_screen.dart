@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/expense_provider.dart';
 import 'package:fleet_management/data/models/expense_model.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 import 'package:intl/intl.dart';
 
 class ExpenseFormScreen extends ConsumerStatefulWidget {
@@ -187,7 +188,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+          : PageEntrance(child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
@@ -495,6 +496,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 ),
               ),
             ),
+          ),  // closes PageEntrance
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class HelpScreen extends ConsumerStatefulWidget {
   const HelpScreen({super.key});
@@ -27,7 +28,8 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
         title: const Text('Help & Support'),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
+      body: PageEntrance(
+        child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -469,7 +471,8 @@ class _HelpScreenState extends ConsumerState<HelpScreen> {
             const SizedBox(height: 24),
           ],
         ),
-      ),
+      ),  // closes SingleChildScrollView
+      ),  // closes PageEntrance
     );
   }
 

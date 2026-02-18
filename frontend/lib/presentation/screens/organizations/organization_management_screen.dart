@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/providers/organization_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/data/services/organization_api.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class OrganizationManagementScreen extends ConsumerStatefulWidget {
   final String organizationId;
@@ -306,8 +307,8 @@ class _OrganizationManagementScreenState
               : TabBarView(
                   controller: _tabController,
                   children: [
-                    _buildMembersTab(),
-                    _buildPendingTab(),
+                    PageEntrance(child: _buildMembersTab()),
+                    PageEntrance(child: _buildPendingTab()),
                   ],
                 ),
     );

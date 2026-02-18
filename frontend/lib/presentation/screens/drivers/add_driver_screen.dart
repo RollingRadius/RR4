@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/driver_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class AddDriverScreen extends ConsumerStatefulWidget {
   const AddDriverScreen({super.key});
@@ -318,7 +319,7 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
           padding: const EdgeInsets.all(16.0),
           children: [
             // Basic Information Card
-            Card(
+            FadeSlide(delay: 0, child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -462,11 +463,12 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   ],
                 ),
               ),
-            ),
+            ),  // closes Card for Basic Info
+            ),  // closes FadeSlide for Basic Info Card
             const SizedBox(height: 16),
 
             // Address Information Card
-            Card(
+            FadeSlide(delay: 100, child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -551,11 +553,12 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   ],
                 ),
               ),
-            ),
+            ),  // closes Card for Address Info
+            ),  // closes FadeSlide for Address Info Card
             const SizedBox(height: 16),
 
             // License Information Card
-            Card(
+            FadeSlide(delay: 200, child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -665,11 +668,12 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   ],
                 ),
               ),
-            ),
+            ),  // closes Card for License Info
+            ),  // closes FadeSlide for License Info Card
             const SizedBox(height: 16),
 
             // Emergency Contact Card
-            Card(
+            FadeSlide(delay: 300, child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -719,11 +723,12 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   ],
                 ),
               ),
-            ),
+            ),  // closes Card for Emergency Contact
+            ),  // closes FadeSlide for Emergency Contact Card
             const SizedBox(height: 24),
 
             // Submit Button
-            ElevatedButton(
+            FadeSlide(delay: 400, child: ElevatedButton(
               onPressed: _isSubmitting ? null : _submitForm,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -735,7 +740,7 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   : const Text('Add Driver', style: TextStyle(fontSize: 16)),
-            ),
+            )),  // closes FadeSlide for Submit Button
             const SizedBox(height: 16),
           ],
         ),

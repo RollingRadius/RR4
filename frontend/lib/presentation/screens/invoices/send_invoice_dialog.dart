@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/providers/invoice_provider.dart';
 import 'package:fleet_management/data/models/invoice_model.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class SendInvoiceDialog extends ConsumerStatefulWidget {
   final InvoiceModel invoice;
@@ -141,7 +142,10 @@ Best regards''';
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      child: Container(
+      child: ScaleFade(
+        delay: 0,
+        duration: 400,
+        child: Container(
         constraints: const BoxConstraints(maxWidth: 600, maxHeight: 700),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -368,7 +372,8 @@ Best regards''';
             ),
           ],
         ),
-      ),
+      ),  // closes Container
+      ),  // closes ScaleFade
     );
   }
 }

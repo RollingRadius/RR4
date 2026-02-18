@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class EnhancedHelpScreen extends ConsumerStatefulWidget {
   const EnhancedHelpScreen({super.key});
@@ -41,11 +42,11 @@ class _EnhancedHelpScreenState extends ConsumerState<EnhancedHelpScreen> {
         ),
         body: TabBarView(
           children: [
-            _buildOverviewTab(),
-            _buildRolesTab(),
-            _buildFeaturesTab(),
-            _buildPermissionsTab(),
-            _buildFAQTab(),
+            PageEntrance(child: _buildOverviewTab()),
+            PageEntrance(child: _buildRolesTab()),
+            PageEntrance(child: _buildFeaturesTab()),
+            PageEntrance(child: _buildPermissionsTab()),
+            PageEntrance(child: _buildFAQTab()),
           ],
         ),
       ),

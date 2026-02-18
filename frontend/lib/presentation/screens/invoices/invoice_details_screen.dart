@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/invoice_provider.dart';
 import 'package:fleet_management/data/models/invoice_model.dart';
 import 'package:intl/intl.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class InvoiceDetailsScreen extends ConsumerStatefulWidget {
   final String invoiceId;
@@ -277,9 +278,9 @@ class _InvoiceDetailsScreenState extends ConsumerState<InvoiceDetailsScreen>
         child: TabBarView(
           controller: _tabController,
           children: [
-            _OverviewTab(invoice: invoice),
-            _PaymentsTab(invoice: invoice),
-            _ActivityTab(invoice: invoice),
+            PageEntrance(child: _OverviewTab(invoice: invoice)),
+            PageEntrance(child: _PaymentsTab(invoice: invoice)),
+            PageEntrance(child: _ActivityTab(invoice: invoice)),
           ],
         ),
       ),

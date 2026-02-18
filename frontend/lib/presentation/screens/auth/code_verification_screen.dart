@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class CodeVerificationScreen extends ConsumerStatefulWidget {
   final String? verificationCode;
@@ -145,7 +146,10 @@ class _CodeVerificationScreenState extends ConsumerState<CodeVerificationScreen>
               horizontal: isDesktop ? 0 : 24.0,
               vertical: 32.0,
             ),
-            child: Container(
+            child: ScaleFade(
+              delay: 0,
+              duration: 600,
+              child: Container(
               constraints: BoxConstraints(
                 maxWidth: isDesktop ? 480 : double.infinity,
               ),
@@ -354,6 +358,7 @@ class _CodeVerificationScreenState extends ConsumerState<CodeVerificationScreen>
                 ),
               ),
             ),
+            ),  // closes ScaleFade
           ),
         ),
       ),

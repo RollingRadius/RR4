@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/providers/report_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 import 'package:intl/intl.dart';
 
 class DriverListReportScreen extends ConsumerStatefulWidget {
@@ -110,7 +111,11 @@ class _DriverListReportScreenState
                   itemCount: drivers.length,
                   itemBuilder: (context, index) {
                     final driver = drivers[index];
-                    return _DriverCard(driver: driver);
+                    return StaggeredItem(
+                      index: index,
+                      staggerMs: 60,
+                      child: _DriverCard(driver: driver),
+                    );
                   },
                 ),
         ),

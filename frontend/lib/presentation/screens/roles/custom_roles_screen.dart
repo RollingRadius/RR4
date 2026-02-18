@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/custom_role_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class CustomRolesScreen extends ConsumerStatefulWidget {
   const CustomRolesScreen({super.key});
@@ -100,13 +101,19 @@ class _CustomRolesScreenState extends ConsumerState<CustomRolesScreen> {
   }
 
   Widget _buildRolesList(List<dynamic> roles) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: roles.length,
-      itemBuilder: (context, index) {
-        final role = roles[index] as Map<String, dynamic>;
-        return _RoleCard(role: role);
-      },
+    return PageEntrance(
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: roles.length,
+        itemBuilder: (context, index) {
+          final role = roles[index] as Map<String, dynamic>;
+          return StaggeredItem(
+            index: index,
+            staggerMs: 80,
+            child: _RoleCard(role: role),
+          );
+        },
+      ),
     );
   }
 }

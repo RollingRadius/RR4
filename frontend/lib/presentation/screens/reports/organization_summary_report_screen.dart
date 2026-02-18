@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/providers/report_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 import 'package:intl/intl.dart';
 
 class OrganizationSummaryReportScreen extends ConsumerStatefulWidget {
@@ -71,7 +72,8 @@ class _OrganizationSummaryReportScreenState
     final generatedAt = DateTime.parse(report['generated_at']);
     final recentActivity = report['recent_activity'] as List<dynamic>;
 
-    return SingleChildScrollView(
+    return PageEntrance(
+      child: SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,6 +257,7 @@ class _OrganizationSummaryReportScreenState
           ],
         ],
       ),
+    ),  // closes PageEntrance
     );
   }
 

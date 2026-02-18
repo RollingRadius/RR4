@@ -195,12 +195,11 @@ alembic upgrade head
 docker-compose up -d
 
 # 4. (Optional) Download India map data
-# See backend/OSRM_SETUP.md for details
+# See backend/ OSRM_SETUP.md for details
 
 # 5. Start backend server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
+``
 ### Frontend Setup
 
 ```bash

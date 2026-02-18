@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/providers/organization_dashboard_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class OrganizationOverviewTab extends ConsumerWidget {
   const OrganizationOverviewTab({super.key});
@@ -51,21 +52,17 @@ class OrganizationOverviewTab extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Company Header
-            _buildCompanyHeader(context, org),
+            FadeSlide(delay: 0, child: _buildCompanyHeader(context, org)),
             const SizedBox(height: 24),
-
-            // Statistics Cards
-            _buildStatisticsSection(context, stats),
+            FadeSlide(delay: 120, child: _buildStatisticsSection(context, stats)),
             const SizedBox(height: 24),
-
-            // Company Details
-            _buildCompanyDetails(context, org),
+            FadeSlide(delay: 240, child: _buildCompanyDetails(context, org)),
             const SizedBox(height: 24),
-
-            // Role Distribution
             if (stats['role_distribution'] != null)
-              _buildRoleDistribution(context, stats['role_distribution']),
+              FadeSlide(
+                delay: 360,
+                child: _buildRoleDistribution(context, stats['role_distribution']),
+              ),
           ],
         ),
       ),

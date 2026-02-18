@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class CompanyCreateScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic>? signupData;
@@ -188,7 +189,8 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
         title: const Text('Create Company'),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
+        child: PageEntrance(
+          child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
           child: Form(
             key: _formKey,
@@ -466,7 +468,8 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
               ],
             ),
           ),
-        ),
+        ),  // closes SingleChildScrollView
+        ),  // closes PageEntrance
       ),
     );
   }

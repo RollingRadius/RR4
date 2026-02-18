@@ -5,6 +5,7 @@ import 'package:fleet_management/providers/profile_provider.dart';
 import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class ProfileCompletionScreen extends ConsumerStatefulWidget {
   const ProfileCompletionScreen({super.key});
@@ -183,8 +184,11 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
             ],
           ),
         ),
-        child: Center(
-          child: SingleChildScrollView(
+        child: ScaleFade(
+          delay: 0,
+          duration: 600,
+          child: Center(
+            child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(
               horizontal: isDesktop ? 0 : 24.0,
               vertical: 32.0,
@@ -312,7 +316,8 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
               ),
             ),
           ),
-        ),
+        ),  // closes Center
+        ),  // closes ScaleFade
       ),
     );
   }

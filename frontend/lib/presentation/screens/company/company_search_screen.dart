@@ -5,6 +5,7 @@ import 'package:fleet_management/data/models/company_model.dart';
 import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class CompanySearchScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic>? signupData;
@@ -163,7 +164,8 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
       appBar: AppBar(
         title: const Text('Search Company'),
       ),
-      body: SafeArea(
+      body: PageEntrance(
+        child: SafeArea(
         child: Column(
           children: [
             // Search bar
@@ -198,7 +200,8 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
             ),
           ],
         ),
-      ),
+      ),  // closes SafeArea
+      ),  // closes PageEntrance
     );
   }
 

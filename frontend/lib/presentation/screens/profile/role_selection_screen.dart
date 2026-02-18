@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/models/role_model.dart';
 import 'package:fleet_management/providers/role_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class RoleSelectionScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic>? profileData;
@@ -232,7 +233,10 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
         final role = filteredRoles[index];
         final isSelected = _selectedRole?.id == role.id;
 
-        return Card(
+        return StaggeredItem(
+          index: index,
+          staggerMs: 60,
+          child: Card(
           margin: const EdgeInsets.only(bottom: 12),
           elevation: isSelected ? 4 : 1,
           shape: RoundedRectangleBorder(
@@ -323,6 +327,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
               ),
             ),
           ),
+        ),  // closes StaggeredItem
         );
       },
     );

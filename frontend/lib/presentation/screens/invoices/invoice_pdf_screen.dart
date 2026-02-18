@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/providers/invoice_provider.dart';
 import 'package:fleet_management/data/models/invoice_model.dart';
 import 'package:intl/intl.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class InvoicePdfScreen extends ConsumerStatefulWidget {
   final String invoiceId;
@@ -118,7 +119,8 @@ class _InvoicePdfScreenState extends ConsumerState<InvoicePdfScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: PageEntrance(
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Center(
           child: Container(
@@ -166,7 +168,8 @@ class _InvoicePdfScreenState extends ConsumerState<InvoicePdfScreen> {
             ),
           ),
         ),
-      ),
+      ),  // closes SingleChildScrollView
+      ),  // closes PageEntrance
     );
   }
 }

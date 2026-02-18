@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/providers/expense_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 import 'package:intl/intl.dart';
 
 class ExpenseSummaryScreen extends ConsumerStatefulWidget {
@@ -176,7 +177,8 @@ class _ExpenseSummaryScreenState extends ConsumerState<ExpenseSummaryScreen> {
     final totalCount = summary['total_count'] as int? ?? 0;
     final summaryList = summary['summary'] as List? ?? [];
 
-    return SingleChildScrollView(
+    return PageEntrance(
+      child: SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,6 +256,7 @@ class _ExpenseSummaryScreenState extends ConsumerState<ExpenseSummaryScreen> {
             ...summaryList.map((item) => _buildSummaryItem(item, grandTotal)),
         ],
       ),
+    ),  // closes PageEntrance
     );
   }
 

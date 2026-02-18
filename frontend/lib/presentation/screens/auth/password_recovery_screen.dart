@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/data/models/security_question_model.dart';
 import 'package:fleet_management/providers/security_questions_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class PasswordRecoveryScreen extends ConsumerStatefulWidget {
   const PasswordRecoveryScreen({super.key});
@@ -185,38 +186,54 @@ class _PasswordRecoveryScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Header
-                Icon(
-                  Icons.lock_reset,
-                  size: 80,
-                  color: Theme.of(context).primaryColor,
+                ScaleFade(
+                  delay: 0,
+                  duration: 600,
+                  child: Icon(
+                    Icons.lock_reset,
+                    size: 80,
+                    color: Theme.of(context).primaryColor,
+                  ),
                 ),
                 const SizedBox(height: 24),
 
-                Text(
-                  'Forgot Your Password?',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                FadeSlide(
+                  delay: 150,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Forgot Your Password?',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Choose a recovery method to reset your password',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
+                      const SizedBox(height: 8),
+                      Text(
+                        'Choose a recovery method to reset your password',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: Colors.grey[600],
+                            ),
                       ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 32),
 
                 // Recovery Method Selection
-                Text(
-                  'Recovery Method',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                FadeSlide(
+                  delay: 250,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recovery Method',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
                       ),
-                ),
-                const SizedBox(height: 12),
-
-                SegmentedButton<String>(
+                      const SizedBox(height: 12),
+                      SegmentedButton<String>(
                   segments: const [
                     ButtonSegment(
                       value: 'email',
@@ -238,10 +255,15 @@ class _PasswordRecoveryScreenState
                     });
                   },
                 ),
+                    ],
+                  ),
+                ),  // closes FadeSlide for Recovery Method
                 const SizedBox(height: 32),
 
                 // Username
-                TextFormField(
+                FadeSlide(
+                  delay: 350,
+                  child: TextFormField(
                   controller: _usernameController,
                   decoration: const InputDecoration(
                     labelText: 'Username',
@@ -253,12 +275,12 @@ class _PasswordRecoveryScreenState
                     }
                     return null;
                   },
-                ),
+                )),  // closes FadeSlide for Username
                 const SizedBox(height: 24),
 
                 // Email Recovery
                 if (_recoveryMethod == 'email') ...[
-                  Card(
+                  FadeSlide(delay: 450, child: Card(
                     color: Colors.blue.shade50,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -275,20 +297,23 @@ class _PasswordRecoveryScreenState
                         ],
                       ),
                     ),
-                  ),
+                  )),  // closes Card and FadeSlide
                   const SizedBox(height: 24),
 
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _handleEmailRecovery,
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Send Reset Link'),
+                  FadeSlide(
+                    delay: 550,
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handleEmailRecovery,
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Text('Send Reset Link'),
+                      ),
                     ),
                   ),
                 ],
@@ -476,10 +501,13 @@ class _PasswordRecoveryScreenState
                 const SizedBox(height: 24),
 
                 // Back to login
-                Center(
-                  child: TextButton(
-                    onPressed: () => context.go(AppConstants.routeLogin),
-                    child: const Text('Back to Login'),
+                FadeSlide(
+                  delay: 500,
+                  child: Center(
+                    child: TextButton(
+                      onPressed: () => context.go(AppConstants.routeLogin),
+                      child: const Text('Back to Login'),
+                    ),
                   ),
                 ),
               ],

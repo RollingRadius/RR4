@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/invoice_provider.dart';
 import 'package:fleet_management/data/models/invoice_model.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 import 'package:intl/intl.dart';
 
 class InvoiceFormScreen extends ConsumerStatefulWidget {
@@ -229,7 +230,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Form(
+          : PageEntrance(child: Form(
               key: _formKey,
               child: ListView(
                 padding: const EdgeInsets.all(16),
@@ -542,6 +543,7 @@ class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
                 ],
               ),
             ),
+          ),  // closes PageEntrance
     );
   }
 }

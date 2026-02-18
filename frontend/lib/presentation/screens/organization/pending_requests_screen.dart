@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/models/role_model.dart';
 import 'package:fleet_management/providers/role_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 import 'package:intl/intl.dart';
 
 class PendingRequestsScreen extends ConsumerStatefulWidget {
@@ -234,13 +235,19 @@ class _PendingRequestsScreenState extends ConsumerState<PendingRequestsScreen> {
   }
 
   Widget _buildRequestsList(List<PendingRoleRequest> requests) {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: requests.length,
-      itemBuilder: (context, index) {
-        final request = requests[index];
-        return _buildRequestCard(request);
-      },
+    return PageEntrance(
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16.0),
+        itemCount: requests.length,
+        itemBuilder: (context, index) {
+          final request = requests[index];
+          return StaggeredItem(
+            index: index,
+            staggerMs: 80,
+            child: _buildRequestCard(request),
+          );
+        },
+      ),
     );
   }
 

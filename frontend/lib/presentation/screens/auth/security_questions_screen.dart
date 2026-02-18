@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/models/security_question_model.dart';
 import 'package:fleet_management/providers/security_questions_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 
 class SecurityQuestionsScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic>? signupData;
@@ -170,214 +171,244 @@ class _SecurityQuestionsScreenState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Instructions
-                          Card(
-                            color: Colors.blue.shade50,
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.info_outline,
-                                    color: Colors.blue.shade700,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'Select 3 different security questions and provide answers. These will be used to recover your account if needed.',
-                                      style: TextStyle(
-                                        color: Colors.blue.shade900,
-                                        fontSize: 14,
+                          FadeSlide(
+                            delay: 0,
+                            child: Card(
+                              color: Colors.blue.shade50,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.info_outline,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Select 3 different security questions and provide answers. These will be used to recover your account if needed.',
+                                        style: TextStyle(
+                                          color: Colors.blue.shade900,
+                                          fontSize: 14,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                           const SizedBox(height: 32),
 
                           // Question 1
-                          Text(
-                            'Security Question 1',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<SecurityQuestionModel>(
-                            value: _selectedQuestion1,
-                            decoration: const InputDecoration(
-                              hintText: 'Select a question',
-                              prefixIcon: Icon(Icons.help_outline),
-                            ),
-                            items: _getAvailableQuestions(
-                                    questionsState.questions, 1)
-                                .map((question) {
-                              return DropdownMenuItem(
-                                value: question,
-                                child: Text(
-                                  question.questionText,
-                                  overflow: TextOverflow.ellipsis,
+                          FadeSlide(
+                            delay: 100,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Security Question 1',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedQuestion1 = value;
-                              });
-                            },
-                            validator: (value) {
-                              if (value == null) {
-                                return 'Please select a question';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _answer1Controller,
-                            decoration: const InputDecoration(
-                              labelText: 'Answer',
-                              hintText: 'Enter your answer',
-                              prefixIcon: Icon(Icons.edit),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<SecurityQuestionModel>(
+                                  value: _selectedQuestion1,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Select a question',
+                                    prefixIcon: Icon(Icons.help_outline),
+                                  ),
+                                  items: _getAvailableQuestions(
+                                          questionsState.questions, 1)
+                                      .map((question) {
+                                    return DropdownMenuItem(
+                                      value: question,
+                                      child: Text(
+                                        question.questionText,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedQuestion1 = value;
+                                    });
+                                  },
+                                  validator: (value) {
+                                    if (value == null) {
+                                      return 'Please select a question';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: _answer1Controller,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Answer',
+                                    hintText: 'Enter your answer',
+                                    prefixIcon: Icon(Icons.edit),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return AppConstants.validationRequired;
+                                    }
+                                    if (value.length < 2) {
+                                      return 'Answer must be at least 2 characters';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return AppConstants.validationRequired;
-                              }
-                              if (value.length < 2) {
-                                return 'Answer must be at least 2 characters';
-                              }
-                              return null;
-                            },
                           ),
                           const SizedBox(height: 24),
 
                           // Question 2
-                          Text(
-                            'Security Question 2',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<SecurityQuestionModel>(
-                            value: _selectedQuestion2,
-                            decoration: const InputDecoration(
-                              hintText: 'Select a question',
-                              prefixIcon: Icon(Icons.help_outline),
-                            ),
-                            items: _getAvailableQuestions(
-                                    questionsState.questions, 2)
-                                .map((question) {
-                              return DropdownMenuItem(
-                                value: question,
-                                child: Text(
-                                  question.questionText,
-                                  overflow: TextOverflow.ellipsis,
+                          FadeSlide(
+                            delay: 200,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Security Question 2',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedQuestion2 = value;
-                              });
-                            },
-                            validator: (value) {
-                              if (value == null) {
-                                return 'Please select a question';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _answer2Controller,
-                            decoration: const InputDecoration(
-                              labelText: 'Answer',
-                              hintText: 'Enter your answer',
-                              prefixIcon: Icon(Icons.edit),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<SecurityQuestionModel>(
+                                  value: _selectedQuestion2,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Select a question',
+                                    prefixIcon: Icon(Icons.help_outline),
+                                  ),
+                                  items: _getAvailableQuestions(
+                                          questionsState.questions, 2)
+                                      .map((question) {
+                                    return DropdownMenuItem(
+                                      value: question,
+                                      child: Text(
+                                        question.questionText,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedQuestion2 = value;
+                                    });
+                                  },
+                                  validator: (value) {
+                                    if (value == null) {
+                                      return 'Please select a question';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: _answer2Controller,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Answer',
+                                    hintText: 'Enter your answer',
+                                    prefixIcon: Icon(Icons.edit),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return AppConstants.validationRequired;
+                                    }
+                                    if (value.length < 2) {
+                                      return 'Answer must be at least 2 characters';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return AppConstants.validationRequired;
-                              }
-                              if (value.length < 2) {
-                                return 'Answer must be at least 2 characters';
-                              }
-                              return null;
-                            },
                           ),
                           const SizedBox(height: 24),
 
                           // Question 3
-                          Text(
-                            'Security Question 3',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          DropdownButtonFormField<SecurityQuestionModel>(
-                            value: _selectedQuestion3,
-                            decoration: const InputDecoration(
-                              hintText: 'Select a question',
-                              prefixIcon: Icon(Icons.help_outline),
-                            ),
-                            items: _getAvailableQuestions(
-                                    questionsState.questions, 3)
-                                .map((question) {
-                              return DropdownMenuItem(
-                                value: question,
-                                child: Text(
-                                  question.questionText,
-                                  overflow: TextOverflow.ellipsis,
+                          FadeSlide(
+                            delay: 300,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Security Question 3',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
                                 ),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedQuestion3 = value;
-                              });
-                            },
-                            validator: (value) {
-                              if (value == null) {
-                                return 'Please select a question';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          TextFormField(
-                            controller: _answer3Controller,
-                            decoration: const InputDecoration(
-                              labelText: 'Answer',
-                              hintText: 'Enter your answer',
-                              prefixIcon: Icon(Icons.edit),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<SecurityQuestionModel>(
+                                  value: _selectedQuestion3,
+                                  decoration: const InputDecoration(
+                                    hintText: 'Select a question',
+                                    prefixIcon: Icon(Icons.help_outline),
+                                  ),
+                                  items: _getAvailableQuestions(
+                                          questionsState.questions, 3)
+                                      .map((question) {
+                                    return DropdownMenuItem(
+                                      value: question,
+                                      child: Text(
+                                        question.questionText,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _selectedQuestion3 = value;
+                                    });
+                                  },
+                                  validator: (value) {
+                                    if (value == null) {
+                                      return 'Please select a question';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                TextFormField(
+                                  controller: _answer3Controller,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Answer',
+                                    hintText: 'Enter your answer',
+                                    prefixIcon: Icon(Icons.edit),
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return AppConstants.validationRequired;
+                                    }
+                                    if (value.length < 2) {
+                                      return 'Answer must be at least 2 characters';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ],
                             ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return AppConstants.validationRequired;
-                              }
-                              if (value.length < 2) {
-                                return 'Answer must be at least 2 characters';
-                              }
-                              return null;
-                            },
                           ),
                           const SizedBox(height: 32),
 
                           // Submit Button
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: _handleSubmit,
-                              child: const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16.0),
-                                child: Text('Continue'),
+                          FadeSlide(
+                            delay: 400,
+                            child: SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _handleSubmit,
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16.0),
+                                  child: Text('Continue'),
+                                ),
                               ),
                             ),
                           ),

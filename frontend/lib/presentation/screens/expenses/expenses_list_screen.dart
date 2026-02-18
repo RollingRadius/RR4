@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/expense_provider.dart';
 import 'package:fleet_management/data/models/expense_model.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 import 'package:intl/intl.dart';
 
 class ExpensesListScreen extends ConsumerStatefulWidget {
@@ -343,16 +344,19 @@ class _ExpensesListScreenState extends ConsumerState<ExpensesListScreen> {
                               itemCount: expenseState.expenses.length,
                               itemBuilder: (context, index) {
                                 final expense = expenseState.expenses[index];
-                                return _ExpenseCard(
-                                  expense: expense,
-                                  onTap: () {
-                                    // TODO: Navigate to expense details
-                                    context.push('/expenses/${expense.id}');
-                                  },
-                                  onDelete: () =>
-                                      _showDeleteConfirmation(context, expense),
-                                  getStatusColor: _getStatusColor,
-                                  getStatusIcon: _getStatusIcon,
+                                return StaggeredItem(
+                                  index: index,
+                                  staggerMs: 80,
+                                  child: _ExpenseCard(
+                                    expense: expense,
+                                    onTap: () {
+                                      context.push('/expenses/${expense.id}');
+                                    },
+                                    onDelete: () =>
+                                        _showDeleteConfirmation(context, expense),
+                                    getStatusColor: _getStatusColor,
+                                    getStatusIcon: _getStatusIcon,
+                                  ),
                                 );
                               },
                             ),

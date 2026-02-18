@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/providers/report_provider.dart';
+import 'package:fleet_management/core/animations/app_animations.dart';
 import 'package:intl/intl.dart';
 
 class LicenseExpiryReportScreen extends ConsumerStatefulWidget {
@@ -98,7 +99,11 @@ class _LicenseExpiryReportScreenState
                   separatorBuilder: (context, index) => const SizedBox(height: 8),
                   itemBuilder: (context, index) {
                     final license = licenses[index];
-                    return _LicenseCard(license: license);
+                    return StaggeredItem(
+                      index: index,
+                      staggerMs: 60,
+                      child: _LicenseCard(license: license),
+                    );
                   },
                 ),
         ),
