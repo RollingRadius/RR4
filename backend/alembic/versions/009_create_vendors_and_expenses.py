@@ -14,7 +14,7 @@ import uuid
 
 # revision identifiers
 revision: str = '009_create_vendors_and_expenses'
-down_revision: Union[str, None] = 'add_user_id_to_drivers'
+down_revision: Union[str, None] = '008_add_requested_role_field'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
