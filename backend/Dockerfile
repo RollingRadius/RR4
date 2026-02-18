@@ -67,7 +67,8 @@ COPY --chown=appuser:appgroup . .
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/uploads /app/logs && \
     chown -R appuser:appgroup /app/uploads /app/logs && \
-    chmod +x /app/docker-entrypoint.sh
+    chmod +x /app/docker-entrypoint.sh && \
+    chmod +x /app/wait-for-db.sh 2>/dev/null || true
 
 # Expose port
 EXPOSE 8000
@@ -103,13 +104,16 @@ COPY --chown=appuser:appgroup ./app /app/app
 COPY --chown=appuser:appgroup ./alembic /app/alembic
 COPY --chown=appuser:appgroup ./alembic.ini /app/alembic.ini
 COPY --chown=appuser:appgroup ./docker-entrypoint.sh /app/docker-entrypoint.sh
+COPY --chown=appuser:appgroup ./wait-for-db.sh /app/wait-for-db.sh
 COPY --chown=appuser:appgroup ./init-db.py /app/init-db.py
 COPY --chown=appuser:appgroup ./requirements.txt /app/requirements.txt
+COPY --chown=appuser:appgroup ./seed_capabilities.py /app/seed_capabilities.py 2>/dev/null || true
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/uploads /app/logs && \
     chown -R appuser:appgroup /app/uploads /app/logs /app && \
-    chmod +x /app/docker-entrypoint.sh
+    chmod +x /app/docker-entrypoint.sh && \
+    chmod +x /app/wait-for-db.sh
 
 # Health check for container orchestration
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
