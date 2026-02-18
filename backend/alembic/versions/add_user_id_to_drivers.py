@@ -1,7 +1,7 @@
 """Add user_id to drivers table
 
 Revision ID: add_user_id_to_drivers
-Revises:
+Revises: 012_add_organization_branding
 Create Date: 2026-01-29
 
 """
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'add_user_id_to_drivers'
-down_revision = None  # Update this to the previous migration ID if there is one
+down_revision = '012_add_organization_branding'
 branch_labels = None
 depends_on = None
 
