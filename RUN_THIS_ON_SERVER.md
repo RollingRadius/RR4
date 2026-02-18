@@ -9,40 +9,13 @@ Your phone app gets **500 Internal Server Error** because:
 
 Error: `relation "users" does not exist`
 
+**ALSO:** You have **multiple migration heads** (branched migrations)
+
 ---
 
 ## ✅ THE FIX - Copy & Paste These Commands
 
-### **OPTION 1: Automated Fix Script** (Recommended)
-
-```bash
-# Step 1: Copy the fix script to your server
-scp E:/Projects/RR4/backend/fix-database.sh root@fc3:/home/RR4/backend/
-
-# Step 2: SSH to server
-ssh root@fc3
-
-# Step 3: Go to backend directory
-cd /home/RR4/backend
-
-# Step 4: Make script executable
-chmod +x fix-database.sh
-
-# Step 5: Run the fix script
-./fix-database.sh
-```
-
-The script will:
-1. ✅ Check Docker containers
-2. ✅ Verify database connection
-3. ✅ Run all migrations (create tables)
-4. ✅ Verify tables were created
-5. ✅ Initialize default data
-6. ✅ Test API endpoints
-
----
-
-### **OPTION 2: Manual Commands** (If script doesn't work)
+### **OPTION 1: Upgrade All Heads** ⭐ RECOMMENDED - USE THIS
 
 ```bash
 # SSH to server
@@ -51,30 +24,83 @@ ssh root@fc3
 # Go to backend
 cd /home/RR4/backend
 
-# Check containers are running
-docker-compose ps
+# Check what heads exist
+docker-compose exec backend alembic heads
 
-# Run migrations (THIS IS THE MOST IMPORTANT STEP)
-docker-compose exec backend alembic upgrade head
-
-# Initialize default data
-docker-compose exec backend python init-db.py
+# Upgrade ALL heads at once (not just 'head')
+docker-compose exec backend alembic upgrade heads
 
 # Verify tables exist
 docker-compose exec postgres psql -U fleet_user -d fleet_db -c "\dt"
 
-# Restart backend
-docker-compose restart backend
+# Seed default data
+docker-compose exec backend python seed_capabilities.py
+
+# Test API
+curl http://localhost:8000/health
+
+# Done!
+```
+
+**KEY CHANGE:** Use `alembic upgrade heads` (plural) instead of `head` (singular)
+
+---
+
+### **OPTION 2: Create Merge Migration** (If Option 1 doesn't work)
+
+```bash
+# SSH to server
+ssh root@fc3
+
+# Go to backend
+cd /home/RR4/backend
+
+# Create a merge migration to combine the heads
+docker-compose exec backend alembic merge -m "merge_all_heads" heads
+
+# Run migrations
+docker-compose exec backend alembic upgrade head
+
+# Verify
+docker-compose exec postgres psql -U fleet_user -d fleet_db -c "\dt"
+```
+
+---
+
+### **OPTION 3: Clean Slate** ⚠️ (Only if you have NO important data)
+
+```bash
+# SSH to server
+ssh root@fc3
+cd /home/RR4/backend
+
+# Stop containers
+docker-compose down
+
+# Delete database volume (WARNING: loses all data!)
+docker volume rm fleet_postgres_data
+
+# Start fresh
+docker-compose up -d
+
+# Wait for healthy services
+sleep 30
+
+# Run migrations
+docker-compose exec backend alembic upgrade heads
+
+# Seed data
+docker-compose exec backend python seed_capabilities.py
 
 # Done!
 ```
 
 ---
 
-### **OPTION 3: One Single Command** (Quickest)
+### **OPTION 4: One Single Command** (Quickest - Option 1 as one-liner)
 
 ```bash
-ssh root@fc3 'cd /home/RR4/backend && docker-compose exec backend alembic upgrade head && docker-compose exec backend python init-db.py && docker-compose restart backend && echo "✅ FIXED!"'
+ssh root@fc3 'cd /home/RR4/backend && docker-compose exec -T backend alembic upgrade heads && docker-compose exec -T backend python seed_capabilities.py && echo "✅ FIXED!"'
 ```
 
 ---

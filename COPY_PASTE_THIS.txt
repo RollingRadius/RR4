@@ -9,7 +9,10 @@ The problem is on the SERVER - database tables don't exist.
 RUN THIS ONE COMMAND:
 ========================================
 
-ssh root@fc3 'cd /home/RR4/backend && docker-compose exec backend alembic upgrade head && docker-compose exec backend python init-db.py && docker-compose restart backend'
+ssh root@fc3 'cd /home/RR4/backend && docker-compose exec -T backend alembic upgrade heads && docker-compose exec -T backend python seed_capabilities.py && echo "✅ FIXED!"'
+
+IMPORTANT: Use "heads" (plural) not "head" (singular)
+You have multiple migration heads that need to be upgraded.
 
 
 ========================================
