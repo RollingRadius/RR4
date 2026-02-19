@@ -206,18 +206,18 @@ def require_role(allowed_roles: List[str]):
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
     ) -> User:
-        if not hasattr(current_user, 'active_organization_id') or not current_user.active_organization_id:
+        # Get user's role in active organization
+        from app.models import UserOrganization
+        user_org = db.query(UserOrganization).filter(
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.status == 'active'
+        ).first()
+
+        if not user_org or not user_org.organization_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User must be associated with an active organization"
             )
-
-        # Get user's role in organization
-        from app.models import UserOrganization
-        user_org = db.query(UserOrganization).filter(
-            UserOrganization.user_id == current_user.id,
-            UserOrganization.company_id == current_user.active_organization_id
-        ).first()
 
         if not user_org or not user_org.role:
             raise HTTPException(

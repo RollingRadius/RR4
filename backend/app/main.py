@@ -85,7 +85,34 @@ async def startup_event():
     print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     print(f"Environment: {settings.ENVIRONMENT}")
     print(f"Debug mode: {settings.DEBUG}")
-    # Database connection will be established through dependency injection
+
+    # Auto-seed capabilities and predefined roles (idempotent - safe to run every startup)
+    try:
+        from app.database import SessionLocal
+        from app.services.capability_service import CapabilityService
+        from app.services.template_service import TemplateService
+
+        db = SessionLocal()
+        try:
+            # Seed capabilities first (required before predefined roles due to FK)
+            cap_service = CapabilityService(db)
+            cap_count = cap_service.seed_capabilities()
+            if cap_count > 0:
+                print(f"Seeded {cap_count} capabilities")
+
+            # Seed predefined role templates with their capability assignments
+            tmpl_service = TemplateService(db)
+            role_count = tmpl_service.seed_predefined_roles()
+            if role_count > 0:
+                print(f"Seeded {role_count} predefined roles")
+        except Exception as seed_error:
+            # Tables may not exist yet if migrations haven't been run
+            print(f"Warning: Seeding skipped (run migrations first): {seed_error}")
+            db.rollback()
+        finally:
+            db.close()
+    except Exception as e:
+        print(f"Warning: Could not initialize seeding: {e}")
 
 
 # Application shutdown event

@@ -23,7 +23,8 @@ class TemplateService:
         """
         Seed predefined role templates into database.
         Creates Role entries and assigns capabilities.
-        Returns number of roles seeded.
+        Also assigns capabilities to existing roles that have none.
+        Returns number of roles seeded or updated.
         """
         seeded_count = 0
 
@@ -43,16 +44,30 @@ class TemplateService:
                 )
                 self.db.add(role)
                 self.db.flush()  # Get role ID
+                needs_capabilities = True
+            else:
+                role = existing
+                # Check if role has any capabilities - if not, seed them
+                cap_count = self.db.query(RoleCapability).filter(
+                    RoleCapability.role_id == role.id
+                ).count()
+                needs_capabilities = (cap_count == 0)
 
-                # Assign capabilities
+            if needs_capabilities:
+                # Assign capabilities from template
                 for capability_key, access_level in template.capabilities.items():
-                    role_capability = RoleCapability(
-                        role_id=role.id,
-                        capability_key=capability_key,
-                        access_level=access_level
-                    )
-                    self.db.add(role_capability)
-
+                    # Check if this specific capability isn't already assigned
+                    existing_cap = self.db.query(RoleCapability).filter(
+                        RoleCapability.role_id == role.id,
+                        RoleCapability.capability_key == capability_key
+                    ).first()
+                    if not existing_cap:
+                        role_capability = RoleCapability(
+                            role_id=role.id,
+                            capability_key=capability_key,
+                            access_level=access_level
+                        )
+                        self.db.add(role_capability)
                 seeded_count += 1
 
         try:

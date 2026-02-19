@@ -67,6 +67,24 @@ def get_capabilities_by_category(
     }
 
 
+@router.get("/search", tags=["Capabilities"])
+def search_capabilities(
+    keyword: str = Query(..., min_length=2),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Search capabilities by keyword"""
+    capability_service = CapabilityService(db)
+    capabilities = capability_service.search_capabilities(keyword)
+
+    return {
+        "success": True,
+        "keyword": keyword,
+        "count": len(capabilities),
+        "capabilities": capabilities
+    }
+
+
 @router.get("/{capability_key}", tags=["Capabilities"])
 def get_capability(
     capability_key: str,
@@ -83,24 +101,6 @@ def get_capability(
     return {
         "success": True,
         "capability": capability
-    }
-
-
-@router.get("/search", tags=["Capabilities"])
-def search_capabilities(
-    keyword: str = Query(..., min_length=2),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Search capabilities by keyword"""
-    capability_service = CapabilityService(db)
-    capabilities = capability_service.search_capabilities(keyword)
-
-    return {
-        "success": True,
-        "keyword": keyword,
-        "count": len(capabilities),
-        "capabilities": capabilities
     }
 
 
@@ -142,8 +142,14 @@ def get_user_capabilities(
     current_user: User = Depends(require_capability("user.view", AccessLevel.VIEW))
 ):
     """Get user's effective capabilities (admin only)"""
-    if not organization_id and hasattr(current_user, 'active_organization_id'):
-        organization_id = str(current_user.active_organization_id)
+    if not organization_id:
+        from app.models.user_organization import UserOrganization
+        user_org = db.query(UserOrganization).filter(
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.status == 'active'
+        ).first()
+        if user_org and user_org.organization_id:
+            organization_id = str(user_org.organization_id)
 
     if not organization_id:
         raise HTTPException(status_code=400, detail="Organization ID required")
@@ -172,8 +178,14 @@ def check_user_capability(
     current_user: User = Depends(require_capability("user.view", AccessLevel.VIEW))
 ):
     """Check if user has specific capability"""
-    if not organization_id and hasattr(current_user, 'active_organization_id'):
-        organization_id = str(current_user.active_organization_id)
+    if not organization_id:
+        from app.models.user_organization import UserOrganization
+        user_org = db.query(UserOrganization).filter(
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.status == 'active'
+        ).first()
+        if user_org and user_org.organization_id:
+            organization_id = str(user_org.organization_id)
 
     if not organization_id:
         raise HTTPException(status_code=400, detail="Organization ID required")
