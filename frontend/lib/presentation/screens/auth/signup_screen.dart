@@ -17,6 +17,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _fullNameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _organizationController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -31,6 +32,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     _fullNameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
+    _organizationController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -52,6 +54,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       'email': _authMethod == AppConstants.authMethodEmail
           ? _emailController.text.trim()
           : null,
+      'organization': _organizationController.text.trim(),
       'phone': _phoneController.text.trim(),
       'password': _passwordController.text,
       'auth_method': _authMethod,
@@ -246,9 +249,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       _SignupFieldLabel(label: 'Organization Name'),
                       const SizedBox(height: 8),
                       _SignupTextField(
-                        controller: _phoneController,
+                        controller: _organizationController,
                         hintText: 'Acme Logistics Corp',
                         prefixIcon: Icons.corporate_fare_outlined,
+                        validator: (v) => (v == null || v.isEmpty)
+                            ? AppConstants.validationRequired
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Phone Number
+                      _SignupFieldLabel(label: 'Phone Number'),
+                      const SizedBox(height: 8),
+                      _SignupTextField(
+                        controller: _phoneController,
+                        hintText: '+1 555 000 0000',
+                        prefixIcon: Icons.phone_outlined,
+                        keyboardType: TextInputType.phone,
                         validator: (v) => (v == null || v.isEmpty)
                             ? AppConstants.validationRequired
                             : null,

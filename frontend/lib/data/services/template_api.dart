@@ -9,7 +9,7 @@ class TemplateApi {
   /// Get all predefined templates
   Future<Map<String, dynamic>> getAllPredefinedTemplates() async {
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/templates/predefined');
+      final response = await _dio.get('${ApiConstants.templatesBaseUrl}/predefined');
       return response.data;
     } catch (e) {
       rethrow;
@@ -19,7 +19,7 @@ class TemplateApi {
   /// Get specific predefined template
   Future<Map<String, dynamic>> getPredefinedTemplate(String roleKey) async {
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/templates/predefined/$roleKey');
+      final response = await _dio.get('${ApiConstants.templatesBaseUrl}/predefined/$roleKey');
       return response.data;
     } catch (e) {
       rethrow;
@@ -33,7 +33,7 @@ class TemplateApi {
   ) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/templates/merge',
+        '${ApiConstants.templatesBaseUrl}/merge',
         data: {
           'template_keys': templateKeys,
           'strategy': strategy,
@@ -49,7 +49,7 @@ class TemplateApi {
   Future<Map<String, dynamic>> compareTemplates(List<String> templateKeys) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/templates/compare',
+        '${ApiConstants.templatesBaseUrl}/compare',
         data: {'template_keys': templateKeys},
       );
       return response.data;
@@ -61,7 +61,7 @@ class TemplateApi {
   /// Get custom templates
   Future<Map<String, dynamic>> getCustomTemplates() async {
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/templates/custom');
+      final response = await _dio.get('${ApiConstants.templatesBaseUrl}/custom');
       return response.data;
     } catch (e) {
       rethrow;
@@ -71,7 +71,7 @@ class TemplateApi {
   /// Get template sources
   Future<Map<String, dynamic>> getTemplateSources(String customRoleId) async {
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/templates/custom/$customRoleId/sources');
+      final response = await _dio.get('${ApiConstants.templatesBaseUrl}/custom/$customRoleId/sources');
       return response.data;
     } catch (e) {
       rethrow;

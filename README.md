@@ -2161,7 +2161,7 @@ class Environment {
 - [ ] Fuel consumption prediction
 - [ ] Cost optimization recommendations
 - [ ] Custom dashboard builder
-
+****
 ### Phase 3 - Integration & Automation
 - [ ] Integration with accounting software (QuickBooks, Xero)
 - [ ] Integration with fuel card providers

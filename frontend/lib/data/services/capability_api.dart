@@ -9,7 +9,7 @@ class CapabilityApi {
   /// Get all capabilities
   Future<Map<String, dynamic>> getAllCapabilities() async {
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/capabilities');
+      final response = await _dio.get('${ApiConstants.capabilitiesBaseUrl}');
       return response.data;
     } catch (e) {
       rethrow;
@@ -19,7 +19,7 @@ class CapabilityApi {
   /// Get capabilities by category
   Future<Map<String, dynamic>> getCapabilitiesByCategory(String category) async {
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/capabilities/category/$category');
+      final response = await _dio.get('${ApiConstants.capabilitiesBaseUrl}/category/$category');
       return response.data;
     } catch (e) {
       rethrow;
@@ -29,7 +29,7 @@ class CapabilityApi {
   /// Get capability categories
   Future<Map<String, dynamic>> getCategories() async {
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/capabilities/categories');
+      final response = await _dio.get('${ApiConstants.capabilitiesBaseUrl}/categories');
       return response.data;
     } catch (e) {
       rethrow;
@@ -40,7 +40,7 @@ class CapabilityApi {
   Future<Map<String, dynamic>> searchCapabilities(String keyword) async {
     try {
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/capabilities/search',
+        '${ApiConstants.capabilitiesBaseUrl}/search',
         queryParameters: {'keyword': keyword},
       );
       return response.data;
@@ -52,7 +52,7 @@ class CapabilityApi {
   /// Get current user's capabilities
   Future<Map<String, dynamic>> getMyCapabilities() async {
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/capabilities/user/me');
+      final response = await _dio.get('${ApiConstants.capabilitiesBaseUrl}/user/me');
       return response.data;
     } catch (e) {
       rethrow;
@@ -63,7 +63,7 @@ class CapabilityApi {
   Future<Map<String, dynamic>> getUserCapabilities(String userId, {String? organizationId}) async {
     try {
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/capabilities/user/$userId',
+        '${ApiConstants.capabilitiesBaseUrl}/user/$userId',
         queryParameters: organizationId != null ? {'organization_id': organizationId} : null,
       );
       return response.data;
@@ -81,7 +81,7 @@ class CapabilityApi {
   }) async {
     try {
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/capabilities/user/$userId/check/$capabilityKey',
+        '${ApiConstants.capabilitiesBaseUrl}/user/$userId/check/$capabilityKey',
         queryParameters: {
           'required_level': requiredLevel,
           if (organizationId != null) 'organization_id': organizationId,
