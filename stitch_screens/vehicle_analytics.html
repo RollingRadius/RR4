@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Asset Analytics Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#121212",
+                        "card-dark": "#1e1e1e",
+                        "neutral-dark": "#2a2a2a",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .chart-gradient {
+            background: linear-gradient(180deg, rgba(236, 91, 19, 0.2) 0%, rgba(236, 91, 19, 0) 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<!-- Top Navigation -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-neutral-dark px-4 py-3">
+<div class="flex items-center justify-between max-w-xl mx-auto w-full">
+<button class="p-2 hover:bg-slate-200 dark:hover:bg-neutral-dark rounded-full transition-colors">
+<span class="material-symbols-outlined block">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold tracking-tight">Asset Analytics</h1>
+<button class="p-2 hover:bg-slate-200 dark:hover:bg-neutral-dark rounded-full transition-colors">
+<span class="material-symbols-outlined block">calendar_today</span>
+</button>
+</div>
+</header>
+<main class="flex-1 w-full max-w-xl mx-auto p-4 space-y-6 pb-24">
+<!-- Asset Header Card -->
+<section class="flex items-center gap-4 bg-white dark:bg-card-dark p-4 rounded-xl shadow-sm border border-slate-200 dark:border-neutral-dark">
+<div class="w-20 h-20 rounded-lg overflow-hidden shrink-0 bg-slate-100 dark:bg-neutral-dark">
+<img alt="Vehicle Thumbnail" class="w-full h-full object-cover" data-alt="Side profile of a white commercial freight truck" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD79dNDmq0vn1RJisbv0srubnunbD1I2MjSeApEeKHsVcmShWmGda7IxvYor73pnyFoYb7b4xOCprqDAYS8AnmmJeqxb3qYqs1NcH5A46vg0sJxM90fouYJvpTGyTc3gLpXeB8aFGxZead5ECVUSHawwopsDbee1jpuqwlAaLw6x2iLjBv7DLbdyKgI2xMKWY57f4cmPTfxMPxZ9E3yDCsDxOenTKBQKmVS-WV_Dwh1F5SvcvOS0eyAaVZ5JvWVa79kXEpAuWhxVJBj"/>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2">
+<h2 class="text-xl font-bold">Freightliner M2</h2>
+<span class="px-2 py-0.5 rounded-full bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-[10px] font-bold uppercase tracking-wider">Active</span>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-sm">ID: #FT-8842 • VIN: 1XK...492</p>
+<div class="mt-3 flex flex-wrap gap-2">
+<button class="bg-primary text-white text-[11px] font-bold px-3 py-2 rounded-lg shadow-sm hover:opacity-90 transition-opacity flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">download</span>
+                        Download Report
+                    </button>
+<button class="border border-slate-200 dark:border-neutral-dark bg-white dark:bg-neutral-dark text-slate-700 dark:text-slate-200 text-[11px] font-bold px-3 py-2 rounded-lg shadow-sm hover:bg-slate-50 dark:hover:bg-neutral-800 transition-colors flex items-center gap-1.5">
+<span class="material-symbols-outlined text-sm">map</span>
+                        View Live Map
+                    </button>
+</div>
+</div>
+</section>
+<!-- Time Selector -->
+<div class="flex bg-slate-200/50 dark:bg-neutral-dark p-1 rounded-xl">
+<button class="flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 dark:text-slate-400">7D</button>
+<button class="flex-1 py-2 text-xs font-bold rounded-lg bg-white dark:bg-primary text-slate-900 dark:text-white shadow-sm">1M</button>
+<button class="flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 dark:text-slate-400">3M</button>
+<button class="flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 dark:text-slate-400">YTD</button>
+</div>
+<!-- Key Metrics Grid -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-white dark:bg-card-dark p-5 rounded-xl border border-slate-200 dark:border-neutral-dark shadow-sm">
+<div class="flex items-center gap-2 mb-2 text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-lg">local_gas_station</span>
+<span class="text-xs font-semibold uppercase tracking-wider">Avg MPG</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-bold">18.5</span>
+<span class="text-green-500 text-xs font-bold">+1.2%</span>
+</div>
+</div>
+<div class="bg-white dark:bg-card-dark p-5 rounded-xl border border-slate-200 dark:border-neutral-dark shadow-sm">
+<div class="flex items-center gap-2 mb-2 text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-lg">timer</span>
+<span class="text-xs font-semibold uppercase tracking-wider">Idle Time</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="text-2xl font-bold">42h 15m</span>
+<span class="text-red-500 text-xs font-bold">-4.5%</span>
+</div>
+</div>
+</div>
+<!-- Utilization & Odometer Section -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Utilization Gauge -->
+<div class="bg-white dark:bg-card-dark p-5 rounded-xl border border-slate-200 dark:border-neutral-dark shadow-sm flex flex-col items-center text-center">
+<p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-4 w-full text-left">Utilization Score</p>
+<div class="relative w-32 h-32 flex items-center justify-center">
+<svg class="w-full h-full -rotate-90">
+<circle class="text-slate-100 dark:text-neutral-dark" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-primary" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-dasharray="364.4" stroke-dashoffset="65.5" stroke-linecap="round" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-3xl font-black">82%</span>
+<span class="text-[10px] text-slate-500 dark:text-slate-400 font-bold">OPTIMAL</span>
+</div>
+</div>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-4 leading-relaxed">Vehicle was active for 19.6 hours per day on average.</p>
+</div>
+<!-- Odometer Progress -->
+<div class="bg-white dark:bg-card-dark p-5 rounded-xl border border-slate-200 dark:border-neutral-dark shadow-sm">
+<p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-4">Odometer Progress</p>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between items-end mb-2">
+<span class="text-2xl font-bold tracking-tight">45,280 <span class="text-sm font-medium text-slate-400">mi</span></span>
+<span class="text-xs font-medium text-slate-400">Next: 50k mi</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-neutral-dark h-3 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 90.5%"></div>
+</div>
+</div>
+<div class="bg-primary/10 dark:bg-primary/5 border border-primary/20 p-3 rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">warning</span>
+<p class="text-xs font-medium leading-tight">Service required in <span class="font-bold">4,720 mi</span> (Approx. 12 days)</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Fuel Consumption Chart Placeholder -->
+<section class="bg-white dark:bg-card-dark p-5 rounded-xl border border-slate-200 dark:border-neutral-dark shadow-sm">
+<div class="flex justify-between items-center mb-6">
+<div>
+<h3 class="text-sm font-bold">Fuel Efficiency Trend</h3>
+<p class="text-xs text-slate-500 dark:text-slate-400">Daily average MPG over last 30 days</p>
+</div>
+<span class="material-symbols-outlined text-slate-400">show_chart</span>
+</div>
+<!-- Mock Chart Visualization -->
+<div class="h-40 w-full relative flex items-end gap-1">
+<div class="absolute inset-0 flex flex-col justify-between pointer-events-none">
+<div class="border-b border-slate-100 dark:border-neutral-dark w-full h-0"></div>
+<div class="border-b border-slate-100 dark:border-neutral-dark w-full h-0"></div>
+<div class="border-b border-slate-100 dark:border-neutral-dark w-full h-0"></div>
+<div class="border-b border-slate-100 dark:border-neutral-dark w-full h-0"></div>
+</div>
+<!-- Chart Bars/Points (Simplified) -->
+<div class="flex-1 bg-primary/20 dark:bg-primary/10 rounded-t-sm h-[60%]"></div>
+<div class="flex-1 bg-primary/30 dark:bg-primary/15 rounded-t-sm h-[55%]"></div>
+<div class="flex-1 bg-primary/40 dark:bg-primary/20 rounded-t-sm h-[70%]"></div>
+<div class="flex-1 bg-primary/50 dark:bg-primary/25 rounded-t-sm h-[65%]"></div>
+<div class="flex-1 bg-primary/60 dark:bg-primary/30 rounded-t-sm h-[80%]"></div>
+<div class="flex-1 bg-primary/70 dark:bg-primary/40 rounded-t-sm h-[75%]"></div>
+<div class="flex-1 bg-primary dark:bg-primary rounded-t-sm h-[90%]"></div>
+<div class="flex-1 bg-primary/80 dark:bg-primary/50 rounded-t-sm h-[85%]"></div>
+<div class="flex-1 bg-primary/70 dark:bg-primary/40 rounded-t-sm h-[70%]"></div>
+<div class="flex-1 bg-primary/60 dark:bg-primary/30 rounded-t-sm h-[60%]"></div>
+<div class="flex-1 bg-primary/50 dark:bg-primary/25 rounded-t-sm h-[75%]"></div>
+<div class="flex-1 bg-primary/40 dark:bg-primary/20 rounded-t-sm h-[65%]"></div>
+</div>
+<div class="flex justify-between mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+<span>01 Oct</span>
+<span>10 Oct</span>
+<span>20 Oct</span>
+<span>30 Oct</span>
+</div>
+</section>
+<!-- Maintenance Cost Summary -->
+<section class="bg-white dark:bg-card-dark p-5 rounded-xl border border-slate-200 dark:border-neutral-dark shadow-sm">
+<div class="flex justify-between items-center mb-4">
+<h3 class="text-sm font-bold">Recent Maintenance</h3>
+<span class="text-xs font-bold text-primary cursor-pointer">View All</span>
+</div>
+<div class="space-y-4">
+<div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-neutral-dark last:border-0 last:pb-0">
+<div class="flex items-center gap-3">
+<div class="p-2 rounded-lg bg-slate-100 dark:bg-neutral-dark">
+<span class="material-symbols-outlined text-slate-500 text-lg">oil_barrel</span>
+</div>
+<div>
+<p class="text-sm font-bold">Oil &amp; Filter Change</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Oct 24, 2023</p>
+</div>
+</div>
+<span class="text-sm font-bold">$185.00</span>
+</div>
+<div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-neutral-dark last:border-0 last:pb-0">
+<div class="flex items-center gap-3">
+<div class="p-2 rounded-lg bg-slate-100 dark:bg-neutral-dark">
+<span class="material-symbols-outlined text-slate-500 text-lg">tire_repair</span>
+</div>
+<div>
+<p class="text-sm font-bold">Tire Rotation</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Sep 12, 2023</p>
+</div>
+</div>
+<span class="text-sm font-bold">$80.00</span>
+</div>
+<div class="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-neutral-dark last:border-0 last:pb-0">
+<div class="flex items-center gap-3">
+<div class="p-2 rounded-lg bg-slate-100 dark:bg-neutral-dark">
+<span class="material-symbols-outlined text-slate-500 text-lg">settings_input_component</span>
+</div>
+<div>
+<p class="text-sm font-bold">Brake Pad Replacement</p>
+<p class="text-xs text-slate-500 dark:text-slate-400">Aug 05, 2023</p>
+</div>
+</div>
+<span class="text-sm font-bold">$450.00</span>
+</div>
+</div>
+<div class="mt-4 pt-4 border-t border-slate-100 dark:border-neutral-dark flex justify-between items-center">
+<span class="text-xs font-bold text-slate-500 uppercase">Total (Last 30D)</span>
+<span class="text-lg font-black text-primary">$715.00</span>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-card-dark/90 backdrop-blur-lg border-t border-slate-200 dark:border-neutral-dark px-4 pb-6 pt-2 z-50">
+<div class="flex justify-around items-center max-w-xl mx-auto">
+<a class="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Fleet</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined fill-current">monitoring</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Analytics</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">notifications</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Alerts</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-bold uppercase tracking-widest">Setup</span>
+</a>
+</div>
+</nav>
+</body></html>

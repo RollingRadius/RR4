@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Create New Trip - Fleet Manager</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#ec5b13",
+              "background-light": "#f8f6f6",
+              "background-dark": "#221610",
+            },
+            fontFamily: {
+              "display": ["Public Sans"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen text-slate-900 dark:text-slate-100">
+<!-- Top App Bar -->
+<header class="sticky top-0 z-10 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-primary/10">
+<div class="max-w-xl mx-auto flex items-center justify-between p-4">
+<div class="flex items-center gap-4">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-primary">arrow_back</span>
+</button>
+<h1 class="text-xl font-bold tracking-tight">Create New Trip</h1>
+</div>
+<button class="text-primary font-semibold text-sm px-3 py-1 rounded-lg hover:bg-primary/5">Cancel</button>
+</div>
+</header>
+<main class="max-w-xl mx-auto p-4 pb-32 space-y-8">
+<!-- Section 1: Route Information -->
+<section class="space-y-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary text-xl">route</span>
+<h2 class="text-lg font-bold">Route Information</h2>
+</div>
+<div class="space-y-4">
+<!-- Trip Name -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium opacity-80 px-1">Trip Name</label>
+<input class="w-full h-14 px-4 rounded-xl border-2 border-primary/10 bg-white dark:bg-stone-900 focus:border-primary focus:ring-0 transition-all placeholder:opacity-50" placeholder="e.g., Downtown Delivery Hub" type="text"/>
+</div>
+<!-- Starting Point -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium opacity-80 px-1">Starting Point</label>
+<div class="relative group">
+<input class="w-full h-14 pl-12 pr-4 rounded-xl border-2 border-primary/10 bg-white dark:bg-stone-900 focus:border-primary focus:ring-0 transition-all placeholder:opacity-50" placeholder="Enter pickup location" type="text"/>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/60 group-focus-within:text-primary transition-colors">location_on</span>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-primary">
+<span class="material-symbols-outlined">my_location</span>
+</button>
+</div>
+</div>
+<!-- Destination -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium opacity-80 px-1">Destination</label>
+<div class="relative group">
+<input class="w-full h-14 pl-12 pr-4 rounded-xl border-2 border-primary/10 bg-white dark:bg-stone-900 focus:border-primary focus:ring-0 transition-all placeholder:opacity-50" placeholder="Enter drop-off location" type="text"/>
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-primary/60 group-focus-within:text-primary transition-colors">flag</span>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-primary">
+<span class="material-symbols-outlined">map</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Schedule -->
+<section class="space-y-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary text-xl">calendar_today</span>
+<h2 class="text-lg font-bold">Schedule</h2>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium opacity-80 px-1">Date</label>
+<div class="relative">
+<input class="w-full h-14 px-4 rounded-xl border-2 border-primary/10 bg-white dark:bg-stone-900 focus:border-primary focus:ring-0 transition-all appearance-none" type="date"/>
+</div>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium opacity-80 px-1">Departure Time</label>
+<div class="relative">
+<input class="w-full h-14 px-4 rounded-xl border-2 border-primary/10 bg-white dark:bg-stone-900 focus:border-primary focus:ring-0 transition-all appearance-none" type="time"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Assignments -->
+<section class="space-y-4">
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-primary text-xl">person_add</span>
+<h2 class="text-lg font-bold">Assignments</h2>
+</div>
+<div class="space-y-4">
+<!-- Assign Driver -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium opacity-80 px-1">Assign Driver</label>
+<div class="relative">
+<select class="w-full h-14 px-4 rounded-xl border-2 border-primary/10 bg-white dark:bg-stone-900 focus:border-primary focus:ring-0 transition-all appearance-none">
+<option disabled="" selected="" value="">Select an available driver</option>
+<option value="1">John Smith (Available)</option>
+<option value="2">Sarah Jenkins (Available)</option>
+<option value="3">Marcus Vane (On Break)</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary/60">expand_more</span>
+</div>
+</div>
+<!-- Assign Vehicle -->
+<div class="flex flex-col gap-1.5">
+<label class="text-sm font-medium opacity-80 px-1">Assign Vehicle</label>
+<div class="relative">
+<select class="w-full h-14 px-4 rounded-xl border-2 border-primary/10 bg-white dark:bg-stone-900 focus:border-primary focus:ring-0 transition-all appearance-none">
+<option disabled="" selected="" value="">Select a vehicle</option>
+<option value="1">Ford Transit - #FL-402 (Fuel: 85%)</option>
+<option value="2">Sprinter Van - #FL-109 (Fuel: 92%)</option>
+<option value="3">Box Truck - #BT-002 (In Service)</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-primary/60">expand_more</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Optional: Map Preview -->
+<div class="rounded-2xl overflow-hidden h-40 border-2 border-primary/5 relative">
+<img alt="Abstract map representation" class="w-full h-full object-cover grayscale brightness-75 dark:brightness-50" data-location="Chicago" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCFtDXVtj6ymzmBkSZZji3y4B63zoIgefiBYRuQiBH3nRS1LBXf7_-aVEuPzmpPk3QoPKpTJchNOuGJPgeUU4sAEcwBsYjFmsOIBLR2mwdvbCKi_M0CqwKHZJjUkuK_Vh0lqKxKgyjD8fJyhyYqRhVbY2kgLsr6SHMJWFDzaqvYm0yLGiYuqCboSk7RZEKudDep1hJ6M5jCPPgOLocCewQ6BpwqgdCspKP4qAWEPdOIIzCiPSrO3CGJUKL9PfFcL5d_C07ny5Vr2m-f"/>
+<div class="absolute inset-0 bg-gradient-to-t from-background-dark/80 to-transparent flex items-end p-4">
+<span class="text-xs font-semibold text-white/80 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">map</span>
+                    Route visualization will appear here
+                </span>
+</div>
+</div>
+</main>
+<!-- Bottom Action Bar -->
+<footer class="fixed bottom-0 left-0 right-0 p-4 bg-background-light dark:bg-background-dark border-t border-primary/10">
+<div class="max-w-xl mx-auto">
+<button class="w-full h-14 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">send</span>
+                Confirm and Dispatch Trip
+            </button>
+</div>
+</footer>
+</body></html>

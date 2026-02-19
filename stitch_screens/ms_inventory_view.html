@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fleet Inventory Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<!-- Header Section -->
+<header class="sticky top-0 z-30 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-primary/10">
+<div class="flex items-center justify-between p-4">
+<div class="flex items-center gap-3">
+<div class="p-2 rounded-lg bg-primary/10">
+<span class="material-symbols-outlined text-primary">inventory_2</span>
+</div>
+<div>
+<h1 class="text-xl font-bold tracking-tight">Inventory</h1>
+<p class="text-xs text-slate-500 dark:text-slate-400">Main Warehouse • South Wing</p>
+</div>
+</div>
+<button class="relative p-2 text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 flex h-2 w-2 rounded-full bg-primary"></span>
+</button>
+</div>
+<!-- Search Bar -->
+<div class="px-4 pb-4">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full pl-10 pr-4 py-3 bg-white dark:bg-primary/5 border border-slate-200 dark:border-primary/20 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500" placeholder="Search by part name or ID..." type="text"/>
+</div>
+</div>
+<!-- Category Filter Chips -->
+<div class="flex gap-2 px-4 pb-4 overflow-x-auto no-scrollbar">
+<button class="flex items-center gap-1 px-4 py-2 bg-primary text-white rounded-full text-sm font-medium shrink-0">
+                All
+            </button>
+<button class="flex items-center gap-1 px-4 py-2 bg-white dark:bg-primary/10 border border-slate-200 dark:border-primary/20 rounded-full text-sm font-medium shrink-0 hover:border-primary/50 transition-colors">
+<span class="material-symbols-outlined text-sm">settings_input_component</span>
+                Engine
+            </button>
+<button class="flex items-center gap-1 px-4 py-2 bg-white dark:bg-primary/10 border border-slate-200 dark:border-primary/20 rounded-full text-sm font-medium shrink-0 hover:border-primary/50 transition-colors">
+<span class="material-symbols-outlined text-sm">album</span>
+                Brakes
+            </button>
+<button class="flex items-center gap-1 px-4 py-2 bg-white dark:bg-primary/10 border border-slate-200 dark:border-primary/20 rounded-full text-sm font-medium shrink-0 hover:border-primary/50 transition-colors">
+<span class="material-symbols-outlined text-sm">bolt</span>
+                Electrical
+            </button>
+<button class="flex items-center gap-1 px-4 py-2 bg-white dark:bg-primary/10 border border-slate-200 dark:border-primary/20 rounded-full text-sm font-medium shrink-0 hover:border-primary/50 transition-colors">
+<span class="material-symbols-outlined text-sm">tire_repair</span>
+                Tires
+            </button>
+<button class="flex items-center gap-1 px-4 py-2 bg-white dark:bg-primary/10 border border-slate-200 dark:border-primary/20 rounded-full text-sm font-medium shrink-0 hover:border-primary/50 transition-colors">
+<span class="material-symbols-outlined text-sm">opacity</span>
+                Fluids
+            </button>
+</div>
+</header>
+<!-- Inventory List Container -->
+<main class="flex-1 p-4 space-y-3 pb-24">
+<!-- Item 1: Low Stock -->
+<div class="flex gap-4 p-4 bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/10 shadow-sm relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+<div class="w-16 h-16 rounded-lg bg-slate-100 dark:bg-primary/20 flex items-center justify-center shrink-0">
+<div class="w-full h-full bg-cover bg-center rounded-lg" data-alt="Heavy duty vehicle oil filter component" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBHNYq67CQgAy58Kv9TY0m9R7RZmeowKqtLBDz2EsYbJ82QujQRYVaHL2mmFLWlrtSHFpCxzXYfqphxL517aGVVSBBDFPMVpWXUIUwTTjf47Py2O4QXCSrH_uQtSqk77ilA9yrODbKDBIMFWsKwqCzo6Fj4jjn08RUaFWYcgpsGg_uBy1qYQUVqNZDuISEAKWIP9JH_pRHEjoIS_5hGcF-Ni3NErIyNUFCNMDfIkOvR6j7eQaNhhYJa47Q6Umz9JnhrivQcXVVgpW3w')"></div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-bold text-slate-900 dark:text-white leading-tight">Oil Filter XL-500</h3>
+<p class="text-xs text-slate-500 dark:text-slate-400">ID: #8832 • Engine</p>
+</div>
+<span class="px-2 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">Low Stock</span>
+</div>
+<div class="mt-2 flex items-end justify-between">
+<div class="space-y-0.5">
+<div class="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined text-sm">location_on</span>
+                            Aisle 4, Shelf B
+                        </div>
+<div class="flex items-center gap-1 text-xs font-semibold text-primary">
+<span class="material-symbols-outlined text-sm">inventory</span>
+                            4 in stock
+                        </div>
+</div>
+<button class="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors">
+<span class="material-symbols-outlined">add_circle</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 2: In Stock -->
+<div class="flex gap-4 p-4 bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/10 shadow-sm relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+<div class="w-16 h-16 rounded-lg bg-slate-100 dark:bg-primary/20 flex items-center justify-center shrink-0">
+<div class="w-full h-full bg-cover bg-center rounded-lg" data-alt="Brake pads for heavy duty truck" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuA4STlIJDpObxla6aWk54SlkMVOFrOSbQUvVzSfynkuNaUFmftwOy4aWLHzu_m3s814bt1AMvxSZhjI4MREPKQk_4Mo7SsOU0u6NIlMAw8k0cPvOsk2IZCujYzMdKbjwRvmNRGdYLuAUKPiAiXtDVxirVRCA6MVAxJRnqwvEpzzi25lQ-Xqhj3_k5MraVr5j8pEnSq-QX7jU_fujYWmGSjQkdvOMydBqv3fuOCKDGYQtuSmICbNfVuwSHKvcui8t6ecSGo4L2izzlmj')"></div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-bold text-slate-900 dark:text-white leading-tight">Ceramic Brake Pads</h3>
+<p class="text-xs text-slate-500 dark:text-slate-400">ID: #9241 • Brakes</p>
+</div>
+<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-wider">In Stock</span>
+</div>
+<div class="mt-2 flex items-end justify-between">
+<div class="space-y-0.5">
+<div class="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined text-sm">location_on</span>
+                            Aisle 2, Shelf D
+                        </div>
+<div class="flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-500">
+<span class="material-symbols-outlined text-sm">inventory</span>
+                            28 in stock
+                        </div>
+</div>
+<button class="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors">
+<span class="material-symbols-outlined">add_circle</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 3: Out of Stock -->
+<div class="flex gap-4 p-4 bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/10 shadow-sm relative overflow-hidden group opacity-80">
+<div class="absolute top-0 left-0 w-1 h-full bg-slate-400"></div>
+<div class="w-16 h-16 rounded-lg bg-slate-100 dark:bg-primary/20 flex items-center justify-center shrink-0 grayscale">
+<div class="w-full h-full bg-cover bg-center rounded-lg" data-alt="H7 Headlight bulb replacement" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDgzvETHsnc_Xlf4Y2WX3BSVWrotc0M3Jl_Q6PDkQMnCYL7gC5S3H2JisHvEJ-ZDcqmSHVlfS2u6fxF8u9pgAoS75V7ymNmgmwxitG9SGR6nBRlmfeFn9QxLylVdBOjj8aXFqsoZHs6TbdCHGME4_2xPsUuUIUt3Lk_4R-cL0SlqTJOZWtR_chznGJHvOSntZJBqZ7Y7kXZc9M8k3pH5o1asM8nqNfdYlGCN2Brvr9SMWrqQwR8FwJudsNB5Yo01T6Rbu0512oyqx9T')"></div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-bold text-slate-900 dark:text-white leading-tight">H7 Headlight Bulb</h3>
+<p class="text-xs text-slate-500 dark:text-slate-400">ID: #4410 • Electrical</p>
+</div>
+<span class="px-2 py-0.5 rounded bg-slate-500/10 text-slate-500 text-[10px] font-bold uppercase tracking-wider">Out of Stock</span>
+</div>
+<div class="mt-2 flex items-end justify-between">
+<div class="space-y-0.5">
+<div class="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined text-sm">location_on</span>
+                            Aisle 12, Shelf A
+                        </div>
+<div class="flex items-center gap-1 text-xs font-semibold text-slate-500">
+<span class="material-symbols-outlined text-sm">inventory</span>
+                            0 in stock
+                        </div>
+</div>
+<button class="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors">
+<span class="material-symbols-outlined">add_circle</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Item 4: In Stock -->
+<div class="flex gap-4 p-4 bg-white dark:bg-primary/5 rounded-xl border border-slate-200 dark:border-primary/10 shadow-sm relative overflow-hidden group">
+<div class="absolute top-0 left-0 w-1 h-full bg-emerald-500"></div>
+<div class="w-16 h-16 rounded-lg bg-slate-100 dark:bg-primary/20 flex items-center justify-center shrink-0">
+<div class="w-full h-full bg-cover bg-center rounded-lg" data-alt="All-terrain fleet tire" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCGdERRXSrB25u_JSJhcsVv2TdZB5sfwlMJ4Mb5TbyLsM1rhI6ru-xKPoi3XONv3BUsSsaRkQAk4Ji1VJLQ8e6Xuq0ccoAuQRdgiHJXwzvYW8gSZt8gyE_PWCECJ_8nvU1fHxMAi-Fe4-lNWpZQH7Rj12BW0NROXpXqBx1aUaG1SyulqlZ2nDr5Ll3nrmMxSkZckZuZ2ixCktwu2tUxofLAtNGWLlvsPZRsPZF5StwLjVBYo1CH4gYF1As4Nt9XlApC5fJQ_4R7r0-T')"></div>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-bold text-slate-900 dark:text-white leading-tight">All-Terrain Tire V2</h3>
+<p class="text-xs text-slate-500 dark:text-slate-400">ID: #2199 • Tires</p>
+</div>
+<span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-wider">In Stock</span>
+</div>
+<div class="mt-2 flex items-end justify-between">
+<div class="space-y-0.5">
+<div class="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined text-sm">location_on</span>
+                            Tire Rack 2
+                        </div>
+<div class="flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-500">
+<span class="material-symbols-outlined text-sm">inventory</span>
+                            12 in stock
+                        </div>
+</div>
+<button class="text-primary hover:bg-primary/10 p-1.5 rounded-lg transition-colors">
+<span class="material-symbols-outlined">add_circle</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Quick Action FAB -->
+<div class="fixed bottom-24 right-4 z-40">
+<button class="flex items-center gap-2 bg-primary text-white px-6 py-4 rounded-full shadow-lg shadow-primary/30 hover:scale-105 transition-transform">
+<span class="material-symbols-outlined">add_shopping_cart</span>
+<span class="font-bold tracking-tight">Request Part</span>
+</button>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-background-dark border-t border-slate-200 dark:border-primary/20 px-6 py-3 z-50">
+<div class="flex items-center justify-between max-w-md mx-auto">
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500 transition-colors" href="#">
+<span class="material-symbols-outlined">task_alt</span>
+<span class="text-[10px] font-medium">My Tasks</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary transition-colors" href="#">
+<span class="material-symbols-outlined fill-1">inventory_2</span>
+<span class="text-[10px] font-bold">Inventory</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500 transition-colors" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="text-[10px] font-medium">Schedule</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500 transition-colors" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-medium">Settings</span>
+</a>
+</div>
+<!-- iPhone indicator bar spacer -->
+<div class="h-4"></div>
+</nav>
+</body></html>

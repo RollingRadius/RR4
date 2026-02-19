@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/driver_provider.dart';
-import 'package:fleet_management/core/animations/app_animations.dart';
 
 class AddDriverScreen extends ConsumerStatefulWidget {
   const AddDriverScreen({super.key});
@@ -12,14 +11,17 @@ class AddDriverScreen extends ConsumerStatefulWidget {
 }
 
 class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
+  static const _primary = Color(0xFFEC5B13);
+  static const _bg = Color(0xFFF8F6F6);
+
   final _formKey = GlobalKey<FormState>();
 
-  // Login Credentials Controllers
+  // Login Credentials
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  // Basic Information Controllers
+  // Basic Information
   final _employeeIdController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
@@ -28,14 +30,14 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
   DateTime? _dateOfBirth;
   DateTime _joinDate = DateTime.now();
 
-  // Address Information Controllers
+  // Address (kept for API)
   final _addressController = TextEditingController();
   final _cityController = TextEditingController();
   String? _selectedState;
   final _pincodeController = TextEditingController();
   final _countryController = TextEditingController(text: 'India');
 
-  // License Information Controllers
+  // License
   final _licenseNumberController = TextEditingController();
   String _licenseType = 'LMV';
   DateTime? _issueDate;
@@ -43,24 +45,16 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
   final _issuingAuthorityController = TextEditingController();
   String? _issuingState;
 
-  // Emergency Contact Controllers
+  // Emergency Contact
   final _emergencyContactNameController = TextEditingController();
   final _emergencyContactPhoneController = TextEditingController();
   String? _emergencyContactRelationship;
 
+  // Role
+  String _selectedRole = 'driver';
+
   bool _isSubmitting = false;
 
-  // Indian States
-  final List<String> _indianStates = [
-    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-    'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
-    'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
-    'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
-    'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-    'Delhi', 'Jammu and Kashmir', 'Ladakh'
-  ];
-
-  // License Types
   final List<Map<String, String>> _licenseTypes = [
     {'value': 'LMV', 'label': 'LMV (Light Motor Vehicle)'},
     {'value': 'HMV', 'label': 'HMV (Heavy Motor Vehicle)'},
@@ -68,10 +62,6 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
     {'value': 'HPMV', 'label': 'HPMV (Heavy Passenger Motor Vehicle)'},
   ];
 
-  // Emergency Contact Relationships
-  final List<String> _relationships = [
-    'Parent', 'Spouse', 'Sibling', 'Friend', 'Relative', 'Other'
-  ];
 
   @override
   void dispose() {
@@ -93,94 +83,71 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
     super.dispose();
   }
 
+  // ── Validators ──────────────────────────────────────────────────────────────
+
   String? _validateRequired(String? value, String fieldName) {
-    if (value == null || value.isEmpty) {
-      return '$fieldName is required';
-    }
+    if (value == null || value.isEmpty) return '$fieldName is required';
     return null;
   }
 
   String? _validateEmail(String? value) {
-    if (value == null || value.isEmpty) return null; // Optional field
-    final emailRegex = RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$');
-    if (!emailRegex.hasMatch(value)) {
+    if (value == null || value.isEmpty) return null;
+    if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(value)) {
       return 'Enter a valid email address';
     }
     return null;
   }
 
   String? _validatePhone(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Phone number is required';
-    }
-    final phoneRegex = RegExp(r'^\d{10}$');
-    if (!phoneRegex.hasMatch(value)) {
-      return 'Phone number must be 10 digits';
-    }
-    return null;
-  }
-
-  String? _validatePincode(String? value) {
-    if (value == null || value.isEmpty) return null; // Optional field
-    final pincodeRegex = RegExp(r'^\d{6}$');
-    if (!pincodeRegex.hasMatch(value)) {
-      return 'Pincode must be 6 digits';
-    }
+    if (value == null || value.isEmpty) return 'Phone number is required';
+    if (!RegExp(r'^\d{10}$').hasMatch(value)) return 'Phone must be 10 digits';
     return null;
   }
 
   String? _validateUsername(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Username is required';
-    }
-    final usernameRegex = RegExp(r'^[a-zA-Z0-9_]{3,50}$');
-    if (!usernameRegex.hasMatch(value)) {
-      return 'Username must be 3-50 characters (letters, numbers, underscore only)';
+    if (value == null || value.isEmpty) return 'Username is required';
+    if (!RegExp(r'^[a-zA-Z0-9_]{3,50}$').hasMatch(value)) {
+      return 'Username: 3-50 chars (letters, numbers, underscore)';
     }
     return null;
   }
 
   String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Password is required';
-    }
-    if (value.length < 8) {
-      return 'Password must be at least 8 characters';
-    }
-    if (!RegExp(r'[A-Z]').hasMatch(value)) {
-      return 'Password must contain at least one uppercase letter';
-    }
-    if (!RegExp(r'[a-z]').hasMatch(value)) {
-      return 'Password must contain at least one lowercase letter';
-    }
-    if (!RegExp(r'\d').hasMatch(value)) {
-      return 'Password must contain at least one digit';
-    }
+    if (value == null || value.isEmpty) return 'Password is required';
+    if (value.length < 8) return 'Password must be at least 8 characters';
+    if (!RegExp(r'[A-Z]').hasMatch(value)) return 'Must include an uppercase letter';
+    if (!RegExp(r'[a-z]').hasMatch(value)) return 'Must include a lowercase letter';
+    if (!RegExp(r'\d').hasMatch(value)) return 'Must include a digit';
     return null;
   }
 
   String? _validateLicenseNumber(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'License number is required';
-    }
-    final licenseRegex = RegExp(r'^[A-Z0-9\-]{10,50}$');
-    if (!licenseRegex.hasMatch(value.toUpperCase())) {
-      return 'License number must be 10-50 alphanumeric characters';
+    if (value == null || value.isEmpty) return 'License number is required';
+    if (!RegExp(r'^[A-Z0-9\-]{10,50}$').hasMatch(value.toUpperCase())) {
+      return 'License must be 10-50 alphanumeric characters';
     }
     return null;
   }
 
-  Future<void> _selectDate(BuildContext context, DateTime? initialDate, Function(DateTime) onDateSelected) async {
-    final DateTime? picked = await showDatePicker(
+  // ── Date Picker ──────────────────────────────────────────────────────────────
+
+  Future<void> _pickDate(DateTime? initial, void Function(DateTime) onPicked) async {
+    final picked = await showDatePicker(
       context: context,
-      initialDate: initialDate ?? DateTime.now(),
+      initialDate: initial ?? DateTime.now(),
       firstDate: DateTime(1950),
       lastDate: DateTime(2100),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(primary: _primary),
+        ),
+        child: child!,
+      ),
     );
-    if (picked != null) {
-      onDateSelected(picked);
-    }
+    if (picked != null) onPicked(picked);
   }
+
+  // ── Submit ────────────────────────────────────────────────────────────────────
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
@@ -190,7 +157,6 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
       return;
     }
 
-    // Validate dates
     if (_issueDate == null || _expiryDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('License issue date and expiry date are required')),
@@ -219,12 +185,9 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    setState(() => _isSubmitting = true);
 
     try {
-      // Build driver data
       final Map<String, dynamic> driverData = {
         'username': _usernameController.text.trim(),
         'password': _passwordController.text,
@@ -242,7 +205,6 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
         },
       };
 
-      // Add optional fields
       if (_emailController.text.isNotEmpty) {
         driverData['email'] = _emailController.text.trim();
       }
@@ -255,17 +217,16 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
       if (_cityController.text.isNotEmpty) {
         driverData['city'] = _cityController.text.trim();
       }
-      if (_selectedState != null) {
-        driverData['state'] = _selectedState;
-      }
+      if (_selectedState != null) driverData['state'] = _selectedState!;
       if (_pincodeController.text.isNotEmpty) {
         driverData['pincode'] = _pincodeController.text.trim();
       }
       if (_issuingAuthorityController.text.isNotEmpty) {
-        (driverData['license'] as Map<String, dynamic>)['issuing_authority'] = _issuingAuthorityController.text.trim();
+        (driverData['license'] as Map<String, dynamic>)['issuing_authority'] =
+            _issuingAuthorityController.text.trim();
       }
       if (_issuingState != null) {
-        (driverData['license'] as Map<String, dynamic>)['issuing_state'] = _issuingState;
+        (driverData['license'] as Map<String, dynamic>)['issuing_state'] = _issuingState!;
       }
       if (_emergencyContactNameController.text.isNotEmpty) {
         driverData['emergency_contact_name'] = _emergencyContactNameController.text.trim();
@@ -274,10 +235,9 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
         driverData['emergency_contact_phone'] = _emergencyContactPhoneController.text.trim();
       }
       if (_emergencyContactRelationship != null) {
-        driverData['emergency_contact_relationship'] = _emergencyContactRelationship;
+        driverData['emergency_contact_relationship'] = _emergencyContactRelationship!;
       }
 
-      // Submit via provider
       final success = await ref.read(driverProvider.notifier).addDriver(driverData);
 
       if (success && mounted) {
@@ -287,461 +247,625 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
         context.pop();
       } else if (mounted) {
         final error = ref.read(driverProvider).error ?? 'Failed to add driver';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error)),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
+
+  // ── UI helpers ────────────────────────────────────────────────────────────────
+
+  InputDecoration _inputDecor(String hint) => InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: _primary.withAlpha(50)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: _primary.withAlpha(50)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: _primary, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.red),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Colors.red, width: 1.5),
+        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      );
+
+  String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  // ── Build ──────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Add Driver'),
-        elevation: 2,
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16.0),
-          children: [
-            // Basic Information Card
-            FadeSlide(delay: 0, child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Basic Information',
-                      style: Theme.of(context).textTheme.titleLarge,
+      backgroundColor: _bg,
+      body: Column(
+        children: [
+          // ── Sticky header ──────────────────────────────────────────────────
+          Material(
+            color: _bg,
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  // Title row
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back, color: _primary),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Add New Driver',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 48),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    // Login Credentials Section
-                    Text(
-                      'Login Credentials',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                  ),
+                  // Progress bar
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'REGISTRATION PROGRESS',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: _primary,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            Text('Step 1 of 3',
+                                style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: 1 / 3,
+                            minHeight: 8,
+                            backgroundColor: _primary.withAlpha(30),
+                            valueColor: const AlwaysStoppedAnimation(_primary),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // ── Scrollable form ─────────────────────────────────────────────────
+          Expanded(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+                children: [
+                  // Photo upload
+                  GestureDetector(
+                    onTap: () {},
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      decoration: BoxDecoration(
+                        color: _primary.withAlpha(13),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _primary.withAlpha(50)),
+                      ),
+                      child: Column(
+                        children: [
+                          Stack(
+                            children: [
+                              Container(
+                                width: 96,
+                                height: 96,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[200],
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 4),
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 8),
+                                  ],
+                                ),
+                                child: Icon(Icons.add_a_photo, size: 36, color: Colors.grey[400]),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: _primary,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                  child: const Icon(Icons.edit, size: 12, color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          const Text(
+                            'Upload Profile Photo',
+                            style: TextStyle(color: _primary, fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                          Text('PNG, JPG up to 5MB',
+                              style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    TextFormField(
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Section: Personal Information ──────────────────────────
+                  const _SectionHeader(icon: Icons.person, label: 'Personal Information'),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _FieldWrap(
+                          label: 'First Name',
+                          child: TextFormField(
+                            controller: _firstNameController,
+                            decoration: _inputDecor('e.g. Jonathan'),
+                            validator: (v) => _validateRequired(v, 'First name'),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _FieldWrap(
+                          label: 'Last Name',
+                          child: TextFormField(
+                            controller: _lastNameController,
+                            decoration: _inputDecor('e.g. Miller'),
+                            validator: (v) => _validateRequired(v, 'Last name'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  _FieldWrap(
+                    label: 'Employee ID',
+                    child: TextFormField(
+                      controller: _employeeIdController,
+                      decoration: _inputDecor('e.g. DRV-001'),
+                      validator: (v) => _validateRequired(v, 'Employee ID'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _FieldWrap(
+                    label: 'Email Address',
+                    child: TextFormField(
+                      controller: _emailController,
+                      decoration: _inputDecor('driver@fleet.com'),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: _validateEmail,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _FieldWrap(
+                    label: 'Phone Number',
+                    child: TextFormField(
+                      controller: _phoneController,
+                      decoration: _inputDecor('+91 XXXXX XXXXX'),
+                      keyboardType: TextInputType.phone,
+                      validator: _validatePhone,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _FieldWrap(
+                    label: 'Join Date',
+                    child: GestureDetector(
+                      onTap: () => _pickDate(_joinDate, (d) => setState(() => _joinDate = d)),
+                      child: _DateBox(label: _fmtDate(_joinDate)),
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Section: Login Credentials ─────────────────────────────
+                  const _SectionHeader(icon: Icons.lock_outline, label: 'Login Credentials'),
+                  const SizedBox(height: 14),
+                  _FieldWrap(
+                    label: 'Username',
+                    child: TextFormField(
                       controller: _usernameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Username *',
-                        border: OutlineInputBorder(),
-                        hintText: 'Alphanumeric and underscore only',
-                        prefixIcon: Icon(Icons.person_outline),
-                      ),
+                      decoration: _inputDecor('fleet_driver'),
                       validator: _validateUsername,
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
+                  ),
+                  const SizedBox(height: 12),
+                  _FieldWrap(
+                    label: 'Password',
+                    child: TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Password *',
-                        border: const OutlineInputBorder(),
-                        hintText: 'Min 8 chars with uppercase, lowercase, digit',
-                        prefixIcon: const Icon(Icons.lock_outline),
+                      decoration: _inputDecor('Min 8 chars, with uppercase & digit').copyWith(
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                            color: Colors.grey,
+                            size: 20,
                           ),
-                          onPressed: () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
                       ),
                       validator: _validatePassword,
                     ),
-                    const SizedBox(height: 20),
-                    const Divider(),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _employeeIdController,
-                      decoration: const InputDecoration(
-                        labelText: 'Employee ID *',
-                        border: OutlineInputBorder(),
-                        hintText: 'e.g., DRV001',
-                      ),
-                      validator: (value) => _validateRequired(value, 'Employee ID'),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _firstNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'First Name *',
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (value) => _validateRequired(value, 'First name'),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _lastNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Last Name *',
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (value) => _validateRequired(value, 'Last name'),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(
-                        labelText: 'Email (Optional)',
-                        border: OutlineInputBorder(),
-                        hintText: 'example@email.com',
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: _validateEmail,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _phoneController,
-                      decoration: const InputDecoration(
-                        labelText: 'Phone *',
-                        border: OutlineInputBorder(),
-                        hintText: '10-digit number',
-                      ),
-                      keyboardType: TextInputType.phone,
-                      validator: _validatePhone,
-                    ),
-                    const SizedBox(height: 16),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Date of Birth (Optional)'),
-                      subtitle: Text(
-                        _dateOfBirth != null
-                            ? '${_dateOfBirth!.day}/${_dateOfBirth!.month}/${_dateOfBirth!.year}'
-                            : 'Not selected',
-                      ),
-                      trailing: const Icon(Icons.calendar_today),
-                      onTap: () => _selectDate(context, _dateOfBirth, (date) {
-                        setState(() {
-                          _dateOfBirth = date;
-                        });
-                      }),
-                    ),
-                    const Divider(),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Join Date *'),
-                      subtitle: Text(
-                        '${_joinDate.day}/${_joinDate.month}/${_joinDate.year}',
-                      ),
-                      trailing: const Icon(Icons.calendar_today),
-                      onTap: () => _selectDate(context, _joinDate, (date) {
-                        setState(() {
-                          _joinDate = date;
-                        });
-                      }),
-                    ),
-                  ],
-                ),
-              ),
-            ),  // closes Card for Basic Info
-            ),  // closes FadeSlide for Basic Info Card
-            const SizedBox(height: 16),
+                  ),
+                  const SizedBox(height: 28),
 
-            // Address Information Card
-            FadeSlide(delay: 100, child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Address Information',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _addressController,
-                      decoration: const InputDecoration(
-                        labelText: 'Address (Optional)',
-                        border: OutlineInputBorder(),
-                      ),
-                      maxLines: 2,
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _cityController,
-                            decoration: const InputDecoration(
-                              labelText: 'City (Optional)',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: DropdownButtonFormField<String>(
-                            value: _selectedState,
-                            decoration: const InputDecoration(
-                              labelText: 'State (Optional)',
-                              border: OutlineInputBorder(),
-                            ),
-                            items: _indianStates.map((state) {
-                              return DropdownMenuItem(
-                                value: state,
-                                child: Text(state),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                _selectedState = value;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _pincodeController,
-                            decoration: const InputDecoration(
-                              labelText: 'Pincode (Optional)',
-                              border: OutlineInputBorder(),
-                              hintText: '6 digits',
-                            ),
-                            keyboardType: TextInputType.number,
-                            validator: _validatePincode,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _countryController,
-                            decoration: const InputDecoration(
-                              labelText: 'Country',
-                              border: OutlineInputBorder(),
-                            ),
-                            enabled: false,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),  // closes Card for Address Info
-            ),  // closes FadeSlide for Address Info Card
-            const SizedBox(height: 16),
-
-            // License Information Card
-            FadeSlide(delay: 200, child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'License Information',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
+                  // ── Section: License Details ───────────────────────────────
+                  const _SectionHeader(icon: Icons.badge, label: 'License Details'),
+                  const SizedBox(height: 14),
+                  _FieldWrap(
+                    label: 'License Number',
+                    child: TextFormField(
                       controller: _licenseNumberController,
-                      decoration: const InputDecoration(
-                        labelText: 'License Number *',
-                        border: OutlineInputBorder(),
-                        hintText: 'e.g., DL1420110012345',
-                      ),
-                      validator: _validateLicenseNumber,
+                      decoration: _inputDecor('ABC-123456-XYZ'),
                       textCapitalization: TextCapitalization.characters,
+                      validator: _validateLicenseNumber,
                     ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
+                  ),
+                  const SizedBox(height: 12),
+                  _FieldWrap(
+                    label: 'License Class',
+                    child: DropdownButtonFormField<String>(
                       value: _licenseType,
-                      decoration: const InputDecoration(
-                        labelText: 'License Type *',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _licenseTypes.map((type) {
-                        return DropdownMenuItem(
-                          value: type['value'],
-                          child: Text(type['label']!),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _licenseType = value!;
-                        });
-                      },
+                      decoration: _inputDecor(''),
+                      items: _licenseTypes
+                          .map((t) => DropdownMenuItem(
+                                value: t['value'],
+                                child: Text(t['label']!, style: const TextStyle(fontSize: 14)),
+                              ))
+                          .toList(),
+                      onChanged: (v) => setState(() => _licenseType = v!),
                     ),
-                    const SizedBox(height: 16),
-                    Row(
+                  ),
+                  const SizedBox(height: 12),
+                  // Upload placeholder for license scan
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _primary.withAlpha(50), style: BorderStyle.solid),
+                    ),
+                    child: Row(
                       children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: _primary.withAlpha(26),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(Icons.upload_file, color: _primary),
+                        ),
+                        const SizedBox(width: 12),
                         Expanded(
-                          child: ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Issue Date *'),
-                            subtitle: Text(
-                              _issueDate != null
-                                  ? '${_issueDate!.day}/${_issueDate!.month}/${_issueDate!.year}'
-                                  : 'Not selected',
-                            ),
-                            trailing: const Icon(Icons.calendar_today),
-                            onTap: () => _selectDate(context, _issueDate, (date) {
-                              setState(() {
-                                _issueDate = date;
-                              });
-                            }),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('License Document Scan',
+                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                              Text('Upload clear scan or photo',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                            ],
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        TextButton(
+                          onPressed: () {},
+                          style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                          child: const Text('UPLOAD',
+                              style: TextStyle(color: _primary, fontSize: 11, fontWeight: FontWeight.w700)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _FieldWrap(
+                          label: 'Issue Date',
+                          child: GestureDetector(
+                            onTap: () =>
+                                _pickDate(_issueDate, (d) => setState(() => _issueDate = d)),
+                            child: _DateBox(label: _issueDate != null ? _fmtDate(_issueDate!) : 'Select'),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _FieldWrap(
+                          label: 'Expiry Date',
+                          child: GestureDetector(
+                            onTap: () =>
+                                _pickDate(_expiryDate, (d) => setState(() => _expiryDate = d)),
+                            child: _DateBox(label: _expiryDate != null ? _fmtDate(_expiryDate!) : 'Select'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Section: Assignment & Role ─────────────────────────────
+                  const _SectionHeader(icon: Icons.assignment, label: 'Assignment & Role'),
+                  const SizedBox(height: 14),
+                  _FieldWrap(
+                    label: 'System Role',
+                    child: Row(
+                      children: [
                         Expanded(
-                          child: ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: const Text('Expiry Date *'),
-                            subtitle: Text(
-                              _expiryDate != null
-                                  ? '${_expiryDate!.day}/${_expiryDate!.month}/${_expiryDate!.year}'
-                                  : 'Not selected',
-                            ),
-                            trailing: const Icon(Icons.calendar_today),
-                            onTap: () => _selectDate(context, _expiryDate, (date) {
-                              setState(() {
-                                _expiryDate = date;
-                              });
-                            }),
+                          child: _RoleButton(
+                            icon: Icons.drive_eta,
+                            label: 'Driver',
+                            value: 'driver',
+                            selected: _selectedRole,
+                            onTap: () => setState(() => _selectedRole = 'driver'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _RoleButton(
+                            icon: Icons.local_shipping,
+                            label: 'Logistics',
+                            value: 'logistics',
+                            selected: _selectedRole,
+                            onTap: () => setState(() => _selectedRole = 'logistics'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _RoleButton(
+                            icon: Icons.support_agent,
+                            label: 'Support',
+                            value: 'support',
+                            selected: _selectedRole,
+                            onTap: () => setState(() => _selectedRole = 'support'),
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _issuingAuthorityController,
-                      decoration: const InputDecoration(
-                        labelText: 'Issuing Authority (Optional)',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _issuingState,
-                      decoration: const InputDecoration(
-                        labelText: 'Issuing State (Optional)',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _indianStates.map((state) {
-                        return DropdownMenuItem(
-                          value: state,
-                          child: Text(state),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _issuingState = value;
-                        });
-                      },
-                    ),
-                  ],
+                  ),
+
+                  // ── Emergency contact (hidden fields for API compatibility) ─
+                  const SizedBox(height: 0),
+                  Opacity(
+                    opacity: 0,
+                    child: Column(children: [
+                      TextFormField(controller: _addressController),
+                      TextFormField(controller: _cityController),
+                      TextFormField(controller: _pincodeController),
+                      TextFormField(controller: _issuingAuthorityController),
+                      TextFormField(controller: _emergencyContactNameController),
+                      TextFormField(controller: _emergencyContactPhoneController),
+                    ]),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+
+      // ── Fixed footer ──────────────────────────────────────────────────────────
+      bottomNavigationBar: Container(
+        color: Colors.white.withAlpha(230),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isSubmitting ? null : _submitForm,
+                icon: _isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.person_add, size: 18),
+                label: Text(
+                  _isSubmitting ? 'Adding Driver...' : 'Add Driver to Fleet',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                  disabledBackgroundColor: _primary.withAlpha(120),
                 ),
               ),
-            ),  // closes Card for License Info
-            ),  // closes FadeSlide for License Info Card
-            const SizedBox(height: 16),
-
-            // Emergency Contact Card
-            FadeSlide(delay: 300, child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Emergency Contact',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _emergencyContactNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Contact Name (Optional)',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _emergencyContactPhoneController,
-                      decoration: const InputDecoration(
-                        labelText: 'Contact Phone (Optional)',
-                        border: OutlineInputBorder(),
-                        hintText: '10-digit number',
-                      ),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      value: _emergencyContactRelationship,
-                      decoration: const InputDecoration(
-                        labelText: 'Relationship (Optional)',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: _relationships.map((relationship) {
-                        return DropdownMenuItem(
-                          value: relationship,
-                          child: Text(relationship),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          _emergencyContactRelationship = value;
-                        });
-                      },
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(height: 6),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel and return',
+                style: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.w600),
               ),
-            ),  // closes Card for Emergency Contact
-            ),  // closes FadeSlide for Emergency Contact Card
-            const SizedBox(height: 24),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-            // Submit Button
-            FadeSlide(delay: 400, child: ElevatedButton(
-              onPressed: _isSubmitting ? null : _submitForm,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+// ── Shared small widgets ─────────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _SectionHeader({required this.icon, required this.label});
+
+  static const _primary = Color(0xFFEC5B13);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: _primary, size: 20),
+        const SizedBox(width: 8),
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: Colors.grey[600],
+            letterSpacing: 1,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _FieldWrap extends StatelessWidget {
+  final String label;
+  final Widget child;
+
+  const _FieldWrap({required this.label, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.w700,
+            color: Colors.grey[500],
+            letterSpacing: 0.6,
+          ),
+        ),
+        const SizedBox(height: 4),
+        child,
+      ],
+    );
+  }
+}
+
+class _DateBox extends StatelessWidget {
+  final String label;
+
+  const _DateBox({required this.label});
+
+  static const _primary = Color(0xFFEC5B13);
+
+  @override
+  Widget build(BuildContext context) {
+    final isPlaceholder = label == 'Select';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: _primary.withAlpha(50)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                color: isPlaceholder ? Colors.grey[400] : Colors.black87,
               ),
-              child: _isSubmitting
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Add Driver', style: TextStyle(fontSize: 16)),
-            )),  // closes FadeSlide for Submit Button
-            const SizedBox(height: 16),
+            ),
+          ),
+          Icon(Icons.calendar_today, size: 16, color: Colors.grey[400]),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoleButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final String selected;
+  final VoidCallback onTap;
+
+  const _RoleButton({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
+
+  static const _primary = Color(0xFFEC5B13);
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = value == selected;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? _primary.withAlpha(13) : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? _primary : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: isSelected ? _primary : Colors.grey[400], size: 22),
+            const SizedBox(height: 4),
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                color: isSelected ? _primary : Colors.grey[400],
+                letterSpacing: 0.5,
+              ),
+            ),
           ],
         ),
       ),

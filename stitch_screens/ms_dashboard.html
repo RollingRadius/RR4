@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Maintenance Scheduled Confirmation</title>
+<!-- BEGIN: Scripts -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            // Fleet management professional colors
+            fleet: {
+              primary: '#0F172A', // Slate 900
+              secondary: '#64748B', // Slate 500
+              success: '#10B981', // Emerald 500
+              background: '#F8FAFC' // Slate 50
+            }
+          }
+        }
+      }
+    }
+  </script>
+<!-- END: Scripts -->
+<!-- BEGIN: Base Styles -->
+<style data-purpose="layout-styles">
+    body {
+      background-color: #F8FAFC;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+  </style>
+<!-- END: Base Styles -->
+</head>
+<body class="bg-fleet-background p-4">
+<!-- BEGIN: Dialog Backdrop -->
+<!-- Mimics a mobile modal overlay -->
+<main class="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100" data-purpose="confirmation-dialog">
+<!-- BEGIN: Success Content Section -->
+<div class="p-8 flex flex-col items-center text-center">
+<!-- Icon Container -->
+<div class="mb-6 flex items-center justify-center w-20 h-20 bg-emerald-50 rounded-full" data-purpose="success-icon-container">
+<!-- SVG Checkmark -->
+<svg class="h-10 w-10 text-fleet-success" fill="none" stroke="currentColor" stroke-width="3" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<!-- Title -->
+<h1 class="text-2xl font-bold text-fleet-primary mb-2">
+        Maintenance Scheduled
+      </h1>
+<!-- Summary Details Card -->
+<div class="w-full bg-slate-50 rounded-xl p-4 mt-4 border border-slate-100" data-purpose="schedule-summary">
+<p class="text-sm text-fleet-secondary uppercase tracking-wider font-semibold mb-1">Service Details</p>
+<p class="text-lg font-medium text-fleet-primary">Oil Change for Truck-042</p>
+<!-- Mock Date for context -->
+<p class="text-sm text-fleet-secondary mt-1">Scheduled for: Oct 24, 2023 • 09:00 AM</p>
+</div>
+</div>
+<!-- END: Success Content Section -->
+<!-- BEGIN: Action Buttons -->
+<footer class="p-6 pt-0 flex flex-col gap-3">
+<!-- Primary Action: Done -->
+<button class="w-full py-4 px-6 bg-fleet-primary text-white font-bold rounded-2xl active:scale-[0.98] transition-transform duration-100 shadow-lg shadow-slate-200" data-purpose="close-button" id="btn-done" type="button">
+        Done
+      </button>
+<!-- Secondary Action: Edit -->
+<button class="w-full py-4 px-6 bg-white text-fleet-primary font-semibold rounded-2xl border-2 border-slate-100 active:bg-slate-50 transition-colors duration-100" data-purpose="edit-schedule-button" id="btn-edit" type="button">
+        Edit Schedule
+      </button>
+</footer>
+<!-- END: Action Buttons -->
+</main>
+<!-- END: Dialog Backdrop -->
+<!-- BEGIN: Interactive Logic -->
+<script data-purpose="button-handlers">
+    // Minimal interaction logic for demonstration
+    document.getElementById('btn-done').addEventListener('click', () => {
+      console.log('Returning to dashboard...');
+      // Navigation logic would go here
+    });
+
+    document.getElementById('btn-edit').addEventListener('click', () => {
+      console.log('Navigating to edit schedule...');
+      // Edit logic would go here
+    });
+  </script>
+<!-- END: Interactive Logic -->
+</body></html>

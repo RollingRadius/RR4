@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fleet Maintenance Dashboard</title>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration for Theme Colors -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'fleet-orange': '#F15A24',
+            'fleet-navy': '#1A1C2E',
+            'fleet-dark-gray': '#2D2F45',
+            'fleet-light-gray': '#F3F4F6'
+          }
+        }
+      }
+    }
+  </script>
+<!-- Custom Styles for UI Refinement -->
+<style data-purpose="layout-refinement">
+    body {
+      background-color: #1A1C2E; /* Fleet Navy */
+      -webkit-tap-highlight-color: transparent;
+    }
+    .safe-area-bottom {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+<body class="text-white font-sans antialiased">
+<!-- BEGIN: MainContainer -->
+<main class="flex flex-col min-h-screen max-w-md mx-auto bg-fleet-navy relative pb-24">
+<!-- BEGIN: HeaderSection -->
+<header class="p-6 pt-8 bg-fleet-navy sticky top-0 z-10" data-purpose="main-header">
+<h1 class="text-2xl font-bold text-white">My Daily Assignments</h1>
+<p class="text-gray-400 text-sm mt-1" id="current-date">Tuesday, Oct 24, 2023</p>
+</header>
+<!-- END: HeaderSection -->
+<!-- BEGIN: SummaryCards -->
+<section class="px-6 grid grid-cols-3 gap-3" data-purpose="status-summary">
+<!-- Tasks Today -->
+<div class="bg-fleet-dark-gray p-3 rounded-xl border-l-4 border-fleet-orange">
+<p class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Total</p>
+<p class="text-xl font-bold">12</p>
+</div>
+<!-- Completed -->
+<div class="bg-fleet-dark-gray p-3 rounded-xl border-l-4 border-green-500">
+<p class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Done</p>
+<p class="text-xl font-bold">8</p>
+</div>
+<!-- Remaining -->
+<div class="bg-fleet-dark-gray p-3 rounded-xl border-l-4 border-yellow-500">
+<p class="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Left</p>
+<p class="text-xl font-bold">4</p>
+</div>
+</section>
+<!-- END: SummaryCards -->
+<!-- BEGIN: CurrentTask -->
+<section class="px-6 mt-8" data-purpose="active-work-order">
+<div class="flex items-center justify-between mb-3">
+<h2 class="text-lg font-semibold flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-fleet-orange animate-pulse"></span>
+          Current Task
+        </h2>
+<span class="text-xs text-fleet-orange font-bold px-2 py-1 bg-fleet-orange/10 rounded">IN PROGRESS</span>
+</div>
+<!-- Task Card -->
+<div class="bg-fleet-dark-gray rounded-2xl p-5 shadow-lg border border-white/5">
+<div class="flex justify-between items-start">
+<div>
+<p class="text-xs text-gray-400 uppercase font-medium">Vehicle ID</p>
+<p class="text-lg font-bold text-white mt-0.5">TRK-8829</p>
+</div>
+<div class="text-right">
+<p class="text-xs text-gray-400 uppercase font-medium">Location</p>
+<p class="text-sm font-medium mt-0.5">Bay 4 • Main Depot</p>
+</div>
+</div>
+<div class="mt-4 py-3 border-y border-white/10">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg bg-fleet-orange/20 flex items-center justify-center">
+<!-- Service Icon Mockup -->
+<svg class="h-6 w-6 text-fleet-orange" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+<path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div>
+<p class="text-xs text-gray-400">Service Type</p>
+<p class="font-semibold">Brake Pad Replacement</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-5 bg-fleet-orange hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg shadow-fleet-orange/20" data-purpose="update-task-btn">
+<span>Update Progress</span>
+<svg class="h-5 w-5" fill="currentColor" viewbox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" fill-rule="evenodd"></path>
+</svg>
+</button>
+</div>
+</section>
+<!-- END: CurrentTask -->
+<!-- BEGIN: UpcomingTasks -->
+<section class="px-6 mt-8 flex-grow" data-purpose="tasks-list">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-lg font-semibold">Upcoming Tasks</h2>
+<button class="text-xs text-fleet-orange font-bold">View Schedule</button>
+</div>
+<div class="space-y-3">
+<!-- Task Item 1 -->
+<div class="bg-fleet-dark-gray/50 border border-white/5 rounded-xl p-4 flex items-center gap-4">
+<div class="text-center min-w-[50px] border-r border-white/10 pr-3">
+<p class="text-sm font-bold">14:30</p>
+<p class="text-[10px] text-gray-400 uppercase">Today</p>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<p class="font-semibold text-sm">VAN-402 • Oil Change</p>
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 font-bold border border-blue-500/30">MEDIUM</span>
+</div>
+<p class="text-xs text-gray-400 mt-0.5">Lot B, Row 12</p>
+</div>
+</div>
+<!-- Task Item 2 -->
+<div class="bg-fleet-dark-gray/50 border border-white/5 rounded-xl p-4 flex items-center gap-4">
+<div class="text-center min-w-[50px] border-r border-white/10 pr-3">
+<p class="text-sm font-bold">16:00</p>
+<p class="text-[10px] text-gray-400 uppercase">Today</p>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<p class="font-semibold text-sm">TRK-112 • Tire Rotation</p>
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-yellow-500/20 text-yellow-500 font-bold border border-yellow-500/30">HIGH</span>
+</div>
+<p class="text-xs text-gray-400 mt-0.5">Bay 2 • Main Depot</p>
+</div>
+</div>
+<!-- Task Item 3 -->
+<div class="bg-fleet-dark-gray/50 border border-white/5 rounded-xl p-4 flex items-center gap-4">
+<div class="text-center min-w-[50px] border-r border-white/10 pr-3">
+<p class="text-sm font-bold">09:00</p>
+<p class="text-[10px] text-gray-400 uppercase">Tomorrow</p>
+</div>
+<div class="flex-grow">
+<div class="flex justify-between items-start">
+<p class="font-semibold text-sm">BUS-08 • HVAC Check</p>
+<span class="text-[9px] px-1.5 py-0.5 rounded bg-gray-500/20 text-gray-400 font-bold border border-gray-500/30">LOW</span>
+</div>
+<p class="text-xs text-gray-400 mt-0.5">External Yard</p>
+</div>
+</div>
+</div>
+</section>
+<!-- END: UpcomingTasks -->
+<!-- BEGIN: BottomNavigation -->
+<nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-fleet-navy/95 backdrop-blur-md border-t border-white/10 px-6 py-3 safe-area-bottom z-50 flex justify-between items-center" data-purpose="main-nav">
+<!-- Nav Item: Tasks (Active) -->
+<button class="flex flex-col items-center gap-1 group">
+<div class="text-fleet-orange">
+<svg class="h-6 w-6" fill="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"></path>
+</svg>
+</div>
+<span class="text-[10px] font-bold text-fleet-orange">My Tasks</span>
+</button>
+<!-- Nav Item: Inventory -->
+<button class="flex flex-col items-center gap-1 group opacity-40 hover:opacity-100 transition-opacity">
+<div class="text-white">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="text-[10px] font-medium text-white">Inventory</span>
+</button>
+<!-- Nav Item: Schedule -->
+<button class="flex flex-col items-center gap-1 group opacity-40 hover:opacity-100 transition-opacity">
+<div class="text-white">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="text-[10px] font-medium text-white">Schedule</span>
+</button>
+<!-- Nav Item: Settings -->
+<button class="flex flex-col items-center gap-1 group opacity-40 hover:opacity-100 transition-opacity">
+<div class="text-white">
+<svg class="h-6 w-6" fill="none" stroke="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+<path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<span class="text-[10px] font-medium text-white">Settings</span>
+</button>
+</nav>
+<!-- END: BottomNavigation -->
+</main>
+<!-- END: MainContainer -->
+<script data-purpose="dynamic-date-handler">
+    // Simple script to set the current date display
+    document.addEventListener('DOMContentLoaded', () => {
+      const dateElement = document.getElementById('current-date');
+      const options = { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' };
+      dateElement.textContent = new Date().toLocaleDateString('en-US', options);
+    });
+  </script>
+</body></html>

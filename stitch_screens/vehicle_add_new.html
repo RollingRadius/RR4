@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fleet Management - Add Vehicle</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+        }
+        .form-input:focus {
+            border-color: #ec5b13 !important;
+            ring-color: #ec5b13 !important;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen text-slate-900 dark:text-slate-100">
+<div class="relative flex h-auto min-h-screen w-full flex-col bg-background-light dark:bg-background-dark group/design-root overflow-x-hidden font-display">
+<!-- Header -->
+<header class="flex items-center bg-background-light dark:bg-background-dark p-4 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
+<button class="text-slate-700 dark:text-white flex size-10 shrink-0 items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-tight flex-1 ml-2 text-center mr-10">Add Vehicle</h2>
+</header>
+<main class="flex flex-col max-w-2xl mx-auto w-full pb-24">
+<!-- Photo Upload Section -->
+<section class="flex flex-col p-4">
+<div class="flex flex-col items-center gap-4 rounded-xl border-2 border-dashed border-primary/30 dark:border-primary/20 bg-primary/5 px-6 py-10 transition-all hover:border-primary/50">
+<div class="flex flex-col items-center gap-2">
+<div class="bg-primary/10 p-4 rounded-full mb-2">
+<span class="material-symbols-outlined text-primary text-4xl">add_a_photo</span>
+</div>
+<p class="text-slate-900 dark:text-white text-lg font-bold leading-tight text-center">Vehicle Photo</p>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-normal leading-normal text-center">Upload or take a high-quality photo</p>
+</div>
+<button class="flex min-w-[140px] cursor-pointer items-center justify-center overflow-hidden rounded-xl h-10 px-6 bg-primary text-white text-sm font-bold leading-normal tracking-wide hover:bg-primary/90 transition-colors">
+<span>Choose File</span>
+</button>
+</div>
+</section>
+<!-- Identification Group -->
+<div class="px-4 py-2 mt-2">
+<h3 class="text-primary text-sm font-bold uppercase tracking-widest mb-4">Identification</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<label class="flex flex-col">
+<span class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-1.5 ml-1">Vehicle ID / VIN</span>
+<input class="form-input flex w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-4 py-3.5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="17-character VIN" type="text"/>
+</label>
+<label class="flex flex-col">
+<span class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-1.5 ml-1">License Plate</span>
+<input class="form-input flex w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-4 py-3.5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="ABC-1234" type="text"/>
+</label>
+</div>
+</div>
+<!-- Specifications Group -->
+<div class="px-4 py-2 mt-6">
+<h3 class="text-primary text-sm font-bold uppercase tracking-widest mb-4">Specifications</h3>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+<label class="flex flex-col">
+<span class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-1.5 ml-1">Make</span>
+<input class="form-input flex w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-4 py-3.5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="e.g. Ford" type="text"/>
+</label>
+<label class="flex flex-col">
+<span class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-1.5 ml-1">Model</span>
+<input class="form-input flex w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-4 py-3.5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="e.g. F-150" type="text"/>
+</label>
+<label class="flex flex-col">
+<span class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-1.5 ml-1">Year</span>
+<input class="form-input flex w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/50 px-4 py-3.5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="2024" type="number"/>
+</label>
+</div>
+</div>
+<!-- Technical Details -->
+<div class="px-4 py-2 mt-6">
+<h3 class="text-primary text-sm font-bold uppercase tracking-widest mb-4">Technical Details</h3>
+<div class="flex flex-col gap-6">
+<div>
+<span class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-3 ml-1 block">Fuel Type</span>
+<div class="grid grid-cols-3 gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl">
+<button class="py-2.5 px-3 rounded-lg text-sm font-bold bg-white dark:bg-slate-700 shadow-sm text-primary transition-all">Diesel</button>
+<button class="py-2.5 px-3 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-all">Electric</button>
+<button class="py-2.5 px-3 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50 transition-all">Hybrid</button>
+</div>
+</div>
+<label class="flex flex-col">
+<span class="text-slate-700 dark:text-slate-300 text-sm font-semibold pb-1.5 ml-1">Initial Odometer (km)</span>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">speed</span>
+<input class="form-input flex w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900/50 pl-12 pr-4 py-3.5 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-primary/20" placeholder="0" type="number"/>
+</div>
+</label>
+</div>
+</div>
+<!-- Form Help -->
+<div class="px-4 py-6">
+<div class="flex items-start gap-3 p-4 rounded-xl bg-primary/10 border border-primary/20">
+<span class="material-symbols-outlined text-primary text-xl mt-0.5">info</span>
+<p class="text-slate-600 dark:text-slate-300 text-xs leading-relaxed">
+                        By adding this vehicle, it will be automatically synchronized with your maintenance schedule and fuel tracking logs. Ensure the VIN is correct to receive automated manufacturer recalls.
+                    </p>
+</div>
+</div>
+</main>
+<!-- Bottom Action Bar -->
+<footer class="fixed bottom-0 left-0 right-0 bg-white dark:bg-background-dark border-t border-slate-200 dark:border-slate-800 p-4 z-20">
+<div class="max-w-2xl mx-auto flex gap-4">
+<button class="flex-1 h-14 bg-primary text-white rounded-xl font-bold text-lg shadow-lg shadow-primary/20 hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">save</span>
+                    Register Vehicle
+                </button>
+</div>
+</footer>
+</div>
+</body></html>

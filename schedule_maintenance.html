@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Schedule Maintenance - Fleet Manager</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Public Sans', sans-serif;
+        }
+        /* Hide scrollbar for Chrome, Safari and Opera */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        /* Hide scrollbar for IE, Edge and Firefox */
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white min-h-screen">
+<!-- Top App Bar -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800">
+<div class="max-w-md mx-auto flex items-center p-4 gap-4">
+<button class="flex items-center justify-center size-10 rounded-full hover:bg-slate-200 dark:hover:bg-white/10 transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="text-xl font-bold tracking-tight">Schedule Maintenance</h1>
+</div>
+</header>
+<main class="max-w-md mx-auto p-4 pb-32 space-y-6">
+<!-- Step 1: Vehicle Information -->
+<section class="space-y-3">
+<h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">Vehicle Information</h2>
+<div class="bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 shadow-sm">
+<div class="flex items-center gap-4">
+<div class="size-16 rounded-lg bg-cover bg-center" data-alt="White commercial semi-truck parked in warehouse" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuBzGIPVhCTlvt-RiYqNrCqw5kKjaSjGwKUkTGMXr5ZA3ThFGl9PAFQieRnnJCVUPksIXGxxPnF9iRn85gGNaSKif4zFw9zIG_Wwxf6QdLyQy_TS9OXcnHn67aIvIeyo4ltGd8XjPOmAYBEqpYCDh1cQZK9LvBS3mnBmyhk0fA38jJKdyMvbkunvc6Ki80xHM5aOEhLc45tXdhbSGnDTw1tRA8Y1SYGHqcL_ULYGt78AM6nbtrbs1MwDCOarha5L7iUD9jjeabXgKREN');"></div>
+<div class="flex-1">
+<h3 class="font-bold text-lg">Freightliner Cascadia</h3>
+<p class="text-slate-500 dark:text-slate-400 text-sm">ID: FL-7729 • VIN: ...X902</p>
+</div>
+<button class="text-primary font-semibold text-sm hover:underline">Change</button>
+</div>
+</div>
+</section>
+<!-- Step 2: Service Details -->
+<section class="space-y-4">
+<h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">Service Details</h2>
+<!-- Service Type -->
+<div class="space-y-2">
+<label class="block text-sm font-medium px-1">Service Type</label>
+<div class="relative">
+<select class="w-full h-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 appearance-none focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all">
+<option>Oil Change &amp; Filter</option>
+<option>Brake Inspection</option>
+<option>Engine Repair</option>
+<option>Tire Rotation</option>
+<option>Annual Inspection</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">expand_more</span>
+</div>
+</div>
+<!-- Priority Selection -->
+<div class="space-y-2">
+<label class="block text-sm font-medium px-1">Priority Level</label>
+<div class="grid grid-cols-3 gap-2">
+<button class="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:border-primary/50 transition-all">
+<span class="size-2 rounded-full bg-emerald-500"></span>
+<span class="text-sm font-medium">Low</span>
+</button>
+<button class="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-primary bg-primary/10 transition-all">
+<span class="size-2 rounded-full bg-amber-500"></span>
+<span class="text-sm font-bold">Medium</span>
+</button>
+<button class="flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 hover:border-primary/50 transition-all">
+<span class="size-2 rounded-full bg-rose-500"></span>
+<span class="text-sm font-medium">High</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Step 3: Scheduling -->
+<section class="space-y-4">
+<h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">Scheduling</h2>
+<!-- Technician -->
+<div class="space-y-2">
+<label class="block text-sm font-medium px-1">Assign Technician</label>
+<div class="relative">
+<select class="w-full h-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 appearance-none focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all">
+<option>Mark Johnson (Lead Mechanic)</option>
+<option>Sarah Williams (Diagnostics)</option>
+<option>Unassigned</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">person</span>
+</div>
+</div>
+<!-- Date and Time -->
+<div class="grid grid-cols-2 gap-4">
+<div class="space-y-2">
+<label class="block text-sm font-medium px-1">Date</label>
+<div class="relative">
+<input class="w-full h-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" type="date" value="2023-10-24"/>
+</div>
+</div>
+<div class="space-y-2">
+<label class="block text-sm font-medium px-1">Time</label>
+<div class="relative">
+<input class="w-full h-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" type="time" value="09:00"/>
+</div>
+</div>
+</div>
+<!-- Estimated Duration -->
+<div class="space-y-2">
+<label class="block text-sm font-medium px-1">Estimated Duration</label>
+<div class="flex items-center gap-2">
+<input class="flex-1 h-12 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" placeholder="e.g. 3.5" type="text"/>
+<div class="bg-slate-200 dark:bg-white/10 h-12 flex items-center px-4 rounded-xl text-sm font-medium">Hours</div>
+</div>
+</div>
+</section>
+<!-- Step 4: Notes -->
+<section class="space-y-4">
+<h2 class="text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">Additional Information</h2>
+<div class="space-y-2">
+<label class="block text-sm font-medium px-1">Notes / Special Instructions</label>
+<textarea class="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all resize-none" placeholder="Mention any specific issues reported by the driver..." rows="4"></textarea>
+</div>
+</section>
+</main>
+<!-- Fixed Bottom Action Bar -->
+<footer class="fixed bottom-0 left-0 right-0 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-xl border-t border-slate-200 dark:border-white/10 p-4">
+<div class="max-w-md mx-auto">
+<button class="w-full h-14 bg-primary hover:bg-primary/90 text-white font-bold text-lg rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
+<span class="material-symbols-outlined">event_available</span>
+                Schedule Service
+            </button>
+</div>
+</footer>
+</body></html>

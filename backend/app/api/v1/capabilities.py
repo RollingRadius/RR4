@@ -110,19 +110,26 @@ def get_my_capabilities(
     current_user: User = Depends(get_current_user)
 ):
     """Get current user's effective capabilities"""
-    if not hasattr(current_user, 'active_organization_id') or not current_user.active_organization_id:
+    from app.models.user_organization import UserOrganization
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == 'active'
+    ).first()
+
+    if not user_org or not user_org.organization_id:
         raise HTTPException(status_code=400, detail="No active organization")
 
+    organization_id = str(user_org.organization_id)
     capability_service = CapabilityService(db)
     capabilities = capability_service.get_user_capabilities(
         user_id=str(current_user.id),
-        organization_id=str(current_user.active_organization_id)
+        organization_id=organization_id
     )
 
     return {
         "success": True,
         "user_id": str(current_user.id),
-        "organization_id": str(current_user.active_organization_id),
+        "organization_id": organization_id,
         "capabilities": capabilities
     }
 

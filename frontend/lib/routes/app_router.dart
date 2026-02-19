@@ -14,18 +14,24 @@ import 'package:fleet_management/presentation/screens/company/company_search_scr
 import 'package:fleet_management/presentation/screens/company/company_create_screen.dart';
 import 'package:fleet_management/presentation/screens/home/dashboard_screen.dart';
 import 'package:fleet_management/presentation/screens/home/main_screen.dart';
+import 'package:fleet_management/presentation/screens/fleet/fleet_hub_screen.dart';
 import 'package:fleet_management/presentation/screens/vehicles/vehicles_list_screen.dart';
 import 'package:fleet_management/presentation/screens/vehicles/add_vehicle_screen.dart';
-import 'package:fleet_management/presentation/screens/vehicles/vehicle_details_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/drivers_list_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/add_driver_screen.dart';
+import 'package:fleet_management/presentation/screens/drivers/select_vehicle_screen.dart';
+import 'package:fleet_management/presentation/screens/drivers/driver_onboarding_screen.dart';
+import 'package:fleet_management/presentation/screens/drivers/assignment_confirmed_screen.dart';
+import 'package:fleet_management/presentation/screens/drivers/onboarding_success_screen.dart';
 import 'package:fleet_management/presentation/screens/organizations/organization_selector_screen.dart';
 import 'package:fleet_management/presentation/screens/organizations/organization_management_screen.dart';
 import 'package:fleet_management/presentation/screens/organizations/create_organization_screen.dart';
+import 'package:fleet_management/presentation/screens/maintenance/maintenance_history_screen.dart';
+import 'package:fleet_management/presentation/screens/maintenance/schedule_maintenance_screen.dart';
+import 'package:fleet_management/presentation/screens/maintenance/digital_inspection_screen.dart';
+import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/reports/reports_screen.dart';
-import 'package:fleet_management/presentation/screens/reports/organization_summary_report_screen.dart';
-import 'package:fleet_management/presentation/screens/reports/driver_list_report_screen.dart';
-import 'package:fleet_management/presentation/screens/reports/license_expiry_report_screen.dart';
+import 'package:fleet_management/presentation/screens/reports/fuel_consumption_report_screen.dart';
 import 'package:fleet_management/presentation/screens/roles/custom_roles_screen.dart';
 import 'package:fleet_management/presentation/screens/roles/create_custom_role_screen.dart';
 import 'package:fleet_management/presentation/screens/profile/profile_screen.dart';
@@ -36,7 +42,17 @@ import 'package:fleet_management/presentation/screens/help/help_center_screen.da
 import 'package:fleet_management/presentation/screens/tracking/live_tracking_screen.dart';
 import 'package:fleet_management/presentation/screens/tracking/driver_history_screen.dart';
 import 'package:fleet_management/presentation/screens/tracking/geofence_management_screen.dart';
+import 'package:fleet_management/presentation/screens/tracking/geofence_alerts_screen.dart';
 import 'package:fleet_management/presentation/screens/tracking/route_optimizer_screen.dart';
+import 'package:fleet_management/presentation/screens/vehicles/vehicle_analytics_screen.dart';
+import 'package:fleet_management/presentation/screens/driver/driver_home_screen.dart';
+import 'package:fleet_management/presentation/screens/driver/driver_vehicle_screen.dart';
+import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_work_orders_screen.dart';
+import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_inventory_screen.dart';
+import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_parts_request_screen.dart';
+import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_review_onboarding_screen.dart';
+import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_schedule_confirmed_screen.dart';
+import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_maintenance_history_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 
 /// App Router Provider
@@ -181,6 +197,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/fleet-hub',
+            name: 'fleet-hub',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: FleetHubScreen(),
+            ),
+          ),
+          GoRoute(
             path: '/vehicles',
             name: 'vehicles',
             pageBuilder: (context, state) => const NoTransitionPage(
@@ -198,11 +221,23 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/vehicles/:id',
             name: 'vehicle-details',
+            redirect: (context, state) {
+              final vehicleId = state.pathParameters['id']!;
+              return '/vehicles/$vehicleId/analytics';
+            },
+          ),
+          GoRoute(
+            path: '/vehicles/:id/analytics',
+            name: 'vehicle-analytics',
             pageBuilder: (context, state) {
               final vehicleId = state.pathParameters['id']!;
+              final extra = state.extra as Map<String, dynamic>?;
               return MaterialPage(
                 key: state.pageKey,
-                child: VehicleDetailsScreen(vehicleId: vehicleId),
+                child: VehicleAnalyticsScreen(
+                  vehicleId: vehicleId,
+                  vehicleName: extra?['vehicleName'] as String? ?? 'Vehicle',
+                ),
               );
             },
           ),
@@ -220,6 +255,59 @@ final routerProvider = Provider<GoRouter>((ref) {
               key: state.pageKey,
               child: const AddDriverScreen(),
             ),
+          ),
+          GoRoute(
+            path: '/drivers/select-vehicle',
+            name: 'select-vehicle',
+            pageBuilder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return MaterialPage(
+                key: state.pageKey,
+                child: SelectVehicleScreen(
+                  driverName: extra?['driverName'] as String? ?? 'Driver',
+                  driverId: extra?['driverId'] as String? ?? '',
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/drivers/onboarding',
+            name: 'driver-onboarding',
+            pageBuilder: (context, state) => MaterialPage(
+              key: state.pageKey,
+              child: const DriverOnboardingScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/drivers/assignment-confirmed',
+            name: 'assignment-confirmed',
+            pageBuilder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return MaterialPage(
+                key: state.pageKey,
+                child: AssignmentConfirmedScreen(
+                  driverName: extra?['driverName'] as String? ?? 'Driver',
+                  driverRole: extra?['driverRole'] as String? ?? '',
+                  vehicleName: extra?['vehicleName'] as String? ?? 'Vehicle',
+                  vehicleUnitId: extra?['vehicleUnitId'] as String? ?? '',
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/drivers/onboarding-success',
+            name: 'onboarding-success',
+            pageBuilder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return MaterialPage(
+                key: state.pageKey,
+                child: OnboardingSuccessScreen(
+                  driverName: extra?['driverName'] as String? ?? 'Driver',
+                  driverRole: extra?['driverRole'] as String? ?? '',
+                  employeeId: extra?['employeeId'] as String? ?? '',
+                ),
+              );
+            },
           ),
           GoRoute(
             path: '/organizations',
@@ -299,8 +387,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/tracking/geofences',
             name: 'tracking-geofences',
+            pageBuilder: (context, state) => MaterialPage(
+              key: state.pageKey,
+              child: const GeofenceManagementScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/tracking/geofence-alerts',
+            name: 'geofence-alerts',
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: GeofenceManagementScreen(),
+              child: GeofenceAlertsScreen(),
             ),
           ),
           GoRoute(
@@ -312,6 +408,60 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
+            path: '/maintenance/history/:vehicleId',
+            name: 'maintenance-history',
+            pageBuilder: (context, state) {
+              final vehicleId = state.pathParameters['vehicleId']!;
+              final extra = state.extra as Map<String, dynamic>?;
+              final vehicleName = extra?['vehicleName'] ?? 'Vehicle';
+              return MaterialPage(
+                key: state.pageKey,
+                child: MaintenanceHistoryScreen(
+                  vehicleId: vehicleId,
+                  vehicleName: vehicleName,
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/maintenance/schedule',
+            name: 'schedule-maintenance',
+            pageBuilder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return MaterialPage(
+                key: state.pageKey,
+                child: ScheduleMaintenanceScreen(
+                  vehicleId: extra?['vehicleId'] as String?,
+                  vehicleName: extra?['vehicleName'] as String?,
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/maintenance/inspection/:vehicleId',
+            name: 'digital-inspection',
+            pageBuilder: (context, state) {
+              final vehicleId = state.pathParameters['vehicleId']!;
+              final extra = state.extra as Map<String, dynamic>?;
+              final vehicleName = extra?['vehicleName'] ?? 'Vehicle';
+              return MaterialPage(
+                key: state.pageKey,
+                child: DigitalInspectionScreen(
+                  vehicleId: vehicleId,
+                  vehicleName: vehicleName,
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/trips/create',
+            name: 'create-trip',
+            pageBuilder: (context, state) => MaterialPage(
+              key: state.pageKey,
+              child: const CreateTripScreen(),
+            ),
+          ),
+          GoRoute(
             path: '/reports',
             name: 'reports',
             pageBuilder: (context, state) => const NoTransitionPage(
@@ -319,27 +469,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: '/reports/organization-summary',
-            name: 'report-organization-summary',
+            path: '/reports/fuel',
+            name: 'report-fuel',
             pageBuilder: (context, state) => MaterialPage(
               key: state.pageKey,
-              child: const OrganizationSummaryReportScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/reports/driver-list',
-            name: 'report-driver-list',
-            pageBuilder: (context, state) => MaterialPage(
-              key: state.pageKey,
-              child: const DriverListReportScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/reports/license-expiry',
-            name: 'report-license-expiry',
-            pageBuilder: (context, state) => MaterialPage(
-              key: state.pageKey,
-              child: const LicenseExpiryReportScreen(),
+              child: const FuelConsumptionReportScreen(),
             ),
           ),
           GoRoute(
@@ -387,6 +521,85 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => MaterialPage(
               key: state.pageKey,
               child: const HelpCenterScreen(),
+            ),
+          ),
+
+          // ── Maintenance Supervisor Routes ──────────────────────────────
+          GoRoute(
+            path: '/ms/work-orders',
+            name: 'ms-work-orders',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MsWorkOrdersScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/ms/inventory',
+            name: 'ms-inventory',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: MsInventoryScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/ms/parts-request',
+            name: 'ms-parts-request',
+            pageBuilder: (context, state) => MaterialPage(
+              key: state.pageKey,
+              child: const MsPartsRequestScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/ms/review-onboarding',
+            name: 'ms-review-onboarding',
+            pageBuilder: (context, state) => MaterialPage(
+              key: state.pageKey,
+              child: const MsReviewOnboardingScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/ms/schedule-confirmed',
+            name: 'ms-schedule-confirmed',
+            pageBuilder: (context, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return MaterialPage(
+                key: state.pageKey,
+                child: MsScheduleConfirmedScreen(
+                  vehicleName: extra?['vehicleName'] as String?,
+                  serviceType: extra?['serviceType'] as String?,
+                  scheduledDate: extra?['scheduledDate'] as String?,
+                ),
+              );
+            },
+          ),
+          GoRoute(
+            path: '/ms/maintenance-history/:vehicleId',
+            name: 'ms-maintenance-history',
+            pageBuilder: (context, state) {
+              final vehicleId = state.pathParameters['vehicleId']!;
+              final extra = state.extra as Map<String, dynamic>?;
+              return MaterialPage(
+                key: state.pageKey,
+                child: MsMaintenanceHistoryScreen(
+                  vehicleId: vehicleId,
+                  vehicleName: extra?['vehicleName'] as String? ?? vehicleId,
+                  vehicleModel: extra?['vehicleModel'] as String? ?? 'Fleet Vehicle',
+                ),
+              );
+            },
+          ),
+
+          // ── Driver Routes ──────────────────────────────────────────────
+          GoRoute(
+            path: '/driver/trips',
+            name: 'driver-trips',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DriverHomeScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/driver/vehicle',
+            name: 'driver-vehicle',
+            pageBuilder: (context, state) => const NoTransitionPage(
+              child: DriverVehicleScreen(),
             ),
           ),
         ],

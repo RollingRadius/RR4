@@ -284,7 +284,7 @@ class CustomRoleService:
 
         organizations = {}
         for user_org in user_orgs:
-            org_id = str(user_org.company_id)
+            org_id = str(user_org.organization_id)
             if org_id not in organizations:
                 organizations[org_id] = {
                     "organization_id": org_id,

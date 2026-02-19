@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fleet Live Track - Control Center</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#121212", // Adjusted for professional dark center
+                        "surface-dark": "#1e1e1e",
+                        "success": "#22c55e",
+                        "warning": "#f59e0b",
+                        "neutral-dark": "#333333"
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>body {
+    font-family: "Public Sans", sans-serif
+    }
+.map-bg {
+    background-image: linear-gradient(rgba(18, 18, 18, 0.4), rgba(18, 18, 18, 0.4)), url(https://lh3.googleusercontent.com/aida-public/AB6AXuBA_QmsB1p7pEti-RSxhxaWudpcETenj1pXMDCuAd-ilCOPshMzP6azZb8PMmyz_EtNG1aCC6oW2sABANzHBbQ7TGt8T6WJzxKL_wyTV5yfS1Skzr61aG5eCYKpBMCxGLe1JviuMP29JhQqLKKhZ_-Y6LIAzP5sSmQTySWoFXoydrWTpH1M-L1W26hY91YDSX4DIRB9sLs7y2CFw6TdZXENV-_STRCmQFp28tllVIFHkAX7EPiJgyO5SCBYpAbLUXm7w3dmtREmOk2Y);
+    background-size: cover;
+    background-position: center
+    }
+.pulse-orange {
+    box-shadow: 0 0 0 0 rgba(236, 91, 19, 0.7);
+    animation: pulse 2s infinite
+    }
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(236, 91, 19, 0.7);
+        } 70% {
+        box-shadow: 0 0 0 10px rgba(236, 91, 19, 0);
+        } 100% {
+        box-shadow: 0 0 0 0 rgba(236, 91, 19, 0);
+        }
+    }</style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<!-- Main View Container -->
+<div class="relative h-screen w-full overflow-hidden flex flex-col">
+<!-- Full Screen Map Layer -->
+<div class="absolute inset-0 z-0 map-bg" data-alt="Dark themed street map of a city center with vehicle routes" data-location="San Francisco" style="">
+<!-- Custom Vehicle Markers (Overlayed on Map) -->
+<!-- Marker 1: Active Truck -->
+<div class="absolute top-1/4 left-1/3 transform -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+<div class="relative group cursor-pointer">
+<div class="absolute -inset-2 bg-success/20 rounded-full animate-ping"></div>
+<div class="relative size-10 bg-surface-dark border-2 border-success rounded-full flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-success text-xl">turn_right</span>
+</div>
+</div>
+<span class="mt-1 bg-surface-dark/80 px-2 py-0.5 rounded text-[10px] font-bold border border-success/30">TRK-201</span>
+</div>
+<!-- Marker 2: Warning Van -->
+<div class="absolute top-1/2 right-1/4 transform translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
+<div class="relative group cursor-pointer">
+<div class="size-10 bg-surface-dark border-2 border-warning rounded-full flex items-center justify-center shadow-lg">
+<span class="material-symbols-outlined text-warning text-xl">delivery_dining</span>
+</div>
+</div>
+<span class="mt-1 bg-surface-dark/80 px-2 py-0.5 rounded text-[10px] font-bold border border-warning/30">VAN-402</span>
+</div>
+<!-- Marker 3: Selected Vehicle (Primary Color) -->
+<div class="absolute bottom-1/3 left-1/2 transform -translate-x-1/2 flex flex-col items-center">
+<div class="relative group cursor-pointer scale-125 z-10">
+<div class="absolute -inset-3 bg-primary/30 rounded-full pulse-orange"></div>
+<div class="relative size-10 bg-primary border-2 border-white rounded-full flex items-center justify-center shadow-xl">
+<span class="material-symbols-outlined text-white text-xl">local_shipping</span>
+</div>
+</div>
+<span class="mt-2 bg-primary px-2 py-0.5 rounded text-[10px] font-bold text-white shadow-lg">TRK-902 (LIVE)</span>
+</div>
+</div>
+<!-- Floating Top Search Header -->
+<div class="absolute top-0 left-0 right-0 z-20 p-4">
+<div class="max-w-md mx-auto flex items-center gap-3">
+<div class="flex-1 bg-white/90 dark:bg-surface-dark/90 backdrop-blur-md rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 flex items-center px-4 h-12">
+<span class="material-symbols-outlined text-slate-400 dark:text-slate-500 mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full placeholder:text-slate-400" placeholder="Search vehicles, drivers, assets..." type="text"/>
+<span class="material-symbols-outlined text-slate-400 dark:text-slate-500 ml-2">mic</span>
+</div>
+<button class="size-12 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shrink-0">
+<span class="material-symbols-outlined">filter_list</span>
+</button>
+</div>
+<!-- Fleet Stats Badge -->
+<div class="flex justify-center mt-3">
+<div class="bg-surface-dark/80 backdrop-blur-sm border border-slate-700/50 rounded-full px-4 py-1.5 flex items-center gap-4 text-xs font-medium">
+<div class="flex items-center gap-1.5">
+<span class="size-2 bg-success rounded-full"></span>
+<span class="text-slate-300">42 Active</span>
+</div>
+<div class="w-px h-3 bg-slate-700"></div>
+<div class="flex items-center gap-1.5">
+<span class="size-2 bg-slate-500 rounded-full"></span>
+<span class="text-slate-300">50 Total Assets</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Live Streaming Indicator -->
+<div class="absolute top-4 right-4 z-20">
+<div class="flex items-center gap-2 bg-black/40 backdrop-blur-md rounded-full pl-2 pr-3 py-1 border border-white/10">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+</span>
+<span class="text-[10px] font-bold text-white tracking-widest uppercase">Live</span>
+</div>
+</div>
+<!-- Map Controls (Vertical Right) -->
+<div class="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-2">
+<button class="size-11 bg-white dark:bg-surface-dark rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50">
+<span class="material-symbols-outlined">layers</span>
+</button>
+<div class="flex flex-col bg-white dark:bg-surface-dark rounded-xl shadow-lg border border-slate-200 dark:border-slate-800">
+<button class="size-11 flex items-center justify-center text-slate-600 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800">
+<span class="material-symbols-outlined">add</span>
+</button>
+<button class="size-11 flex items-center justify-center text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined">remove</span>
+</button>
+</div>
+<button class="size-11 bg-white dark:bg-surface-dark rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">my_location</span>
+</button>
+</div>
+<!-- Details Bottom Sheet -->
+<div class="absolute bottom-0 left-0 right-0 z-30 transform translate-y-0 transition-transform duration-300">
+<div class="bg-white dark:bg-surface-dark rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.3)] border-t border-slate-200 dark:border-slate-800 pb-20">
+<!-- Handle -->
+<div class="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto my-3"></div>
+<div class="px-6 py-2">
+<!-- Header Info -->
+<div class="flex justify-between items-start mb-6">
+<div class="flex items-center gap-4">
+<div class="size-14 bg-primary/10 rounded-2xl flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl">local_shipping</span>
+</div>
+<div>
+<h2 class="text-xl font-bold dark:text-white">TRK-902</h2>
+<p class="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
+<span class="size-2 bg-success rounded-full"></span> Moving • Heavy Freight
+                                </p>
+</div>
+</div>
+<button class="size-10 bg-slate-100 dark:bg-neutral-dark rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-300">more_horiz</span>
+</button>
+</div>
+<!-- Driver Card -->
+<div class="bg-background-light dark:bg-neutral-dark/30 rounded-2xl p-4 flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<img alt="Driver profile" class="size-10 rounded-full object-cover" data-alt="Portrait of a smiling professional male driver" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC6zu9cYjgJfIhT4ZZ2afUG5nT5b-VjvO5GdtFCQ8AaqbvsOBJeIkPhodENSHXlWQAKWBVvccnFXJgFFNA89dRqWCjsvd5H89V42e8ERZhUMAkZ4UKdYMCbaKPPERdjgA4-BJo0zf-ZEye4Vlp_cZWM2pSypT-OkTtxmljWd4-O1z711Lui47EsYoTIa1IFP56DDodLlk4uOBaQWTyBNjKAjlDq4H157gCPkER_7GY5lbQpGX5G5La_fh29lLQDPjltseDnlNbumW0X"/>
+<div>
+<p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Driver</p>
+<p class="text-sm font-bold dark:text-white">Marcus Richardson</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="size-9 bg-primary/20 rounded-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-xl">call</span>
+</button>
+<button class="size-9 bg-primary/20 rounded-full flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-xl">chat</span>
+</button>
+</div>
+</div>
+<!-- Telemetry Grid -->
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="bg-slate-50 dark:bg-neutral-dark/30 rounded-2xl p-4 border border-slate-100 dark:border-slate-800">
+<p class="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Current Speed</p>
+<div class="flex items-baseline gap-1">
+<span class="text-2xl font-bold dark:text-white">64</span>
+<span class="text-sm text-slate-400">km/h</span>
+</div>
+</div>
+<div class="bg-slate-50 dark:bg-neutral-dark/30 rounded-2xl p-4 border border-slate-100 dark:border-slate-800">
+<p class="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Heading</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">explore</span>
+<span class="text-lg font-bold dark:text-white">NW 320°</span>
+</div>
+</div>
+<div class="bg-slate-50 dark:bg-neutral-dark/30 rounded-2xl p-4 border border-slate-100 dark:border-slate-800">
+<p class="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Fuel Level</p>
+<div class="flex items-center gap-3">
+<div class="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 78%"></div>
+</div>
+<span class="text-sm font-bold dark:text-white">78%</span>
+</div>
+</div>
+<div class="bg-slate-50 dark:bg-neutral-dark/30 rounded-2xl p-4 border border-slate-100 dark:border-slate-800">
+<p class="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">Battery</p>
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-success">battery_very_low</span>
+<span class="text-lg font-bold dark:text-white">12.8V</span>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex gap-3">
+<button class="flex-1 bg-primary text-white font-bold py-3.5 rounded-xl shadow-lg shadow-primary/20 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">route</span>
+                            View History
+                        </button>
+<button class="flex-1 bg-slate-100 dark:bg-neutral-dark text-slate-700 dark:text-slate-200 font-bold py-3.5 rounded-xl flex items-center justify-center gap-2">
+<span class="material-symbols-outlined">assignment</span>
+                            Dispatch
+                        </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Persistent Bottom Nav Bar -->
+<div class="absolute bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-surface-dark/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-6 py-2 pb-6">
+<div class="flex justify-between items-center">
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">map</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">Map</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">Fleet</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<div class="relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute -top-1 -right-1 size-3 bg-primary border-2 border-white dark:border-surface-dark rounded-full"></span>
+</div>
+<span class="text-[10px] font-bold uppercase tracking-tight">Alerts</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">Stats</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-bold uppercase tracking-tight">Setup</span>
+</a>
+</div>
+</div>
+</div>
+</body></html>

@@ -1,177 +1,98 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:fleet_management/core/theme/app_theme.dart';
 
-class ReportsScreen extends ConsumerStatefulWidget {
+class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
 
   @override
-  ConsumerState<ReportsScreen> createState() => _ReportsScreenState();
+  State<ReportsScreen> createState() => _ReportsScreenState();
 }
 
-class _ReportsScreenState extends ConsumerState<ReportsScreen>
-    with SingleTickerProviderStateMixin {
-  final _searchController = TextEditingController();
-  String _selectedCategory = 'all';
+class _ReportsScreenState extends State<ReportsScreen> {
+  static const _primary = Color(0xFFEC5B13);
+  static const _bg = Color(0xFFF8F6F6);
 
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOut,
-      ),
-    );
-
-    _animationController.forward();
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    _animationController.dispose();
-    super.dispose();
-  }
+  String _selectedPeriod = 'Today';
+  final _periods = ['Today', '7D', '1M', 'YTD'];
 
   @override
   Widget build(BuildContext context) {
-    final filteredReports = _getFilteredReports();
+    return Column(
+      children: [
+        _buildHeader(),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildPeriodFilter(),
+                const SizedBox(height: 16),
+                _buildKPIRow(),
+                const SizedBox(height: 16),
+                _buildRevenueChart(),
+                const SizedBox(height: 12),
+                _buildUtilizationChart(),
+                const SizedBox(height: 20),
+                _buildReportCategories(context),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: SingleChildScrollView(
-        child: Column(
+  // ── Header ─────────────────────────────────────────────────────────────────
+
+  Widget _buildHeader() {
+    return Container(
+      color: _bg,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
           children: [
-            // Enhanced Header with gradient
-            _buildEnhancedHeader(context),
-
-            // Search and Category Filter
-            _buildSearchAndFilter(context),
-
-            // Quick Stats
-            _buildQuickStats(context),
-
-            // Reports by Category
-            Padding(
-              padding: const EdgeInsets.all(16.0),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: _primary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.analytics_rounded,
+                  color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (_selectedCategory == 'all' || _selectedCategory == 'financial')
-                    _buildReportSection(
-                      context,
-                      'Financial Reports',
-                      Icons.account_balance_rounded,
-                      AppTheme.statusActive,
-                      filteredReports['financial']!,
-                    ),
-                  if (_selectedCategory == 'all' || _selectedCategory == 'operations')
-                    _buildReportSection(
-                      context,
-                      'Operations Reports',
-                      Icons.local_shipping_rounded,
-                      AppTheme.primaryBlue,
-                      filteredReports['operations']!,
-                    ),
-                  if (_selectedCategory == 'all' || _selectedCategory == 'compliance')
-                    _buildReportSection(
-                      context,
-                      'Compliance Reports',
-                      Icons.verified_user_rounded,
-                      AppTheme.statusWarning,
-                      filteredReports['compliance']!,
-                    ),
-                  if (_selectedCategory == 'all' || _selectedCategory == 'analytics')
-                    _buildReportSection(
-                      context,
-                      'Analytics & Insights',
-                      Icons.analytics_rounded,
-                      AppTheme.accentIndigo,
-                      filteredReports['analytics']!,
-                    ),
+                  Text('Fleet Insights',
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.3)),
+                  Text('Analytics & Reports',
+                      style:
+                          TextStyle(fontSize: 12, color: Color(0xFF64748B))),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEnhancedHeader(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppTheme.accentIndigo,
-            AppTheme.accentIndigo.withOpacity(0.8),
-            AppTheme.primaryBlue,
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.accentIndigo.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.assessment_rounded,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Reports & Analytics',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        'Generate insights for your fleet',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            ElevatedButton.icon(
+              onPressed: () {},
+              icon: const Icon(Icons.download_rounded, size: 16),
+              label: const Text('Export All'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                textStyle: const TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.bold),
+                elevation: 0,
+              ),
             ),
           ],
         ),
@@ -179,716 +100,588 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen>
     );
   }
 
-  Widget _buildSearchAndFilter(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+  // ── Period filter ───────────────────────────────────────────────────────────
+
+  Widget _buildPeriodFilter() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          ..._periods.map((p) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () => setState(() => _selectedPeriod = p),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: _selectedPeriod == p ? _primary : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                          color: _selectedPeriod == p
+                              ? _primary
+                              : Colors.grey.shade300),
+                    ),
+                    child: Text(p,
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: _selectedPeriod == p
+                                ? Colors.white
+                                : Colors.grey.shade600)),
+                  ),
+                ),
+              )),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.calendar_month_outlined,
+                    size: 14, color: Colors.grey.shade600),
+                const SizedBox(width: 5),
+                Text('Custom',
+                    style: TextStyle(
+                        fontSize: 13, color: Colors.grey.shade600)),
+              ],
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── KPI cards ───────────────────────────────────────────────────────────────
+
+  Widget _buildKPIRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: _KPICard(
+            label: 'Total Revenue',
+            value: '\$124,500',
+            trend: '+12.5%',
+            up: true,
+            icon: Icons.payments_outlined,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _KPICard(
+            label: 'Avg Fuel Cost',
+            value: '\$3.82/gal',
+            trend: '-2.1%',
+            up: false,
+            icon: Icons.local_gas_station_outlined,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _KPICard(
+            label: 'Fleet Util.',
+            value: '88%',
+            trend: '+4.2%',
+            up: true,
+            icon: Icons.rv_hookup_outlined,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Revenue vs Expenses bar chart ───────────────────────────────────────────
+
+  Widget _buildRevenueChart() {
+    return _ChartCard(
+      title: 'Revenue vs Expenses',
+      trailing: Row(
+        children: [
+          Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                  color: _primary,
+                  borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 4),
+          Text('Revenue',
+              style:
+                  TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+          const SizedBox(width: 8),
+          Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                  color: Colors.grey.shade400,
+                  borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 4),
+          Text('Expenses',
+              style:
+                  TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+        ],
+      ),
+      child: SizedBox(
+        height: 140,
+        child: CustomPaint(
+          painter: _RevenueBarPainter(),
+          size: Size.infinite,
+        ),
+      ),
+    );
+  }
+
+  // ── Utilization trend line chart ─────────────────────────────────────────────
+
+  Widget _buildUtilizationChart() {
+    return _ChartCard(
+      title: 'Utilization Trend',
+      trailing: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: const Color(0xFFDCFCE7),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Text('Stable',
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF16A34A))),
       ),
       child: Column(
         children: [
-          // Search bar
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.accentIndigo.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppTheme.accentIndigo.withOpacity(0.1),
-              ),
-            ),
-            child: TextField(
-              controller: _searchController,
-              style: const TextStyle(fontSize: 16),
-              decoration: InputDecoration(
-                hintText: 'Search reports...',
-                prefixIcon: Icon(
-                  Icons.search_rounded,
-                  color: AppTheme.accentIndigo,
-                  size: 24,
-                ),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(
-                          Icons.clear_rounded,
-                          color: AppTheme.accentIndigo,
-                        ),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {});
-                        },
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-              ),
-              onChanged: (value) => setState(() {}),
+          SizedBox(
+            height: 110,
+            child: CustomPaint(
+              painter: _UtilizationLinePainter(),
+              size: Size.infinite,
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Category filters
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _CategoryChip(
-                  label: 'All Reports',
-                  icon: Icons.dashboard_rounded,
-                  isSelected: _selectedCategory == 'all',
-                  color: AppTheme.accentIndigo,
-                  onTap: () => setState(() => _selectedCategory = 'all'),
-                ),
-                const SizedBox(width: 8),
-                _CategoryChip(
-                  label: 'Financial',
-                  icon: Icons.account_balance_rounded,
-                  isSelected: _selectedCategory == 'financial',
-                  color: AppTheme.statusActive,
-                  onTap: () => setState(() => _selectedCategory = 'financial'),
-                ),
-                const SizedBox(width: 8),
-                _CategoryChip(
-                  label: 'Operations',
-                  icon: Icons.local_shipping_rounded,
-                  isSelected: _selectedCategory == 'operations',
-                  color: AppTheme.primaryBlue,
-                  onTap: () => setState(() => _selectedCategory = 'operations'),
-                ),
-                const SizedBox(width: 8),
-                _CategoryChip(
-                  label: 'Compliance',
-                  icon: Icons.verified_user_rounded,
-                  isSelected: _selectedCategory == 'compliance',
-                  color: AppTheme.statusWarning,
-                  onTap: () => setState(() => _selectedCategory = 'compliance'),
-                ),
-                const SizedBox(width: 8),
-                _CategoryChip(
-                  label: 'Analytics',
-                  icon: Icons.analytics_rounded,
-                  isSelected: _selectedCategory == 'analytics',
-                  color: AppTheme.accentCyan,
-                  onTap: () => setState(() => _selectedCategory = 'analytics'),
-                ),
-              ],
-            ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+                .map((d) => Text(d,
+                    style: TextStyle(
+                        fontSize: 9, color: Colors.grey.shade400)))
+                .toList(),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildQuickStats(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isDesktop = constraints.maxWidth > 800;
-          return isDesktop
-              ? Row(
-                  children: [
-                    Expanded(child: _QuickStatCard(
-                      icon: Icons.description_rounded,
-                      label: 'Total Reports',
-                      value: '24',
-                      color: AppTheme.primaryBlue,
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: _QuickStatCard(
-                      icon: Icons.trending_up_rounded,
-                      label: 'Generated Today',
-                      value: '5',
-                      color: AppTheme.statusActive,
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: _QuickStatCard(
-                      icon: Icons.schedule_rounded,
-                      label: 'Scheduled',
-                      value: '8',
-                      color: AppTheme.accentCyan,
-                    )),
-                    const SizedBox(width: 12),
-                    Expanded(child: _QuickStatCard(
-                      icon: Icons.bookmark_rounded,
-                      label: 'Favorites',
-                      value: '12',
-                      color: AppTheme.statusWarning,
-                    )),
-                  ],
-                )
-              : Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: _QuickStatCard(
-                          icon: Icons.description_rounded,
-                          label: 'Total Reports',
-                          value: '24',
-                          color: AppTheme.primaryBlue,
-                        )),
-                        const SizedBox(width: 12),
-                        Expanded(child: _QuickStatCard(
-                          icon: Icons.trending_up_rounded,
-                          label: 'Generated Today',
-                          value: '5',
-                          color: AppTheme.statusActive,
-                        )),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(child: _QuickStatCard(
-                          icon: Icons.schedule_rounded,
-                          label: 'Scheduled',
-                          value: '8',
-                          color: AppTheme.accentCyan,
-                        )),
-                        const SizedBox(width: 12),
-                        Expanded(child: _QuickStatCard(
-                          icon: Icons.bookmark_rounded,
-                          label: 'Favorites',
-                          value: '12',
-                          color: AppTheme.statusWarning,
-                        )),
-                      ],
-                    ),
-                  ],
-                );
-        },
-      ),
-    );
-  }
+  // ── Report categories ───────────────────────────────────────────────────────
 
-  Widget _buildReportSection(
-    BuildContext context,
-    String title,
-    IconData icon,
-    Color color,
-    List<Map<String, dynamic>> reports,
-  ) {
-    if (reports.isEmpty) return const SizedBox.shrink();
-
+  Widget _buildReportCategories(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: color, size: 20),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
+        const Text('Report Categories',
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -0.3)),
+        const SizedBox(height: 14),
+        _CategorySection(
+          icon: Icons.settings_applications_rounded,
+          label: 'OPERATIONAL',
+          items: [
+            _ReportTile(
+                title: 'Trip Efficiency',
+                subtitle: 'Route performance data',
+                onTap: () {}),
+            _ReportTile(
+                title: 'Idle Time',
+                subtitle: 'Engine run duration vs stop',
+                onTap: () {}),
+          ],
         ),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final crossAxisCount = constraints.maxWidth > 1200
-                ? 3
-                : constraints.maxWidth > 800
-                    ? 2
-                    : 1;
-
-            return GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: crossAxisCount,
-                childAspectRatio: 1.4,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-              ),
-              itemCount: reports.length,
-              itemBuilder: (context, index) {
-                return TweenAnimationBuilder<double>(
-                  duration: Duration(milliseconds: 300 + (index * 50)),
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  curve: Curves.easeOut,
-                  builder: (context, value, child) {
-                    return Transform.scale(
-                      scale: 0.8 + (0.2 * value),
-                      child: Opacity(
-                        opacity: value,
-                        child: child,
-                      ),
-                    );
-                  },
-                  child: _EnhancedReportCard(
-                    report: reports[index],
-                    color: color,
-                  ),
-                );
-              },
-            );
-          },
+        const SizedBox(height: 12),
+        _CategorySection(
+          icon: Icons.account_balance_wallet_outlined,
+          label: 'FINANCIAL',
+          items: [
+            _ReportTile(
+                title: 'Fuel Consumption',
+                subtitle: 'Gallons/Mile analysis',
+                onTap: () => context.push('/reports/fuel')),
+            _ReportTile(
+                title: 'Maintenance Spend',
+                subtitle: 'Repair & service costs',
+                onTap: () {}),
+          ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
+        _CategorySection(
+          icon: Icons.verified_user_outlined,
+          label: 'COMPLIANCE',
+          items: [
+            _ReportTile(
+                title: 'HOS Violations',
+                subtitle: 'Hours of Service logs',
+                onTap: () {}),
+            _ReportTile(
+                title: 'Inspection Pass Rate',
+                subtitle: 'DOT inspection history',
+                onTap: () {}),
+          ],
+        ),
       ],
     );
   }
+}
 
-  Map<String, List<Map<String, dynamic>>> _getFilteredReports() {
-    final searchLower = _searchController.text.toLowerCase();
+// ── Reusable widgets ──────────────────────────────────────────────────────────
 
-    final allReports = {
-      'financial': [
-        {
-          'title': 'Expense Summary',
-          'description': 'Detailed breakdown of all expenses by category and vehicle',
-          'icon': Icons.payments_rounded,
-          'route': '/reports/expenses',
-          'popular': true,
-        },
-        {
-          'title': 'Invoice Reports',
-          'description': 'View and analyze all invoices and payment status',
-          'icon': Icons.receipt_long_rounded,
-          'route': '/reports/invoices',
-          'popular': false,
-        },
-        {
-          'title': 'Budget Analysis',
-          'description': 'Compare actual spending against budgets',
-          'icon': Icons.account_balance_wallet_rounded,
-          'route': '/reports/budget',
-          'popular': false,
-        },
-        {
-          'title': 'Payment Tracking',
-          'description': 'Monitor payment schedules and outstanding amounts',
-          'icon': Icons.paid_rounded,
-          'route': '/reports/payments',
-          'popular': false,
-        },
-      ],
-      'operations': [
-        {
-          'title': 'Organization Summary',
-          'description': 'Overview of drivers, users, and key metrics',
-          'icon': Icons.dashboard_rounded,
-          'route': '/reports/organization-summary',
-          'popular': true,
-        },
-        {
-          'title': 'Driver List',
-          'description': 'Complete list of all drivers with details',
-          'icon': Icons.people_rounded,
-          'route': '/reports/driver-list',
-          'popular': true,
-        },
-        {
-          'title': 'Vehicle Utilization',
-          'description': 'Track vehicle usage and efficiency metrics',
-          'icon': Icons.directions_car_rounded,
-          'route': '/reports/vehicle-utilization',
-          'popular': false,
-        },
-        {
-          'title': 'Trip History',
-          'description': 'Detailed log of all trips and routes',
-          'icon': Icons.route_rounded,
-          'route': '/reports/trip-history',
-          'popular': false,
-        },
-        {
-          'title': 'Fuel Consumption',
-          'description': 'Monitor fuel usage and costs per vehicle',
-          'icon': Icons.local_gas_station_rounded,
-          'route': '/reports/fuel',
-          'popular': true,
-        },
-      ],
-      'compliance': [
-        {
-          'title': 'License Expiry',
-          'description': 'Track license expiration dates and renewals',
-          'icon': Icons.credit_card_rounded,
-          'route': '/reports/license-expiry',
-          'popular': true,
-        },
-        {
-          'title': 'Audit Log',
-          'description': 'View system activity and changes',
-          'icon': Icons.history_rounded,
-          'route': '/reports/audit-log',
-          'popular': false,
-        },
-        {
-          'title': 'Compliance Checklist',
-          'description': 'Ensure all regulatory requirements are met',
-          'icon': Icons.checklist_rounded,
-          'route': '/reports/compliance',
-          'popular': false,
-        },
-        {
-          'title': 'Maintenance Records',
-          'description': 'Complete maintenance history for all vehicles',
-          'icon': Icons.build_rounded,
-          'route': '/reports/maintenance',
-          'popular': false,
-        },
-      ],
-      'analytics': [
-        {
-          'title': 'User Activity',
-          'description': 'Monitor user engagement and actions',
-          'icon': Icons.bar_chart_rounded,
-          'route': '/reports/user-activity',
-          'popular': false,
-        },
-        {
-          'title': 'Performance Metrics',
-          'description': 'Key performance indicators and trends',
-          'icon': Icons.insights_rounded,
-          'route': '/reports/performance',
-          'popular': true,
-        },
-        {
-          'title': 'Cost Analysis',
-          'description': 'Analyze cost trends and find savings',
-          'icon': Icons.trending_down_rounded,
-          'route': '/reports/cost-analysis',
-          'popular': false,
-        },
-        {
-          'title': 'Custom Reports',
-          'description': 'Create your own custom report templates',
-          'icon': Icons.tune_rounded,
-          'route': '/reports/custom',
-          'popular': false,
-        },
-      ],
-    };
+class _KPICard extends StatelessWidget {
+  final String label;
+  final String value;
+  final String trend;
+  final bool up;
+  final IconData icon;
 
-    if (searchLower.isEmpty) return allReports;
+  const _KPICard({
+    required this.label,
+    required this.value,
+    required this.trend,
+    required this.up,
+    required this.icon,
+  });
 
-    return allReports.map((category, reports) {
-      final filtered = reports.where((report) {
-        return report['title'].toString().toLowerCase().contains(searchLower) ||
-            report['description'].toString().toLowerCase().contains(searchLower);
-      }).toList();
-      return MapEntry(category, filtered);
-    });
+  static const _primary = Color(0xFFEC5B13);
+
+  @override
+  Widget build(BuildContext context) {
+    final trendColor =
+        up ? const Color(0xFF16A34A) : const Color(0xFFEF4444);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.04), blurRadius: 6)
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: 0,
+            right: 0,
+            child: Icon(icon, size: 36, color: _primary.withOpacity(0.08)),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey.shade500,
+                      fontWeight: FontWeight.w500)),
+              const SizedBox(height: 6),
+              Text(value,
+                  style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Icon(
+                      up
+                          ? Icons.trending_up_rounded
+                          : Icons.trending_down_rounded,
+                      size: 12,
+                      color: trendColor),
+                  const SizedBox(width: 3),
+                  Text(trend,
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: trendColor)),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 
-// Category Chip
-class _CategoryChip extends StatelessWidget {
-  final String label;
+class _ChartCard extends StatelessWidget {
+  final String title;
+  final Widget trailing;
+  final Widget child;
+
+  const _ChartCard({
+    required this.title,
+    required this.trailing,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.04), blurRadius: 8)
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.bold)),
+              trailing,
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _CategorySection extends StatelessWidget {
   final IconData icon;
-  final bool isSelected;
-  final Color color;
+  final String label;
+  final List<_ReportTile> items;
+
+  const _CategorySection({
+    required this.icon,
+    required this.label,
+    required this.items,
+  });
+
+  static const _primary = Color(0xFFEC5B13);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: _primary, size: 18),
+            const SizedBox(width: 6),
+            Text(label,
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.grey.shade500,
+                    letterSpacing: 0.8)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...items.map((tile) => Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: tile,
+            )),
+      ],
+    );
+  }
+}
+
+class _ReportTile extends StatelessWidget {
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
 
-  const _CategoryChip({
-    required this.label,
-    required this.icon,
-    required this.isSelected,
-    required this.color,
+  const _ReportTile({
+    required this.title,
+    required this.subtitle,
     required this.onTap,
   });
+
+  static const _primary = Color(0xFFEC5B13);
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Container(
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  colors: [color, color.withOpacity(0.8)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-              : null,
-          color: isSelected ? null : color.withOpacity(0.1),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? color : color.withOpacity(0.3),
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: color.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
+          border: Border.all(color: Colors.grey.shade200),
+          boxShadow: [
+            BoxShadow(
+                color: Colors.black.withOpacity(0.03), blurRadius: 4)
+          ],
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              size: 18,
-              color: isSelected ? Colors.white : color,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : color,
-                fontSize: 14,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// Quick Stat Card
-class _QuickStatCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color color;
-
-  const _QuickStatCard({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withOpacity(0.1),
-            color.withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// Enhanced Report Card
-class _EnhancedReportCard extends StatefulWidget {
-  final Map<String, dynamic> report;
-  final Color color;
-
-  const _EnhancedReportCard({
-    required this.report,
-    required this.color,
-  });
-
-  @override
-  State<_EnhancedReportCard> createState() => _EnhancedReportCardState();
-}
-
-class _EnhancedReportCardState extends State<_EnhancedReportCard> {
-  bool _isHovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final isPopular = widget.report['popular'] as bool;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedScale(
-        scale: _isHovered ? 1.03 : 1.0,
-        duration: const Duration(milliseconds: 200),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                widget.color.withOpacity(0.05),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: widget.color.withOpacity(0.3),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.color.withOpacity(_isHovered ? 0.3 : 0.15),
-                blurRadius: _isHovered ? 20 : 12,
-                offset: Offset(0, _isHovered ? 8 : 4),
-              ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => context.push(widget.report['route'] as String),
-              borderRadius: BorderRadius.circular(20),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [widget.color, widget.color.withOpacity(0.7)],
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: widget.color.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            widget.report['icon'] as IconData,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        ),
-                        if (isPopular)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.statusWarning.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: AppTheme.statusWarning,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.star_rounded,
-                                  size: 14,
-                                  color: AppTheme.statusWarning,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Popular',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.statusWarning,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Text(
-                      widget.report['title'] as String,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
                       style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      widget.report['description'] as String,
+                          fontSize: 13, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
                       style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[600],
-                        height: 1.4,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'View Report',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: widget.color,
-                          ),
-                        ),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          color: widget.color,
-                          size: 20,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                          fontStyle: FontStyle.italic)),
+                ],
               ),
             ),
-          ),
+            Icon(Icons.chevron_right_rounded,
+                color: Colors.grey.shade400, size: 20),
+          ],
         ),
       ),
     );
   }
+}
+
+// ── Chart painters ────────────────────────────────────────────────────────────
+
+class _RevenueBarPainter extends CustomPainter {
+  static const _primary = Color(0xFFEC5B13);
+
+  // [expense%, revenue%] per month
+  static const _data = [
+    [0.60, 0.85],
+    [0.55, 0.70],
+    [0.65, 0.90],
+    [0.45, 0.60],
+    [0.70, 0.95],
+  ];
+  static const _labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const barGroups = 5;
+    final groupW = size.width / barGroups;
+    const barW = 10.0;
+    const gap = 4.0;
+    final maxH = size.height - 20;
+
+    final revPaint = Paint()..color = _primary;
+    final expPaint = Paint()..color = const Color(0xFFCBD5E1);
+    final labelStyle = TextStyle(
+        fontSize: 9, color: Colors.grey.shade500);
+
+    for (int i = 0; i < barGroups; i++) {
+      final cx = groupW * i + groupW / 2;
+      final expH = _data[i][0] * maxH;
+      final revH = _data[i][1] * maxH;
+
+      // Expense bar
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          Rect.fromLTWH(cx - gap / 2 - barW, maxH - expH, barW, expH),
+          topLeft: const Radius.circular(3),
+          topRight: const Radius.circular(3),
+        ),
+        expPaint,
+      );
+
+      // Revenue bar
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          Rect.fromLTWH(cx + gap / 2, maxH - revH, barW, revH),
+          topLeft: const Radius.circular(3),
+          topRight: const Radius.circular(3),
+        ),
+        revPaint,
+      );
+
+      // Month label
+      final tp = TextPainter(
+        text: TextSpan(text: _labels[i], style: labelStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(cx - tp.width / 2, maxH + 5));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RevenueBarPainter old) => false;
+}
+
+class _UtilizationLinePainter extends CustomPainter {
+  static const _primary = Color(0xFFEC5B13);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final linePaint = Paint()
+      ..color = _primary
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          _primary.withOpacity(0.18),
+          _primary.withOpacity(0.0),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..style = PaintingStyle.fill;
+
+    // Normalize path: M0 80 Q25 20 50 50 T100 10 (viewBox 100x100)
+    final pts = [
+      Offset(0, size.height * 0.80),
+      Offset(size.width * 0.25, size.height * 0.20),
+      Offset(size.width * 0.50, size.height * 0.50),
+      Offset(size.width * 0.75, size.height * 0.30),
+      Offset(size.width * 1.00, size.height * 0.10),
+    ];
+
+    final path = Path()..moveTo(pts[0].dx, pts[0].dy);
+    path.cubicTo(
+      pts[1].dx, pts[1].dy,
+      pts[2].dx, pts[2].dy,
+      pts[2].dx, pts[2].dy,
+    );
+    path.cubicTo(
+      pts[3].dx, pts[3].dy,
+      pts[4].dx, pts[4].dy,
+      pts[4].dx, pts[4].dy,
+    );
+
+    final fillPath = Path.from(path)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+
+    canvas.drawPath(fillPath, fillPaint);
+    canvas.drawPath(path, linePaint);
+
+    // Y-axis labels
+    final labelStyle = TextStyle(fontSize: 9, color: Colors.grey.shade400);
+    for (final entry in {'100%': 0.0, '50%': 0.5, '0%': 1.0}.entries) {
+      final tp = TextPainter(
+        text: TextSpan(text: entry.key, style: labelStyle),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(0, size.height * entry.value - tp.height / 2));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_UtilizationLinePainter old) => false;
 }

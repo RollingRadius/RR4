@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Custom Role Builder - Fleet Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        body { font-family: 'Public Sans', sans-serif; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<!-- Header Section -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-white/10 px-4 py-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<button class="p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full transition-colors">
+<span class="material-symbols-outlined text-2xl">arrow_back</span>
+</button>
+<h1 class="text-xl font-bold tracking-tight">Create Custom Role</h1>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white px-6 py-2 rounded-full font-semibold transition-all shadow-lg shadow-primary/20">
+            Save
+        </button>
+</header>
+<main class="flex-1 overflow-y-auto pb-32">
+<!-- Role Name Input -->
+<section class="px-4 py-6">
+<div class="relative">
+<label class="block text-sm font-medium text-slate-500 dark:text-slate-400 mb-2 px-1" for="role-name">Role Name</label>
+<input class="w-full bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-4 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-white/20" id="role-name" placeholder="e.g. Regional Manager - West" type="text"/>
+</div>
+</section>
+<!-- Template Selection Section -->
+<section class="py-2">
+<div class="flex items-center justify-between px-4 mb-4">
+<h2 class="text-lg font-bold">Start with Template</h2>
+<span class="text-xs text-primary font-bold uppercase tracking-wider">11 Available</span>
+</div>
+<div class="flex overflow-x-auto no-scrollbar gap-4 px-4 pb-4">
+<!-- Template Cards -->
+<div class="min-w-[160px] flex-shrink-0 bg-white dark:bg-white/5 border-2 border-primary rounded-xl p-4 flex flex-col gap-3">
+<div class="size-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+</div>
+<div>
+<p class="font-bold text-sm">Super Admin</p>
+<p class="text-xs text-slate-500 dark:text-slate-400 leading-tight">Full system access</p>
+</div>
+</div>
+<div class="min-w-[160px] flex-shrink-0 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-3">
+<div class="size-10 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-white/60">
+<span class="material-symbols-outlined">local_shipping</span>
+</div>
+<div>
+<p class="font-bold text-sm">Fleet Manager</p>
+<p class="text-xs text-slate-500 dark:text-slate-400 leading-tight">Manage vehicles</p>
+</div>
+</div>
+<div class="min-w-[160px] flex-shrink-0 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-3">
+<div class="size-10 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-white/60">
+<span class="material-symbols-outlined">map</span>
+</div>
+<div>
+<p class="font-bold text-sm">Dispatcher</p>
+<p class="text-xs text-slate-500 dark:text-slate-400 leading-tight">Route &amp; assign</p>
+</div>
+</div>
+<div class="min-w-[160px] flex-shrink-0 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-3">
+<div class="size-10 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-white/60">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div>
+<p class="font-bold text-sm">Driver</p>
+<p class="text-xs text-slate-500 dark:text-slate-400 leading-tight">Daily operations</p>
+</div>
+</div>
+<div class="min-w-[160px] flex-shrink-0 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl p-4 flex flex-col gap-3">
+<div class="size-10 rounded-lg bg-slate-100 dark:bg-white/10 flex items-center justify-center text-slate-600 dark:text-white/60">
+<span class="material-symbols-outlined">build</span>
+</div>
+<div>
+<p class="font-bold text-sm">Maintenance</p>
+<p class="text-xs text-slate-500 dark:text-slate-400 leading-tight">Repairs &amp; service</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Capability Categories -->
+<section class="px-4 py-6 flex flex-col gap-4">
+<div class="flex items-center justify-between mb-2">
+<h2 class="text-lg font-bold">Capabilities</h2>
+<div class="flex items-center gap-2 text-slate-400">
+<span class="material-symbols-outlined text-xl">search</span>
+<span class="material-symbols-outlined text-xl">filter_list</span>
+</div>
+</div>
+<!-- Vehicle Management Accordion (Open State) -->
+<div class="bg-white dark:bg-white/5 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10">
+<button class="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-white/5">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">minor_crash</span>
+<span class="font-bold">Vehicle Management</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">4 Selected</span>
+<span class="material-symbols-outlined transition-transform duration-200 rotate-180">expand_more</span>
+</div>
+</button>
+<div class="p-4 space-y-6">
+<!-- Capability Row 1 -->
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-center">
+<span class="text-sm font-medium">vehicle.create</span>
+<div class="flex bg-slate-100 dark:bg-white/10 p-1 rounded-lg">
+<button class="px-3 py-1 text-xs rounded-md">None</button>
+<button class="px-3 py-1 text-xs rounded-md">View</button>
+<button class="px-3 py-1 text-xs rounded-md bg-primary text-white shadow-sm font-bold">Full</button>
+</div>
+</div>
+</div>
+<!-- Capability Row 2 -->
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-center">
+<span class="text-sm font-medium">vehicle.edit</span>
+<div class="flex bg-slate-100 dark:bg-white/10 p-1 rounded-lg">
+<button class="px-3 py-1 text-xs rounded-md">None</button>
+<button class="px-3 py-1 text-xs rounded-md bg-white dark:bg-white/20 shadow-sm font-bold">View</button>
+<button class="px-3 py-1 text-xs rounded-md">Full</button>
+</div>
+</div>
+</div>
+<!-- Capability Row 3 -->
+<div class="flex flex-col gap-3">
+<div class="flex justify-between items-center">
+<span class="text-sm font-medium">vehicle.telematics</span>
+<div class="flex bg-slate-100 dark:bg-white/10 p-1 rounded-lg">
+<button class="px-3 py-1 text-xs rounded-md">None</button>
+<button class="px-3 py-1 text-xs rounded-md">View</button>
+<button class="px-3 py-1 text-xs rounded-md bg-primary text-white shadow-sm font-bold">Full</button>
+</div>
+</div>
+</div>
+<!-- Constraint Toggle -->
+<div class="pt-4 border-t border-slate-100 dark:border-white/5">
+<div class="flex items-center justify-between mb-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-slate-400">lock_open</span>
+<span class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Regional Constraint</span>
+</div>
+<div class="relative inline-block w-8 h-4">
+<input class="peer h-0 w-0 invisible" id="region-toggle" type="checkbox"/>
+<label class="cursor-pointer text-indent-[-9999px] w-full h-full bg-slate-300 dark:bg-white/20 block rounded-full relative peer-checked:bg-primary after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-3 after:h-3 after:bg-white after:rounded-full after:transition-all peer-checked:after:left-[calc(100%-14px)]" for="region-toggle"></label>
+</div>
+</div>
+<p class="text-[10px] text-slate-400">Limit access to vehicles within the user's assigned region only.</p>
+</div>
+</div>
+</div>
+<!-- Driver Management Accordion (Closed State) -->
+<div class="bg-white dark:bg-white/5 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 opacity-70">
+<button class="w-full flex items-center justify-between p-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">badge</span>
+<span class="font-bold">Driver Management</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="bg-slate-100 dark:bg-white/10 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">0 Selected</span>
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</button>
+</div>
+<!-- Financials Accordion (Closed State) -->
+<div class="bg-white dark:bg-white/5 rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 opacity-70">
+<button class="w-full flex items-center justify-between p-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">payments</span>
+<span class="font-bold">Financials</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="bg-slate-100 dark:bg-white/10 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">0 Selected</span>
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</button>
+</div>
+</section>
+</main>
+<!-- Floating Impact Footer -->
+<div class="fixed bottom-20 left-4 right-4 z-40 pointer-events-none">
+<div class="bg-slate-900/90 dark:bg-white/10 backdrop-blur-lg rounded-2xl p-4 flex items-center justify-between shadow-2xl border border-white/10 pointer-events-auto">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded-full bg-primary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-sm">groups</span>
+</div>
+<div>
+<p class="text-white text-sm font-bold">Impact Preview</p>
+<p class="text-slate-400 text-xs">This role will apply to 0 existing users.</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-white/40">info</span>
+</div>
+</div>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-[#321c1a] border-t border-slate-200 dark:border-[#472724] px-4 pb-4 pt-2 flex justify-between items-center z-50">
+<a class="flex flex-1 flex-col items-center gap-1 text-slate-400 dark:text-[#c89893]" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+<span class="text-[10px] font-medium uppercase tracking-wider">Fleet</span>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 text-slate-400 dark:text-[#c89893]" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="text-[10px] font-medium uppercase tracking-wider">Tasks</span>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 text-primary dark:text-white" href="#">
+<span class="material-symbols-outlined fill-1">shield</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Roles</span>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 text-slate-400 dark:text-[#c89893]" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="text-[10px] font-medium uppercase tracking-wider">Reports</span>
+</a>
+<a class="flex flex-1 flex-col items-center gap-1 text-slate-400 dark:text-[#c89893]" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-medium uppercase tracking-wider">Settings</span>
+</a>
+</nav>
+</body></html>

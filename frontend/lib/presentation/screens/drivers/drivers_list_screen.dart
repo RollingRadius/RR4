@@ -100,17 +100,8 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
     final expiringCount = drivers.where((d) => d.hasExpiringSoonLicense).length;
 
     return Container(
-      decoration: BoxDecoration(
-        gradient: AppTheme.accentGradient,
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.accentCyan.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+      color: AppTheme.bgPrimary,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: SafeArea(
         bottom: false,
         child: Column(
@@ -118,18 +109,18 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppTheme.primaryBlue,
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.people_rounded,
                     color: Colors.white,
-                    size: 28,
+                    size: 22,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -137,31 +128,45 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
                       const Text(
                         'Fleet Drivers',
                         style: TextStyle(
-                          fontSize: 24,
+                          fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: AppTheme.textPrimary,
+                          letterSpacing: -0.3,
                         ),
                       ),
                       Text(
                         '${driverState.total} drivers registered',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withOpacity(0.9),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppTheme.textSecondary,
                         ),
                       ),
                     ],
                   ),
                 ),
-                FloatingActionButton(
-                  onPressed: () => context.push('/drivers/add'),
-                  backgroundColor: Colors.white,
-                  foregroundColor: AppTheme.accentCyan,
-                  elevation: 4,
-                  child: const Icon(Icons.add_rounded, size: 28),
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primaryBlue.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    onPressed: () => context.push('/drivers/add'),
+                    icon: const Icon(Icons.add, color: Colors.white, size: 20),
+                    padding: EdgeInsets.zero,
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             // Statistics Row
             Row(
@@ -189,7 +194,7 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
                     icon: Icons.people_outline_rounded,
                     label: 'Total',
                     value: driverState.total.toString(),
-                    color: Colors.white,
+                    color: AppTheme.primaryBlue,
                   ),
                 ),
               ],
@@ -218,10 +223,10 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
           // Search bar with glass effect
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.accentCyan.withOpacity(0.05),
+              color: AppTheme.primaryBlue.withOpacity(0.05),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: AppTheme.accentCyan.withOpacity(0.1),
+                color: AppTheme.primaryBlue.withOpacity(0.1),
               ),
             ),
             child: TextField(
@@ -231,14 +236,14 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
                 hintText: 'Search by name, ID, phone...',
                 prefixIcon: Icon(
                   Icons.search_rounded,
-                  color: AppTheme.accentCyan,
+                  color: AppTheme.primaryBlue,
                   size: 24,
                 ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: Icon(
                           Icons.clear_rounded,
-                          color: AppTheme.accentCyan,
+                          color: AppTheme.primaryBlue,
                         ),
                         onPressed: () {
                           _searchController.clear();
@@ -266,7 +271,7 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
                   label: 'All Drivers',
                   count: drivers.length,
                   isSelected: _selectedFilter == 'all',
-                  color: AppTheme.accentCyan,
+                  color: AppTheme.primaryBlue,
                   icon: Icons.people_rounded,
                   onTap: () => setState(() => _selectedFilter = 'all'),
                 ),
@@ -332,18 +337,18 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: AppTheme.accentCyan.withOpacity(0.05),
+              color: AppTheme.primaryBlue.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppTheme.accentCyan.withOpacity(0.2),
+                color: AppTheme.primaryBlue.withOpacity(0.2),
               ),
             ),
             child: DropdownButton<String>(
               value: _sortBy,
               underline: const SizedBox(),
-              icon: Icon(Icons.arrow_drop_down_rounded, color: AppTheme.accentCyan),
+              icon: Icon(Icons.arrow_drop_down_rounded, color: AppTheme.primaryBlue),
               style: TextStyle(
-                color: AppTheme.accentCyan,
+                color: AppTheme.primaryBlue,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -361,7 +366,7 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
           // View Toggle
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.accentCyan.withOpacity(0.05),
+              color: AppTheme.primaryBlue.withOpacity(0.05),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -539,7 +544,7 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
           ElevatedButton.icon(
             onPressed: _refreshDrivers,
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accentCyan,
+              backgroundColor: AppTheme.primaryBlue,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(
                 horizontal: 24,
@@ -670,26 +675,34 @@ class _HeaderStatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: AppTheme.bgSecondary,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E0E0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 24),
+          Icon(icon, color: color == Colors.white ? AppTheme.textPrimary : color, size: 22),
           const SizedBox(height: 4),
           Text(
             value,
             style: TextStyle(
-              fontSize: 20,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: color,
+              color: color == Colors.white ? AppTheme.textPrimary : color,
             ),
           ),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
-              color: Colors.white.withOpacity(0.9),
+              color: AppTheme.textSecondary,
             ),
           ),
         ],
@@ -807,13 +820,13 @@ class _ViewToggleButton extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.accentCyan : Colors.transparent,
+          color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
           icon,
           size: 22,
-          color: isSelected ? Colors.white : AppTheme.accentCyan,
+          color: isSelected ? Colors.white : AppTheme.primaryBlue,
         ),
       ),
     );
@@ -984,10 +997,10 @@ class _EnhancedDriverCardState extends State<_EnhancedDriverCard> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.accentCyan.withOpacity(0.1),
+                              color: AppTheme.primaryBlue.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: AppTheme.accentCyan.withOpacity(0.3),
+                                color: AppTheme.primaryBlue.withOpacity(0.3),
                               ),
                             ),
                             child: Text(
@@ -995,7 +1008,7 @@ class _EnhancedDriverCardState extends State<_EnhancedDriverCard> {
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: AppTheme.accentCyan,
+                                color: AppTheme.primaryBlue,
                               ),
                             ),
                           ),
@@ -1284,7 +1297,7 @@ class _EnhancedDriverListTileState extends State<_EnhancedDriverListTile> {
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppTheme.accentCyan,
+                            color: AppTheme.primaryBlue,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -1370,7 +1383,7 @@ class _EnhancedDriverListTileState extends State<_EnhancedDriverListTile> {
                   const SizedBox(width: 8),
                   Icon(
                     Icons.arrow_forward_ios_rounded,
-                    color: AppTheme.accentCyan,
+                    color: AppTheme.primaryBlue,
                     size: 20,
                   ),
                 ],
@@ -1537,7 +1550,7 @@ class _EmptyState extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: AppTheme.accentCyan.withOpacity(0.1),
+              color: AppTheme.primaryBlue.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -1545,7 +1558,7 @@ class _EmptyState extends StatelessWidget {
                   ? Icons.people_outline_rounded
                   : Icons.search_off_rounded,
               size: 80,
-              color: AppTheme.accentCyan,
+              color: AppTheme.primaryBlue,
             ),
           ),
           const SizedBox(height: 24),
@@ -1571,7 +1584,7 @@ class _EmptyState extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: () => context.push('/drivers/add'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentCyan,
+                backgroundColor: AppTheme.primaryBlue,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
@@ -1594,8 +1607,8 @@ class _EmptyState extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onClear,
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.accentCyan,
-                side: BorderSide(color: AppTheme.accentCyan, width: 2),
+                foregroundColor: AppTheme.primaryBlue,
+                side: BorderSide(color: AppTheme.primaryBlue, width: 2),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 24,
                   vertical: 14,

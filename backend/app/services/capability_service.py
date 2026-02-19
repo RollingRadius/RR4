@@ -100,7 +100,7 @@ class CapabilityService:
         from app.models import UserOrganization
         user_org = self.db.query(UserOrganization).filter(
             UserOrganization.user_id == user_id,
-            UserOrganization.company_id == organization_id
+            UserOrganization.organization_id == organization_id
         ).first()
 
         if not user_org or not user_org.role:

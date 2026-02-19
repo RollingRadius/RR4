@@ -95,7 +95,10 @@
       "Bash(\"C:\\\\Users\\\\ACSS\\\\AppData\\\\Local\\\\Android\\\\sdk\\\\platform-tools\\\\adb.exe\" install -r \"E:\\\\Projects\\\\RR4\\\\frontend\\\\build\\\\app\\\\outputs\\\\flutter-apk\\\\app-release.apk\")",
       "Bash(ssh root@fc3 'cd /home/RR4/backend && docker-compose exec backend alembic upgrade head')",
       "Bash(ssh:*)",
-      "Bash(fi:*)"
+      "Bash(fi:*)",
+      "Bash(claude mcp add:*)",
+      "Bash(claude mcp:*)",
+      "mcp__stitch__get_screen"
     ]
   }
 }

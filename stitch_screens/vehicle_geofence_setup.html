@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Create Geofence - Fleet Manager</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .map-gradient {
+            background: linear-gradient(180deg, rgba(34, 22, 16, 0.4) 0%, rgba(34, 22, 16, 0) 20%, rgba(34, 22, 16, 0) 80%, rgba(34, 22, 16, 0.8) 100%);
+        }
+        /* Custom Toggle Style */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #ec5b13;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #ec5b13;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<div class="relative flex h-screen w-full flex-col overflow-hidden">
+<!-- Top App Bar -->
+<div class="z-20 flex items-center bg-white/90 dark:bg-background-dark/90 backdrop-blur-md p-4 border-b border-slate-200 dark:border-slate-800 justify-between">
+<div class="flex items-center gap-3">
+<button class="flex size-10 items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-slate-700 dark:text-slate-300">arrow_back</span>
+</button>
+<h2 class="text-lg font-bold leading-tight tracking-tight">Create Geofence</h2>
+</div>
+<button class="text-primary font-semibold px-2">Reset</button>
+</div>
+<!-- Main Content Area (Map Focus) -->
+<div class="relative flex-1 @container overflow-hidden">
+<!-- Map Background Placeholder -->
+<div class="absolute inset-0 z-0 bg-slate-200 dark:bg-slate-900">
+<img alt="Dark satellite map showing urban road network" class="w-full h-full object-cover opacity-80 dark:opacity-40 grayscale-[0.5]" data-alt="Dark satellite map showing urban road network" data-location="San Francisco" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBA0WGKysoL5KpiXsOe9l5AqHe4ZTARd-BSOpuO1ui0P9FmYVNWP9yRsKe7HfQpMEJ2010AIE40v8mNS1LmDctsLF95gJenAqr4l6VZlIkvXEf0nl5S8tuXdAkab3qQx-GEwGhT0DzJjabV4D1_vqXWfPdXSrYmFO2jT0fOo2sk4pnRiDhNXliU0EI3K5ULfsEkQtjL7VnEAN3W1R4c1Z8jTwenDh2ERa1P4OpYZ7GZ1K_qBPZjgfx4X2ZvNh-tr59IF-ypN4metdnl"/>
+<div class="absolute inset-0 map-gradient pointer-events-none"></div>
+<!-- Simulated Polygon Drawing -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none opacity-60" viewbox="0 0 400 800">
+<path d="M150 300 L280 320 L250 450 L120 430 Z" fill="#ec5b13" stroke="#ec5b13" stroke-width="3"></path>
+<circle cx="150" cy="300" fill="white" r="6" stroke="#ec5b13" stroke-width="2"></circle>
+<circle cx="280" cy="320" fill="white" r="6" stroke="#ec5b13" stroke-width="2"></circle>
+<circle cx="250" cy="450" fill="white" r="6" stroke="#ec5b13" stroke-width="2"></circle>
+<circle cx="120" cy="430" fill="white" r="6" stroke="#ec5b13" stroke-width="2"></circle>
+</svg>
+</div>
+<!-- Floating Search Bar -->
+<div class="absolute top-4 left-4 right-4 z-10">
+<label class="flex items-center bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 px-4 py-2">
+<span class="material-symbols-outlined text-slate-400 mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 w-full text-sm py-1 placeholder:text-slate-400" placeholder="Search address or coordinates..." type="text"/>
+</label>
+</div>
+<!-- Drawing Toolbar -->
+<div class="absolute top-20 right-4 z-10 flex flex-col gap-2">
+<button class="flex size-12 items-center justify-center rounded-xl bg-white dark:bg-slate-800 shadow-lg border border-slate-200 dark:border-slate-700 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">radio_button_unchecked</span>
+</button>
+<button class="flex size-12 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/30">
+<span class="material-symbols-outlined">polyline</span>
+</button>
+<button class="flex size-12 items-center justify-center rounded-xl bg-white dark:bg-slate-800 shadow-lg border border-slate-200 dark:border-slate-700 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">layers</span>
+</button>
+<div class="h-px w-8 bg-slate-200 dark:bg-slate-700 self-center my-1"></div>
+<button class="flex size-12 items-center justify-center rounded-xl bg-white dark:bg-slate-800 shadow-lg border border-slate-200 dark:border-slate-700 hover:text-primary transition-colors">
+<span class="material-symbols-outlined">my_location</span>
+</button>
+</div>
+</div>
+<!-- Configuration Bottom Sheet -->
+<div class="z-30 flex flex-col bg-white dark:bg-slate-900 rounded-t-[2rem] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] border-t border-slate-200 dark:border-slate-800 max-h-[60%] overflow-y-auto">
+<!-- Handle -->
+<div class="flex justify-center py-3">
+<div class="h-1.5 w-12 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+</div>
+<div class="px-6 pb-8 space-y-6">
+<!-- Details Section -->
+<div class="space-y-4">
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Geofence Details</h3>
+<div class="space-y-3">
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-semibold ml-1">Name</label>
+<input class="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary text-sm p-3" type="text" value="Downtown Logistics Hub"/>
+</div>
+<div class="flex flex-col gap-1.5">
+<label class="text-xs font-semibold ml-1">Description (Optional)</label>
+<textarea class="w-full rounded-xl border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:border-primary focus:ring-primary text-sm p-3" placeholder="Enter purpose of this zone..." rows="2"></textarea>
+</div>
+</div>
+</div>
+<!-- Triggers Section -->
+<div class="space-y-4">
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Notification Triggers</h3>
+<div class="flex flex-col gap-2">
+<label class="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-transparent hover:border-primary/30 transition-all cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">login</span>
+<span class="text-sm font-medium">On Entrance</span>
+</div>
+<div class="relative inline-block w-10 mr-2 align-middle select-none">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 right-4" id="Entrance" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 dark:bg-slate-600 cursor-pointer transition-all duration-300" for="Entrance"></label>
+</div>
+</label>
+<label class="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-transparent hover:border-primary/30 transition-all cursor-pointer">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">logout</span>
+<span class="text-sm font-medium">On Exit</span>
+</div>
+<div class="relative inline-block w-10 mr-2 align-middle select-none">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 right-4" id="Exit" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 dark:bg-slate-600 cursor-pointer transition-all duration-300" for="Exit"></label>
+</div>
+</label>
+</div>
+</div>
+<!-- Assignments Section -->
+<div class="space-y-4">
+<h3 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Apply To</h3>
+<div class="relative">
+<button class="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-left">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-slate-400">local_shipping</span>
+<span class="text-sm">West Coast Fleet (12 Vehicles)</span>
+</div>
+<span class="material-symbols-outlined text-slate-400">expand_more</span>
+</button>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex gap-3 pt-2">
+<button class="flex-1 py-4 px-6 rounded-xl border border-slate-200 dark:border-slate-700 font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                        Cancel
+                    </button>
+<button class="flex-[2] py-4 px-6 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/30 hover:brightness-110 active:scale-[0.98] transition-all">
+                        Save Geofence
+                    </button>
+</div>
+</div>
+</div>
+</div>
+</body></html>

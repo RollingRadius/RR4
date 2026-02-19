@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fleet Management - Vehicle Detail</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#121212",
+                        "surface-dark": "#1e1e1e",
+                        "border-dark": "#2d2d2d",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 font-display">
+<!-- Main Container -->
+<div class="relative flex flex-col min-h-screen max-w-md mx-auto bg-white dark:bg-background-dark shadow-2xl">
+<!-- Header -->
+<header class="sticky top-0 z-20 flex items-center justify-between px-4 py-4 bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-slate-200 dark:border-border-dark">
+<div class="flex items-center gap-3">
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-surface-dark rounded-full transition-colors">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-400">arrow_back</span>
+</button>
+<div>
+<h1 class="text-lg font-bold leading-none">Truck-042</h1>
+<p class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">VIN: 1HGCM82635A</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full border border-green-200 dark:border-green-800">
+                    Active
+                </span>
+<button class="p-2 hover:bg-slate-100 dark:hover:bg-surface-dark rounded-full transition-colors">
+<span class="material-symbols-outlined text-slate-600 dark:text-slate-400">more_vert</span>
+</button>
+</div>
+</header>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto pb-32">
+<!-- Vehicle Hero Image -->
+<div class="px-4 pt-4">
+<div class="relative rounded-xl overflow-hidden aspect-video group">
+<img alt="Semi truck parked in a warehouse" class="w-full h-full object-cover" data-alt="A clean white semi truck parked in a warehouse" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCUY-xLb2b72Kpw45sZxgPwTCc3_GIK-pZXllj9YQtSVI7uYBZWfnJcrGBTU9IUzoBJ63cjtV9vugCuc3A5_bFpWYlGqLjSFJPAUurVU9dVRLUXDgN49lcG6y-DzscdAsor3e7TpjelpuD67WVRgWDSKBSKJWqRzfsWH_4GDIpbjOGE1qf5m94I9LAECY7JJc_DwJfibZR2dwNlgM-mcrk3g6cYcjDsVajYmjOhkC9REirF-J0s2u_EOLUr23fB6PrkQNoxxqXUEF2W"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute bottom-4 left-4 flex items-center gap-2">
+<div class="size-2 rounded-full bg-primary animate-pulse"></div>
+<span class="text-white text-sm font-medium">Live Feed Available</span>
+</div>
+<button class="absolute top-4 right-4 bg-white/20 hover:bg-white/30 backdrop-blur-md p-2 rounded-lg text-white transition-all">
+<span class="material-symbols-outlined">fullscreen</span>
+</button>
+</div>
+</div>
+<!-- Metric Grid -->
+<div class="grid grid-cols-3 gap-3 px-4 mt-4">
+<div class="bg-white dark:bg-surface-dark p-3 rounded-xl border border-slate-200 dark:border-border-dark flex flex-col items-center text-center">
+<div class="size-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-primary fill-icon">ev_station</span>
+</div>
+<span class="text-[10px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">Fuel</span>
+<span class="text-lg font-bold">85%</span>
+</div>
+<div class="bg-white dark:bg-surface-dark p-3 rounded-xl border border-slate-200 dark:border-border-dark flex flex-col items-center text-center">
+<div class="size-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-blue-600 dark:text-blue-400">speed</span>
+</div>
+<span class="text-[10px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">Odo</span>
+<span class="text-lg font-bold">42.5k</span>
+</div>
+<div class="bg-white dark:bg-surface-dark p-3 rounded-xl border border-slate-200 dark:border-border-dark flex flex-col items-center text-center">
+<div class="size-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-2">
+<span class="material-symbols-outlined text-green-600 dark:text-green-400">signal_cellular_4_bar</span>
+</div>
+<span class="text-[10px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400">Signal</span>
+<span class="text-lg font-bold">Strong</span>
+</div>
+</div>
+<!-- Driver Information Card -->
+<div class="px-4 mt-6">
+<div class="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-border-dark p-4">
+<div class="flex items-center justify-between mb-4">
+<h3 class="text-sm font-bold uppercase tracking-widest text-slate-500">Current Driver</h3>
+<span class="text-xs text-primary font-medium">On Trip</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="size-12 rounded-full overflow-hidden bg-slate-200 dark:bg-slate-800">
+<img alt="Driver portrait" class="w-full h-full object-cover" data-alt="Portrait of a smiling professional male driver" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD6HCgeBQehO1yh2QzVSNYvwNO9yShVpI_CH-Kl9vzeshmpVRYUc3-1SDDHkuPgsF5kLU8ZlFF7RoVUwO2R2i8ur7RS82dggmH2x1ph3LDxXEfyAhz3GuSR0LhNmrLrrGXpocc0_iN6k1jZRXZ03jJZvQeYrHYT6IEMQfozd_zfbL7iNjKyAXF4G3KpCUhGzo3M19Gi1Er4PfWFdQLgo_fFnMivl-kfhAIgkWwe8ttDQYLl4Yh4_zOYAfprggwt1EoYSK9UPWgUmMb7"/>
+</div>
+<div class="flex-1">
+<h4 class="font-bold text-base">John Doe</h4>
+<p class="text-sm text-slate-500 dark:text-slate-400">En route to Chicago, IL</p>
+</div>
+<button class="size-10 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-xl fill-icon">call</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Telematics Section -->
+<div class="px-4 mt-6">
+<h3 class="text-sm font-bold uppercase tracking-widest text-slate-500 mb-3 px-1">Real-time Telematics</h3>
+<div class="bg-white dark:bg-surface-dark rounded-xl border border-slate-200 dark:border-border-dark overflow-hidden">
+<div class="flex divide-x divide-slate-200 dark:divide-border-dark">
+<div class="flex-1 p-4 flex flex-col items-center">
+<span class="text-[10px] font-bold text-slate-400 uppercase mb-1">Speed</span>
+<span class="text-2xl font-bold">55<span class="text-xs font-medium ml-1">mph</span></span>
+</div>
+<div class="flex-1 p-4 flex flex-col items-center">
+<span class="text-[10px] font-bold text-slate-400 uppercase mb-1">Heading</span>
+<span class="text-2xl font-bold">NB<span class="material-symbols-outlined text-sm align-middle ml-1">north</span></span>
+</div>
+</div>
+<div class="bg-slate-50 dark:bg-white/5 px-4 py-2 flex items-center justify-between">
+<div class="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span>Last Updated: 2m ago</span>
+</div>
+<div class="flex items-center gap-1 text-xs text-primary font-medium">
+<span class="material-symbols-outlined text-sm animate-spin" style="animation-duration: 3s">sync</span>
+<span>Live Sync</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Maintenance & Alerts -->
+<div class="px-4 mt-6">
+<div class="flex items-center justify-between mb-3 px-1">
+<h3 class="text-sm font-bold uppercase tracking-widest text-slate-500">Maintenance</h3>
+<button class="text-xs font-bold text-primary">View Schedule</button>
+</div>
+<div class="space-y-3">
+<!-- Urgent Alert -->
+<div class="bg-orange-50 dark:bg-primary/10 border border-primary/20 rounded-xl p-4 flex gap-4">
+<div class="size-10 rounded-lg bg-primary/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary fill-icon">warning</span>
+</div>
+<div>
+<h4 class="font-bold text-sm text-slate-900 dark:text-slate-100">Low Tire Pressure</h4>
+<p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Rear left tire at 28 PSI. Recommended 32 PSI.</p>
+</div>
+</div>
+<!-- Upcoming Service -->
+<div class="bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-xl p-4 flex gap-4">
+<div class="size-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-slate-500">build</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-sm">Oil Change Due</h4>
+<span class="text-[10px] font-bold text-slate-400 uppercase">In 500 mi</span>
+</div>
+<div class="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full mt-2">
+<div class="bg-primary h-full rounded-full" style="width: 90%;"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- History Preview -->
+<div class="px-4 mt-6">
+<h3 class="text-sm font-bold uppercase tracking-widest text-slate-500 mb-3 px-1">Recent Trips</h3>
+<div class="bg-white dark:bg-surface-dark border border-slate-200 dark:border-border-dark rounded-xl divide-y divide-slate-100 dark:divide-border-dark">
+<div class="p-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-400 text-lg">route</span>
+</div>
+<div>
+<p class="text-sm font-bold">St. Louis → Chicago</p>
+<p class="text-[10px] text-slate-500">Oct 24, 08:30 AM</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold">297 mi</p>
+<p class="text-[10px] text-slate-500">5h 12m</p>
+</div>
+</div>
+<div class="p-3 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="size-8 rounded bg-slate-50 dark:bg-slate-800 flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-400 text-lg">route</span>
+</div>
+<div>
+<p class="text-sm font-bold">Memphis → St. Louis</p>
+<p class="text-[10px] text-slate-500">Oct 23, 02:15 PM</p>
+</div>
+</div>
+<div class="text-right">
+<p class="text-sm font-bold">283 mi</p>
+<p class="text-[10px] text-slate-500">4h 45m</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Actions -->
+<div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white/95 dark:bg-background-dark/95 backdrop-blur-lg border-t border-slate-200 dark:border-border-dark p-4 z-30">
+<div class="flex gap-3">
+<button class="flex-1 flex items-center justify-center gap-2 bg-primary text-white py-3.5 rounded-xl font-bold shadow-lg shadow-primary/25 active:scale-95 transition-transform">
+<span class="material-symbols-outlined">map</span>
+                    View on Map
+                </button>
+<button class="size-14 flex items-center justify-center border-2 border-slate-200 dark:border-border-dark rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-surface-dark transition-colors">
+<span class="material-symbols-outlined">edit</span>
+</button>
+<button class="size-14 flex items-center justify-center border-2 border-red-100 dark:border-red-900/30 rounded-xl text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+<span class="material-symbols-outlined">block</span>
+</button>
+</div>
+</div>
+<!-- Navigation Bar (from components) -->
+<nav class="fixed bottom-0 hidden">
+<!-- This mimics the style and structure from BottomNavBar but integrated into our action bar above -->
+</nav>
+</div>
+<!-- Map Preview Helper (Invisible but needed for data compliance) -->
+<div class="hidden" data-location="Chicago, USA" style=""></div>
+</body></html>

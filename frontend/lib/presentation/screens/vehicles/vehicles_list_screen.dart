@@ -86,34 +86,25 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
 
   Widget _buildEnhancedHeader(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        gradient: AppTheme.primaryGradient,
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryBlue.withOpacity(0.3),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
+      color: AppTheme.bgPrimary,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
       child: SafeArea(
         bottom: false,
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
+                color: AppTheme.primaryBlue,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.directions_car_rounded,
                 color: Colors.white,
-                size: 28,
+                size: 22,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,27 +112,41 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                   const Text(
                     'Fleet Vehicles',
                     style: TextStyle(
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppTheme.textPrimary,
+                      letterSpacing: -0.3,
                     ),
                   ),
                   Text(
                     '${_getMockVehicles().length} vehicles registered',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withOpacity(0.9),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
-            FloatingActionButton(
-              onPressed: () => context.push('/vehicles/add'),
-              backgroundColor: Colors.white,
-              foregroundColor: AppTheme.primaryBlue,
-              elevation: 4,
-              child: const Icon(Icons.add_rounded, size: 28),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppTheme.primaryBlue,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryBlue.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: IconButton(
+                onPressed: () => context.push('/vehicles/add'),
+                icon: const Icon(Icons.add, color: Colors.white, size: 20),
+                padding: EdgeInsets.zero,
+              ),
             ),
           ],
         ),
@@ -370,7 +375,10 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
               },
               child: _EnhancedVehicleCard(
                 vehicle: vehicles[index],
-                onTap: () => context.push('/vehicles/${vehicles[index]['id']}'),
+                onTap: () => context.push(
+                  '/vehicles/${vehicles[index]['id']}/analytics',
+                  extra: {'vehicleName': '${vehicles[index]['make']} ${vehicles[index]['model']}'},
+                ),
               ),
             );
           },
@@ -400,7 +408,10 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
           },
           child: _EnhancedVehicleListTile(
             vehicle: vehicles[index],
-            onTap: () => context.push('/vehicles/${vehicles[index]['id']}'),
+            onTap: () => context.push(
+              '/vehicles/${vehicles[index]['id']}/analytics',
+              extra: {'vehicleName': '${vehicles[index]['make']} ${vehicles[index]['model']}'},
+            ),
           ),
         );
       },

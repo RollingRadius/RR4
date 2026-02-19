@@ -12,66 +12,21 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen>
-    with SingleTickerProviderStateMixin {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
-  late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-      ),
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.5),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic),
-      ),
-    );
-
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOutBack),
-      ),
-    );
-
-    _animationController.forward();
-  }
-
   @override
   void dispose() {
     _usernameController.dispose();
     _passwordController.dispose();
-    _animationController.dispose();
     super.dispose();
   }
 
   Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     final success = await ref.read(authProvider.notifier).login(
           username: _usernameController.text.trim(),
@@ -83,26 +38,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         final user = ref.read(authProvider).user;
         if (user != null && !user.profileCompleted) {
           context.go('/profile-complete');
-          _showSnackBar(
-            'Please complete your profile to continue',
-            AppTheme.statusWarning,
-            Icons.info_outline,
-          );
+          _showSnackBar('Please complete your profile to continue',
+              AppTheme.statusWarning, Icons.info_outline);
         } else {
           context.go(AppConstants.routeDashboard);
-          _showSnackBar(
-            AppConstants.successLogin,
-            AppTheme.statusActive,
-            Icons.check_circle,
-          );
+          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
+              Icons.check_circle);
         }
       } else {
         final error = ref.read(authProvider).error;
-        _showSnackBar(
-          error ?? AppConstants.errorUnknown,
-          AppTheme.statusError,
-          Icons.error_outline,
-        );
+        _showSnackBar(error ?? AppConstants.errorUnknown, AppTheme.statusError,
+            Icons.error_outline);
       }
     }
   }
@@ -110,13 +56,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   void _showSnackBar(String message, Color color, IconData icon) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
+        content: Row(children: [
+          Icon(icon, color: Colors.white),
+          const SizedBox(width: 12),
+          Expanded(child: Text(message)),
+        ]),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -129,370 +73,504 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final size = MediaQuery.of(context).size;
-    final isDesktop = size.width > 600;
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: AppTheme.subtleBlueGradient,
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: isDesktop ? 0 : 24.0,
-                vertical: 32.0,
+      backgroundColor: AppTheme.bgPrimary,
+      body: Stack(
+        children: [
+          // Background blur orbs
+          Positioned(
+            top: -80,
+            right: -80,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primaryBlue.withOpacity(0.12),
               ),
-              child: FadeTransition(
-                opacity: _fadeAnimation,
-                child: Container(
-                  constraints: BoxConstraints(
-                    maxWidth: isDesktop ? 500 : double.infinity,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+            ),
+          ),
+          Positioned(
+            bottom: -80,
+            left: -80,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.primaryBlue.withOpacity(0.12),
+              ),
+            ),
+          ),
+
+          // Main content
+          SafeArea(
+            child: Column(
+              children: [
+                // Top bar
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
+                  child: Row(
                     children: [
-                      // Animated Logo
-                      ScaleTransition(
-                        scale: _scaleAnimation,
-                        child: _buildLogo(context),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back,
+                            color: AppTheme.textPrimary),
+                        onPressed: () => Navigator.of(context).maybePop(),
                       ),
-                      const SizedBox(height: 48),
-
-                      // Animated Login Card
-                      SlideTransition(
-                        position: _slideAnimation,
-                        child: _buildLoginCard(context, authState, isDesktop),
+                      const Expanded(
+                        child: Text(
+                          'Login',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
                       ),
-                      const SizedBox(height: 24),
-
-                      // Forgot Links
-                      _buildForgotLinks(context),
-                      const SizedBox(height: 24),
-
-                      // Signup Link
-                      _buildSignupLink(context),
+                      // Spacer to balance the back button
+                      const SizedBox(width: 48),
                     ],
                   ),
                 ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildLogo(BuildContext context) {
-    return Column(
-      children: [
-        // Truck Icon with gradient background and pulse effect
-        Container(
-          height: 120,
-          width: 120,
-          decoration: BoxDecoration(
-            gradient: AppTheme.primaryGradient,
-            borderRadius: BorderRadius.circular(32),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryBlue.withOpacity(0.4),
-                blurRadius: 32,
-                offset: const Offset(0, 12),
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.local_shipping_rounded,
-            size: 64,
-            color: Colors.white,
-          ),
-        ),
-        const SizedBox(height: 32),
-
-        // App Title
-        Text(
-          'Fleet Management',
-          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryBlue,
-              ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 12),
-
-        // Subtitle with gradient
-        ShaderMask(
-          shaderCallback: (bounds) => AppTheme.skyGradient.createShader(bounds),
-          child: Text(
-            'Manage your fleet with ease',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-            textAlign: TextAlign.center,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLoginCard(
-    BuildContext context,
-    AuthState authState,
-    bool isDesktop,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryBlue.withOpacity(0.08),
-            blurRadius: 32,
-            offset: const Offset(0, 8),
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Container(
-        padding: EdgeInsets.all(isDesktop ? 48.0 : 32.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Welcome Title
-              Text(
-                'Welcome Back!',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-
-              Text(
-                'Sign in to access your dashboard',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.textSecondary,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 36),
-
-              // Username Field with icon
-              TextFormField(
-                controller: _usernameController,
-                decoration: InputDecoration(
-                  labelText: 'Username',
-                  hintText: 'Enter your username',
-                  prefixIcon: Container(
-                    margin: const EdgeInsets.all(12),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryBlue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.person_outline_rounded,
-                      color: AppTheme.primaryBlue,
-                      size: 20,
-                    ),
-                  ),
-                ),
-                textInputAction: TextInputAction.next,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return AppConstants.validationRequired;
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-
-              // Password Field with icon
-              TextFormField(
-                controller: _passwordController,
-                obscureText: _obscurePassword,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  hintText: 'Enter your password',
-                  prefixIcon: Container(
-                    margin: const EdgeInsets.all(12),
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryBlue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.lock_outline_rounded,
-                      color: AppTheme.primaryBlue,
-                      size: 20,
-                    ),
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: AppTheme.textSecondary,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                    tooltip: _obscurePassword ? 'Show password' : 'Hide password',
-                  ),
-                ),
-                textInputAction: TextInputAction.done,
-                onFieldSubmitted: (_) => _handleLogin(),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return AppConstants.validationRequired;
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 36),
-
-              // Login Button with gradient and animation
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: authState.isLoading ? null : AppTheme.primaryGradient,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: authState.isLoading
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: AppTheme.primaryBlue.withOpacity(0.4),
-                            blurRadius: 20,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: authState.isLoading ? null : _handleLogin,
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      alignment: Alignment.center,
-                      child: authState.isLoading
-                          ? const SizedBox(
-                              height: 24,
-                              width: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  AppTheme.primaryBlue,
-                                ),
-                              ),
-                            )
-                          : Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  'SIGN IN',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.2,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                const Icon(
-                                  Icons.arrow_forward_rounded,
-                                  size: 20,
-                                  color: Colors.white,
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 24, vertical: 32),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          // Branding
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryBlue,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryBlue.withOpacity(0.3),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 8),
                                 ),
                               ],
                             ),
+                            child: const Icon(Icons.local_shipping_outlined,
+                                color: Colors.white, size: 36),
+                          ),
+                          const SizedBox(height: 20),
+                          const Text(
+                            'Welcome back, Driver',
+                            style: TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.textPrimary,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Securely access your fleet dashboard',
+                            style: TextStyle(
+                                fontSize: 15, color: AppTheme.textSecondary),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 40),
+
+                          // Email / Username field
+                          _FieldLabel(label: 'Email Address'),
+                          const SizedBox(height: 8),
+                          _AuthTextField(
+                            controller: _usernameController,
+                            hintText: 'driver@fleet-corp.com',
+                            prefixIcon: Icons.mail_outline,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? AppConstants.validationRequired
+                                : null,
+                          ),
+                          const SizedBox(height: 20),
+
+                          // Password field
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const _FieldLabel(label: 'Password'),
+                              GestureDetector(
+                                onTap: () =>
+                                    context.push('/password-recovery'),
+                                child: const Text(
+                                  'Forgot password?',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.primaryBlue,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          _AuthTextField(
+                            controller: _passwordController,
+                            hintText: '••••••••••••',
+                            prefixIcon: Icons.lock_outline,
+                            obscureText: _obscurePassword,
+                            textInputAction: TextInputAction.done,
+                            onSubmitted: (_) => _handleLogin(),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword
+                                    ? Icons.visibility_outlined
+                                    : Icons.visibility_off_outlined,
+                                color: AppTheme.textSecondary,
+                                size: 20,
+                              ),
+                              onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword),
+                            ),
+                            validator: (v) => (v == null || v.isEmpty)
+                                ? AppConstants.validationRequired
+                                : null,
+                          ),
+                          const SizedBox(height: 24),
+
+                          // Login + Biometric buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SizedBox(
+                                  height: 56,
+                                  child: ElevatedButton.icon(
+                                    onPressed: authState.isLoading
+                                        ? null
+                                        : _handleLogin,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.primaryBlue,
+                                      foregroundColor: Colors.white,
+                                      elevation: 4,
+                                      shadowColor: AppTheme.primaryBlue
+                                          .withOpacity(0.3),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12)),
+                                      textStyle: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    icon: authState.isLoading
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                color: Colors.white),
+                                          )
+                                        : const Icon(Icons.login_outlined,
+                                            size: 20),
+                                    label: const Text('Login to Fleet'),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              // Biometric button
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: AppTheme.bgSecondary,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppTheme.primaryBlue.withOpacity(0.3),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: IconButton(
+                                  icon: const Icon(Icons.face_outlined,
+                                      color: AppTheme.primaryBlue, size: 28),
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Biometric login coming soon')),
+                                    );
+                                  },
+                                  tooltip: 'Biometric Login',
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 28),
+
+                          // SSO Divider
+                          Row(
+                            children: [
+                              const Expanded(
+                                  child: Divider(color: Color(0xFFE2E0E0))),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16),
+                                child: Text(
+                                  'Or continue with',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppTheme.textSecondary,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              const Expanded(
+                                  child: Divider(color: Color(0xFFE2E0E0))),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+
+                          // SSO Buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _SsoButton(
+                                  icon: Icons.g_mobiledata,
+                                  label: 'Google',
+                                  onTap: () => _showSnackBar(
+                                      'Google SSO coming soon',
+                                      AppTheme.primaryBlue,
+                                      Icons.info_outline),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _SsoButton(
+                                  icon: Icons.corporate_fare,
+                                  label: 'Corporate ID',
+                                  onTap: () => _showSnackBar(
+                                      'Corporate SSO coming soon',
+                                      AppTheme.primaryBlue,
+                                      Icons.info_outline),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 40),
+
+                          // Footer
+                          RichText(
+                            textAlign: TextAlign.center,
+                            text: TextSpan(
+                              style: const TextStyle(
+                                  fontSize: 13, color: AppTheme.textSecondary),
+                              children: [
+                                const TextSpan(text: 'New to the fleet? '),
+                                WidgetSpan(
+                                  child: GestureDetector(
+                                    onTap: () => context
+                                        .push(AppConstants.routeSignup),
+                                    child: const Text(
+                                      'Sign Up',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryBlue,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _FooterLink(
+                                icon: Icons.help_outline,
+                                label: 'Help Center',
+                                onTap: () =>
+                                    context.push('/help'),
+                              ),
+                              const SizedBox(width: 24),
+                              _FooterLink(
+                                icon: Icons.security_outlined,
+                                label: 'Privacy Policy',
+                                onTap: () {},
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ==================== REUSABLE WIDGETS ====================
+
+class _FieldLabel extends StatelessWidget {
+  final String label;
+  const _FieldLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(left: 2),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppTheme.textPrimary,
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildForgotLinks(BuildContext context) {
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 4,
-      runSpacing: 8,
-      children: [
-        TextButton.icon(
-          onPressed: () => context.push('/password-recovery'),
-          icon: const Icon(Icons.lock_reset_rounded, size: 16),
-          label: const Text('Forgot Password?'),
-          style: TextButton.styleFrom(
-            foregroundColor: AppTheme.primaryBlue,
-            textStyle: const TextStyle(fontSize: 14),
-          ),
-        ),
-        Container(
-          width: 1,
-          height: 14,
-          color: AppTheme.textTertiary,
-        ),
-        TextButton.icon(
-          onPressed: () => context.push('/username-recovery'),
-          icon: const Icon(Icons.person_search_rounded, size: 16),
-          label: const Text('Forgot Username?'),
-          style: TextButton.styleFrom(
-            foregroundColor: AppTheme.primaryBlue,
-            textStyle: const TextStyle(fontSize: 14),
-          ),
-        ),
-      ],
-    );
-  }
+class _AuthTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hintText;
+  final IconData prefixIcon;
+  final bool obscureText;
+  final Widget? suffixIcon;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
+  final String? Function(String?)? validator;
 
-  Widget _buildSignupLink(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: AppTheme.primaryBlue.withOpacity(0.2),
-          width: 1.5,
+  const _AuthTextField({
+    required this.controller,
+    required this.hintText,
+    required this.prefixIcon,
+    this.obscureText = false,
+    this.suffixIcon,
+    this.keyboardType,
+    this.textInputAction,
+    this.onSubmitted,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscureText,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onSubmitted,
+      style: const TextStyle(fontSize: 15, color: AppTheme.textPrimary),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle:
+            const TextStyle(fontSize: 14, color: AppTheme.textTertiary),
+        prefixIcon: Icon(prefixIcon,
+            color: AppTheme.textSecondary, size: 20),
+        suffixIcon: suffixIcon,
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        filled: true,
+        fillColor: AppTheme.bgSecondary,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE2E0E0)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE2E0E0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide:
+              const BorderSide(color: AppTheme.primaryBlue, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide:
+              const BorderSide(color: AppTheme.statusError, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide:
+              const BorderSide(color: AppTheme.statusError, width: 2),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            "Don't have an account? ",
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppTheme.textSecondary,
-                ),
-          ),
-          InkWell(
-            onTap: () => context.push(AppConstants.routeSignup),
-            borderRadius: BorderRadius.circular(8),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: Text(
-                'Sign Up',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: AppTheme.primaryBlue,
-                ),
+      validator: validator,
+    );
+  }
+}
+
+class _SsoButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _SsoButton(
+      {required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: AppTheme.bgSecondary,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E0E0)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: AppTheme.textSecondary),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textPrimary,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FooterLink extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _FooterLink(
+      {required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: AppTheme.textTertiary),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+                fontSize: 12, color: AppTheme.textTertiary),
           ),
         ],
       ),

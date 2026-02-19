@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fleet Geofence Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .active-icon { font-variation-settings: 'FILL' 1; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<!-- Header Section -->
+<header class="sticky top-0 z-30 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-primary/10 px-4 py-4">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary text-3xl">hub</span>
+<h1 class="text-xl font-bold tracking-tight">Geofences &amp; Alerts</h1>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-sm">add</span>
+                Create New
+            </button>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+<input class="w-full bg-primary/5 border-none rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-primary text-sm placeholder:text-slate-400" placeholder="Search geofences or vehicles..." type="text"/>
+</div>
+</header>
+<main class="flex-1 overflow-y-auto pb-24">
+<!-- Summary Cards -->
+<div class="grid grid-cols-2 gap-4 p-4">
+<div class="bg-white dark:bg-stone-900 p-5 rounded-xl border border-primary/10 shadow-sm">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Active Zones</span>
+<span class="material-symbols-outlined text-primary text-lg">potted_plant</span>
+</div>
+<p class="text-3xl font-bold">24</p>
+<p class="text-xs text-green-600 mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">trending_up</span> +2 this week
+                </p>
+</div>
+<div class="bg-white dark:bg-stone-900 p-5 rounded-xl border border-primary/10 shadow-sm">
+<div class="flex items-center justify-between mb-2">
+<span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Alerts (24h)</span>
+<span class="material-symbols-outlined text-primary text-lg">notifications_active</span>
+</div>
+<p class="text-3xl font-bold">12</p>
+<p class="text-xs text-red-500 mt-1 flex items-center gap-1">
+<span class="material-symbols-outlined text-xs">warning</span> 3 high priority
+                </p>
+</div>
+</div>
+<!-- Active Geofences Section -->
+<section class="px-4 mb-6">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-lg font-bold">Active Geofences</h2>
+<button class="text-primary text-sm font-semibold">See All</button>
+</div>
+<div class="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
+<!-- Zone Card 1 -->
+<div class="min-w-[280px] bg-white dark:bg-stone-900 rounded-xl border border-primary/10 p-4 shadow-sm">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h3 class="font-bold text-base">Downtown Hub</h3>
+<p class="text-xs text-slate-500">Circular • 500m radius</p>
+</div>
+<div class="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 border-primary appearance-none cursor-pointer right-0" id="toggle1" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-primary cursor-pointer" for="toggle1"></label>
+</div>
+</div>
+<div class="w-full h-24 rounded-lg bg-slate-200 dark:bg-stone-800 mb-3 overflow-hidden">
+<img class="w-full h-full object-cover opacity-80" data-alt="Mini map view of downtown city grid" data-location="Downtown City" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBw5nlwnCtsTqb5LW9SCrar4UyKqlOnyu9pjfR9nZHOU1Lfl5jZA5PBvm2wQqwvpjDXxeFVNMOSjg7H0nkAbE5mXQsGq-NZ89jXfrNXb_KZOmHe1YQO1pUesy5HCZGv-L6ePKCycKHRbE3oo56HSoLfxMsZavYzzya_IUmrT2oAyP80dCjkxuyygVJ9NlvYCJ_Hn7qt5NC99Xs_h39xmHcmWcfBCAIczS7-Z8Sw_NJ6IV1TbMVy2QGpKAMm3mRNpHC5Aq3G1Mm1bWeS"/>
+</div>
+<button class="w-full py-2 bg-primary/10 text-primary rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">map</span> View on Map
+                    </button>
+</div>
+<!-- Zone Card 2 -->
+<div class="min-w-[280px] bg-white dark:bg-stone-900 rounded-xl border border-primary/10 p-4 shadow-sm">
+<div class="flex justify-between items-start mb-3">
+<div>
+<h3 class="font-bold text-base">Service Center A</h3>
+<p class="text-xs text-slate-500">Polygon • Industrial Park</p>
+</div>
+<div class="relative inline-block w-10 align-middle select-none transition duration-200 ease-in">
+<input checked="" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 border-primary appearance-none cursor-pointer right-0" id="toggle2" name="toggle" type="checkbox"/>
+<label class="toggle-label block overflow-hidden h-6 rounded-full bg-primary cursor-pointer" for="toggle2"></label>
+</div>
+</div>
+<div class="w-full h-24 rounded-lg bg-slate-200 dark:bg-stone-800 mb-3 overflow-hidden">
+<img class="w-full h-full object-cover opacity-80" data-alt="Mini map view of industrial warehouse park" data-location="Industrial Park" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAuqJENFzOWx7CK0v2Rpr29d2fWNfktKBzA250OechWOGMlyzZUMu8duWOsCqvzQv7JJAvUjG5rnypLg1adavJ1Hl9ZsKbt9Fb1l8nx-r31Qkc-VwZjCw6MqOrLcK3RdwD009jN1xKtq8XzEjofF5NEu2LzeYZXPxoA3g6RA-w7mBFn-8A-svdX-P4JpH0gJoDli1gwjme-efmTtzPfUp8ouJvwW2_z4ETQhwmYG7wpHj0wV1BYrwI-vUZzO1Ikaa4wa4DLUfM7vTvH"/>
+</div>
+<button class="w-full py-2 bg-primary/10 text-primary rounded-lg text-sm font-bold flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">map</span> View on Map
+                    </button>
+</div>
+</div>
+</section>
+<!-- Recent Alerts Feed -->
+<section class="px-4">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-lg font-bold">Recent Alerts Feed</h2>
+<div class="flex gap-2">
+<button class="p-1.5 rounded-lg bg-primary/10 text-primary">
+<span class="material-symbols-outlined text-xl">filter_list</span>
+</button>
+</div>
+</div>
+<div class="space-y-3">
+<!-- Alert Item 1 -->
+<div class="flex items-start gap-3 p-4 bg-white dark:bg-stone-900 rounded-xl border-l-4 border-l-red-500 shadow-sm">
+<div class="bg-red-500/10 p-2 rounded-lg">
+<span class="material-symbols-outlined text-red-500">logout</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-sm">John Doe (Truck #402)</h4>
+<span class="text-[10px] text-slate-400 font-medium uppercase">2 mins ago</span>
+</div>
+<p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+<span class="font-semibold text-slate-900 dark:text-slate-100">Exited</span> Downtown Hub
+                        </p>
+<div class="mt-2 flex items-center gap-3">
+<span class="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold rounded uppercase tracking-wider">Critical</span>
+<button class="text-primary text-xs font-bold underline decoration-primary/30">Track Live</button>
+</div>
+</div>
+</div>
+<!-- Alert Item 2 -->
+<div class="flex items-start gap-3 p-4 bg-white dark:bg-stone-900 rounded-xl border-l-4 border-l-green-500 shadow-sm">
+<div class="bg-green-500/10 p-2 rounded-lg">
+<span class="material-symbols-outlined text-green-500">login</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-sm">Sarah Jenkins (Van #12)</h4>
+<span class="text-[10px] text-slate-400 font-medium uppercase">15 mins ago</span>
+</div>
+<p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+<span class="font-semibold text-slate-900 dark:text-slate-100">Entered</span> Service Center A
+                        </p>
+<div class="mt-2 flex items-center gap-3">
+<span class="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-[10px] font-bold rounded uppercase tracking-wider">Routine</span>
+<button class="text-primary text-xs font-bold underline decoration-primary/30">View Log</button>
+</div>
+</div>
+</div>
+<!-- Alert Item 3 -->
+<div class="flex items-start gap-3 p-4 bg-white dark:bg-stone-900 rounded-xl border-l-4 border-l-red-500 shadow-sm">
+<div class="bg-red-500/10 p-2 rounded-lg">
+<span class="material-symbols-outlined text-red-500">logout</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start">
+<h4 class="font-bold text-sm">Mike Ross (HGV #88)</h4>
+<span class="text-[10px] text-slate-400 font-medium uppercase">42 mins ago</span>
+</div>
+<p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+<span class="font-semibold text-slate-900 dark:text-slate-100">Exited</span> Restricted Zone B
+                        </p>
+<div class="mt-2 flex items-center gap-3">
+<span class="px-2 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-[10px] font-bold rounded uppercase tracking-wider">Violation</span>
+<button class="text-primary text-xs font-bold underline decoration-primary/30">Dispatch Team</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white dark:bg-stone-950 border-t border-primary/10 px-6 py-3 pb-6 flex items-center justify-between z-40">
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">local_shipping</span>
+<span class="text-[10px] font-bold">Fleet</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">map</span>
+<span class="text-[10px] font-bold">Map</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined active-icon">notifications_active</span>
+<span class="text-[10px] font-bold">Alerts</span>
+<div class="w-1 h-1 bg-primary rounded-full mt-0.5"></div>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-bold">Settings</span>
+</a>
+</nav>
+<style>
+        /* Custom scrollbar behavior */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Toggle Switch Styling */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #ec5b13;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #ec5b13;
+        }
+        .toggle-checkbox {
+            right: 1rem;
+            transition: all 0.3s ease;
+        }
+    </style>
+</body></html>

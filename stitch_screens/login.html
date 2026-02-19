@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Fleet Management Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#1a110c",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Top App Bar Component Style -->
+<div class="flex items-center p-4 pb-2 justify-between">
+<div class="text-slate-900 dark:text-white flex size-12 shrink-0 items-center justify-center cursor-pointer hover:bg-primary/10 rounded-full transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</div>
+<h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Login</h2>
+</div>
+<div class="flex-1 flex flex-col items-center justify-center px-4 py-8">
+<div class="w-full max-w-[440px] space-y-8">
+<!-- Header Branding -->
+<div class="text-center space-y-2">
+<div class="inline-flex items-center justify-center size-16 bg-primary rounded-xl mb-4 shadow-lg shadow-primary/20">
+<span class="material-symbols-outlined text-white text-4xl">local_shipping</span>
+</div>
+<h1 class="text-slate-900 dark:text-white tracking-tight text-[32px] font-bold leading-tight">Welcome back, Driver</h1>
+<p class="text-slate-500 dark:text-slate-400 text-base font-normal">Securely access your fleet dashboard</p>
+</div>
+<!-- Login Form Card -->
+<div class="space-y-6">
+<!-- Email Field -->
+<div class="flex flex-col gap-2">
+<label class="text-slate-700 dark:text-slate-300 text-sm font-medium leading-none">Email Address</label>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">mail</span>
+<input class="form-input flex w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 py-4 pl-12 pr-4 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400" placeholder="driver@fleet-corp.com" type="email"/>
+</div>
+</div>
+<!-- Password Field -->
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center">
+<label class="text-slate-700 dark:text-slate-300 text-sm font-medium leading-none">Password</label>
+<a class="text-primary text-sm font-semibold hover:underline" href="#">Forgot password?</a>
+</div>
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">lock</span>
+<input class="form-input flex w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 py-4 pl-12 pr-12 text-base focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400" placeholder="••••••••••••" type="password"/>
+<button class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+<span class="material-symbols-outlined">visibility</span>
+</button>
+</div>
+</div>
+<!-- Login Button & Biometric -->
+<div class="flex gap-3">
+<button class="flex-1 bg-primary hover:bg-primary/90 text-white font-bold py-4 px-6 rounded-xl shadow-lg shadow-primary/25 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+<span>Login to Fleet</span>
+<span class="material-symbols-outlined">login</span>
+</button>
+<button class="size-14 flex items-center justify-center border-2 border-primary/20 rounded-xl text-primary hover:bg-primary/5 transition-colors" title="Biometric Login">
+<span class="material-symbols-outlined text-3xl">face</span>
+</button>
+</div>
+<!-- SSO Divider -->
+<div class="relative flex items-center py-4">
+<div class="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+<span class="flex-shrink mx-4 text-slate-400 text-sm font-medium uppercase tracking-wider">Or continue with</span>
+<div class="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+</div>
+<!-- SSO Options -->
+<div class="grid grid-cols-2 gap-4">
+<button class="flex items-center justify-center gap-2 py-3 px-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-medium text-slate-700 dark:text-slate-300">
+<img alt="Google Logo" class="size-5" data-alt="Google company logo icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAcSodW33K8A-Q8_STRvPfnMNW5dEPx7bXH25g4qih3BHdxgG5S9Td8dY-6g8IekxdzTbg3c3PHGw_BBtZV_G-DV1hwHBQCs3vbQWlxT5Gr67fxLBwAXnjErTqMrTlOwGVct6lcZKw0hDaZKzUDrwJhi68F02grqgobTOK6nAy281XspFTPDRgwaiyEAX9J_VFzEU9AtrBDIr1ae3ovIYn-eSCkbZy9pnHR8KmZt0juMFDs_2nXO7wQ4KvQJWcx4-vmWK0ITJESQLpi"/>
+<span>Google</span>
+</button>
+<button class="flex items-center justify-center gap-2 py-3 px-4 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900/50 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-medium text-slate-700 dark:text-slate-300">
+<span class="material-symbols-outlined text-xl">corporate_fare</span>
+<span>Corporate ID</span>
+</button>
+</div>
+</div>
+<!-- Footer Support -->
+<div class="pt-8 text-center space-y-4">
+<p class="text-slate-500 dark:text-slate-400 text-sm">
+                        New to the fleet? <a class="text-primary font-bold hover:underline" href="#">Contact Administrator</a>
+</p>
+<div class="flex justify-center gap-6">
+<a class="text-slate-400 hover:text-primary transition-colors flex items-center gap-1 text-xs" href="#">
+<span class="material-symbols-outlined text-sm">help</span> Help Center
+                        </a>
+<a class="text-slate-400 hover:text-primary transition-colors flex items-center gap-1 text-xs" href="#">
+<span class="material-symbols-outlined text-sm">security</span> Privacy Policy
+                        </a>
+</div>
+</div>
+</div>
+</div>
+<!-- Background Decoration (Abstract Pattern) -->
+<div class="fixed inset-0 -z-10 pointer-events-none opacity-20 dark:opacity-10 overflow-hidden">
+<div class="absolute -top-[10%] -right-[10%] w-96 h-96 bg-primary rounded-full blur-[120px]"></div>
+<div class="absolute -bottom-[10%] -left-[10%] w-96 h-96 bg-primary rounded-full blur-[120px]"></div>
+</div>
+</div>
+</body></html>

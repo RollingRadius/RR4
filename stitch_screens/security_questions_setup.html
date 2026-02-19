@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Security Setup - Step 3 of 4</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: "Public Sans", sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(236, 91, 19, 0.2);
+            border-radius: 10px;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark min-h-screen transition-colors duration-300">
+<!-- Main Container -->
+<div class="relative flex flex-col min-h-screen w-full max-w-md mx-auto bg-background-light dark:bg-background-dark shadow-2xl overflow-hidden">
+<!-- Header / TopAppBar Component -->
+<header class="sticky top-0 z-10 bg-background-light dark:bg-background-dark border-b border-primary/10 px-4 py-4">
+<div class="flex items-center justify-between mb-4">
+<button class="flex items-center justify-center p-2 rounded-full hover:bg-primary/10 text-slate-900 dark:text-slate-100 transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h2 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight tracking-tight flex-1 text-center pr-10">Step 3 of 4</h2>
+</div>
+<!-- Progress Indicator -->
+<div class="flex w-full flex-row items-center justify-center gap-3 py-2">
+<div class="h-1.5 w-12 rounded-full bg-primary/40"></div>
+<div class="h-1.5 w-12 rounded-full bg-primary/40"></div>
+<div class="h-1.5 w-12 rounded-full bg-primary shadow-[0_0_8px_rgba(236,91,19,0.5)]"></div>
+<div class="h-1.5 w-12 rounded-full bg-slate-200 dark:bg-slate-800"></div>
+</div>
+</header>
+<!-- Content Area -->
+<main class="flex-1 overflow-y-auto px-6 pt-6 pb-24 custom-scrollbar">
+<div class="space-y-2 mb-8">
+<h1 class="text-slate-900 dark:text-slate-100 text-3xl font-bold leading-tight tracking-tight">Secure Your Account</h1>
+<p class="text-slate-600 dark:text-slate-400 text-base font-normal leading-relaxed">
+                    Please choose three security questions to help us verify your identity if you lose access to your account.
+                </p>
+</div>
+<!-- Question Sections -->
+<form class="space-y-8">
+<!-- Question 1 -->
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold">1</span>
+<h3 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight">Question 1</h3>
+</div>
+<div class="space-y-3">
+<div class="relative">
+<select class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary appearance-none transition-all">
+<option disabled="" selected="" value="">Select a security question</option>
+<option>What was the name of your first pet?</option>
+<option>What is your mother's maiden name?</option>
+<option>What city were you born in?</option>
+<option>What was your first car?</option>
+</select>
+<div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+<div class="relative">
+<input class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary placeholder:text-slate-400 transition-all" placeholder="Your answer" type="password"/>
+<button class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Question 2 -->
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold">2</span>
+<h3 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight">Question 2</h3>
+</div>
+<div class="space-y-3">
+<div class="relative">
+<select class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary appearance-none transition-all">
+<option disabled="" selected="" value="">Select a security question</option>
+<option>What was the name of your high school?</option>
+<option>What is your favorite book?</option>
+<option>What was your childhood nickname?</option>
+<option>In what city did your parents meet?</option>
+</select>
+<div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+<div class="relative">
+<input class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary placeholder:text-slate-400 transition-all" placeholder="Your answer" type="password"/>
+<button class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Question 3 -->
+<div class="space-y-4">
+<div class="flex items-center gap-2">
+<span class="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold">3</span>
+<h3 class="text-slate-900 dark:text-slate-100 text-lg font-bold leading-tight">Question 3</h3>
+</div>
+<div class="space-y-3">
+<div class="relative">
+<select class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary appearance-none transition-all">
+<option disabled="" selected="" value="">Select a security question</option>
+<option>What is the name of your favorite teacher?</option>
+<option>Where was your first job?</option>
+<option>What is your all-time favorite movie?</option>
+<option>What was the model of your first phone?</option>
+</select>
+<div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+<div class="relative">
+<input class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg py-3 px-4 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-primary placeholder:text-slate-400 transition-all" placeholder="Your answer" type="password"/>
+<button class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</div>
+</div>
+</form>
+</main>
+<!-- Navigation Footer -->
+<footer class="sticky bottom-0 bg-background-light dark:bg-background-dark p-6 border-t border-primary/10 flex flex-col gap-3">
+<button class="w-full py-4 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-all active:scale-[0.98] shadow-lg shadow-primary/20">
+                Next
+            </button>
+<button class="w-full py-4 bg-transparent text-slate-600 dark:text-slate-400 font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+                Go Back
+            </button>
+<!-- Security Badge (Extra touch) -->
+<div class="flex items-center justify-center gap-2 mt-2 opacity-50">
+<span class="material-symbols-outlined text-sm">lock</span>
+<span class="text-[10px] uppercase tracking-widest font-bold">End-to-End Encrypted</span>
+</div>
+</footer>
+</div>
+</body></html>

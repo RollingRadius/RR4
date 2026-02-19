@@ -30,19 +30,26 @@ def require_capability(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
     ) -> User:
-        # Get user's active organization
-        if not hasattr(current_user, 'active_organization_id') or not current_user.active_organization_id:
+        # Get user's active organization from DB
+        from app.models import UserOrganization
+        user_org = db.query(UserOrganization).filter(
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.status == 'active'
+        ).first()
+
+        if not user_org or not user_org.organization_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User must be associated with an active organization"
             )
 
+        organization_id = str(user_org.organization_id)
         capability_service = CapabilityService(db)
 
         # Check if user has the capability
         has_capability = capability_service.check_user_capability(
             user_id=str(current_user.id),
-            organization_id=str(current_user.active_organization_id),
+            organization_id=organization_id,
             capability_key=capability_key,
             required_level=required_level
         )
@@ -70,19 +77,26 @@ def require_any_capability(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
     ) -> User:
-        if not hasattr(current_user, 'active_organization_id') or not current_user.active_organization_id:
+        from app.models import UserOrganization
+        user_org = db.query(UserOrganization).filter(
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.status == 'active'
+        ).first()
+
+        if not user_org or not user_org.organization_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User must be associated with an active organization"
             )
 
+        organization_id = str(user_org.organization_id)
         capability_service = CapabilityService(db)
 
         # Check if user has any of the capabilities
         for capability_key in capability_keys:
             has_capability = capability_service.check_user_capability(
                 user_id=str(current_user.id),
-                organization_id=str(current_user.active_organization_id),
+                organization_id=organization_id,
                 capability_key=capability_key,
                 required_level=required_level
             )
@@ -108,12 +122,19 @@ def require_all_capabilities(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
     ) -> User:
-        if not hasattr(current_user, 'active_organization_id') or not current_user.active_organization_id:
+        from app.models import UserOrganization
+        user_org = db.query(UserOrganization).filter(
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.status == 'active'
+        ).first()
+
+        if not user_org or not user_org.organization_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User must be associated with an active organization"
             )
 
+        organization_id = str(user_org.organization_id)
         capability_service = CapabilityService(db)
 
         missing_capabilities = []
@@ -122,7 +143,7 @@ def require_all_capabilities(
         for capability_key in capability_keys:
             has_capability = capability_service.check_user_capability(
                 user_id=str(current_user.id),
-                organization_id=str(current_user.active_organization_id),
+                organization_id=organization_id,
                 capability_key=capability_key,
                 required_level=required_level
             )

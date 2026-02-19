@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Assign Vehicle - Fleet Manager</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#ec5b13",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#221610",
+                    },
+                    fontFamily: {
+                        "display": ["Public Sans", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .fill-icon { font-variation-settings: 'FILL' 1; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col">
+<!-- Header Section -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-b border-primary/10">
+<div class="flex items-center p-4 justify-between">
+<button class="size-10 flex items-center justify-center rounded-full hover:bg-primary/10 transition-colors">
+<span class="material-symbols-outlined text-primary">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold tracking-tight">Assign Vehicle</h1>
+<div class="size-10"></div> <!-- Spacer for symmetry -->
+</div>
+<!-- Selected Driver Context Card -->
+<div class="px-4 pb-4">
+<div class="bg-white dark:bg-primary/5 rounded-xl p-4 flex items-center justify-between border border-primary/10 shadow-sm">
+<div class="flex items-center gap-3">
+<div class="relative">
+<img alt="Marcus Thompson" class="size-12 rounded-full border-2 border-primary object-cover" data-alt="Close up portrait of Marcus Thompson" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAdQneVJ2E8fACO1mac_olSU1wRjKypxgXzys6_CDjWIQAGey0av03_GNB8rrt-cJwVVI1Pql6s4OTWLWent4uaP-bUszyj1PZfZ1sLB3-QP6muD9E1suckIFdCgaFuH3dZg4bbLasQj-SBhnWf-68CunMBZYBmtiOBx8jMn4_GbVUy7bsIcpo3OrN-G_Q1osRtSNbX-AFFk1mzr9bYO8QzelfvZlaGxq1s1FJvY2G-U9VbJXjqm7u8v4ZF_lVsqC4oYMX5r5IKOHZu"/>
+<div class="absolute bottom-0 right-0 size-3 bg-green-500 border-2 border-white dark:border-background-dark rounded-full"></div>
+</div>
+<div>
+<p class="text-xs font-semibold text-primary uppercase tracking-wider">Assigning to</p>
+<h2 class="text-lg font-bold leading-none">Marcus Thompson</h2>
+</div>
+</div>
+<button class="text-primary text-sm font-semibold hover:underline">Change</button>
+</div>
+</div>
+</header>
+<!-- Search and Filter Section -->
+<div class="px-4 pt-4 sticky top-[137px] z-40 bg-background-light dark:bg-background-dark pb-2">
+<div class="flex flex-col gap-3">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full bg-white dark:bg-primary/5 border-slate-200 dark:border-primary/20 rounded-xl py-3 pl-11 pr-4 focus:ring-primary focus:border-primary transition-all outline-none" placeholder="Search Unit ID, VIN or Model..." type="text"/>
+</div>
+<div class="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+<button class="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-primary text-white text-sm font-medium whitespace-nowrap shadow-md shadow-primary/20">
+<span class="material-symbols-outlined text-sm">local_shipping</span>
+                    All Units
+                </button>
+<button class="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white dark:bg-primary/5 border border-slate-200 dark:border-primary/20 text-sm font-medium whitespace-nowrap hover:border-primary/40 transition-colors">
+                    Heavy Duty
+                </button>
+<button class="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white dark:bg-primary/5 border border-slate-200 dark:border-primary/20 text-sm font-medium whitespace-nowrap hover:border-primary/40 transition-colors">
+                    Medium Duty
+                </button>
+<button class="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white dark:bg-primary/5 border border-slate-200 dark:border-primary/20 text-sm font-medium whitespace-nowrap hover:border-primary/40 transition-colors">
+<span class="material-symbols-outlined text-sm">ev_station</span>
+                    Low Fuel
+                </button>
+</div>
+</div>
+</div>
+<!-- Vehicle List -->
+<main class="flex-1 p-4 space-y-4">
+<div class="flex items-center justify-between px-1">
+<p class="text-sm font-medium text-slate-500">42 Available Vehicles</p>
+<button class="flex items-center gap-1 text-sm font-medium text-primary">
+<span class="material-symbols-outlined text-sm">sort</span> Sort
+            </button>
+</div>
+<!-- Vehicle Card 1 -->
+<div class="bg-white dark:bg-primary/5 rounded-xl overflow-hidden border border-slate-100 dark:border-primary/10 shadow-sm group">
+<div class="flex p-3 gap-4">
+<div class="w-24 h-24 rounded-lg overflow-hidden shrink-0">
+<img alt="Vehicle Thumbnail" class="w-full h-full object-cover" data-alt="Modern white heavy duty semi truck" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAVFfZxvBw_Yt0m11vHOg3TsA7WCi0Vl2-WkrtyqEDMYP3uP_P8kJ33d-p0fQZnO5UgG8ufAmnN0ugUQ836FYYIMgE17bziXqDON0SYkoLg_PvIpdXy6p4W-hy7Ql8p68G4q40MUo-zdrUVeZk49y263ZxdSIinxbfMtgLdh5yqFSMsqzypUlIwxGxK24-tBjcWnZMVW55VfhyYRiyywt1IVfsmKdep3rfbwj59h0fv-QelLjay5UO8-lWr6sjT1H8RcnIYR2hylwy"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start">
+<span class="px-2 py-0.5 bg-slate-100 dark:bg-primary/20 text-slate-600 dark:text-primary rounded text-[10px] font-bold uppercase tracking-wider">Available</span>
+<span class="material-symbols-outlined text-slate-300 hover:text-primary cursor-pointer transition-colors">info</span>
+</div>
+<h3 class="font-bold text-lg mt-1 leading-tight">TRK-8821-B</h3>
+<p class="text-slate-500 text-sm">Freightliner Cascadia 2024</p>
+</div>
+</div>
+</div>
+<div class="px-3 pb-3 grid grid-cols-2 gap-2">
+<div class="flex items-center gap-2 bg-background-light dark:bg-background-dark p-2 rounded-lg border border-slate-100 dark:border-primary/5">
+<span class="material-symbols-outlined text-primary text-lg">local_gas_station</span>
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-400">Fuel Level</p>
+<p class="text-sm font-bold">85%</p>
+</div>
+</div>
+<div class="flex items-center gap-2 bg-background-light dark:bg-background-dark p-2 rounded-lg border border-slate-100 dark:border-primary/5">
+<span class="material-symbols-outlined text-primary text-lg">speed</span>
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-400">Odometer</p>
+<p class="text-sm font-bold">42,300 mi</p>
+</div>
+</div>
+</div>
+<div class="p-3 border-t border-slate-50 dark:border-primary/5">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-2.5 rounded-lg transition-all active:scale-[0.98]">
+                    Select Vehicle
+                </button>
+</div>
+</div>
+<!-- Vehicle Card 2 -->
+<div class="bg-white dark:bg-primary/5 rounded-xl overflow-hidden border border-slate-100 dark:border-primary/10 shadow-sm group">
+<div class="flex p-3 gap-4">
+<div class="w-24 h-24 rounded-lg overflow-hidden shrink-0">
+<img alt="Vehicle Thumbnail" class="w-full h-full object-cover" data-alt="Modern blue cargo logistics truck" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCuripnIw-vkv6JgUjGXvoVkgY2YR-LvaCCML8b0mt8AUPLpECYxgCPv8sEDONLqzElN6vAbEYqi_EkVjyQBe59U_cBRnj5mubGB3HdNEROQO8OMl1ujzF1FTo1PmrDnXicc16459f-1sbNR8XUZrYFMLmGdQKKINOPs7b9WNWJ6qFX-eXzdIzC-O27GtUbGi_j_z49h9SGRLizCSQ-o42sdapGInysMeoEaCm20k4KGCRHq-HofnLOPfg4QiW7F92ddIVFi1nYNPsX"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start">
+<span class="px-2 py-0.5 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 rounded text-[10px] font-bold uppercase tracking-wider">Low Fuel</span>
+<span class="material-symbols-outlined text-slate-300 hover:text-primary cursor-pointer transition-colors">info</span>
+</div>
+<h3 class="font-bold text-lg mt-1 leading-tight">TRK-9055-A</h3>
+<p class="text-slate-500 text-sm">Volvo VNL 860 2023</p>
+</div>
+</div>
+</div>
+<div class="px-3 pb-3 grid grid-cols-2 gap-2">
+<div class="flex items-center gap-2 bg-background-light dark:bg-background-dark p-2 rounded-lg border border-slate-100 dark:border-primary/5">
+<span class="material-symbols-outlined text-orange-500 text-lg">local_gas_station</span>
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-400">Fuel Level</p>
+<p class="text-sm font-bold text-orange-600">12%</p>
+</div>
+</div>
+<div class="flex items-center gap-2 bg-background-light dark:bg-background-dark p-2 rounded-lg border border-slate-100 dark:border-primary/5">
+<span class="material-symbols-outlined text-primary text-lg">speed</span>
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-400">Odometer</p>
+<p class="text-sm font-bold">108,120 mi</p>
+</div>
+</div>
+</div>
+<div class="p-3 border-t border-slate-50 dark:border-primary/5">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-2.5 rounded-lg transition-all active:scale-[0.98]">
+                    Select Vehicle
+                </button>
+</div>
+</div>
+<!-- Vehicle Card 3 -->
+<div class="bg-white dark:bg-primary/5 rounded-xl overflow-hidden border border-slate-100 dark:border-primary/10 shadow-sm group">
+<div class="flex p-3 gap-4">
+<div class="w-24 h-24 rounded-lg overflow-hidden shrink-0">
+<img alt="Vehicle Thumbnail" class="w-full h-full object-cover" data-alt="Black modern box truck for delivery" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfAzkj5C6f5pmrU3dCj8kL7yDz6Jg3-3YW-Co7IGtWPC7AE7fbQztvYyajMjaxl1DUfYN11U_A_gvzpSSiX4tscMcOpjTMhmFCgo1zRhhijMrLh6zeh0kfLo_YUNGOqJRwwGanAF289xZQsbcBCPGOumHj87u6hDCGm17uHbvAdpVYukFAS-GluzoHKUvA3SZvJ0qywDdQX5i3EOYUH7V9BiQ47rP_oexo38S49NRxa3gY2npfWw5nUPSoLlTy7SSBY7oz0S6wfuA6"/>
+</div>
+<div class="flex-1 flex flex-col justify-between">
+<div>
+<div class="flex justify-between items-start">
+<span class="px-2 py-0.5 bg-slate-100 dark:bg-primary/20 text-slate-600 dark:text-primary rounded text-[10px] font-bold uppercase tracking-wider">Available</span>
+<span class="material-symbols-outlined text-slate-300 hover:text-primary cursor-pointer transition-colors">info</span>
+</div>
+<h3 class="font-bold text-lg mt-1 leading-tight">DEL-4412-M</h3>
+<p class="text-slate-500 text-sm">Kenworth T680 2022</p>
+</div>
+</div>
+</div>
+<div class="px-3 pb-3 grid grid-cols-2 gap-2">
+<div class="flex items-center gap-2 bg-background-light dark:bg-background-dark p-2 rounded-lg border border-slate-100 dark:border-primary/5">
+<span class="material-symbols-outlined text-primary text-lg">local_gas_station</span>
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-400">Fuel Level</p>
+<p class="text-sm font-bold">64%</p>
+</div>
+</div>
+<div class="flex items-center gap-2 bg-background-light dark:bg-background-dark p-2 rounded-lg border border-slate-100 dark:border-primary/5">
+<span class="material-symbols-outlined text-primary text-lg">speed</span>
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-400">Odometer</p>
+<p class="text-sm font-bold">12,450 mi</p>
+</div>
+</div>
+</div>
+<div class="p-3 border-t border-slate-50 dark:border-primary/5">
+<button class="w-full bg-primary hover:bg-primary/90 text-white font-bold py-2.5 rounded-lg transition-all active:scale-[0.98]">
+                    Select Vehicle
+                </button>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="sticky bottom-0 bg-white dark:bg-background-dark border-t border-slate-200 dark:border-primary/10 px-6 py-2 pb-6 flex justify-between items-center z-50">
+<a class="flex flex-col items-center gap-1 text-primary" href="#">
+<span class="material-symbols-outlined fill-icon">local_shipping</span>
+<span class="text-[10px] font-bold">Fleet</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="text-[10px] font-medium">Drivers</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">assignment</span>
+<span class="text-[10px] font-medium">Tasks</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-400" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-medium">Settings</span>
+</a>
+</nav>
+</body></html>
