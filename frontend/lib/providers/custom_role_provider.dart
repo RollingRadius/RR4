@@ -3,6 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/services/custom_role_api.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 
+String _extractError(Object e) {
+  if (e is DioException) {
+    final data = e.response?.data;
+    if (data is Map && data['detail'] != null) {
+      return data['detail'].toString();
+    }
+    return e.message ?? e.toString();
+  }
+  return e.toString();
+}
+
 // API Provider
 final customRoleApiProvider = Provider<CustomRoleApi>((ref) {
   final dio = ref.watch(dioProvider);
@@ -59,7 +70,7 @@ class CustomRoleNotifier extends StateNotifier<CustomRoleState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractError(e),
       );
     }
   }
@@ -75,7 +86,7 @@ class CustomRoleNotifier extends StateNotifier<CustomRoleState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractError(e),
       );
     }
   }
@@ -98,7 +109,7 @@ class CustomRoleNotifier extends StateNotifier<CustomRoleState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractError(e),
       );
       return false;
     }
@@ -126,7 +137,7 @@ class CustomRoleNotifier extends StateNotifier<CustomRoleState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractError(e),
       );
       return false;
     }
@@ -155,7 +166,7 @@ class CustomRoleNotifier extends StateNotifier<CustomRoleState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractError(e),
       );
       return false;
     }
@@ -171,7 +182,7 @@ class CustomRoleNotifier extends StateNotifier<CustomRoleState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractError(e),
       );
       return false;
     }
@@ -187,7 +198,7 @@ class CustomRoleNotifier extends StateNotifier<CustomRoleState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractError(e),
       );
       return false;
     }
@@ -200,7 +211,7 @@ class CustomRoleNotifier extends StateNotifier<CustomRoleState> {
         impactAnalysis: response['impact_analysis'] as Map<String, dynamic>,
       );
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: _extractError(e));
     }
   }
 
@@ -221,7 +232,7 @@ class CustomRoleNotifier extends StateNotifier<CustomRoleState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractError(e),
       );
       return false;
     }

@@ -58,9 +58,9 @@ class SaveAsTemplateRequest(BaseModel):
 def get_all_custom_roles(
     include_templates: bool = False,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_capability("role.custom.view", AccessLevel.VIEW))
+    current_user: User = Depends(get_current_user)
 ):
-    """Get all custom roles"""
+    """Get all custom roles. Requires authentication only."""
     custom_role_service = CustomRoleService(db)
     custom_roles = custom_role_service.get_all_custom_roles(include_templates=include_templates)
 
@@ -129,9 +129,9 @@ def create_from_template(
 def get_custom_role(
     custom_role_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_capability("role.custom.view", AccessLevel.VIEW))
+    current_user: User = Depends(get_current_user)
 ):
-    """Get custom role details"""
+    """Get custom role details. Requires authentication only."""
     custom_role_service = CustomRoleService(db)
     custom_role = custom_role_service.get_custom_role(custom_role_id)
 
@@ -227,7 +227,7 @@ def clone_custom_role(
 def get_custom_role_capabilities(
     custom_role_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_capability("role.custom.view", AccessLevel.VIEW))
+    current_user: User = Depends(get_current_user)
 ):
     """Get all capabilities for a custom role"""
     custom_role_service = CustomRoleService(db)
@@ -324,7 +324,7 @@ def bulk_update_capabilities(
 def get_impact_analysis(
     custom_role_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_capability("role.custom.view", AccessLevel.VIEW))
+    current_user: User = Depends(get_current_user)
 ):
     """Analyze impact of role changes"""
     custom_role_service = CustomRoleService(db)
