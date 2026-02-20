@@ -32,6 +32,7 @@ def require_capability(
     ) -> User:
         # Get user's active organization from DB
         from app.models import UserOrganization
+        from app.models.role import Role as RoleModel
         user_org = db.query(UserOrganization).filter(
             UserOrganization.user_id == current_user.id,
             UserOrganization.status == 'active'
@@ -42,6 +43,11 @@ def require_capability(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User must be associated with an active organization"
             )
+
+        # Owners and super admins have all capabilities — skip capability check
+        user_role = db.query(RoleModel).filter(RoleModel.id == user_org.role_id).first()
+        if user_role and user_role.role_key in ('owner', 'super_admin'):
+            return current_user
 
         organization_id = str(user_org.organization_id)
         capability_service = CapabilityService(db)
@@ -78,6 +84,7 @@ def require_any_capability(
         db: Session = Depends(get_db)
     ) -> User:
         from app.models import UserOrganization
+        from app.models.role import Role as RoleModel
         user_org = db.query(UserOrganization).filter(
             UserOrganization.user_id == current_user.id,
             UserOrganization.status == 'active'
@@ -88,6 +95,11 @@ def require_any_capability(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User must be associated with an active organization"
             )
+
+        # Owners and super admins have all capabilities — skip capability check
+        user_role = db.query(RoleModel).filter(RoleModel.id == user_org.role_id).first()
+        if user_role and user_role.role_key in ('owner', 'super_admin'):
+            return current_user
 
         organization_id = str(user_org.organization_id)
         capability_service = CapabilityService(db)
@@ -123,6 +135,7 @@ def require_all_capabilities(
         db: Session = Depends(get_db)
     ) -> User:
         from app.models import UserOrganization
+        from app.models.role import Role as RoleModel
         user_org = db.query(UserOrganization).filter(
             UserOrganization.user_id == current_user.id,
             UserOrganization.status == 'active'
@@ -133,6 +146,11 @@ def require_all_capabilities(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User must be associated with an active organization"
             )
+
+        # Owners and super admins have all capabilities — skip capability check
+        user_role = db.query(RoleModel).filter(RoleModel.id == user_org.role_id).first()
+        if user_role and user_role.role_key in ('owner', 'super_admin'):
+            return current_user
 
         organization_id = str(user_org.organization_id)
         capability_service = CapabilityService(db)
@@ -208,6 +226,7 @@ def require_role(allowed_roles: List[str]):
     ) -> User:
         # Get user's role in active organization
         from app.models import UserOrganization
+        from app.models.role import Role as RoleModel
         user_org = db.query(UserOrganization).filter(
             UserOrganization.user_id == current_user.id,
             UserOrganization.status == 'active'
@@ -218,6 +237,11 @@ def require_role(allowed_roles: List[str]):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User must be associated with an active organization"
             )
+
+        # Owner always passes role checks
+        user_role_obj = db.query(RoleModel).filter(RoleModel.id == user_org.role_id).first()
+        if user_role_obj and user_role_obj.role_key == 'owner':
+            return current_user
 
         if not user_org or not user_org.role:
             raise HTTPException(

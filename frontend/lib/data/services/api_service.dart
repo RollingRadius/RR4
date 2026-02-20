@@ -27,14 +27,19 @@ class ApiService {
         if (status != null && status >= 300 && status < 400) {
           final location = response.headers.value('location');
           if (location != null) {
-            String newPath;
-            if (location.startsWith('http')) {
-              final uri = Uri.parse(location);
-              newPath = uri.hasQuery ? '${uri.path}?${uri.query}' : uri.path;
-            } else {
-              newPath = location;
-            }
-            final newOptions = response.requestOptions.copyWith(path: newPath);
+            // Parse the redirect URL so we can separate path from query params
+            final uri = location.startsWith('http')
+                ? Uri.parse(location)
+                : Uri.parse('http://placeholder$location');
+
+            // Use path only (no query string) + redirect URL's query params
+            // to avoid duplicating params that were already in requestOptions
+            final newOptions = response.requestOptions.copyWith(
+              path: uri.path,
+              queryParameters: uri.hasQuery
+                  ? Uri.splitQueryString(uri.query)
+                  : response.requestOptions.queryParameters,
+            );
             final newResponse = await _dio.fetch(newOptions);
             handler.resolve(newResponse);
             return;
