@@ -122,215 +122,280 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
-      appBar: (msUser || driverUser) ? null : AppBar(
-        backgroundColor: AppTheme.bgSecondary,
-        elevation: 0,
-        surfaceTintColor: Colors.transparent,
-        title: const Text(
-          'Fleet Management',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppTheme.textPrimary,
-          ),
-        ),
-        actions: [
-          // Notifications
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: AppTheme.textPrimary),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Notifications coming soon!')),
-              );
-            },
-          ),
-          // Profile menu
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: PopupMenuButton<String>(
-              icon: CircleAvatar(
-                radius: 18,
-                backgroundColor: AppTheme.primaryBlue,
-                child: Text(
-                  user?.username.substring(0, 1).toUpperCase() ?? 'U',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              onSelected: (value) {
-                switch (value) {
-                  case 'profile':
-                    context.push('/profile');
-                    break;
-                  case 'organizations':
-                    context.push('/organizations');
-                    break;
-                  case 'create_organization':
-                    context.push('/organizations/create');
-                    break;
-                  case 'manage_organization':
-                    _navigateToOrganizationManagement();
-                    break;
-                  case 'settings':
-                    context.push('/settings');
-                    break;
-                  case 'logout':
-                    _handleLogout();
-                    break;
-                }
-              },
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'profile',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.person_outline, color: AppTheme.textPrimary),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            user?.username ?? 'User',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            user?.role ?? 'Independent User',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'organizations',
-                  child: Row(
-                    children: [
-                      Icon(Icons.business_outlined),
-                      SizedBox(width: 12),
-                      Text('My Organizations'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'create_organization',
-                  child: Row(
-                    children: [
-                      Icon(Icons.add_business),
-                      SizedBox(width: 12),
-                      Text('Create Organization'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'manage_organization',
-                  child: Row(
-                    children: [
-                      Icon(Icons.admin_panel_settings_outlined),
-                      SizedBox(width: 12),
-                      Text('Manage Organization'),
-                    ],
-                  ),
-                ),
-                const PopupMenuDivider(),
-                const PopupMenuItem(
-                  value: 'settings',
-                  child: Row(
-                    children: [
-                      Icon(Icons.settings_outlined),
-                      SizedBox(width: 12),
-                      Text('Settings'),
-                    ],
-                  ),
-                ),
-                const PopupMenuItem(
-                  value: 'logout',
-                  child: Row(
-                    children: [
-                      Icon(Icons.logout, color: Colors.red),
-                      SizedBox(width: 12),
-                      Text('Logout', style: TextStyle(color: Colors.red)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      // Each screen renders its own styled header — no global AppBar needed
       body: widget.child,
-      bottomNavigationBar: _buildBottomNav(msUser, driverUser),
+      bottomNavigationBar: _buildBottomNav(msUser, driverUser, user),
     );
   }
 
-  Widget _buildBottomNav(bool isMsUser, bool isDriverUser) {
-    final items = isMsUser ? _msNavItems : (isDriverUser ? _driverNavItems : _navItems);
-    final isDarkNav = isMsUser;
+  Widget _buildBottomNav(bool isMsUser, bool isDriverUser, dynamic user) {
+    final items =
+        isMsUser ? _msNavItems : (isDriverUser ? _driverNavItems : _navItems);
+    final isDark = isMsUser;
+    final bg = isDark ? const Color(0xFF1A1C2E) : AppTheme.bgSecondary;
+    final activeColor =
+        isDark ? const Color(0xFFF15A24) : AppTheme.primaryBlue;
+    final inactiveColor = isDark
+        ? Colors.white.withOpacity(0.38)
+        : AppTheme.textTertiary;
+
+    // Full name initials for avatar
+    final fullName = (user?.fullName as String?) ?? '';
+    final initials = fullName
+        .split(' ')
+        .where((w) => w.isNotEmpty)
+        .take(2)
+        .map((w) => w[0].toUpperCase())
+        .join();
+    final avatarLabel = initials.isNotEmpty
+        ? initials
+        : ((user?.username as String?)?.substring(0, 1).toUpperCase() ?? 'U');
+
     return Container(
       decoration: BoxDecoration(
-        color: isDarkNav ? const Color(0xFF1A1C2E) : AppTheme.bgSecondary,
+        color: bg,
         border: Border(
-          top: BorderSide(color: isDarkNav ? Colors.white.withOpacity(0.1) : const Color(0xFFE2E0E0), width: 1),
+          top: BorderSide(
+            color: isDark
+                ? Colors.white.withOpacity(0.08)
+                : const Color(0xFFE8E6E6),
+            width: 1,
+          ),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
-            blurRadius: 16,
+            color: Colors.black.withOpacity(0.07),
+            blurRadius: 20,
             offset: const Offset(0, -4),
           ),
         ],
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
+          padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(items.length, (i) {
-              final item = items[i];
-              final isSelected = _selectedIndex == i;
-              final activeColor = isDarkNav ? const Color(0xFFF15A24) : AppTheme.primaryBlue;
-              final inactiveColor = isDarkNav ? Colors.white.withOpacity(0.4) : AppTheme.textTertiary;
-              return GestureDetector(
-                onTap: () => _onNavTap(i, isMsUser, isDriverUser),
-                behavior: HitTestBehavior.opaque,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
+            children: [
+              // Nav tabs
+              ...List.generate(items.length, (i) {
+                final item = items[i];
+                final sel = _selectedIndex == i;
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => _onNavTap(i, isMsUser, isDriverUser),
+                    behavior: HitTestBehavior.opaque,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeInOut,
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: sel
+                            ? activeColor.withOpacity(isDark ? 0.15 : 0.10)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Active dot
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 220),
+                            width: sel ? 20 : 0,
+                            height: sel ? 3 : 0,
+                            margin: const EdgeInsets.only(bottom: 3),
+                            decoration: BoxDecoration(
+                              color: activeColor,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          Icon(
+                            sel ? item.activeIcon : item.icon,
+                            color: sel ? activeColor : inactiveColor,
+                            size: 22,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            item.label,
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: sel
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                              color: sel ? activeColor : inactiveColor,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isSelected ? item.activeIcon : item.icon,
-                        color: isSelected ? activeColor : inactiveColor,
-                        size: 24,
+                );
+              }),
+
+              // User avatar with profile popup
+              const SizedBox(width: 4),
+              PopupMenuButton<String>(
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                offset: const Offset(-12, -12),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'profile':
+                      context.push('/profile');
+                      break;
+                    case 'organizations':
+                      context.push('/organizations');
+                      break;
+                    case 'create_organization':
+                      context.push('/organizations/create');
+                      break;
+                    case 'manage_organization':
+                      _navigateToOrganizationManagement();
+                      break;
+                    case 'settings':
+                      context.go('/settings');
+                      break;
+                    case 'logout':
+                      _handleLogout();
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    enabled: false,
+                    padding: EdgeInsets.zero,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                                colors: [
+                                  Color(0xFFEC5B13),
+                                  Color(0xFFBF4209),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(avatarLabel,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14)),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                fullName.isNotEmpty
+                                    ? fullName
+                                    : (user?.username ?? 'User'),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: Color(0xFF0F172A)),
+                              ),
+                              Text(
+                                _capitalize(user?.role ?? 'User'),
+                                style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Color(0xFF64748B)),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 3),
-                      Text(
-                        item.label.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                          color: isSelected ? activeColor : inactiveColor,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
+                    ),
+                  ),
+                  const PopupMenuDivider(),
+                  _popItem(Icons.person_rounded, 'My Profile', 'profile',
+                      const Color(0xFFEC5B13)),
+                  _popItem(Icons.business_rounded, 'My Organizations',
+                      'organizations', const Color(0xFF6366F1)),
+                  _popItem(Icons.add_business_rounded, 'Create Organization',
+                      'create_organization', const Color(0xFF10B981)),
+                  _popItem(Icons.admin_panel_settings_rounded,
+                      'Manage Organization', 'manage_organization',
+                      const Color(0xFF06B6D4)),
+                  const PopupMenuDivider(),
+                  _popItem(Icons.settings_rounded, 'Settings', 'settings',
+                      const Color(0xFF64748B)),
+                  _popItem(Icons.logout_rounded, 'Sign Out', 'logout',
+                      const Color(0xFFEF4444)),
+                ],
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFEC5B13), Color(0xFFBF4209)],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                          color: const Color(0xFFEC5B13).withOpacity(0.3),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2)),
                     ],
                   ),
+                  alignment: Alignment.center,
+                  child: Text(avatarLabel,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14)),
                 ),
-              );
-            }),
+              ),
+            ],
           ),
         ),
       ),
     );
+  }
+
+  PopupMenuItem<String> _popItem(
+      IconData icon, String label, String value, Color color) {
+    return PopupMenuItem(
+      value: value,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, size: 15, color: color),
+          ),
+          const SizedBox(width: 10),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: value == 'logout'
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF0F172A))),
+        ],
+      ),
+    );
+  }
+
+  String _capitalize(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1).replaceAll('_', ' ');
   }
 
   Future<void> _navigateToOrganizationManagement() async {
