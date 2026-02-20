@@ -54,7 +54,7 @@ class SaveAsTemplateRequest(BaseModel):
 
 
 # API Endpoints
-@router.get("/", tags=["Custom Roles"])
+@router.get("", tags=["Custom Roles"])
 def get_all_custom_roles(
     include_templates: bool = False,
     db: Session = Depends(get_db),
@@ -71,7 +71,7 @@ def get_all_custom_roles(
     }
 
 
-@router.post("/", tags=["Custom Roles"])
+@router.post("", tags=["Custom Roles"])
 def create_custom_role(
     request: CreateCustomRoleRequest,
     db: Session = Depends(get_db),

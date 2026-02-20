@@ -30,9 +30,9 @@ class CompareTemplatesRequest(BaseModel):
 @router.get("/predefined", tags=["Templates"])
 def get_all_predefined_templates(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_capability("role.template.view", AccessLevel.VIEW))
+    current_user: User = Depends(get_current_user)
 ):
-    """Get all predefined role templates"""
+    """Get all predefined role templates. Requires authentication only."""
     template_service = TemplateService(db)
     templates = template_service.get_all_predefined_templates()
 
@@ -47,9 +47,9 @@ def get_all_predefined_templates(
 def get_predefined_template(
     role_key: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_capability("role.template.view", AccessLevel.VIEW))
+    current_user: User = Depends(get_current_user)
 ):
-    """Get a specific predefined role template"""
+    """Get a specific predefined role template. Requires authentication only."""
     template_service = TemplateService(db)
     template = template_service.get_predefined_template(role_key)
 
