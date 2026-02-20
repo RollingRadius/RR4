@@ -117,9 +117,31 @@ class ProfileService:
             self.db.add(user_org)
 
         elif role_type == 'driver':
-            # For now, set as Independent User
-            # Driver record will be created when they join/create a company
-            # Store license info in user metadata if needed
+            # Validate required driver fields
+            if not profile_data.get('license_number'):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="License number required for driver role"
+                )
+
+            # Create driver record
+            driver = Driver(
+                id=uuid.uuid4(),
+                user_id=user.id,
+                driver_name=user.full_name,
+                phone=user.phone,
+                email=user.email,
+                license_number=profile_data['license_number'],
+                license_expiry=datetime.fromisoformat(profile_data['license_expiry']) if profile_data.get('license_expiry') else None,
+                status='available',
+                employment_type='permanent',
+                is_verified=True
+            )
+            self.db.add(driver)
+            self.db.flush()
+            driver_id = driver.id
+
+            # Drivers are independent users with a driver record
             role = self._get_role_by_key('independent_user')
             user_org = UserOrganization(
                 user_id=user.id,
@@ -150,8 +172,15 @@ class ProfileService:
             # Set as Pending User
             role = self._get_role_by_key('pending_user')
 
-            # Get requested role if provided
+            # Get requested role — accept either UUID or role_key string
             requested_role_id = profile_data.get('requested_role_id')
+            requested_role_key = profile_data.get('requested_role_key')
+            if requested_role_key and not requested_role_id:
+                req_role = self.db.query(Role).filter(
+                    Role.role_key == requested_role_key
+                ).first()
+                if req_role:
+                    requested_role_id = req_role.id
 
             user_org = UserOrganization(
                 user_id=user.id,
@@ -381,6 +410,18 @@ class ProfileService:
             user_org.organization_id = company.id
             user_org.role_id = role.id
             user_org.status = 'pending'
+
+            # Get requested role — accept either UUID or role_key string
+            requested_role_id = profile_data.get('requested_role_id')
+            requested_role_key = profile_data.get('requested_role_key')
+            if requested_role_key and not requested_role_id:
+                req_role = self.db.query(Role).filter(
+                    Role.role_key == requested_role_key
+                ).first()
+                if req_role:
+                    requested_role_id = req_role.id
+            if requested_role_id:
+                user_org.requested_role_id = requested_role_id
 
         elif role_type == 'create_company':
             # Create new company

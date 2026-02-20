@@ -34,6 +34,7 @@ import 'package:fleet_management/presentation/screens/reports/reports_screen.dar
 import 'package:fleet_management/presentation/screens/reports/fuel_consumption_report_screen.dart';
 import 'package:fleet_management/presentation/screens/roles/custom_roles_screen.dart';
 import 'package:fleet_management/presentation/screens/roles/create_custom_role_screen.dart';
+import 'package:fleet_management/presentation/screens/roles/edit_custom_role_screen.dart';
 import 'package:fleet_management/presentation/screens/profile/profile_screen.dart';
 import 'package:fleet_management/presentation/screens/settings/settings_screen.dart';
 import 'package:fleet_management/presentation/screens/settings/branding_settings_screen.dart';
@@ -490,6 +491,17 @@ final routerProvider = Provider<GoRouter>((ref) {
               key: state.pageKey,
               child: const CreateCustomRoleScreen(),
             ),
+          ),
+          GoRoute(
+            path: '/roles/custom/:id/edit',
+            name: 'edit-custom-role',
+            pageBuilder: (context, state) {
+              final customRoleId = state.pathParameters['id']!;
+              return MaterialPage(
+                key: state.pageKey,
+                child: EditCustomRoleScreen(customRoleId: customRoleId),
+              );
+            },
           ),
           GoRoute(
             path: '/profile',

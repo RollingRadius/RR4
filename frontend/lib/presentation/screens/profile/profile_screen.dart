@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/profile_provider.dart';
+import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
@@ -613,8 +614,185 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
+  static const List<Map<String, String>> _predefinedRoles = [
+    {'key': 'fleet_manager', 'label': 'Fleet Manager'},
+    {'key': 'dispatcher', 'label': 'Dispatcher'},
+    {'key': 'driver', 'label': 'Driver'},
+    {'key': 'accountant', 'label': 'Accountant'},
+    {'key': 'maintenance_manager', 'label': 'Maintenance Manager'},
+    {'key': 'compliance_officer', 'label': 'Compliance Officer'},
+    {'key': 'operations_manager', 'label': 'Operations Manager'},
+    {'key': 'maintenance_technician', 'label': 'Maintenance Technician'},
+    {'key': 'customer_service', 'label': 'Customer Service'},
+    {'key': 'viewer_analyst', 'label': 'Viewer / Analyst'},
+  ];
+
   void _showJoinOrganizationDialog() {
-    context.push('/organizations');
+    final companySearchController = TextEditingController();
+    String? selectedCompanyId;
+    String? selectedCompanyName;
+    String? selectedRoleKey;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          return AlertDialog(
+            title: const Text('Join Organization'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: companySearchController,
+                    decoration: const InputDecoration(
+                      labelText: 'Search Company',
+                      hintText: 'Enter at least 2 characters',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (value) async {
+                      if (value.length >= 2) {
+                        await ref.read(companyProvider.notifier).searchCompanies(value);
+                        setDialogState(() {});
+                      }
+                    },
+                  ),
+                  Builder(builder: (context) {
+                    final results = ref.read(companyProvider).searchResults;
+                    if (results.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    const SizedBox(height: 8),
+                    Container(
+                      constraints: const BoxConstraints(maxHeight: 160),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey[300]!),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: results.length,
+                        itemBuilder: (_, i) {
+                          final company = results[i];
+                          final isSel = selectedCompanyId == company.id;
+                          return ListTile(
+                            dense: true,
+                            selected: isSel,
+                            leading: const Icon(Icons.business, size: 20),
+                            title: Text(company.companyName),
+                            subtitle: Text('${company.city}, ${company.state}'),
+                            trailing: isSel
+                                ? const Icon(Icons.check_circle, color: Colors.green)
+                                : null,
+                            onTap: () {
+                              setDialogState(() {
+                                selectedCompanyId = company.id;
+                                selectedCompanyName = company.companyName;
+                              });
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                      ],
+                    );
+                  }),
+                  if (selectedCompanyName != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Selected: $selectedCompanyName',
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Requested Role (Optional)',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: selectedRoleKey,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      hintText: 'No preference',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: [
+                      const DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('No preference'),
+                      ),
+                      ..._predefinedRoles.map((r) => DropdownMenuItem<String>(
+                        value: r['key'],
+                        child: Text(r['label']!),
+                      )),
+                    ],
+                    onChanged: (v) => setDialogState(() => selectedRoleKey = v),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: selectedCompanyId == null
+                    ? null
+                    : () async {
+                        Navigator.pop(dialogContext);
+                        final profileData = {
+                          'role_type': 'join_company',
+                          'company_id': selectedCompanyId,
+                          if (selectedRoleKey != null)
+                            'requested_role_key': selectedRoleKey,
+                        };
+                        final success = await ref
+                            .read(profileProvider.notifier)
+                            .changeRole(profileData);
+                        if (mounted) {
+                          if (success) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Row(
+                                  children: [
+                                    Icon(Icons.check_circle, color: Colors.white),
+                                    SizedBox(width: 12),
+                                    Text('Join request submitted! Awaiting approval.'),
+                                  ],
+                                ),
+                                backgroundColor: AppTheme.successColor,
+                              ),
+                            );
+                            ref.read(profileProvider.notifier).getProfileStatus();
+                            ref.read(authProvider.notifier).loadUserProfile();
+                          } else {
+                            final error = ref.read(profileProvider).error;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(error ?? 'Failed to join organization'),
+                                backgroundColor: AppTheme.errorColor,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                child: const Text('Submit'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   void _showBecomeDriverDialog() {

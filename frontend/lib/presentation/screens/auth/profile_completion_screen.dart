@@ -34,7 +34,22 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
   // Join company
   String? _selectedCompanyId;
   String? _selectedCompanyName;
+  String? _selectedRoleKey;
   final _companySearchController = TextEditingController();
+
+  // Predefined roles available when joining a company
+  static const List<Map<String, String>> _predefinedRoles = [
+    {'key': 'fleet_manager', 'label': 'Fleet Manager'},
+    {'key': 'dispatcher', 'label': 'Dispatcher'},
+    {'key': 'driver', 'label': 'Driver'},
+    {'key': 'accountant', 'label': 'Accountant'},
+    {'key': 'maintenance_manager', 'label': 'Maintenance Manager'},
+    {'key': 'compliance_officer', 'label': 'Compliance Officer'},
+    {'key': 'operations_manager', 'label': 'Operations Manager'},
+    {'key': 'maintenance_technician', 'label': 'Maintenance Technician'},
+    {'key': 'customer_service', 'label': 'Customer Service'},
+    {'key': 'viewer_analyst', 'label': 'Viewer / Analyst'},
+  ];
 
   @override
   void dispose() {
@@ -81,6 +96,9 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
         return;
       }
       profileData['company_id'] = _selectedCompanyId;
+      if (_selectedRoleKey != null) {
+        profileData['requested_role_key'] = _selectedRoleKey;
+      }
     } else if (_selectedRoleType == 'create_company') {
       if (_companyNameController.text.isEmpty) {
         _showError('Please enter company name');
@@ -518,6 +536,37 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
               ),
             ),
           ),
+        const SizedBox(height: 16),
+        const Text(
+          'Requested Role (Optional)',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _selectedRoleKey,
+          decoration: InputDecoration(
+            hintText: 'Select your desired role',
+            prefixIcon: const Icon(Icons.badge_outlined),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          items: [
+            const DropdownMenuItem<String>(
+              value: null,
+              child: Text('No preference'),
+            ),
+            ..._predefinedRoles.map((role) => DropdownMenuItem<String>(
+              value: role['key'],
+              child: Text(role['label']!),
+            )),
+          ],
+          onChanged: (value) {
+            setState(() {
+              _selectedRoleKey = value;
+            });
+          },
+        ),
       ],
     );
   }

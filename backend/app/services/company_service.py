@@ -233,8 +233,18 @@ class CompanyService:
                 detail="Owner role not found in database"
             )
 
-        # Create user-organization relationship with Owner role
+        # If user already has an independent_user record (no org), remove it first
+        # to avoid duplicate UserOrganization entries that confuse role lookups
         from datetime import datetime
+        existing_user_org = self.db.query(UserOrganization).filter(
+            UserOrganization.user_id == user_id,
+            UserOrganization.organization_id == None
+        ).first()
+        if existing_user_org:
+            self.db.delete(existing_user_org)
+            self.db.flush()
+
+        # Create user-organization relationship with Owner role
         user_org = UserOrganization(
             user_id=user_id,
             organization_id=company.id,
