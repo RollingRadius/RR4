@@ -18,6 +18,8 @@ import 'package:fleet_management/presentation/screens/fleet/fleet_hub_screen.dar
 import 'package:fleet_management/presentation/screens/vehicles/vehicles_list_screen.dart';
 import 'package:fleet_management/presentation/screens/vehicles/add_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/drivers_list_screen.dart';
+import 'package:fleet_management/presentation/screens/drivers/driver_management_screen.dart';
+import 'package:fleet_management/presentation/screens/drivers/driver_dashboard_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/add_driver_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/select_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/driver_onboarding_screen.dart';
@@ -246,8 +248,19 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/drivers',
             name: 'drivers',
             pageBuilder: (context, state) => const NoTransitionPage(
-              child: DriversListScreen(),
+              child: DriverManagementScreen(),
             ),
+          ),
+          GoRoute(
+            path: '/drivers/:id/view',
+            name: 'driver-dashboard',
+            pageBuilder: (context, state) {
+              final driverId = state.pathParameters['id']!;
+              return MaterialPage(
+                key: state.pageKey,
+                child: DriverDashboardScreen(driverId: driverId),
+              );
+            },
           ),
           GoRoute(
             path: '/drivers/add',
