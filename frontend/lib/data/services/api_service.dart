@@ -11,9 +11,36 @@ class ApiService {
       baseUrl: AppConfig.apiBaseUrl,
       connectTimeout: AppConfig.connectionTimeout,
       receiveTimeout: AppConfig.receiveTimeout,
+      followRedirects: false,
+      validateStatus: (status) => status != null && status < 400,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+      },
+    ));
+
+    // Redirect interceptor: manually follow 3xx redirects so Authorization
+    // header is preserved (dart:io HttpClient drops custom headers on redirect)
+    _dio.interceptors.add(InterceptorsWrapper(
+      onResponse: (response, handler) async {
+        final status = response.statusCode;
+        if (status != null && status >= 300 && status < 400) {
+          final location = response.headers.value('location');
+          if (location != null) {
+            String newPath;
+            if (location.startsWith('http')) {
+              final uri = Uri.parse(location);
+              newPath = uri.hasQuery ? '${uri.path}?${uri.query}' : uri.path;
+            } else {
+              newPath = location;
+            }
+            final newOptions = response.requestOptions.copyWith(path: newPath);
+            final newResponse = await _dio.fetch(newOptions);
+            handler.resolve(newResponse);
+            return;
+          }
+        }
+        handler.next(response);
       },
     ));
 

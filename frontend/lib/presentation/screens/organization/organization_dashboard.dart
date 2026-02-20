@@ -59,41 +59,27 @@ class _OrganizationDashboardState
               text: 'Overview',
             ),
             Tab(
-              icon: const Icon(Icons.people),
-              text: 'Employees',
-              child: orgState.statistics != null &&
+              icon: orgState.statistics != null &&
                       orgState.statistics!['total_employees'] > 0
                   ? Badge(
                       label: Text(
                           '${orgState.statistics!['total_employees']}'),
-                      child: const Tab(
-                        icon: Icon(Icons.people),
-                        text: 'Employees',
-                      ),
+                      child: const Icon(Icons.people),
                     )
-                  : const Tab(
-                      icon: Icon(Icons.people),
-                      text: 'Employees',
-                    ),
+                  : const Icon(Icons.people),
+              text: 'Employees',
             ),
             Tab(
-              icon: const Icon(Icons.pending_actions),
-              text: 'Grant Access',
-              child: orgState.statistics != null &&
+              icon: orgState.statistics != null &&
                       orgState.statistics!['pending_requests'] > 0
                   ? Badge(
                       label: Text(
                           '${orgState.statistics!['pending_requests']}'),
                       backgroundColor: Colors.red,
-                      child: const Tab(
-                        icon: Icon(Icons.pending_actions),
-                        text: 'Grant Access',
-                      ),
+                      child: const Icon(Icons.pending_actions),
                     )
-                  : const Tab(
-                      icon: Icon(Icons.pending_actions),
-                      text: 'Grant Access',
-                    ),
+                  : const Icon(Icons.pending_actions),
+              text: 'Grant Access',
             ),
           ],
         ),
