@@ -157,7 +157,7 @@ class SignupResponse(BaseModel):
     auth_method: str
     company_id: Optional[str]
     company_name: Optional[str]
-    role: str
+    role: Optional[str] = None
     capabilities: List[str]  # Empty for Pending User, ['*'] for Owner
     message: str
     verification_code: Optional[str] = None  # 6-digit code for email verification

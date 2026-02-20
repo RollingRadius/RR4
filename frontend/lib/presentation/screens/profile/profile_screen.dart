@@ -355,7 +355,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              if (profileState.profileData?['role_type'] == 'independent' && !_isEditMode)
+                              if ((profileState.profileData?['role_type'] == 'independent' ||
+                                      profileState.profileData?['role_type'] == 'pending_user') &&
+                                  !_isEditMode)
                                 TextButton.icon(
                                   onPressed: () => _showChangeRoleDialog(),
                                   icon: const Icon(Icons.swap_horiz, size: 18),
@@ -390,69 +392,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           if (profileState.profileCompleted &&
                               profileState.profileData?['role_type'] == 'independent' &&
                               !_isEditMode)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 16),
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.green[50],
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.green[200]!),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.person_add, color: Colors.green[700], size: 20),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Text(
-                                            'Want to change your role?',
-                                            style: TextStyle(
-                                              color: Colors.green[900],
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Text(
-                                      'As an Independent User, you can:',
-                                      style: TextStyle(
-                                        color: Colors.green[800],
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Wrap(
-                                      spacing: 8,
-                                      runSpacing: 8,
-                                      children: [
-                                        _buildRoleChangeButton(
-                                          'Join Organization',
-                                          Icons.business,
-                                          () => _showJoinOrganizationDialog(),
-                                        ),
-                                        _buildRoleChangeButton(
-                                          'Create Organization',
-                                          Icons.add_business,
-                                          () => context.push('/organizations/create'),
-                                        ),
-                                        _buildRoleChangeButton(
-                                          'Become Driver',
-                                          Icons.local_shipping,
-                                          () => _showBecomeDriverDialog(),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            _buildRoleChangeOptions(
+                              headerText: 'As an Independent User, you can:',
+                              buttons: [
+                                _buildRoleChangeButton('Join Organization', Icons.business,
+                                    () => _showJoinOrganizationDialog()),
+                                _buildRoleChangeButton('Create Organization', Icons.add_business,
+                                    () => context.push('/organizations/create')),
+                                _buildRoleChangeButton('Become Driver', Icons.local_shipping,
+                                    () => _showBecomeDriverDialog()),
+                              ],
                             )
-                          // Role permanence warning for non-independent users
+                          // Role change options for Pending Users
+                          else if (profileState.profileCompleted &&
+                              profileState.profileData?['role_type'] == 'pending_user' &&
+                              !_isEditMode)
+                            _buildRoleChangeOptions(
+                              headerText: 'Your request is pending approval. You can:',
+                              headerColor: Colors.orange,
+                              buttons: [
+                                _buildRoleChangeButton('Change Organization', Icons.swap_horiz,
+                                    () => _showJoinOrganizationDialog()),
+                                _buildRoleChangeButton('Create Organization', Icons.add_business,
+                                    () => context.push('/organizations/create')),
+                                _buildRoleChangeButton('Go Back to Independent', Icons.person_outline,
+                                    () => _confirmGoIndependent()),
+                              ],
+                            )
+                          // Role is managed by org (active members, owners, drivers, etc.)
                           else if (profileState.profileCompleted && !_isEditMode)
                             Padding(
                               padding: const EdgeInsets.only(top: 16),
@@ -470,10 +437,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     Expanded(
                                       child: Text(
                                         'Your role is managed by your organization.',
-                                        style: TextStyle(
-                                          color: Colors.blue[900],
-                                          fontSize: 13,
-                                        ),
+                                        style: TextStyle(color: Colors.blue[900], fontSize: 13),
                                       ),
                                     ),
                                   ],
@@ -577,38 +541,147 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  void _showChangeRoleDialog() {
+  Widget _buildRoleChangeOptions({
+    required String headerText,
+    required List<Widget> buttons,
+    Color? headerColor,
+  }) {
+    final color = headerColor ?? Colors.green;
+    return Padding(
+      padding: const EdgeInsets.only(top: 16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.07),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.swap_horiz, color: color, size: 20),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    headerText,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(spacing: 8, runSpacing: 8, children: buttons),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmGoIndependent() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Change Role'),
-        content: const Text('Choose how you want to change your role:'),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Pending Request?'),
+        content: const Text(
+          'This will cancel your pending organization request and return you to Independent User status. You can join or create an organization again at any time.',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Keep Pending'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              final success = await ref
+                  .read(profileProvider.notifier)
+                  .changeRole({'role_type': 'independent'});
+              if (mounted) {
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.white),
+                          SizedBox(width: 12),
+                          Text('You are now an Independent User.'),
+                        ],
+                      ),
+                      backgroundColor: AppTheme.successColor,
+                    ),
+                  );
+                  ref.read(profileProvider.notifier).getProfileStatus();
+                  ref.read(authProvider.notifier).loadUserProfile();
+                } else {
+                  final error = ref.read(profileProvider).error;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(error ?? 'Failed to update role'),
+                      backgroundColor: AppTheme.errorColor,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Go Independent'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangeRoleDialog() {
+    final isPending =
+        ref.read(profileProvider).profileData?['role_type'] == 'pending_user';
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Change Role'),
+        content: Text(isPending
+            ? 'Your request is pending. What would you like to do?'
+            : 'Choose how you want to change your role:'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
             child: const Text('Cancel'),
           ),
+          if (!isPending)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _showBecomeDriverDialog();
+              },
+              child: const Text('Become Driver'),
+            ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               _showJoinOrganizationDialog();
             },
-            child: const Text('Join Organization'),
+            child: Text(isPending ? 'Change Organization' : 'Join Organization'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              _showBecomeDriverDialog();
-            },
-            child: const Text('Become Driver'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
+              Navigator.pop(ctx);
               context.push('/organizations/create');
             },
             child: const Text('Create Organization'),
           ),
+          if (isPending)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                _confirmGoIndependent();
+              },
+              child: const Text('Go Independent', style: TextStyle(color: Colors.orange)),
+            ),
         ],
       ),
     );
@@ -628,115 +701,169 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   ];
 
   void _showJoinOrganizationDialog() {
-    final companySearchController = TextEditingController();
+    final searchController = TextEditingController();
+    List<dynamic> searchResults = [];   // local list — no provider reads inside builder
     String? selectedCompanyId;
     String? selectedCompanyName;
     String? selectedRoleKey;
+    bool isSearching = false;
 
     showDialog(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) {
+        builder: (_, setDialogState) {
           return AlertDialog(
             title: const Text('Join Organization'),
-            content: SingleChildScrollView(
+            contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+            content: SizedBox(
+              width: double.maxFinite,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ── Search field ─────────────────────────────────────
                   TextField(
-                    controller: companySearchController,
-                    decoration: const InputDecoration(
+                    controller: searchController,
+                    autofocus: true,
+                    decoration: InputDecoration(
                       labelText: 'Search Company',
-                      hintText: 'Enter at least 2 characters',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                      hintText: 'Enter at least 3 characters',
+                      prefixIcon: const Icon(Icons.search),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: isSearching
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : null,
                     ),
                     onChanged: (value) async {
-                      if (value.length >= 2) {
-                        await ref.read(companyProvider.notifier).searchCompanies(value);
-                        setDialogState(() {});
+                      if (value.trim().length < 3) {
+                        setDialogState(() => searchResults = []);
+                        return;
+                      }
+                      setDialogState(() => isSearching = true);
+                      try {
+                        await ref
+                            .read(companyProvider.notifier)
+                            .searchCompanies(value.trim());
+                        final results = ref.read(companyProvider).searchResults;
+                        setDialogState(() {
+                          searchResults = results;
+                          isSearching = false;
+                        });
+                      } catch (_) {
+                        setDialogState(() {
+                          searchResults = [];
+                          isSearching = false;
+                        });
                       }
                     },
                   ),
-                  Builder(builder: (context) {
-                    final results = ref.read(companyProvider).searchResults;
-                    if (results.isEmpty) return const SizedBox.shrink();
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+                  // ── Results list ──────────────────────────────────────
+                  if (searchResults.isNotEmpty) ...[
                     const SizedBox(height: 8),
-                    Container(
-                      constraints: const BoxConstraints(maxHeight: 160),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 180),
+                      child: Material(
+                        elevation: 2,
                         borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: results.length,
-                        itemBuilder: (_, i) {
-                          final company = results[i];
-                          final isSel = selectedCompanyId == company.id;
-                          return ListTile(
-                            dense: true,
-                            selected: isSel,
-                            leading: const Icon(Icons.business, size: 20),
-                            title: Text(company.companyName),
-                            subtitle: Text('${company.city}, ${company.state}'),
-                            trailing: isSel
-                                ? const Icon(Icons.check_circle, color: Colors.green)
-                                : null,
-                            onTap: () {
-                              setDialogState(() {
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: searchResults.length,
+                          separatorBuilder: (_, __) =>
+                              const Divider(height: 1),
+                          itemBuilder: (_, i) {
+                            final company = searchResults[i];
+                            final isSel = selectedCompanyId == company.id;
+                            return ListTile(
+                              dense: true,
+                              selected: isSel,
+                              selectedTileColor: Colors.green.shade50,
+                              leading: CircleAvatar(
+                                radius: 14,
+                                backgroundColor: isSel
+                                    ? Colors.green
+                                    : Colors.grey.shade300,
+                                child: Icon(
+                                  isSel ? Icons.check : Icons.business,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              title: Text(company.companyName,
+                                  style: const TextStyle(fontSize: 14)),
+                              subtitle: Text(
+                                  '${company.city}, ${company.state}',
+                                  style: const TextStyle(fontSize: 12)),
+                              onTap: () => setDialogState(() {
                                 selectedCompanyId = company.id;
                                 selectedCompanyName = company.companyName;
-                              });
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                      ],
-                    );
-                  }),
-                  if (selectedCompanyName != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Selected: $selectedCompanyName',
-                      style: const TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.w600,
+                              }),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ],
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Requested Role (Optional)',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                  ),
+                  // ── Selected company chip ─────────────────────────────
+                  if (selectedCompanyName != null) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            Border.all(color: Colors.green.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle,
+                              color: Colors.green, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              selectedCompanyName!,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  // ── Role dropdown ─────────────────────────────────────
+                  const SizedBox(height: 14),
+                  const Text('Requested Role (Optional)',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
+                  DropdownButton<String>(
                     value: selectedRoleKey,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      hintText: 'No preference',
-                      prefixIcon: Icon(Icons.badge_outlined),
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
+                    hint: const Text('No preference'),
+                    underline: Container(
+                        height: 1, color: Colors.grey.shade400),
                     items: [
                       const DropdownMenuItem<String>(
-                        value: null,
-                        child: Text('No preference'),
-                      ),
-                      ..._predefinedRoles.map((r) => DropdownMenuItem<String>(
-                        value: r['key'],
-                        child: Text(r['label']!),
-                      )),
+                          value: null,
+                          child: Text('No preference')),
+                      ..._predefinedRoles.map((r) =>
+                          DropdownMenuItem<String>(
+                              value: r['key'],
+                              child: Text(r['label']!))),
                     ],
-                    onChanged: (v) => setDialogState(() => selectedRoleKey = v),
+                    onChanged: (v) =>
+                        setDialogState(() => selectedRoleKey = v),
                   ),
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
@@ -763,23 +890,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           if (success) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: const Row(
-                                  children: [
-                                    Icon(Icons.check_circle, color: Colors.white),
-                                    SizedBox(width: 12),
-                                    Text('Join request submitted! Awaiting approval.'),
-                                  ],
-                                ),
+                                content: const Row(children: [
+                                  Icon(Icons.check_circle,
+                                      color: Colors.white),
+                                  SizedBox(width: 12),
+                                  Text(
+                                      'Join request submitted! Awaiting approval.'),
+                                ]),
                                 backgroundColor: AppTheme.successColor,
                               ),
                             );
-                            ref.read(profileProvider.notifier).getProfileStatus();
-                            ref.read(authProvider.notifier).loadUserProfile();
+                            ref
+                                .read(profileProvider.notifier)
+                                .getProfileStatus();
+                            ref
+                                .read(authProvider.notifier)
+                                .loadUserProfile();
                           } else {
-                            final error = ref.read(profileProvider).error;
+                            final error =
+                                ref.read(profileProvider).error;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(error ?? 'Failed to join organization'),
+                                content: Text(
+                                    error ?? 'Failed to join organization'),
                                 backgroundColor: AppTheme.errorColor,
                               ),
                             );

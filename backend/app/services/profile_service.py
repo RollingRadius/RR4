@@ -301,7 +301,7 @@ class ProfileService:
         self.db.add(audit_log)
 
     def change_role(self, user_id: uuid.UUID, profile_data: dict) -> dict:
-        """Allow Independent Users to change their role"""
+        """Allow Independent Users and Pending Users to change their role/company"""
         user = self.db.query(User).filter(User.id == user_id).first()
 
         if not user:
@@ -323,35 +323,46 @@ class ProfileService:
 
         current_role = self.db.query(Role).filter(Role.id == user_org.role_id).first()
 
-        # Only Independent Users can change role
-        if not current_role or not current_role.is_independent_user():
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Only Independent Users can change their role. Users with company affiliations cannot change roles."
-            )
+        is_independent = current_role and current_role.is_independent_user()
+        is_pending = current_role and current_role.is_pending_user()
 
-        # Ensure user has no organization
-        if user_org.organization_id is not None:
+        # Only Independent Users and Pending Users can change their role/company
+        if not is_independent and not is_pending:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot change role while affiliated with an organization"
+                detail="Active organization members cannot change their role directly. Contact your organization admin."
             )
 
         role_type = profile_data['role_type']
 
-        # Independent users cannot change back to independent
-        if role_type == 'independent':
+        # Cannot re-select independent if already independent
+        if role_type == 'independent' and is_independent:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You are already an Independent User"
+            )
+
+        # Pending users cannot become a driver directly — go independent first
+        if role_type == 'driver' and is_pending:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cancel your pending request first (go back to Independent User) before registering as a driver."
             )
 
         role = None
         company = None
         driver_id = None
 
+        # Handle going back to Independent (only valid for pending users)
+        if role_type == 'independent':
+            role = self._get_role_by_key('independent_user')
+            user_org.organization_id = None
+            user_org.role_id = role.id
+            user_org.status = 'active'
+            user_org.requested_role_id = None
+
         # Handle different role types
-        if role_type == 'driver':
+        elif role_type == 'driver':
             # Create driver profile
             if not profile_data.get('license_number'):
                 raise HTTPException(

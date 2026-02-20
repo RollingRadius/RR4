@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/profile_provider.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
@@ -124,24 +125,30 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
 
     if (mounted) {
       if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('Profile completed successfully!'),
-              ],
+        // Refresh token so the new JWT carries the updated role/company context,
+        // and authState.user reflects the owner role instead of independent.
+        await ref.read(authProvider.notifier).refreshToken();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Text('Profile completed successfully!'),
+                ],
+              ),
+              backgroundColor: AppTheme.successColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            backgroundColor: AppTheme.successColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        );
-        // Navigate to dashboard
-        context.go(AppConstants.routeDashboard);
+          );
+          // Navigate to dashboard
+          context.go(AppConstants.routeDashboard);
+        }
       } else {
         final error = ref.read(profileProvider).error;
         _showError(error ?? 'Failed to complete profile');
@@ -469,15 +476,18 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
           controller: _companySearchController,
           decoration: InputDecoration(
             labelText: 'Search Company',
-            hintText: 'Enter company name',
+            hintText: 'Enter at least 3 characters',
             prefixIcon: const Icon(Icons.search),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
             ),
           ),
           onChanged: (value) {
-            if (value.length >= 2) {
-              _searchCompanies(value);
+            if (value.trim().length >= 3) {
+              _searchCompanies(value.trim());
+            } else if (value.trim().length < 3) {
+              // Clear results when query is too short
+              ref.read(companyProvider.notifier).clearSearchResults();
             }
           },
         ),
@@ -542,15 +552,11 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
           style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
+        DropdownButton<String>(
           value: _selectedRoleKey,
-          decoration: InputDecoration(
-            hintText: 'Select your desired role',
-            prefixIcon: const Icon(Icons.badge_outlined),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
+          isExpanded: true,
+          hint: const Text('No preference'),
+          underline: Container(height: 1, color: Colors.grey.shade400),
           items: [
             const DropdownMenuItem<String>(
               value: null,
