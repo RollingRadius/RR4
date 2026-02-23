@@ -65,7 +65,7 @@ class VehicleNotifier extends StateNotifier<VehicleState> {
       'driver': v['current_driver_name'] as String?,
       'mileage': (v['current_odometer'] as num?)?.toDouble() ?? 0.0,
       'fuelType': _capitalize(v['fuel_type'] as String? ?? ''),
-      'photo_url': v['photo_url'] as String?,
+      'vehicle_type': v['vehicle_type'] as String? ?? '',
     };
   }
 

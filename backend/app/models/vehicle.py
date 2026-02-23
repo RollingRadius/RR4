@@ -2,7 +2,7 @@
 Vehicle and VehicleDocument models for fleet management.
 """
 from datetime import date, datetime, timedelta
-from sqlalchemy import Column, String, Integer, Date, DateTime, Text, Numeric, ForeignKey, CheckConstraint
+from sqlalchemy import Column, String, Integer, Date, DateTime, Text, Numeric, ForeignKey, CheckConstraint, LargeBinary
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
@@ -44,7 +44,8 @@ class Vehicle(Base):
     fitness_certificate_expiry = Column(Date, nullable=True)
 
     notes = Column(Text, nullable=True)
-    photo_url = Column(String(500), nullable=True)
+    photo = Column(LargeBinary, nullable=True)
+    photo_content_type = Column(String(50), nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -173,7 +174,7 @@ class Vehicle(Base):
             "pollution_certificate_expiry": self.pollution_certificate_expiry.isoformat() if self.pollution_certificate_expiry else None,
             "fitness_certificate_expiry": self.fitness_certificate_expiry.isoformat() if self.fitness_certificate_expiry else None,
             "notes": self.notes,
-            "photo_url": self.photo_url,
+            "has_photo": self.photo is not None,
             "created_by": str(self.created_by) if self.created_by else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

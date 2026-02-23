@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
-import 'package:fleet_management/providers/vehicle_provider.dart';
 import 'package:fleet_management/core/config/app_config.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/vehicle_provider.dart';
 
 class VehiclesListScreen extends ConsumerStatefulWidget {
   const VehiclesListScreen({super.key});
@@ -56,6 +57,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
     final isLoading = vehicleState.isLoading;
     final vehicles = vehicleState.vehicles;
     final filteredVehicles = _filterAndSortVehicles(vehicles);
+    final token = ref.watch(authProvider).token;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -87,7 +89,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                                 setState(() => _selectedFilter = 'all');
                               },
                             )
-                          : _buildVehiclesList(filteredVehicles),
+                          : _buildVehiclesList(filteredVehicles, token),
             ),
           ),
         ],
@@ -340,16 +342,16 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
     );
   }
 
-  Widget _buildVehiclesList(List<Map<String, dynamic>> vehicles) {
+  Widget _buildVehiclesList(List<Map<String, dynamic>> vehicles, String? token) {
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 300),
       child: _isGridView
-          ? _buildGridView(vehicles)
-          : _buildListView(vehicles),
+          ? _buildGridView(vehicles, token)
+          : _buildListView(vehicles, token),
     );
   }
 
-  Widget _buildGridView(List<Map<String, dynamic>> vehicles) {
+  Widget _buildGridView(List<Map<String, dynamic>> vehicles, String? token) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final crossAxisCount = constraints.maxWidth > 1200
@@ -386,6 +388,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
               },
               child: _EnhancedVehicleCard(
                 vehicle: vehicles[index],
+                token: token,
                 onTap: () => context.push(
                   '/vehicles/${vehicles[index]['id']}/analytics',
                   extra: {'vehicleName': '${vehicles[index]['make']} ${vehicles[index]['model']}'},
@@ -398,7 +401,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
     );
   }
 
-  Widget _buildListView(List<Map<String, dynamic>> vehicles) {
+  Widget _buildListView(List<Map<String, dynamic>> vehicles, String? token) {
     return ListView.builder(
       key: const ValueKey('list'),
       padding: const EdgeInsets.all(16),
@@ -419,6 +422,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
           },
           child: _EnhancedVehicleListTile(
             vehicle: vehicles[index],
+            token: token,
             onTap: () => context.push(
               '/vehicles/${vehicles[index]['id']}/analytics',
               extra: {'vehicleName': '${vehicles[index]['make']} ${vehicles[index]['model']}'},
@@ -711,10 +715,12 @@ class _ViewToggleButton extends StatelessWidget {
 // Enhanced Vehicle Card (Grid View)
 class _EnhancedVehicleCard extends StatefulWidget {
   final Map<String, dynamic> vehicle;
+  final String? token;
   final VoidCallback onTap;
 
   const _EnhancedVehicleCard({
     required this.vehicle,
+    required this.token,
     required this.onTap,
   });
 
@@ -774,31 +780,23 @@ class _EnhancedVehicleCardState extends State<_EnhancedVehicleCard> {
                       SizedBox(
                         height: 110,
                         width: double.infinity,
-                        child: (widget.vehicle['photo_url'] as String?) != null
-                            ? Image.network(
-                                '${AppConfig.apiBaseUrl}${widget.vehicle['photo_url']}',
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
-                                  child: Center(
-                                    child: Icon(
-                                      _getVehicleIcon(widget.vehicle['type']),
-                                      color: Colors.white.withOpacity(0.5),
-                                      size: 48,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : Container(
-                                decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
-                                child: Center(
-                                  child: Icon(
-                                    _getVehicleIcon(widget.vehicle['type']),
-                                    color: Colors.white.withOpacity(0.5),
-                                    size: 48,
-                                  ),
-                                ),
+                        child: Image.network(
+                          '${AppConfig.apiBaseUrl}/api/vehicles/${widget.vehicle['id']}/photo',
+                          headers: widget.token != null
+                              ? {'Authorization': 'Bearer ${widget.token}'}
+                              : {},
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(
+                            decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
+                            child: Center(
+                              child: Icon(
+                                _getVehicleIcon(widget.vehicle['vehicle_type'] ?? widget.vehicle['type'] ?? ''),
+                                color: Colors.white.withOpacity(0.5),
+                                size: 48,
                               ),
+                            ),
+                          ),
+                        ),
                       ),
                       // Gradient overlay at bottom of photo
                       Positioned(
@@ -1090,10 +1088,12 @@ class _CompactDetailItem extends StatelessWidget {
 // Enhanced Vehicle List Tile
 class _EnhancedVehicleListTile extends StatefulWidget {
   final Map<String, dynamic> vehicle;
+  final String? token;
   final VoidCallback onTap;
 
   const _EnhancedVehicleListTile({
     required this.vehicle,
+    required this.token,
     required this.onTap,
   });
 
@@ -1152,31 +1152,23 @@ class _EnhancedVehicleListTileState extends State<_EnhancedVehicleListTile> {
                     child: SizedBox(
                       width: 64,
                       height: 64,
-                      child: (widget.vehicle['photo_url'] as String?) != null
-                          ? Image.network(
-                              '${AppConfig.apiBaseUrl}${widget.vehicle['photo_url']}',
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
-                                child: Center(
-                                  child: Icon(
-                                    _getVehicleIcon(widget.vehicle['type']),
-                                    color: Colors.white,
-                                    size: 28,
-                                  ),
-                                ),
-                              ),
-                            )
-                          : Container(
-                              decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
-                              child: Center(
-                                child: Icon(
-                                  _getVehicleIcon(widget.vehicle['type']),
-                                  color: Colors.white,
-                                  size: 28,
-                                ),
-                              ),
+                      child: Image.network(
+                        '${AppConfig.apiBaseUrl}/api/vehicles/${widget.vehicle['id']}/photo',
+                        headers: widget.token != null
+                            ? {'Authorization': 'Bearer ${widget.token}'}
+                            : {},
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
+                          child: Center(
+                            child: Icon(
+                              _getVehicleIcon(widget.vehicle['vehicle_type'] ?? widget.vehicle['type'] ?? ''),
+                              color: Colors.white,
+                              size: 28,
                             ),
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),

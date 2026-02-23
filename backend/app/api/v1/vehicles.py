@@ -3,6 +3,7 @@ Vehicle Management API Endpoints
 Handles all vehicle-related operations including CRUD, driver assignment, and document management.
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query, File, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import Optional
 import uuid
@@ -448,9 +449,9 @@ def get_expiring_documents(
     "/{vehicle_id}/photo",
     response_model=dict,
     summary="Upload vehicle photo",
-    description="Upload a photo for a vehicle. Requires vehicle.edit capability."
+    description="Upload a photo for a vehicle (stored as bytea in PostgreSQL). Requires vehicle.edit capability."
 )
-async def upload_vehicle_photo(
+def upload_vehicle_photo(
     vehicle_id: uuid.UUID,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
@@ -458,35 +459,43 @@ async def upload_vehicle_photo(
     db: Session = Depends(get_db),
     _: None = Depends(require_vehicle_edit)
 ):
-    """
-    Upload a photo for a vehicle.
-
-    Required capability: vehicle.edit (FULL access)
-
-    **Path Parameters:**
-    - vehicle_id: UUID of the vehicle
-
-    **Request Body:**
-    - file: Image file (JPEG or PNG, max 5MB)
-
-    **Returns:**
-    - success: True if uploaded successfully
-    - message: Success message
-    - vehicle_id: ID of vehicle
-    - photo_url: URL path to the uploaded photo
-
-    **Errors:**
-    - 400: Invalid file type or size
-    - 404: Vehicle not found
-    """
+    """Upload or replace the vehicle photo (stored as bytea in PostgreSQL)."""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image (JPEG, PNG, etc.)"
+        )
+    photo_bytes = file.file.read()
+    if len(photo_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Photo must be smaller than 5 MB"
+        )
     service = VehicleService(db)
-    result = service.upload_vehicle_photo(
+    return service.upload_vehicle_photo(
         vehicle_id=vehicle_id,
         org_id=uuid.UUID(org_id),
-        user_id=current_user.id,
-        file=file
+        photo_bytes=photo_bytes,
+        content_type=file.content_type,
     )
-    return result
+
+
+@router.get(
+    "/{vehicle_id}/photo",
+    summary="Get vehicle photo",
+    description="Return the vehicle photo bytes."
+)
+def get_vehicle_photo(
+    vehicle_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    org_id: str = Depends(get_current_organization),
+    db: Session = Depends(get_db),
+    _: None = Depends(require_vehicle_view)
+):
+    """Return the vehicle's profile photo bytes."""
+    service = VehicleService(db)
+    photo_bytes, content_type = service.get_vehicle_photo(vehicle_id, uuid.UUID(org_id))
+    return Response(content=photo_bytes, media_type=content_type)
 
 
 @router.post(

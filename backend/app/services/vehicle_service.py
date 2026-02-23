@@ -6,22 +6,13 @@ from datetime import date, datetime
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, func
-from fastapi import HTTPException, status, UploadFile
+from fastapi import HTTPException, status
 import uuid
-import os
-from pathlib import Path
 
 from app.models.vehicle import Vehicle, VehicleDocument
 from app.models.driver import Driver
 from app.models.company import Organization
 from app.models.audit_log import AuditLog
-from app.config import settings
-
-
-# Photo upload constants
-ALLOWED_PHOTO_TYPES = {"image/png", "image/jpeg", "image/jpg"}
-ALLOWED_PHOTO_EXTENSIONS = {".png", ".jpg", ".jpeg"}
-MAX_PHOTO_SIZE = 5 * 1024 * 1024  # 5MB
 from app.schemas.vehicle import (
     VehicleCreateRequest,
     VehicleUpdateRequest,
@@ -627,91 +618,31 @@ class VehicleService:
         self,
         vehicle_id: uuid.UUID,
         org_id: uuid.UUID,
-        user_id: uuid.UUID,
-        file: UploadFile
+        photo_bytes: bytes,
+        content_type: str,
     ) -> Dict[str, Any]:
-        """
-        Upload a photo for a vehicle.
-
-        Args:
-            vehicle_id: Vehicle ID
-            org_id: Organization ID
-            user_id: ID of user uploading the photo
-            file: Photo file (JPEG or PNG)
-
-        Returns:
-            Dictionary with success status and photo URL
-
-        Raises:
-            HTTPException: If file validation fails or vehicle not found
-        """
-        # Validate file type
-        if file.content_type not in ALLOWED_PHOTO_TYPES:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid file type. Allowed types: PNG, JPG, JPEG"
-            )
-
-        # Validate file extension
-        file_ext = Path(file.filename).suffix.lower()
-        if file_ext not in ALLOWED_PHOTO_EXTENSIONS:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid file extension. Allowed: .png, .jpg, .jpeg"
-            )
-
-        # Read file content and check size
-        file_content = file.file.read()
-        file_size = len(file_content)
-
-        if file_size > MAX_PHOTO_SIZE:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File size exceeds maximum allowed size of {MAX_PHOTO_SIZE // 1024 // 1024}MB"
-            )
-
-        # Get vehicle (validates org ownership)
+        """Store vehicle photo as bytea in PostgreSQL."""
         vehicle = self.get_vehicle_by_id(vehicle_id, org_id)
-
-        # Delete old photo if exists
-        if vehicle.photo_url:
-            self._delete_photo_file(vehicle.photo_url)
-
-        # Create upload directory
-        photo_dir = Path(settings.UPLOAD_DIR) / "vehicles" / str(vehicle_id)
-        photo_dir.mkdir(parents=True, exist_ok=True)
-
-        # Generate unique filename
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-        filename = f"photo_{timestamp}{file_ext}"
-        file_path = photo_dir / filename
-
-        # Save file
-        with open(file_path, "wb") as f:
-            f.write(file_content)
-
-        # Update vehicle
-        vehicle.photo_url = f"/uploads/vehicles/{vehicle_id}/{filename}"
+        vehicle.photo = photo_bytes
+        vehicle.photo_content_type = content_type
         vehicle.updated_at = datetime.utcnow()
-
         self.db.commit()
-        self.db.refresh(vehicle)
-
         return {
             "success": True,
             "message": "Photo uploaded successfully",
             "vehicle_id": str(vehicle.id),
-            "photo_url": vehicle.photo_url
         }
 
-    def _delete_photo_file(self, photo_url: str) -> None:
-        """Delete photo file from filesystem."""
-        if not photo_url:
-            return
-        relative_path = photo_url.lstrip('/')
-        file_path = Path(relative_path)
-        if file_path.exists():
-            try:
-                file_path.unlink()
-            except Exception as e:
-                print(f"Error deleting photo file {file_path}: {e}")
+    def get_vehicle_photo(
+        self,
+        vehicle_id: uuid.UUID,
+        org_id: uuid.UUID,
+    ):
+        """Return (bytes, content_type) for a vehicle photo."""
+        vehicle = self.get_vehicle_by_id(vehicle_id, org_id)
+        if not vehicle.photo:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No photo uploaded for this vehicle",
+            )
+        return vehicle.photo, vehicle.photo_content_type or "image/jpeg"
