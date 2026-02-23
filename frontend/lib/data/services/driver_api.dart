@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:fleet_management/data/services/api_service.dart';
 import 'package:fleet_management/data/models/driver_model.dart';
 
@@ -90,6 +92,32 @@ class DriverApi {
       throw _apiService.handleError(e);
     }
   }
+
+  /// Upload driver profile photo (stored as bytea in PostgreSQL)
+  Future<void> uploadDriverPhoto({
+    required String driverId,
+    required String filePath,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(
+          filePath,
+          filename: 'driver_photo.jpg',
+        ),
+      });
+      await _apiService.dio.post(
+        '/api/drivers/$driverId/photo',
+        data: formData,
+        options: Options(contentType: 'multipart/form-data'),
+      );
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
+  /// Get the URL to stream a driver's photo
+  String driverPhotoUrl(String driverId) =>
+      '${_apiService.dio.options.baseUrl}/api/drivers/$driverId/photo';
 
   /// Check driver's license expiry status
   Future<Map<String, dynamic>> checkLicenseExpiry(String driverId) async {

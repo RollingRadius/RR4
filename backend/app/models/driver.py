@@ -3,7 +3,7 @@ Driver and DriverLicense Models
 Represents drivers and their license information in the fleet management system
 """
 
-from sqlalchemy import Column, String, Text, Date, DateTime, Boolean, ForeignKey, CheckConstraint, Index
+from sqlalchemy import Column, String, Text, Date, DateTime, Boolean, ForeignKey, CheckConstraint, Index, LargeBinary
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -69,6 +69,10 @@ class Driver(Base):
     emergency_contact_name = Column(String(255), nullable=True)
     emergency_contact_phone = Column(String(20), nullable=True)
     emergency_contact_relationship = Column(String(50), nullable=True)
+
+    # Profile Photo (stored as bytea in PostgreSQL)
+    photo = Column(LargeBinary, nullable=True)
+    photo_content_type = Column(String(50), nullable=True)
 
     # GPS Tracking
     tracking_enabled = Column(Boolean, nullable=False, default=False, server_default='false')

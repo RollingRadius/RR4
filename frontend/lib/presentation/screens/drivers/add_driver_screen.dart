@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:fleet_management/providers/driver_provider.dart';
 
 class AddDriverScreen extends ConsumerStatefulWidget {
@@ -52,6 +54,9 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
 
   // Role
   String _selectedRole = 'driver';
+
+  // Photo
+  File? _selectedPhoto;
 
   bool _isSubmitting = false;
 
@@ -147,6 +152,21 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
     if (picked != null) onPicked(picked);
   }
 
+  // ── Photo Picker ─────────────────────────────────────────────────────────────
+
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 85,
+    );
+    if (picked != null) {
+      setState(() => _selectedPhoto = File(picked.path));
+    }
+  }
+
   // ── Submit ────────────────────────────────────────────────────────────────────
 
   Future<void> _submitForm() async {
@@ -238,20 +258,44 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
         driverData['emergency_contact_relationship'] = _emergencyContactRelationship!;
       }
 
-      final success = await ref.read(driverProvider.notifier).addDriver(driverData);
+      final result = await ref.read(driverApiProvider).createDriver(driverData);
+      final driverId = result['driver_id'] as String?;
 
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Driver added successfully!')),
-        );
+      // Upload photo if selected
+      String? photoError;
+      if (_selectedPhoto != null && driverId != null) {
+        try {
+          await ref.read(driverApiProvider).uploadDriverPhoto(
+            driverId: driverId,
+            filePath: _selectedPhoto!.path,
+          );
+        } catch (e) {
+          photoError = e.toString().replaceFirst('Exception: ', '');
+          debugPrint('Driver photo upload error: $e');
+        }
+      }
+
+      // Reload drivers list
+      await ref.read(driverProvider.notifier).loadDrivers();
+
+      if (mounted) {
+        if (photoError != null) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Driver added, but photo upload failed: $photoError'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 6),
+          ));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Driver added successfully!')),
+          );
+        }
         context.pop();
-      } else if (mounted) {
-        final error = ref.read(driverProvider).error ?? 'Failed to add driver';
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        final msg = e.toString().replaceFirst('Exception: ', '');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
       }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -374,7 +418,7 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                 children: [
                   // Photo upload
                   GestureDetector(
-                    onTap: () {},
+                    onTap: _pickPhoto,
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 24),
                       decoration: BoxDecoration(
@@ -397,7 +441,16 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                                     BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 8),
                                   ],
                                 ),
-                                child: Icon(Icons.add_a_photo, size: 36, color: Colors.grey[400]),
+                                child: _selectedPhoto != null
+                                    ? ClipOval(
+                                        child: Image.file(
+                                          _selectedPhoto!,
+                                          fit: BoxFit.cover,
+                                          width: 96,
+                                          height: 96,
+                                        ),
+                                      )
+                                    : Icon(Icons.add_a_photo, size: 36, color: Colors.grey[400]),
                               ),
                               Positioned(
                                 bottom: 0,
@@ -415,9 +468,9 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                             ],
                           ),
                           const SizedBox(height: 10),
-                          const Text(
-                            'Upload Profile Photo',
-                            style: TextStyle(color: _primary, fontWeight: FontWeight.w600, fontSize: 13),
+                          Text(
+                            _selectedPhoto != null ? 'Photo selected — tap to change' : 'Upload Profile Photo',
+                            style: const TextStyle(color: _primary, fontWeight: FontWeight.w600, fontSize: 13),
                           ),
                           Text('PNG, JPG up to 5MB',
                               style: TextStyle(fontSize: 11, color: Colors.grey[500])),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/core/config/app_config.dart';
 import 'dart:math' as math;
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -16,6 +17,7 @@ class _VehicleData {
   final double level;
   final bool isAlert;
   final IconData vehicleIcon;
+  final String? photoUrl;
 
   const _VehicleData({
     required this.id,
@@ -25,6 +27,7 @@ class _VehicleData {
     required this.level,
     this.isAlert = false,
     this.vehicleIcon = Icons.local_shipping_rounded,
+    this.photoUrl,
   });
 }
 
@@ -46,6 +49,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   _VehicleData _toVehicleData(Map<String, dynamic> v) {
     final status = (v['status'] as String? ?? '').toLowerCase();
     final type = (v['type'] as String? ?? '').toLowerCase();
+    final rawPhoto = v['photo_url'] as String?;
     return _VehicleData(
       id: v['vehicle_number'] as String? ?? v['registration'] as String? ?? '',
       name: v['registration'] as String? ?? '',
@@ -60,6 +64,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       level: status == 'active' ? 0.75 : 0.30,
       isAlert: status == 'maintenance' || status == 'inactive',
       vehicleIcon: _iconForType(type),
+      photoUrl: rawPhoto != null ? '${AppConfig.apiBaseUrl}$rawPhoto' : null,
     );
   }
 
@@ -1134,16 +1139,28 @@ class _VehicleCardState extends State<_VehicleCard>
             children: [
               Row(
                 children: [
-                  // Vehicle type icon
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: _vehicleIconColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(13),
+                  // Vehicle photo or icon
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(13),
+                    child: SizedBox(
+                      width: 46,
+                      height: 46,
+                      child: widget.vehicle.photoUrl != null
+                          ? Image.network(
+                              widget.vehicle.photoUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: _vehicleIconColor.withOpacity(0.1),
+                                child: Icon(widget.vehicle.vehicleIcon,
+                                    color: _vehicleIconColor, size: 22),
+                              ),
+                            )
+                          : Container(
+                              color: _vehicleIconColor.withOpacity(0.1),
+                              child: Icon(widget.vehicle.vehicleIcon,
+                                  color: _vehicleIconColor, size: 22),
+                            ),
                     ),
-                    child: Icon(widget.vehicle.vehicleIcon,
-                        color: _vehicleIconColor, size: 22),
                   ),
                   const SizedBox(width: 12),
                   // Info

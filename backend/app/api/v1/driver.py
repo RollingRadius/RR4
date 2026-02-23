@@ -3,7 +3,8 @@ Driver Management API Endpoints
 Driver CRUD operations for fleet management
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -337,6 +338,48 @@ def delete_driver(
     )
 
     return result
+
+
+@router.post("/{driver_id}/photo", response_model=dict)
+def upload_driver_photo(
+    driver_id: str,
+    file: UploadFile = File(...),
+    org_id: str = Depends(get_current_organization),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Upload or replace the driver's profile photo (stored as bytea in PostgreSQL)."""
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be an image (JPEG, PNG, etc.)"
+        )
+    photo_bytes = file.file.read()
+    if len(photo_bytes) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Photo must be smaller than 5 MB"
+        )
+    driver_service = DriverService(db)
+    return driver_service.upload_driver_photo(
+        driver_id=driver_id,
+        org_id=org_id,
+        photo_bytes=photo_bytes,
+        content_type=file.content_type,
+    )
+
+
+@router.get("/{driver_id}/photo")
+def get_driver_photo(
+    driver_id: str,
+    org_id: str = Depends(get_current_organization),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Return the driver's profile photo bytes."""
+    driver_service = DriverService(db)
+    photo_bytes, content_type = driver_service.get_driver_photo(driver_id, org_id)
+    return Response(content=photo_bytes, media_type=content_type)
 
 
 @router.get("/{driver_id}/license-status", response_model=dict)

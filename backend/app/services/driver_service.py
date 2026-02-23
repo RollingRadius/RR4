@@ -138,9 +138,11 @@ class DriverService:
             email=driver_data.get('email'),
             phone=driver_data['phone'],
             full_name=f"{driver_data['first_name']} {driver_data['last_name']}",
-            hashed_password=hash_password(password),
-            is_verified=True,  # Auto-verify driver accounts created by owner
-            profile_status='complete'
+            password_hash=hash_password(password),
+            auth_method='security_questions',
+            status='active',
+            email_verified=True,
+            profile_completed=True,
         )
 
         self.db.add(driver_user)
@@ -489,6 +491,35 @@ class DriverService:
             "message": "Driver deleted successfully",
             "driver_id": str(driver_id)
         }
+
+    def upload_driver_photo(
+        self,
+        driver_id: str,
+        org_id: str,
+        photo_bytes: bytes,
+        content_type: str,
+    ) -> Dict[str, Any]:
+        """Store driver photo as bytea in PostgreSQL."""
+        driver = self.get_driver_by_id(driver_id, org_id)
+        driver.photo = photo_bytes
+        driver.photo_content_type = content_type
+        self.db.commit()
+        return {"success": True, "message": "Photo uploaded successfully"}
+
+    def get_driver_photo(
+        self,
+        driver_id: str,
+        org_id: str,
+    ):
+        """Return (photo_bytes, content_type) or raise 404."""
+        driver = self.get_driver_by_id(driver_id, org_id)
+        if not driver.photo:
+            from fastapi import HTTPException, status as http_status
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND,
+                detail="No photo found for this driver"
+            )
+        return driver.photo, driver.photo_content_type or "image/jpeg"
 
     def validate_license_expiry(self, driver_id: str, org_id: str) -> Dict[str, Any]:
         """

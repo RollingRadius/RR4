@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/providers/vehicle_provider.dart';
+import 'package:fleet_management/providers/driver_provider.dart';
 
-class FleetHubScreen extends StatefulWidget {
+class FleetHubScreen extends ConsumerStatefulWidget {
   const FleetHubScreen({super.key});
 
   @override
-  State<FleetHubScreen> createState() => _FleetHubScreenState();
+  ConsumerState<FleetHubScreen> createState() => _FleetHubScreenState();
 }
 
-class _FleetHubScreenState extends State<FleetHubScreen>
+class _FleetHubScreenState extends ConsumerState<FleetHubScreen>
     with SingleTickerProviderStateMixin {
   // ─── Animation setup ───────────────────────────────────────────────────────
   late final AnimationController _ctrl;
@@ -77,6 +80,11 @@ class _FleetHubScreenState extends State<FleetHubScreen>
     _slideAlerts = _slide(0.50, 0.85);
 
     _ctrl.forward();
+
+    Future.microtask(() {
+      ref.read(vehicleProvider.notifier).loadVehicles();
+      ref.read(driverProvider.notifier).loadDrivers();
+    });
   }
 
   @override
@@ -89,9 +97,31 @@ class _FleetHubScreenState extends State<FleetHubScreen>
 
   @override
   Widget build(BuildContext context) {
+    final vehicles = ref.watch(vehicleProvider).vehicles;
+    final driverState = ref.watch(driverProvider);
+
+    final totalVehicles = vehicles.length;
+    final activeVehicles = vehicles.where((v) =>
+        (v['status'] as String).toLowerCase() == 'active').length;
+    final serviceVehicles = vehicles.where((v) =>
+        (v['status'] as String).toLowerCase() == 'maintenance').length;
+    final alertCount = vehicles.where((v) {
+      final s = (v['status'] as String).toLowerCase();
+      return s == 'maintenance' || s == 'inactive';
+    }).length;
+
+    final totalDrivers = driverState.drivers.length;
+    final activeDrivers = driverState.drivers
+        .where((d) => d.isActive).length;
+    final pendingDrivers = totalDrivers - activeDrivers;
+    final uptime = totalVehicles > 0
+        ? '${(activeVehicles / totalVehicles * 100).round()}%'
+        : '—';
+
     return Column(
       children: [
-        _AnimItem(fade: _fadeHeader, slide: _slideHeader, child: _buildHeader()),
+        _AnimItem(fade: _fadeHeader, slide: _slideHeader,
+            child: _buildHeader(alertCount)),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -101,13 +131,14 @@ class _FleetHubScreenState extends State<FleetHubScreen>
                 _AnimItem(
                   fade: _fadeBanner,
                   slide: _slideBanner,
-                  child: _buildSummaryBanner(),
+                  child: _buildSummaryBanner(
+                    totalVehicles, totalDrivers, alertCount, uptime),
                 ),
                 const SizedBox(height: 22),
                 _AnimItem(
                   fade: _fadeCard1,
                   slide: _slideCard1,
-                  child: _SectionLabel(label: 'MANAGE'),
+                  child: const _SectionLabel(label: 'MANAGE'),
                 ),
                 const SizedBox(height: 10),
                 _AnimItem(
@@ -123,11 +154,13 @@ class _FleetHubScreenState extends State<FleetHubScreen>
                     ),
                     title: 'Fleet Vehicles',
                     description: 'Track, add and manage all vehicles',
-                    count: '12',
+                    count: '$totalVehicles',
                     countLabel: 'Total vehicles',
-                    chips: const [
-                      _Chip(label: '10 Active', color: Color(0xFF22C55E)),
-                      _Chip(label: '2 In Service', color: Color(0xFFF59E0B)),
+                    chips: [
+                      _Chip(label: '$activeVehicles Active',
+                          color: const Color(0xFF22C55E)),
+                      _Chip(label: '$serviceVehicles In Service',
+                          color: const Color(0xFFF59E0B)),
                     ],
                     onTap: () => context.push('/vehicles'),
                   ),
@@ -146,11 +179,13 @@ class _FleetHubScreenState extends State<FleetHubScreen>
                     ),
                     title: 'Workers',
                     description: 'Drivers, assignments and onboarding',
-                    count: '8',
+                    count: '$totalDrivers',
                     countLabel: 'Total drivers',
-                    chips: const [
-                      _Chip(label: '6 Active', color: Color(0xFF7C3AED)),
-                      _Chip(label: '1 Pending', color: Color(0xFF94A3B8)),
+                    chips: [
+                      _Chip(label: '$activeDrivers Active',
+                          color: const Color(0xFF7C3AED)),
+                      _Chip(label: '$pendingDrivers Inactive',
+                          color: const Color(0xFF94A3B8)),
                     ],
                     onTap: () => context.push('/drivers'),
                   ),
@@ -191,7 +226,7 @@ class _FleetHubScreenState extends State<FleetHubScreen>
 
   // ─── Header ────────────────────────────────────────────────────────────────
 
-  Widget _buildHeader() {
+  Widget _buildHeader(int alertCount) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -270,9 +305,9 @@ class _FleetHubScreenState extends State<FleetHubScreen>
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 1.5),
                         ),
-                        child: const Center(
-                          child: Text('1',
-                              style: TextStyle(
+                        child: Center(
+                          child: Text('$alertCount',
+                              style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 8,
                                   fontWeight: FontWeight.bold)),
@@ -291,7 +326,8 @@ class _FleetHubScreenState extends State<FleetHubScreen>
 
   // ─── Summary banner ────────────────────────────────────────────────────────
 
-  Widget _buildSummaryBanner() {
+  Widget _buildSummaryBanner(
+      int totalVehicles, int totalDrivers, int alertCount, String uptime) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
@@ -310,7 +346,7 @@ class _FleetHubScreenState extends State<FleetHubScreen>
         children: [
           Expanded(
             child: _SummaryTile(
-              value: '12',
+              value: '$totalVehicles',
               label: 'Vehicles',
               icon: Icons.local_shipping_rounded,
               color: AppTheme.primaryBlue,
@@ -319,7 +355,7 @@ class _FleetHubScreenState extends State<FleetHubScreen>
           _VSeparator(),
           Expanded(
             child: _SummaryTile(
-              value: '8',
+              value: '$totalDrivers',
               label: 'Drivers',
               icon: Icons.badge_rounded,
               color: const Color(0xFF7C3AED),
@@ -328,7 +364,7 @@ class _FleetHubScreenState extends State<FleetHubScreen>
           _VSeparator(),
           Expanded(
             child: _SummaryTile(
-              value: '1',
+              value: '$alertCount',
               label: 'Alerts',
               icon: Icons.warning_amber_rounded,
               color: const Color(0xFFEF4444),
@@ -337,7 +373,7 @@ class _FleetHubScreenState extends State<FleetHubScreen>
           _VSeparator(),
           Expanded(
             child: _SummaryTile(
-              value: '94%',
+              value: uptime,
               label: 'Uptime',
               icon: Icons.check_circle_outline_rounded,
               color: const Color(0xFF22C55E),
@@ -651,7 +687,6 @@ class _HubCardState extends State<_HubCard>
         ),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: widget.color.withOpacity(0.12)),
             boxShadow: [
@@ -662,7 +697,13 @@ class _HubCardState extends State<_HubCard>
               ),
             ],
           ),
-          child: Row(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(17),
+            child: ColoredBox(
+            color: Colors.white,
+            child: IntrinsicHeight(
+            child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Left colored accent strip + icon
               Container(
@@ -670,10 +711,6 @@ class _HubCardState extends State<_HubCard>
                 padding: const EdgeInsets.symmetric(vertical: 22),
                 decoration: BoxDecoration(
                   gradient: widget.gradient,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(17),
-                    bottomLeft: Radius.circular(17),
-                  ),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -744,10 +781,13 @@ class _HubCardState extends State<_HubCard>
                     size: 14, color: widget.color.withOpacity(0.5)),
               ),
             ],
-          ),
-        ),
-      ),
-    );
+            ),              // Row
+          ),                // IntrinsicHeight
+          ),                // ColoredBox
+          ),                // ClipRRect
+        ),                  // Container
+      ),                    // AnimatedBuilder
+    );                      // GestureDetector
   }
 }
 
