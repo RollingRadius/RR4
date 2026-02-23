@@ -10,6 +10,7 @@ from datetime import date
 import uuid
 
 from app.models.driver import Driver, DriverLicense
+from app.models.vehicle import Vehicle
 from app.models.company import Organization
 from app.models.user import User
 from app.models.role import Role
@@ -275,7 +276,8 @@ class DriverService:
             HTTPException: If driver not found or not in organization
         """
         driver = self.db.query(Driver).options(
-            joinedload(Driver.license)
+            joinedload(Driver.license),
+            joinedload(Driver.assigned_vehicles).joinedload(Vehicle.assigned_by)
         ).filter(
             Driver.id == driver_id,
             Driver.organization_id == org_id

@@ -47,6 +47,8 @@ class Vehicle(Base):
     photo = Column(LargeBinary, nullable=True)
     photo_content_type = Column(String(50), nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assigned_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assigned_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -55,6 +57,7 @@ class Vehicle(Base):
     current_driver = relationship("Driver", foreign_keys=[current_driver_id], back_populates="assigned_vehicles")
     documents = relationship("VehicleDocument", back_populates="vehicle", cascade="all, delete-orphan")
     creator = relationship("User", foreign_keys=[created_by])
+    assigned_by = relationship("User", foreign_keys=[assigned_by_user_id])
 
     # Check constraints
     __table_args__ = (
@@ -176,6 +179,9 @@ class Vehicle(Base):
             "notes": self.notes,
             "has_photo": self.photo is not None,
             "created_by": str(self.created_by) if self.created_by else None,
+            "assigned_by_user_id": str(self.assigned_by_user_id) if self.assigned_by_user_id else None,
+            "assigned_by_name": self.assigned_by.full_name if self.assigned_by else None,
+            "assigned_at": self.assigned_at.isoformat() if self.assigned_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

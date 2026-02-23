@@ -184,7 +184,7 @@ def get_drivers(
     )
 
 
-@router.get("/{driver_id}", response_model=DriverResponse)
+@router.get("/{driver_id}")
 def get_driver_details(
     driver_id: str,
     org_id: str = Depends(get_current_organization),
@@ -214,7 +214,7 @@ def get_driver_details(
 
     driver = driver_service.get_driver_by_id(driver_id, org_id)
 
-    return DriverResponse(
+    response = DriverResponse(
         driver_id=str(driver.id),
         organization_id=str(driver.organization_id),
         employee_id=driver.employee_id,
@@ -238,6 +238,29 @@ def get_driver_details(
         created_at=driver.created_at,
         updated_at=driver.updated_at
     )
+
+    result = response.model_dump()
+
+    # Attach assigned vehicle info (vehicle where current_driver_id = this driver)
+    assigned_vehicle = None
+    if driver.assigned_vehicles:
+        v = driver.assigned_vehicles[0]
+        assigned_vehicle = {
+            "vehicle_id": str(v.id),
+            "vehicle_number": v.vehicle_number,
+            "registration_number": v.registration_number,
+            "manufacturer": v.manufacturer,
+            "model": v.model,
+            "year": v.year,
+            "vehicle_type": v.vehicle_type,
+            "fuel_type": v.fuel_type,
+            "status": v.status,
+            "assigned_by_name": v.assigned_by.full_name if v.assigned_by else None,
+            "assigned_at": v.assigned_at.isoformat() if v.assigned_at else None,
+        }
+    result["assigned_vehicle"] = assigned_vehicle
+
+    return result
 
 
 @router.put("/{driver_id}", response_model=dict)

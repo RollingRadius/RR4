@@ -90,6 +90,9 @@ class DriverModel {
   // License Information
   final DriverLicenseModel? license;
 
+  // Assigned Vehicle
+  final Map<String, dynamic>? assignedVehicle;
+
   // Timestamps
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -114,6 +117,7 @@ class DriverModel {
     this.emergencyContactPhone,
     this.emergencyContactRelationship,
     this.license,
+    this.assignedVehicle,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -143,6 +147,7 @@ class DriverModel {
       license: json['license'] != null
           ? DriverLicenseModel.fromJson(json['license'] as Map<String, dynamic>)
           : null,
+      assignedVehicle: json['assigned_vehicle'] as Map<String, dynamic>?,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -242,6 +247,7 @@ class DriverModel {
     String? emergencyContactPhone,
     String? emergencyContactRelationship,
     DriverLicenseModel? license,
+    Map<String, dynamic>? assignedVehicle,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -265,6 +271,7 @@ class DriverModel {
       emergencyContactPhone: emergencyContactPhone ?? this.emergencyContactPhone,
       emergencyContactRelationship: emergencyContactRelationship ?? this.emergencyContactRelationship,
       license: license ?? this.license,
+      assignedVehicle: assignedVehicle ?? this.assignedVehicle,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

@@ -72,6 +72,8 @@ class _DriverDashboardScreenState
                     _licenseWarningBanner(driver.license!),
                     const SizedBox(height: 16),
                   ],
+                  _buildAssignedVehicleCard(driver),
+                  const SizedBox(height: 16),
                   _buildInfoCard(driver),
                   const SizedBox(height: 16),
                   _buildLicenseCard(driver.license),
@@ -413,6 +415,239 @@ class _DriverDashboardScreenState
     );
   }
 
+  // ─── Assigned Vehicle Card ────────────────────────────────────────────────
+
+  Widget _buildAssignedVehicleCard(DriverModel driver) {
+    const primary = Color(0xFFEC5B13);
+    final v = driver.assignedVehicle;
+    final hasVehicle = v != null;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.local_shipping_rounded,
+                    color: primary, size: 18),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Assigned Vehicle',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (!hasVehicle) ...[
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.no_transfer_rounded,
+                      size: 26, color: Colors.grey.shade400),
+                ),
+                const SizedBox(width: 14),
+                Text(
+                  'No vehicle assigned',
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                ),
+              ],
+            ),
+          ] else ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Vehicle icon
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    _vehicleIcon(v['vehicle_type'] as String? ?? ''),
+                    size: 28,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${v['manufacturer'] ?? ''} ${v['model'] ?? ''}'.trim(),
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w700),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        v['vehicle_number'] as String? ?? '—',
+                        style: TextStyle(
+                            fontSize: 12, color: Colors.grey.shade500),
+                      ),
+                    ],
+                  ),
+                ),
+                // Status chip
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _vehicleStatusColor(
+                            v['status'] as String? ?? '')
+                        .withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _capitalize(v['status'] as String? ?? ''),
+                    style: TextStyle(
+                      color: _vehicleStatusColor(
+                          v['status'] as String? ?? ''),
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            // Details grid
+            Row(
+              children: [
+                Expanded(
+                  child: _VehicleInfoChip(
+                    icon: Icons.pin_rounded,
+                    label: 'Reg No',
+                    value: v['registration_number'] as String? ?? '—',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _VehicleInfoChip(
+                    icon: Icons.local_gas_station_rounded,
+                    label: 'Fuel',
+                    value: _capitalize(v['fuel_type'] as String? ?? '—'),
+                  ),
+                ),
+              ],
+            ),
+            if (v['assigned_by_name'] != null || v['assigned_at'] != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (v['assigned_by_name'] != null)
+                    Expanded(
+                      child: _VehicleInfoChip(
+                        icon: Icons.person_add_rounded,
+                        label: 'Assigned by',
+                        value: v['assigned_by_name'] as String,
+                      ),
+                    ),
+                  if (v['assigned_by_name'] != null && v['assigned_at'] != null)
+                    const SizedBox(width: 8),
+                  if (v['assigned_at'] != null)
+                    Expanded(
+                      child: _VehicleInfoChip(
+                        icon: Icons.schedule_rounded,
+                        label: 'Assigned on',
+                        value: _fmtIso(v['assigned_at'] as String),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => context.push(
+                    '/vehicles/${v['vehicle_id']}/analytics'),
+                icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                label: const Text('View Vehicle Details'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: primary,
+                  side: const BorderSide(color: primary),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  textStyle: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  IconData _vehicleIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'truck': return Icons.local_shipping_rounded;
+      case 'bus': return Icons.directions_bus_rounded;
+      case 'van': return Icons.airport_shuttle_rounded;
+      case 'car': return Icons.directions_car_rounded;
+      case 'motorcycle': return Icons.two_wheeler_rounded;
+      default: return Icons.local_shipping_outlined;
+    }
+  }
+
+  Color _vehicleStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'active': return const Color(0xFF15803D);
+      case 'maintenance': return const Color(0xFFD97706);
+      case 'inactive': return const Color(0xFFDC2626);
+      default: return Colors.grey;
+    }
+  }
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  String _fmtIso(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      return '${dt.day.toString().padLeft(2, '0')} '
+          '${_months[dt.month - 1]} ${dt.year}';
+    } catch (_) {
+      return '—';
+    }
+  }
+
+  static const _months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  ];
+
   // ─── Quick Actions ────────────────────────────────────────────────────────
 
   Widget _buildQuickActions() {
@@ -590,6 +825,53 @@ class _DriverAvatar extends StatelessWidget {
             color: Colors.white,
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ─── Vehicle Info Chip ──────────────────────────────────────────────────────
+
+class _VehicleInfoChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+
+  const _VehicleInfoChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F6F6),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: Colors.grey.shade500),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                        fontSize: 9,
+                        color: Colors.grey.shade400,
+                        fontWeight: FontWeight.w500)),
+                Text(value,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

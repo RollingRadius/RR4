@@ -467,6 +467,8 @@ class VehicleService:
 
         # Assign new driver
         vehicle.current_driver_id = driver_id
+        vehicle.assigned_by_user_id = user_id
+        vehicle.assigned_at = datetime.utcnow()
         vehicle.updated_at = datetime.utcnow()
 
         self.db.commit()
@@ -532,6 +534,8 @@ class VehicleService:
 
         # Unassign driver
         vehicle.current_driver_id = None
+        vehicle.assigned_by_user_id = None
+        vehicle.assigned_at = None
         vehicle.updated_at = datetime.utcnow()
 
         self.db.commit()

@@ -62,6 +62,48 @@ class VehicleApi {
     }
   }
 
+  /// Get a single vehicle by ID
+  Future<Map<String, dynamic>> getVehicleById(String vehicleId) async {
+    try {
+      final response = await _dio.get('/api/vehicles/$vehicleId');
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
+  /// Assign a driver to a vehicle
+  Future<Map<String, dynamic>> assignDriver({
+    required String vehicleId,
+    required String driverId,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/api/vehicles/$vehicleId/assign-driver',
+        data: {
+          'driver_id': driverId,
+          'assignment_date': DateTime.now().toIso8601String().split('T')[0],
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
+  /// Remove the driver assigned to a vehicle
+  Future<Map<String, dynamic>> unassignDriver({required String vehicleId}) async {
+    try {
+      final response = await _dio.post(
+        '/api/vehicles/$vehicleId/unassign-driver',
+        data: {'notes': 'Unassigned via fleet management app'},
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
   /// Upload a photo for a vehicle
   Future<Map<String, dynamic>> uploadVehiclePhoto({
     required String vehicleId,
