@@ -153,8 +153,12 @@ app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])
 
 # Mount static files for uploads (logos, vehicle photos, etc.)
 uploads_path = os.path.join(os.getcwd(), settings.UPLOAD_DIR)
-os.makedirs(os.path.join(uploads_path, "logos"), exist_ok=True)
-os.makedirs(os.path.join(uploads_path, "vehicles"), exist_ok=True)
+os.makedirs(uploads_path, exist_ok=True)
+for subdir in ("logos", "vehicles"):
+    try:
+        os.makedirs(os.path.join(uploads_path, subdir), exist_ok=True)
+    except PermissionError:
+        pass  # subdirs will be created on first use if permissions allow
 app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
 
 
