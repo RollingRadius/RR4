@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
-import 'package:fleet_management/providers/driver_provider.dart';
 import 'package:fleet_management/data/models/driver_model.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/driver_provider.dart';
 
 class DriversListScreen extends ConsumerStatefulWidget {
   const DriversListScreen({super.key});
@@ -59,6 +61,7 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
   Widget build(BuildContext context) {
     final driverState = ref.watch(driverProvider);
     final filteredDrivers = _filterAndSortDrivers(driverState.drivers);
+    final token = ref.watch(authProvider).token;
 
     return FadeTransition(
       opacity: _fadeAnimation,
@@ -87,7 +90,7 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
                               setState(() => _selectedFilter = 'all');
                             },
                           )
-                        : _buildDriversList(filteredDrivers),
+                        : _buildDriversList(filteredDrivers, token),
           ),
         ],
       ),
@@ -389,19 +392,19 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
     );
   }
 
-  Widget _buildDriversList(List<DriverModel> drivers) {
+  Widget _buildDriversList(List<DriverModel> drivers, String? token) {
     return RefreshIndicator(
       onRefresh: _refreshDrivers,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 300),
         child: _isGridView
-            ? _buildGridView(drivers)
-            : _buildListView(drivers),
+            ? _buildGridView(drivers, token)
+            : _buildListView(drivers, token),
       ),
     );
   }
 
-  Widget _buildGridView(List<DriverModel> drivers) {
+  Widget _buildGridView(List<DriverModel> drivers, String? token) {
     return LayoutBuilder(
       builder: (context, constraints) {
         final crossAxisCount = constraints.maxWidth > 1200
@@ -438,12 +441,8 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
               },
               child: _EnhancedDriverCard(
                 driver: drivers[index],
-                onTap: () {
-                  ref.read(driverProvider.notifier).selectDriver(drivers[index]);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Selected ${drivers[index].fullName}')),
-                  );
-                },
+                token: token,
+                onTap: () => context.push('/drivers/${drivers[index].driverId}/view'),
                 onDelete: () => _showDeleteConfirmation(context, drivers[index]),
               ),
             );
@@ -453,7 +452,7 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
     );
   }
 
-  Widget _buildListView(List<DriverModel> drivers) {
+  Widget _buildListView(List<DriverModel> drivers, String? token) {
     return ListView.builder(
       key: const ValueKey('list'),
       padding: const EdgeInsets.all(16),
@@ -474,12 +473,8 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
           },
           child: _EnhancedDriverListTile(
             driver: drivers[index],
-            onTap: () {
-              ref.read(driverProvider.notifier).selectDriver(drivers[index]);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Selected ${drivers[index].fullName}')),
-              );
-            },
+            token: token,
+            onTap: () => context.push('/drivers/${drivers[index].driverId}/view'),
             onDelete: () => _showDeleteConfirmation(context, drivers[index]),
           ),
         );
@@ -653,6 +648,86 @@ class _DriversListScreenState extends ConsumerState<DriversListScreen>
     });
 
     return filtered;
+  }
+}
+
+// ─── Driver Photo Avatar ──────────────────────────────────────────────────────
+/// Shows driver photo (GET /api/drivers/{id}/photo with auth header).
+/// Falls back to initial letter on gradient if no photo uploaded.
+class _DriverPhotoAvatar extends StatelessWidget {
+  final String driverId;
+  final String firstName;
+  final String? token;
+  final double size;
+  final Color fallbackColor;
+
+  const _DriverPhotoAvatar({
+    required this.driverId,
+    required this.firstName,
+    required this.token,
+    required this.size,
+    required this.fallbackColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final photoUrl = '${AppConfig.apiBaseUrl}/api/drivers/$driverId/photo';
+    final headers = token != null
+        ? {'Authorization': 'Bearer $token'}
+        : <String, String>{};
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: fallbackColor.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ClipOval(
+        child: Image.network(
+          photoUrl,
+          headers: headers,
+          fit: BoxFit.cover,
+          width: size,
+          height: size,
+          loadingBuilder: (_, child, progress) {
+            if (progress == null) return child;
+            return _fallback();
+          },
+          errorBuilder: (_, __, ___) => _fallback(),
+        ),
+      ),
+    );
+  }
+
+  Widget _fallback() {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [fallbackColor, fallbackColor.withOpacity(0.7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          firstName.isNotEmpty ? firstName[0].toUpperCase() : '?',
+          style: TextStyle(
+            fontSize: size * 0.38,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -836,11 +911,13 @@ class _ViewToggleButton extends StatelessWidget {
 // Enhanced Driver Card (Grid View)
 class _EnhancedDriverCard extends StatefulWidget {
   final DriverModel driver;
+  final String? token;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
   const _EnhancedDriverCard({
     required this.driver,
+    required this.token,
     required this.onTap,
     required this.onDelete,
   });
@@ -956,28 +1033,12 @@ class _EnhancedDriverCardState extends State<_EnhancedDriverCard> {
                     Center(
                       child: Column(
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [statusColor, statusColor.withOpacity(0.7)],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: statusColor.withOpacity(0.3),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.person_rounded,
-                              color: Colors.white,
-                              size: 40,
-                            ),
+                          _DriverPhotoAvatar(
+                            driverId: widget.driver.driverId,
+                            firstName: widget.driver.firstName,
+                            token: widget.token,
+                            size: 80,
+                            fallbackColor: statusColor,
                           ),
                           const SizedBox(height: 12),
                           Text(
@@ -1169,11 +1230,13 @@ class _CompactDetailItem extends StatelessWidget {
 // Enhanced Driver List Tile
 class _EnhancedDriverListTile extends StatefulWidget {
   final DriverModel driver;
+  final String? token;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
   const _EnhancedDriverListTile({
     required this.driver,
+    required this.token,
     required this.onTap,
     required this.onDelete,
   });
@@ -1228,28 +1291,12 @@ class _EnhancedDriverListTileState extends State<_EnhancedDriverListTile> {
               child: Row(
                 children: [
                   // Driver Avatar
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [statusColor, statusColor.withOpacity(0.7)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: statusColor.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.person_rounded,
-                      color: Colors.white,
-                      size: 32,
-                    ),
+                  _DriverPhotoAvatar(
+                    driverId: widget.driver.driverId,
+                    firstName: widget.driver.firstName,
+                    token: widget.token,
+                    size: 64,
+                    fallbackColor: statusColor,
                   ),
                   const SizedBox(width: 16),
 

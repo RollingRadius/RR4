@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/data/models/driver_model.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/driver_provider.dart';
 
 class DriverDashboardScreen extends ConsumerStatefulWidget {
@@ -24,357 +26,267 @@ class _DriverDashboardScreenState
         () => ref.read(driverProvider.notifier).getDriverById(widget.driverId));
   }
 
-  String _greeting() {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'Good morning,';
-    if (h < 17) return 'Good afternoon,';
-    return 'Good evening,';
-  }
-
   @override
   Widget build(BuildContext context) {
     final driverState = ref.watch(driverProvider);
     final driver = driverState.selectedDriver;
+    final token = ref.watch(authProvider).token;
 
     if (driverState.isLoading && driver == null) {
-      return Scaffold(
-        backgroundColor: AppTheme.bgPrimary,
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          leading: IconButton(
-            onPressed: () => context.pop(),
-            icon: const Icon(Icons.arrow_back_rounded,
-                color: AppTheme.textPrimary),
-          ),
+      return const Scaffold(
+        backgroundColor: Color(0xFFF8F6F6),
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFFEC5B13)),
         ),
-        body: const Center(
-            child: CircularProgressIndicator(color: AppTheme.primaryBlue)),
       );
     }
 
     if (driver == null) {
       return Scaffold(
-        backgroundColor: AppTheme.bgPrimary,
+        backgroundColor: const Color(0xFFF8F6F6),
         appBar: AppBar(
-          title: const Text('Driver'),
           backgroundColor: Colors.white,
           elevation: 0,
           leading: IconButton(
             onPressed: () => context.pop(),
-            icon: const Icon(Icons.arrow_back_rounded,
-                color: AppTheme.textPrimary),
+            icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textPrimary),
           ),
+          title: const Text('Driver', style: TextStyle(color: AppTheme.textPrimary)),
         ),
         body: const Center(child: Text('Driver not found')),
       );
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.bgPrimary,
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(child: _buildHeader(driver)),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildActiveTripCard(),
+      backgroundColor: const Color(0xFFF8F6F6),
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverHeader(context, driver, token),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (driver.license != null) ...[
+                    _licenseWarningBanner(driver.license!),
                     const SizedBox(height: 16),
-                    _buildStatsRow(),
-                    const SizedBox(height: 16),
-                    _buildVehicleCard(driver),
-                    const SizedBox(height: 16),
-                    _buildQuickActions(),
                   ],
-                ),
+                  _buildInfoCard(driver),
+                  const SizedBox(height: 16),
+                  _buildLicenseCard(driver.license),
+                  const SizedBox(height: 16),
+                  _buildContactCard(driver),
+                  const SizedBox(height: 16),
+                  _buildQuickActions(),
+                ],
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ─── Sliver header ─────────────────────────────────────────────────────────
+
+  SliverAppBar _buildSliverHeader(
+      BuildContext context, DriverModel driver, String? token) {
+    final statusInfo = _statusInfo(driver.status);
+
+    return SliverAppBar(
+      expandedHeight: 220,
+      pinned: true,
+      backgroundColor: const Color(0xFFEC5B13),
+      elevation: 0,
+      leading: Padding(
+        padding: const EdgeInsets.all(8),
+        child: GestureDetector(
+          onTap: () => context.pop(),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          ),
         ),
       ),
-    );
-  }
-
-  // ─── Header ───────────────────────────────────────────────────────────────
-
-  Widget _buildHeader(DriverModel driver) {
-    final statusColor = _statusColor(driver.status);
-
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(4, 12, 12, 14),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
-      ),
-      child: Row(
-        children: [
-          // Back button
-          IconButton(
-            onPressed: () => context.pop(),
-            icon: const Icon(Icons.arrow_back_rounded,
-                color: AppTheme.textPrimary),
-          ),
-          // Avatar
-          Stack(
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.primaryBlue.withOpacity(0.1),
-                  border: Border.all(
-                      color: AppTheme.primaryBlue.withOpacity(0.2), width: 2),
-                ),
-                child: Center(
-                  child: Text(
-                    driver.firstName.isNotEmpty
-                        ? driver.firstName[0].toUpperCase()
-                        : '?',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryBlue,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: Container(
-                  width: 13,
-                  height: 13,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: statusColor,
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(width: 12),
-          // Name + greeting
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _greeting(),
-                  style: const TextStyle(
-                      fontSize: 11,
-                      color: AppTheme.textSecondary,
-                      fontWeight: FontWeight.w500),
-                ),
-                Text(
-                  driver.firstName,
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.textPrimary,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-              ],
+      flexibleSpace: FlexibleSpaceBar(
+        collapseMode: CollapseMode.pin,
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFEC5B13), Color(0xFFB84000)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
           ),
-          // Notification
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              IconButton(
-                onPressed: () {},
-                icon: const Icon(Icons.notifications_outlined,
-                    size: 26, color: AppTheme.textSecondary),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppTheme.primaryBlue,
-                    border: Border.all(color: Colors.white, width: 1.5),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ─── Active Trip Card ─────────────────────────────────────────────────────
-
-  Widget _buildActiveTripCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          )
-        ],
-      ),
-      clipBehavior: Clip.hardEdge,
-      child: Column(
-        children: [
-          // Map view
-          SizedBox(
-            height: 140,
-            width: double.infinity,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                CustomPaint(painter: _MapPainter()),
-                // Gradient overlay
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withOpacity(0.7),
-                      ],
-                    ),
-                  ),
-                ),
-                // Labels
-                Positioned(
-                  bottom: 14,
-                  left: 16,
-                  right: 16,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 52, 20, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryBlue,
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        child: const Text(
-                          'ACTIVE TRIP',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.8),
-                        ),
+                      // Avatar (photo if uploaded, else initial)
+                      _DriverAvatar(
+                        driverId: driver.driverId,
+                        firstName: driver.firstName,
+                        token: token,
+                        size: 72,
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          const Text('Progress',
-                              style: TextStyle(
-                                  color: Colors.white70, fontSize: 10)),
-                          const SizedBox(height: 5),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: Container(
-                              width: 88,
-                              height: 5,
-                              color: Colors.white24,
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Container(
-                                  width: 57,
-                                  color: AppTheme.primaryBlue,
-                                ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              driver.fullName,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                                letterSpacing: -0.3,
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    'ID: ${driver.employeeId}',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            // Status chip
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: statusInfo.color.withOpacity(0.9),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    driver.statusDisplay,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  // Bottom stats strip
+                  Row(
+                    children: [
+                      _HeaderStat(
+                        icon: Icons.phone_rounded,
+                        value: driver.phone,
+                      ),
+                      const SizedBox(width: 12),
+                      _HeaderStat(
+                        icon: Icons.flag_rounded,
+                        value: driver.country,
+                      ),
+                      const SizedBox(width: 12),
+                      _HeaderStat(
+                        icon: Icons.calendar_today_rounded,
+                        value: _fmtDate(driver.joinDate),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-          // Trip details
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'North Distribution Hub',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppTheme.textPrimary,
-                            ),
-                          ),
-                          SizedBox(height: 3),
-                          Text(
-                            '1240 Industrial Pkwy',
-                            style: TextStyle(
-                                fontSize: 13, color: AppTheme.textSecondary),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          '14:20',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryBlue,
-                          ),
-                        ),
-                        const Text(
-                          'ETA • 15m left',
-                          style: TextStyle(
-                              fontSize: 11, color: AppTheme.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryBlue,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                    ),
-                    icon: const Icon(Icons.navigation_rounded),
-                    label: const Text('View Navigation',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
+        ),
+      ),
+      title: Text(
+        driver.fullName,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  // ─── License warning banner ─────────────────────────────────────────────
+
+  Widget _licenseWarningBanner(DriverLicenseModel license) {
+    if (!license.isExpired && !license.isExpiringSoon) return const SizedBox();
+
+    final isExpired = license.isExpired;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isExpired
+            ? const Color(0xFFFEE2E2)
+            : const Color(0xFFFEF3C7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isExpired
+              ? const Color(0xFFFCA5A5)
+              : const Color(0xFFFCD34D),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isExpired ? Icons.error_rounded : Icons.warning_rounded,
+            color: isExpired
+                ? const Color(0xFFDC2626)
+                : const Color(0xFFD97706),
+            size: 20,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              isExpired
+                  ? 'License expired on ${_fmtDate(license.expiryDate)}'
+                  : 'License expires on ${_fmtDate(license.expiryDate)} — renew soon',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isExpired
+                    ? const Color(0xFFDC2626)
+                    : const Color(0xFFD97706),
+              ),
             ),
           ),
         ],
@@ -382,139 +294,122 @@ class _DriverDashboardScreenState
     );
   }
 
-  // ─── Stats Row ────────────────────────────────────────────────────────────
+  // ─── Personal info card ────────────────────────────────────────────────────
 
-  Widget _buildStatsRow() {
-    return Row(
+  Widget _buildInfoCard(DriverModel driver) {
+    return _Card(
+      title: 'Personal Information',
+      icon: Icons.person_rounded,
       children: [
-        Expanded(
-          child: _StatCard(
-            label: "TODAY'S LOAD",
-            value: '3',
-            unit: 'Trips Total',
-            accent: false,
-          ),
+        _InfoRow(label: 'Full Name', value: driver.fullName),
+        _InfoRow(label: 'Employee ID', value: driver.employeeId),
+        _InfoRow(label: 'Phone', value: driver.phone),
+        _InfoRow(label: 'Email', value: driver.email ?? '—'),
+        _InfoRow(
+          label: 'Date of Birth',
+          value: driver.dateOfBirth != null
+              ? _fmtDate(driver.dateOfBirth!)
+              : '—',
         ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: _StatCard(
-            label: 'PROGRESS',
-            value: '1',
-            unit: 'Completed',
-            accent: true,
-          ),
+        _InfoRow(
+          label: 'Age',
+          value: driver.age != null ? '${driver.age} years' : '—',
+        ),
+        _InfoRow(label: 'Country', value: driver.country),
+        _InfoRow(
+          label: 'Address',
+          value: driver.fullAddress,
+          isLast: true,
         ),
       ],
     );
   }
 
-  // ─── Vehicle Card ─────────────────────────────────────────────────────────
+  // ─── License card ──────────────────────────────────────────────────────────
 
-  Widget _buildVehicleCard(DriverModel driver) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildLicenseCard(DriverLicenseModel? license) {
+    if (license == null) {
+      return _Card(
+        title: 'License Details',
+        icon: Icons.badge_rounded,
+        children: [
+          const _InfoRow(label: 'Status', value: 'No license on file', isLast: true),
+        ],
+      );
+    }
+
+    final daysLeft = license.expiryDate.difference(DateTime.now()).inDays;
+    final expiryColor = license.isExpired
+        ? const Color(0xFFDC2626)
+        : license.isExpiringSoon
+            ? const Color(0xFFD97706)
+            : const Color(0xFF16A34A);
+
+    return _Card(
+      title: 'License Details',
+      icon: Icons.badge_rounded,
       children: [
-        const Text(
-          'ASSIGNED VEHICLE',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textSecondary,
-            letterSpacing: 0.8,
-          ),
+        _InfoRow(label: 'License Number', value: license.licenseNumber),
+        _InfoRow(label: 'Type', value: license.licenseTypeDisplay),
+        _InfoRow(label: 'Class', value: license.licenseType),
+        _InfoRow(label: 'Issue Date', value: _fmtDate(license.issueDate)),
+        _InfoRow(
+          label: 'Expiry Date',
+          value: _fmtDate(license.expiryDate),
+          valueColor: expiryColor,
         ),
-        const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.03),
-                blurRadius: 8,
-              )
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.local_shipping_rounded,
-                    color: AppTheme.primaryBlue, size: 28),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text(
-                          'Truck-902',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.textPrimary,
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFDCFCE7),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: const Text(
-                            'In Service',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF15803D),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Icon(Icons.gas_meter_rounded,
-                            size: 14, color: AppTheme.primaryBlue),
-                        const SizedBox(width: 4),
-                        const Text(
-                          '78% Fuel',
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textPrimary),
-                        ),
-                        const SizedBox(width: 16),
-                        Icon(Icons.speed_rounded,
-                            size: 14, color: Colors.grey[400]),
-                        const SizedBox(width: 4),
-                        const Text(
-                          '45,200 mi',
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.textSecondary),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        _InfoRow(
+          label: 'Status',
+          value: license.isExpired
+              ? 'Expired'
+              : license.isExpiringSoon
+                  ? 'Expiring in $daysLeft days'
+                  : 'Valid ($daysLeft days left)',
+          valueColor: expiryColor,
+        ),
+        if (license.issuingAuthority != null)
+          _InfoRow(label: 'Authority', value: license.issuingAuthority!),
+        _InfoRow(
+          label: 'Issuing State',
+          value: license.issuingState ?? '—',
+          isLast: true,
         ),
       ],
+    );
+  }
+
+  // ─── Contact / Emergency card ──────────────────────────────────────────────
+
+  Widget _buildContactCard(DriverModel driver) {
+    final hasContact = driver.emergencyContactName != null ||
+        driver.emergencyContactPhone != null;
+
+    return _Card(
+      title: 'Emergency Contact',
+      icon: Icons.contact_phone_rounded,
+      children: hasContact
+          ? [
+              _InfoRow(
+                label: 'Name',
+                value: driver.emergencyContactName ?? '—',
+              ),
+              _InfoRow(
+                label: 'Phone',
+                value: driver.emergencyContactPhone ?? '—',
+              ),
+              _InfoRow(
+                label: 'Relationship',
+                value: driver.emergencyContactRelationship ?? '—',
+                isLast: true,
+              ),
+            ]
+          : [
+              const _InfoRow(
+                label: 'Status',
+                value: 'No emergency contact on file',
+                isLast: true,
+              ),
+            ],
     );
   }
 
@@ -532,28 +427,20 @@ class _DriverDashboardScreenState
         icon: Icons.receipt_long_rounded,
         label: 'Fuel\nReceipt',
         bgColor: Color(0xFFFFF3ED),
-        iconColor: AppTheme.primaryBlue,
+        iconColor: Color(0xFFEC5B13),
       ),
       _ActionData(
         icon: Icons.checklist_rounded,
         label: 'Safety\nCheck',
-        bgColor: Color(0xFFFFF3ED),
-        iconColor: AppTheme.primaryBlue,
+        bgColor: Color(0xFFEFF6FF),
+        iconColor: Color(0xFF3B82F6),
       ),
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'QUICK ACTIONS',
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: AppTheme.textSecondary,
-            letterSpacing: 0.8,
-          ),
-        ),
+        const _SectionLabel(label: 'QUICK ACTIONS'),
         const SizedBox(height: 10),
         Row(
           children: List.generate(actions.length, (i) {
@@ -572,6 +459,13 @@ class _DriverDashboardScreenState
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: const Color(0xFFE2E8F0)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.03),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Column(
                         children: [
@@ -582,8 +476,7 @@ class _DriverDashboardScreenState
                               color: a.bgColor,
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(a.icon,
-                                color: a.iconColor, size: 20),
+                            child: Icon(a.icon, color: a.iconColor, size: 20),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -609,89 +502,258 @@ class _DriverDashboardScreenState
     );
   }
 
-  Color _statusColor(String status) {
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  String _fmtDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  ({Color color}) _statusInfo(String status) {
     switch (status.toLowerCase()) {
       case 'active':
-        return const Color(0xFF22C55E);
+        return (color: const Color(0xFF16A34A));
       case 'on_leave':
-        return AppTheme.primaryBlue;
+        return (color: const Color(0xFF2563EB));
+      case 'inactive':
+        return (color: const Color(0xFF94A3B8));
       case 'terminated':
-        return const Color(0xFFEF4444);
+        return (color: const Color(0xFFDC2626));
       default:
-        return const Color(0xFF3B82F6);
+        return (color: const Color(0xFF94A3B8));
     }
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helpers
+// Reusable widgets
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final String unit;
-  final bool accent;
+/// Circular avatar that shows the driver's uploaded photo (bytea served via
+/// GET /api/drivers/{id}/photo) or falls back to their name initial.
+class _DriverAvatar extends StatelessWidget {
+  final String driverId;
+  final String firstName;
+  final String? token;
+  final double size;
 
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.accent,
+  const _DriverAvatar({
+    required this.driverId,
+    required this.firstName,
+    required this.token,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final photoUrl =
+        '${AppConfig.apiBaseUrl}/api/drivers/$driverId/photo';
+    final headers =
+        token != null ? {'Authorization': 'Bearer $token'} : <String, String>{};
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withOpacity(0.2),
+        border: Border.all(color: Colors.white, width: 2.5),
+      ),
+      child: ClipOval(
+        child: Image.network(
+          photoUrl,
+          headers: headers,
+          fit: BoxFit.cover,
+          width: size,
+          height: size,
+          // While loading, show the initial letter
+          loadingBuilder: (_, child, loadingProgress) {
+            if (loadingProgress == null) return child;
+            return _initial(firstName, size);
+          },
+          // On error (no photo uploaded yet), show the initial letter
+          errorBuilder: (_, __, ___) => _initial(firstName, size),
+        ),
+      ),
+    );
+  }
+
+  Widget _initial(String name, double size) {
+    return Container(
+      width: size,
+      height: size,
+      color: Colors.white.withOpacity(0.15),
+      child: Center(
+        child: Text(
+          name.isNotEmpty ? name[0].toUpperCase() : '?',
+          style: TextStyle(
+            fontSize: size * 0.42,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  final String label;
+  const _SectionLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: AppTheme.textSecondary,
+        letterSpacing: 0.9,
+      ),
+    );
+  }
+}
+
+class _Card extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  const _Card({
+    required this.title,
+    required this.icon,
+    required this.children,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border(
-          left: accent
-              ? const BorderSide(
-                  color: Color(0xFFEC5B13), width: 3)
-              : const BorderSide(color: Color(0xFFE2E8F0)),
-          top: const BorderSide(color: Color(0xFFE2E8F0)),
-          right: const BorderSide(color: Color(0xFFE2E8F0)),
-          bottom: const BorderSide(color: Color(0xFFE2E8F0)),
-        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFF1F5F9)),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.03), blurRadius: 8)
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.textSecondary,
-              letterSpacing: 0.4,
+          // Card header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEC5B13).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(icon,
+                      color: const Color(0xFFEC5B13), size: 16),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textPrimary,
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 6),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color? valueColor;
+  final bool isLast;
+
+  const _InfoRow({
+    required this.label,
+    required this.value,
+    this.valueColor,
+    this.isLast = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
+              SizedBox(
+                width: 120,
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              const SizedBox(width: 4),
-              Text(
-                unit,
-                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: valueColor ?? AppTheme.textPrimary,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
               ),
             ],
+          ),
+        ),
+        if (!isLast)
+          const Divider(height: 1, indent: 16, endIndent: 16,
+              color: Color(0xFFF8FAFC)),
+      ],
+    );
+  }
+}
+
+class _HeaderStat extends StatelessWidget {
+  final IconData icon;
+  final String value;
+
+  const _HeaderStat({required this.icon, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white70, size: 13),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 11,
+                color: Colors.white70,
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
@@ -711,88 +773,4 @@ class _ActionData {
     required this.bgColor,
     required this.iconColor,
   });
-}
-
-// ─── Map placeholder painter ──────────────────────────────────────────────────
-
-class _MapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Background
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..color = const Color(0xFFCBD5E1),
-    );
-
-    // Grid lines
-    final gridPaint = Paint()
-      ..color = const Color(0xFFB0BEC5)
-      ..strokeWidth = 0.6;
-    for (double x = 0; x < size.width; x += 28) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-    for (double y = 0; y < size.height; y += 28) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-
-    // Blocks (buildings)
-    final blockPaint = Paint()..color = const Color(0xFFB0BEC5);
-    final blocks = [
-      Rect.fromLTWH(20, 20, 40, 30),
-      Rect.fromLTWH(size.width * 0.4, 15, 35, 25),
-      Rect.fromLTWH(size.width * 0.7, 30, 45, 20),
-      Rect.fromLTWH(30, size.height * 0.55, 30, 35),
-      Rect.fromLTWH(size.width * 0.5, size.height * 0.5, 50, 30),
-    ];
-    for (final b in blocks) {
-      canvas.drawRRect(RRect.fromRectXY(b, 3, 3), blockPaint);
-    }
-
-    // Route line
-    final routePaint = Paint()
-      ..color = const Color(0xFFEC5B13)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final path = Path()
-      ..moveTo(40, size.height * 0.65)
-      ..cubicTo(
-        size.width * 0.25,
-        size.height * 0.75,
-        size.width * 0.5,
-        size.height * 0.2,
-        size.width * 0.78,
-        size.height * 0.38,
-      );
-    canvas.drawPath(path, routePaint);
-
-    // Origin dot
-    canvas.drawCircle(
-      Offset(40, size.height * 0.65),
-      5,
-      Paint()..color = Colors.white,
-    );
-    canvas.drawCircle(
-      Offset(40, size.height * 0.65),
-      5,
-      Paint()
-        ..color = const Color(0xFFEC5B13)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2,
-    );
-
-    // Destination pin
-    final pinFill = Paint()..color = const Color(0xFFEC5B13);
-    final pinStroke = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    canvas.drawCircle(
-        Offset(size.width * 0.78, size.height * 0.38), 7, pinFill);
-    canvas.drawCircle(
-        Offset(size.width * 0.78, size.height * 0.38), 7, pinStroke);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
