@@ -55,46 +55,25 @@ class _CreateOrganizationScreenState
   }
 
   String? _validateGSTIN(String? value) {
-    if (value == null || value.isEmpty) {
-      return null; // Optional field
-    }
-
-    if (value.length != 15) {
-      return 'GSTIN must be exactly 15 characters';
-    }
-
+    if (value == null || value.isEmpty) return null;
+    if (value.length != 15) return 'GSTIN must be exactly 15 characters';
     if (!RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$')
-        .hasMatch(value)) {
-      return 'Invalid GSTIN format';
-    }
-
+        .hasMatch(value)) return 'Invalid GSTIN format';
     return null;
   }
 
   String? _validatePAN(String? value) {
-    if (value == null || value.isEmpty) {
-      return null; // Optional field
-    }
-
-    if (value.length != 10) {
-      return 'PAN must be exactly 10 characters';
-    }
-
-    if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$').hasMatch(value)) {
+    if (value == null || value.isEmpty) return null;
+    if (value.length != 10) return 'PAN must be exactly 10 characters';
+    if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$').hasMatch(value))
       return 'Invalid PAN format';
-    }
-
     return null;
   }
 
   Future<void> _handleCreate() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isCreating = true;
-    });
+    setState(() => _isCreating = true);
 
     try {
       final companyApi = ref.read(companyApiProvider);
@@ -118,328 +97,740 @@ class _CreateOrganizationScreenState
       final response = await companyApi.createCompany(companyData);
 
       if (mounted) {
-        // Refresh JWT token to include new organization context
         await ref.read(authProvider.notifier).refreshToken();
-
-        // Reload user organizations
         await ref.read(organizationProvider.notifier).loadOrganizations();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Organization "${response['company_name']}" created successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'Organization "${response['company_name']}" created successfully!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+        ));
 
-        // Navigate to dashboard
         context.go('/dashboard');
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create organization: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to create organization: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isCreating = false;
-        });
-      }
+      if (mounted) setState(() => _isCreating = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Organization'),
-        elevation: 2,
+      backgroundColor: theme.colorScheme.surface,
+      body: Form(
+        key: _formKey,
+        child: CustomScrollView(
+          slivers: [
+            // ── Header ──────────────────────────────────────────────────────
+            SliverAppBar(
+              expandedHeight: 160,
+              pinned: true,
+              backgroundColor: theme.primaryColor,
+              iconTheme: const IconThemeData(color: Colors.white),
+              title: const Text('Create Organization',
+                  style: TextStyle(color: Colors.white, fontSize: 17)),
+              flexibleSpace: FlexibleSpaceBar(
+                background: _buildHeader(context),
+              ),
+            ),
+
+            // ── Form Sections ────────────────────────────────────────────────
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  FadeSlide(
+                    delay: 0,
+                    child: _SectionCard(
+                      step: 1,
+                      icon: Icons.business_outlined,
+                      title: 'Company Information',
+                      color: theme.primaryColor,
+                      children: [
+                        _buildField(
+                          controller: _companyNameController,
+                          label: 'Company Name',
+                          hint: 'e.g., Acme Logistics Pvt. Ltd.',
+                          icon: Icons.corporate_fare_outlined,
+                          required: true,
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty)
+                              return 'Company name is required';
+                            if (v.trim().length < 2)
+                              return 'Must be at least 2 characters';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        _buildField(
+                          controller: _businessTypeController,
+                          label: 'Business Type',
+                          hint: 'e.g., Transportation, Logistics',
+                          icon: Icons.category_outlined,
+                          required: true,
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty)
+                              return 'Business type is required';
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FadeSlide(
+                    delay: 80,
+                    child: _SectionCard(
+                      step: 2,
+                      icon: Icons.contact_mail_outlined,
+                      title: 'Contact Information',
+                      color: Colors.teal,
+                      children: [
+                        _buildField(
+                          controller: _businessEmailController,
+                          label: 'Business Email',
+                          hint: 'company@example.com',
+                          icon: Icons.email_outlined,
+                          required: true,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty)
+                              return 'Business email is required';
+                            if (!RegExp(
+                                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                .hasMatch(v))
+                              return 'Invalid email format';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        _buildField(
+                          controller: _businessPhoneController,
+                          label: 'Business Phone',
+                          hint: '+91 98765 43210',
+                          icon: Icons.phone_outlined,
+                          required: true,
+                          keyboardType: TextInputType.phone,
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty)
+                              return 'Business phone is required';
+                            if (v.trim().length < 10)
+                              return 'Must be at least 10 digits';
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  FadeSlide(
+                    delay: 160,
+                    child: _SectionCard(
+                      step: 3,
+                      icon: Icons.location_on_outlined,
+                      title: 'Address',
+                      color: Colors.orange,
+                      children: [
+                        _buildField(
+                          controller: _addressController,
+                          label: 'Street Address',
+                          hint: 'Building, street, area…',
+                          icon: Icons.home_outlined,
+                          required: true,
+                          maxLines: 2,
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty)
+                              return 'Address is required';
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildField(
+                                controller: _cityController,
+                                label: 'City',
+                                hint: 'Mumbai',
+                                icon: Icons.location_city_outlined,
+                                required: true,
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty)
+                                    return 'Required';
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildField(
+                                controller: _stateController,
+                                label: 'State',
+                                hint: 'Maharashtra',
+                                icon: Icons.map_outlined,
+                                required: true,
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty)
+                                    return 'Required';
+                                  return null;
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildField(
+                                controller: _pincodeController,
+                                label: 'Pincode',
+                                hint: '400001',
+                                icon: Icons.pin_outlined,
+                                required: true,
+                                keyboardType: TextInputType.number,
+                                validator: (v) {
+                                  if (v == null || v.trim().isEmpty)
+                                    return 'Required';
+                                  if (v.trim().length != 6)
+                                    return 'Invalid';
+                                  return null;
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildField(
+                                controller: _countryController,
+                                label: 'Country',
+                                hint: 'India',
+                                icon: Icons.flag_outlined,
+                                enabled: false,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── Legal Info (collapsible) ──────────────────────────
+                  FadeSlide(
+                    delay: 240,
+                    child: _LegalInfoSection(
+                      expanded: _showLegalInfo,
+                      onToggle: () =>
+                          setState(() => _showLegalInfo = !_showLegalInfo),
+                      gstinController: _gstinController,
+                      panController: _panController,
+                      validateGSTIN: _validateGSTIN,
+                      validatePAN: _validatePAN,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+
+                  // ── Submit ───────────────────────────────────────────
+                  FadeSlide(
+                    delay: 300,
+                    child: _buildSubmitButton(context, theme),
+                  ),
+                  const SizedBox(height: 12),
+                  FadeSlide(
+                    delay: 340,
+                    child: TextButton(
+                      onPressed: _isCreating ? null : () => context.pop(),
+                      child: Text('Cancel',
+                          style: TextStyle(color: Colors.grey[500])),
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ],
+        ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              FadeSlide(
-                delay: 0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Text(
-                      'Company Information',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _companyNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Company Name *',
-                        hintText: 'Enter company name',
-                        prefixIcon: Icon(Icons.business),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Company name is required';
-                        }
-                        if (value.trim().length < 2) {
-                          return 'Company name must be at least 2 characters';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _businessTypeController,
-                      decoration: const InputDecoration(
-                        labelText: 'Business Type *',
-                        hintText: 'e.g., Transportation, Logistics',
-                        prefixIcon: Icon(Icons.category),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Business type is required';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              FadeSlide(
-                delay: 100,
-                child: const Text(
-                  'Contact Information',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 16),
-              FadeSlide(
-                delay: 150,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    TextFormField(
-                      controller: _businessEmailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: const InputDecoration(
-                        labelText: 'Business Email *',
-                        hintText: 'company@example.com',
-                        prefixIcon: Icon(Icons.email),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Business email is required';
-                        }
-                        if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                            .hasMatch(value)) {
-                          return 'Invalid email format';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _businessPhoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(
-                        labelText: 'Business Phone *',
-                        hintText: '+91 1234567890',
-                        prefixIcon: Icon(Icons.phone),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Business phone is required';
-                        }
-                        if (value.trim().length < 10) {
-                          return 'Phone number must be at least 10 digits';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              FadeSlide(
-                delay: 200,
-                child: const Text(
-                  'Address',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _addressController,
-                maxLines: 2,
-                decoration: const InputDecoration(
-                  labelText: 'Address *',
-                  hintText: 'Street address',
-                  prefixIcon: Icon(Icons.location_on),
-                  border: OutlineInputBorder(),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Address is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
+    );
+  }
+
+  Widget _buildHeader(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.primaryColor,
+            theme.primaryColor.withOpacity(0.72),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -10,
+            bottom: -10,
+            child: Icon(
+              Icons.business_center_outlined,
+              size: 140,
+              color: Colors.white.withOpacity(0.07),
+            ),
+          ),
+          Align(
+            alignment: Alignment.bottomLeft,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+              child: Row(
                 children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _cityController,
-                      decoration: const InputDecoration(
-                        labelText: 'City *',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'City is required';
-                        }
-                        return null;
-                      },
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(14),
                     ),
+                    child: const Icon(Icons.add_business_outlined,
+                        color: Colors.white, size: 28),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _stateController,
-                      decoration: const InputDecoration(
-                        labelText: 'State *',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'State is required';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _pincodeController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Pincode *',
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Pincode is required';
-                        }
-                        if (value.trim().length != 6) {
-                          return 'Invalid pincode';
-                        }
-                        return null;
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _countryController,
-                      enabled: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Country',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              FadeSlide(
-                delay: 300,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _showLegalInfo = !_showLegalInfo;
-                        });
-                      },
-                      icon: Icon(_showLegalInfo
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down),
-                      label: Text(
-                        _showLegalInfo
-                            ? 'Hide Legal Information (Optional)'
-                            : 'Add Legal Information (Optional)',
-                      ),
-                    ),
-                    if (_showLegalInfo) ...[
-                      const SizedBox(height: 16),
+                  const SizedBox(width: 14),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       const Text(
-                        'Legal Information',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _gstinController,
-                        decoration: const InputDecoration(
-                          labelText: 'GSTIN (Optional)',
-                          hintText: '15 characters',
-                          prefixIcon: Icon(Icons.receipt_long),
-                          border: OutlineInputBorder(),
+                        'New Organization',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
-                        validator: _validateGSTIN,
                       ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _panController,
-                        decoration: const InputDecoration(
-                          labelText: 'PAN Number (Optional)',
-                          hintText: '10 characters',
-                          prefixIcon: Icon(Icons.credit_card),
-                          border: OutlineInputBorder(),
+                      Text(
+                        'Set up your fleet workspace',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.75),
                         ),
-                        validator: _validatePAN,
                       ),
                     ],
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: _isCreating ? null : _handleCreate,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                      ),
-                      child: _isCreating
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Create Organization'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: _isCreating ? null : () => context.pop(),
-                      child: const Text('Cancel'),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildField({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    bool required = false,
+    bool enabled = true,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    final theme = Theme.of(context);
+    final fillColor = theme.brightness == Brightness.dark
+        ? Colors.white.withOpacity(0.05)
+        : Colors.grey.shade50;
+
+    return TextFormField(
+      controller: controller,
+      enabled: enabled,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      validator: validator,
+      style: const TextStyle(fontSize: 14),
+      decoration: InputDecoration(
+        labelText: required ? '$label *' : label,
+        hintText: hint,
+        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+        prefixIcon: Icon(icon, size: 20),
+        filled: true,
+        fillColor: enabled ? fillColor : Colors.grey.withOpacity(0.08),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.withOpacity(0.25)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: theme.primaryColor, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.red),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.red, width: 1.5),
+        ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.withOpacity(0.15)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton(BuildContext context, ThemeData theme) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: FilledButton(
+        onPressed: _isCreating ? null : _handleCreate,
+        style: FilledButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: _isCreating
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Colors.white,
+                ),
+              )
+            : const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.check_circle_outline, size: 20),
+                  SizedBox(width: 10),
+                  Text(
+                    'Create Organization',
+                    style: TextStyle(
+                        fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+// ─── Section Card ─────────────────────────────────────────────────────────────
+
+class _SectionCard extends StatelessWidget {
+  final int step;
+  final IconData icon;
+  final String title;
+  final Color color;
+  final List<Widget> children;
+
+  const _SectionCard({
+    required this.step,
+    required this.icon,
+    required this.title,
+    required this.color,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.4)),
+        color: theme.cardColor,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section header
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.06),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(15)),
+              border: Border(
+                bottom: BorderSide(
+                    color: color.withOpacity(0.15)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$step',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Fields
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: children,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Legal Info Section (collapsible) ────────────────────────────────────────
+
+class _LegalInfoSection extends StatelessWidget {
+  final bool expanded;
+  final VoidCallback onToggle;
+  final TextEditingController gstinController;
+  final TextEditingController panController;
+  final String? Function(String?) validateGSTIN;
+  final String? Function(String?) validatePAN;
+
+  const _LegalInfoSection({
+    required this.expanded,
+    required this.onToggle,
+    required this.gstinController,
+    required this.panController,
+    required this.validateGSTIN,
+    required this.validatePAN,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = Colors.purple;
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: expanded
+              ? color.withOpacity(0.3)
+              : theme.dividerColor.withOpacity(0.4),
+        ),
+        color: theme.cardColor,
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          // Toggle header
+          InkWell(
+            onTap: onToggle,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+              decoration: BoxDecoration(
+                color: expanded
+                    ? color.withOpacity(0.06)
+                    : Colors.transparent,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Icon(Icons.gavel_outlined,
+                          size: 16, color: color),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Legal Information',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: color,
+                          ),
+                        ),
+                        Text(
+                          'GSTIN & PAN — Optional',
+                          style: TextStyle(
+                              fontSize: 11, color: Colors.grey[500]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          expanded ? 'Hide' : 'Add',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: color),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          expanded
+                              ? Icons.keyboard_arrow_up_rounded
+                              : Icons.keyboard_arrow_down_rounded,
+                          size: 16,
+                          color: color,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Expandable content
+          AnimatedCrossFade(
+            duration: const Duration(milliseconds: 250),
+            crossFadeState: expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            firstChild: const SizedBox(width: double.infinity),
+            secondChild: Column(
+              children: [
+                Divider(
+                    height: 1, color: color.withOpacity(0.15)),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _legalField(
+                        context: context,
+                        controller: gstinController,
+                        label: 'GSTIN',
+                        hint: '22AAAAA0000A1Z5',
+                        icon: Icons.receipt_long_outlined,
+                        color: color,
+                        validator: validateGSTIN,
+                        helper: '15 characters',
+                      ),
+                      const SizedBox(height: 14),
+                      _legalField(
+                        context: context,
+                        controller: panController,
+                        label: 'PAN Number',
+                        hint: 'ABCDE1234F',
+                        icon: Icons.credit_card_outlined,
+                        color: color,
+                        validator: validatePAN,
+                        helper: '10 characters',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _legalField({
+    required BuildContext context,
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    required IconData icon,
+    required Color color,
+    required String? Function(String?) validator,
+    required String helper,
+  }) {
+    final theme = Theme.of(context);
+    final fillColor = theme.brightness == Brightness.dark
+        ? Colors.white.withOpacity(0.05)
+        : Colors.grey.shade50;
+
+    return TextFormField(
+      controller: controller,
+      validator: validator,
+      textCapitalization: TextCapitalization.characters,
+      style: const TextStyle(fontSize: 14, letterSpacing: 1),
+      decoration: InputDecoration(
+        labelText: '$label (Optional)',
+        hintText: hint,
+        helperText: helper,
+        hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+        prefixIcon: Icon(icon, size: 20, color: color),
+        filled: true,
+        fillColor: fillColor,
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.withOpacity(0.25)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: color, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.red),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Colors.red, width: 1.5),
         ),
       ),
     );

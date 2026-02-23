@@ -44,6 +44,7 @@ class Vehicle(Base):
     fitness_certificate_expiry = Column(Date, nullable=True)
 
     notes = Column(Text, nullable=True)
+    photo_url = Column(String(500), nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -161,6 +162,7 @@ class Vehicle(Base):
             "status": self.status,
             "current_driver_id": str(self.current_driver_id) if self.current_driver_id else None,
             "current_odometer": self.current_odometer,
+            "photo_url": self.photo_url,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

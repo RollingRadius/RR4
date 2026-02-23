@@ -2,7 +2,7 @@
 Vehicle Management API Endpoints
 Handles all vehicle-related operations including CRUD, driver assignment, and document management.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, File, UploadFile
 from sqlalchemy.orm import Session
 from typing import Optional
 import uuid
@@ -440,6 +440,51 @@ def get_expiring_documents(
         vehicle_id=vehicle_id,
         org_id=uuid.UUID(org_id),
         days=days
+    )
+    return result
+
+
+@router.post(
+    "/{vehicle_id}/photo",
+    response_model=dict,
+    summary="Upload vehicle photo",
+    description="Upload a photo for a vehicle. Requires vehicle.edit capability."
+)
+async def upload_vehicle_photo(
+    vehicle_id: uuid.UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    org_id: str = Depends(get_current_organization),
+    db: Session = Depends(get_db),
+    _: None = Depends(require_vehicle_edit)
+):
+    """
+    Upload a photo for a vehicle.
+
+    Required capability: vehicle.edit (FULL access)
+
+    **Path Parameters:**
+    - vehicle_id: UUID of the vehicle
+
+    **Request Body:**
+    - file: Image file (JPEG or PNG, max 5MB)
+
+    **Returns:**
+    - success: True if uploaded successfully
+    - message: Success message
+    - vehicle_id: ID of vehicle
+    - photo_url: URL path to the uploaded photo
+
+    **Errors:**
+    - 400: Invalid file type or size
+    - 404: Vehicle not found
+    """
+    service = VehicleService(db)
+    result = service.upload_vehicle_photo(
+        vehicle_id=vehicle_id,
+        org_id=uuid.UUID(org_id),
+        user_id=current_user.id,
+        file=file
     )
     return result
 

@@ -1296,18 +1296,18 @@ class _CustomRoleCard extends ConsumerWidget {
   void _deleteDialog(BuildContext context, WidgetRef ref, String id) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Delete Role'),
         content: const Text(
             'Are you sure you want to delete this role? This cannot be undone.'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => Navigator.of(dialogContext).pop(),
               child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.of(dialogContext).pop();
               final ok = await ref
                   .read(customRoleProvider.notifier)
                   .deleteCustomRole(id);

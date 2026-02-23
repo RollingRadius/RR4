@@ -1,17 +1,23 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:fleet_management/data/services/vehicle_api.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
 
-class AddVehicleScreen extends StatefulWidget {
+class AddVehicleScreen extends ConsumerStatefulWidget {
   const AddVehicleScreen({super.key});
 
   @override
-  State<AddVehicleScreen> createState() => _AddVehicleScreenState();
+  ConsumerState<AddVehicleScreen> createState() => _AddVehicleScreenState();
 }
 
-class _AddVehicleScreenState extends State<AddVehicleScreen> {
+class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
   static const _primary = Color(0xFFEC5B13);
   static const _bg = Color(0xFFF8F6F6);
 
+  final _vehicleNumberController = TextEditingController();
   final _vinController = TextEditingController();
   final _plateController = TextEditingController();
   final _makeController = TextEditingController();
@@ -19,11 +25,16 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   final _yearController = TextEditingController();
   final _odometerController = TextEditingController();
 
-  String _fuelType = 'Diesel';
+  String _fuelType = 'diesel';
+  String _vehicleType = 'car';
+  String? _selectedImagePath;
   bool _isSubmitting = false;
+
+  final _picker = ImagePicker();
 
   @override
   void dispose() {
+    _vehicleNumberController.dispose();
     _vinController.dispose();
     _plateController.dispose();
     _makeController.dispose();
@@ -31,6 +42,177 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     _yearController.dispose();
     _odometerController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Choose Photo',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.photo_library_outlined, color: _primary),
+                ),
+                title: const Text('Choose from Gallery'),
+                onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.camera_alt_outlined, color: _primary),
+                ),
+                title: const Text('Take a Photo'),
+                onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
+              ),
+              if (_selectedImagePath != null)
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.delete_outline, color: Colors.red),
+                  ),
+                  title: const Text('Remove Photo',
+                      style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    setState(() => _selectedImagePath = null);
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (source == null) return;
+
+    final XFile? picked = await _picker.pickImage(
+      source: source,
+      imageQuality: 85,
+      maxWidth: 1200,
+    );
+
+    if (picked != null && mounted) {
+      setState(() => _selectedImagePath = picked.path);
+    }
+  }
+
+  Future<void> _handleSubmit() async {
+    final vehicleNumber = _vehicleNumberController.text.trim();
+    final plate = _plateController.text.trim();
+    final make = _makeController.text.trim();
+    final model = _modelController.text.trim();
+    final yearText = _yearController.text.trim();
+
+    if (vehicleNumber.isEmpty || plate.isEmpty || make.isEmpty ||
+        model.isEmpty || yearText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please fill in all required fields'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final year = int.tryParse(yearText);
+    if (year == null || year < 1900 || year > DateTime.now().year + 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a valid year'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final apiService = ref.read(apiServiceProvider);
+      final vehicleApi = VehicleApi(apiService);
+
+      // Step 1: Create vehicle
+      final result = await vehicleApi.createVehicle(
+        vehicleNumber: vehicleNumber,
+        registrationNumber: plate,
+        manufacturer: make,
+        model: model,
+        year: year,
+        vehicleType: _vehicleType,
+        fuelType: _fuelType,
+        currentOdometer: int.tryParse(_odometerController.text.trim()) ?? 0,
+        vinNumber: _vinController.text.trim(),
+      );
+
+      final vehicleId = result['vehicle_id'] as String?;
+
+      // Step 2: Upload photo if selected
+      if (vehicleId != null && _selectedImagePath != null) {
+        try {
+          await vehicleApi.uploadVehiclePhoto(
+            vehicleId: vehicleId,
+            filePath: _selectedImagePath!,
+          );
+        } catch (_) {
+          // Photo upload failure is non-fatal — vehicle was created
+        }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Vehicle registered successfully!'),
+            backgroundColor: Color(0xFF22C55E),
+          ),
+        );
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -61,25 +243,35 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
             _buildPhotoSection(),
             _buildSection('Identification', Column(
               children: [
-                _buildField('Vehicle ID / VIN', _vinController, hint: '17-character VIN'),
+                _buildField('Vehicle Number *', _vehicleNumberController,
+                    hint: 'e.g. VH-001'),
                 const SizedBox(height: 12),
-                _buildField('License Plate', _plateController, hint: 'ABC-1234'),
+                _buildField('License Plate *', _plateController,
+                    hint: 'ABC-1234'),
+                const SizedBox(height: 12),
+                _buildField('VIN (optional)', _vinController,
+                    hint: '17-character VIN'),
               ],
             )),
             _buildSection('Specifications', Column(
               children: [
-                _buildField('Make', _makeController, hint: 'e.g. Ford'),
+                _buildField('Make *', _makeController, hint: 'e.g. Ford'),
                 const SizedBox(height: 12),
-                _buildField('Model', _modelController, hint: 'e.g. F-150'),
+                _buildField('Model *', _modelController, hint: 'e.g. F-150'),
                 const SizedBox(height: 12),
-                _buildField('Year', _yearController, hint: '2024',
+                _buildField('Year *', _yearController, hint: '2024',
                     keyboardType: TextInputType.number),
               ],
             )),
             _buildSection('Technical Details', Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Fuel Type',
+                const Text('Vehicle Type *',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 10),
+                _buildVehicleTypeSelector(),
+                const SizedBox(height: 16),
+                const Text('Fuel Type *',
                     style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 10),
                 _buildFuelToggle(),
@@ -99,44 +291,96 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: GestureDetector(
-        onTap: () {},
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 32),
-          decoration: BoxDecoration(
-            color: _primary.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _primary.withOpacity(0.3), width: 1.5),
+        onTap: _pickPhoto,
+        child: _selectedImagePath != null
+            ? _buildPhotoPreview()
+            : _buildPhotoPlaceholder(),
+      ),
+    );
+  }
+
+  Widget _buildPhotoPlaceholder() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      decoration: BoxDecoration(
+        color: _primary.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _primary.withOpacity(0.3), width: 1.5),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _primary.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.add_a_photo_outlined,
+                color: _primary, size: 32),
           ),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: _primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.add_a_photo_outlined, color: _primary, size: 32),
-              ),
-              const SizedBox(height: 10),
-              const Text('Vehicle Photo',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text('Upload or take a high-quality photo',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-                decoration: BoxDecoration(
-                    color: _primary, borderRadius: BorderRadius.circular(10)),
-                child: const Text('Choose File',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-              ),
-            ],
+          const SizedBox(height: 10),
+          const Text('Vehicle Photo',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text('Upload or take a high-quality photo',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+          const SizedBox(height: 14),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+            decoration: BoxDecoration(
+                color: _primary, borderRadius: BorderRadius.circular(10)),
+            child: const Text('Choose File',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoPreview() {
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.file(
+            File(_selectedImagePath!),
+            width: double.infinity,
+            height: 200,
+            fit: BoxFit.cover,
           ),
         ),
-      ),
+        Positioned(
+          top: 10,
+          right: 10,
+          child: GestureDetector(
+            onTap: _pickPhoto,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.edit, color: Colors.white, size: 14),
+                  SizedBox(width: 4),
+                  Text('Change',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -149,8 +393,10 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           Text(
             label.toUpperCase(),
             style: const TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w800,
-              color: _primary, letterSpacing: 1.2,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: _primary,
+              letterSpacing: 1.2,
             ),
           ),
           const SizedBox(height: 12),
@@ -194,44 +440,94 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     );
   }
 
-  Widget _buildFuelToggle() {
-    const options = ['Diesel', 'Electric', 'Hybrid'];
-    return Container(
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(
-          color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: options.map((opt) {
-          final selected = _fuelType == opt;
-          return Expanded(
-            child: GestureDetector(
-              onTap: () => setState(() => _fuelType = opt),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(
-                  color: selected ? Colors.white : Colors.transparent,
-                  borderRadius: BorderRadius.circular(8),
-                  boxShadow: selected
-                      ? [BoxShadow(
-                          color: Colors.black.withOpacity(0.08), blurRadius: 4)]
-                      : [],
-                ),
-                child: Text(
-                  opt,
-                  textAlign: TextAlign.center,
+  Widget _buildVehicleTypeSelector() {
+    const types = [
+      ('car', Icons.directions_car_outlined),
+      ('truck', Icons.local_shipping_outlined),
+      ('van', Icons.airport_shuttle_outlined),
+      ('bus', Icons.directions_bus_outlined),
+      ('motorcycle', Icons.two_wheeler_outlined),
+      ('other', Icons.commute_outlined),
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: types.map((t) {
+        final selected = _vehicleType == t.$1;
+        return GestureDetector(
+          onTap: () => setState(() => _vehicleType = t.$1),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? _primary : Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                  color: selected ? _primary : Colors.grey.shade300),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(t.$2,
+                    size: 16,
+                    color: selected ? Colors.white : Colors.grey.shade600),
+                const SizedBox(width: 6),
+                Text(
+                  t.$1[0].toUpperCase() + t.$1.substring(1),
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight:
-                        selected ? FontWeight.bold : FontWeight.w500,
-                    color: selected ? _primary : Colors.grey.shade600,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? Colors.white : Colors.grey.shade700,
                   ),
                 ),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildFuelToggle() {
+    const options = [
+      ('diesel', 'Diesel'),
+      ('petrol', 'Petrol'),
+      ('electric', 'Electric'),
+      ('hybrid', 'Hybrid'),
+      ('cng', 'CNG'),
+      ('lpg', 'LPG'),
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: options.map((opt) {
+        final selected = _fuelType == opt.$1;
+        return GestureDetector(
+          onTap: () => setState(() => _fuelType = opt.$1),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? _primary.withOpacity(0.1) : Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                  color: selected ? _primary : Colors.grey.shade300),
+            ),
+            child: Text(
+              opt.$2,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selected ? _primary : Colors.grey.shade600,
               ),
             ),
-          );
-        }).toList(),
-      ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -248,7 +544,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
           decoration: InputDecoration(
             hintText: '0',
             hintStyle: TextStyle(color: Colors.grey.shade400),
-            prefixIcon: const Icon(Icons.speed_outlined, color: Colors.grey, size: 20),
+            prefixIcon: const Icon(Icons.speed_outlined,
+                color: Colors.grey, size: 20),
             filled: true,
             fillColor: Colors.white,
             contentPadding:
@@ -308,39 +605,29 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         height: 52,
         child: ElevatedButton.icon(
           onPressed: _isSubmitting ? null : _handleSubmit,
-          icon: const Icon(Icons.save_outlined, size: 18),
+          icon: _isSubmitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Icons.save_outlined, size: 18),
           label: Text(_isSubmitting ? 'Registering...' : 'Register Vehicle'),
           style: ElevatedButton.styleFrom(
             backgroundColor: _primary,
             foregroundColor: Colors.white,
             disabledBackgroundColor: _primary.withOpacity(0.5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12)),
+            textStyle:
+                const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             elevation: 2,
           ),
         ),
       ),
     );
-  }
-
-  Future<void> _handleSubmit() async {
-    if (_vinController.text.isEmpty || _makeController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in required fields (VIN and Make)')),
-      );
-      return;
-    }
-    setState(() => _isSubmitting = true);
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted) {
-      setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Vehicle registered successfully!'),
-          backgroundColor: Color(0xFF22C55E),
-        ),
-      );
-      context.pop();
-    }
   }
 }
