@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/vehicle_provider.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'dart:math' as math;
 
@@ -42,41 +43,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  static const _vehicles = [
-    _VehicleData(
-      id: 'TRK-042',
-      name: 'Truck-042',
-      info: 'John Doe',
-      status: 'active',
-      level: 0.85,
-      vehicleIcon: Icons.local_shipping_rounded,
-    ),
-    _VehicleData(
-      id: 'VAN-018',
-      name: 'Van-018',
-      info: 'Service Center A',
-      status: 'maintenance',
-      level: 0.20,
-      vehicleIcon: Icons.airport_shuttle_rounded,
-    ),
-    _VehicleData(
-      id: 'SMI-009',
-      name: 'Semi-009',
-      info: 'I-95 Northbound',
-      status: 'active',
-      level: 0.62,
-      vehicleIcon: Icons.fire_truck_rounded,
-    ),
-    _VehicleData(
-      id: 'TRK-102',
-      name: 'Truck-102',
-      info: 'Engine Overheat',
-      status: 'alert',
-      level: 0.45,
-      isAlert: true,
-      vehicleIcon: Icons.local_shipping_rounded,
-    ),
-  ];
+  _VehicleData _toVehicleData(Map<String, dynamic> v) {
+    final status = (v['status'] as String? ?? '').toLowerCase();
+    final type = (v['type'] as String? ?? '').toLowerCase();
+    return _VehicleData(
+      id: v['vehicle_number'] as String? ?? v['registration'] as String? ?? '',
+      name: v['registration'] as String? ?? '',
+      info: v['driver'] as String? ?? status,
+      status: status == 'active'
+          ? 'active'
+          : status == 'maintenance'
+              ? 'maintenance'
+              : status == 'inactive'
+                  ? 'offline'
+                  : 'alert',
+      level: status == 'active' ? 0.75 : 0.30,
+      isAlert: status == 'maintenance' || status == 'inactive',
+      vehicleIcon: _iconForType(type),
+    );
+  }
+
+  IconData _iconForType(String type) {
+    switch (type) {
+      case 'truck':       return Icons.local_shipping_rounded;
+      case 'bus':         return Icons.directions_bus_rounded;
+      case 'van':         return Icons.airport_shuttle_rounded;
+      case 'motorcycle':  return Icons.two_wheeler_rounded;
+      default:            return Icons.directions_car_rounded;
+    }
+  }
 
   // ── Animation ─────────────────────────────────────────────────────────────
   late final AnimationController _ctrl;
@@ -128,6 +123,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
 
     _ctrl.forward();
+    Future.microtask(
+        () => ref.read(vehicleProvider.notifier).loadVehicles());
   }
 
   @override
@@ -135,18 +132,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     _searchController.dispose();
     _ctrl.dispose();
     super.dispose();
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  List<_VehicleData> get _filtered {
-    if (_searchQuery.isEmpty) return _vehicles;
-    final q = _searchQuery.toLowerCase();
-    return _vehicles
-        .where((v) =>
-            v.name.toLowerCase().contains(q) ||
-            v.info.toLowerCase().contains(q) ||
-            v.id.toLowerCase().contains(q))
-        .toList();
   }
 
   String _greeting() {
@@ -172,10 +157,30 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final user = ref.watch(authProvider).user;
     final displayName = user?.fullName.split(' ').first ?? 'Manager';
 
-    final total       = _vehicles.length;
-    final active      = _vehicles.where((v) => v.status == 'active').length;
-    final maintenance = _vehicles.where((v) => v.status == 'maintenance').length;
-    final alerts      = _vehicles.where((v) => v.isAlert).length;
+    final allVehicles = ref.watch(vehicleProvider).vehicles;
+
+    final total       = allVehicles.length;
+    final active      = allVehicles.where((v) =>
+        (v['status'] as String).toLowerCase() == 'active').length;
+    final maintenance = allVehicles.where((v) =>
+        (v['status'] as String).toLowerCase() == 'maintenance').length;
+    final alerts      = allVehicles.where((v) {
+      final s = (v['status'] as String).toLowerCase();
+      return s == 'maintenance' || s == 'inactive';
+    }).length;
+
+    // Convert to _VehicleData for the dashboard card; show up to 5
+    final vehicleDataList = allVehicles
+        .take(5)
+        .map(_toVehicleData)
+        .toList();
+    final filteredVehicleData = _searchQuery.isEmpty
+        ? vehicleDataList
+        : vehicleDataList
+            .where((v) =>
+                v.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+                v.id.toLowerCase().contains(_searchQuery.toLowerCase()))
+            .toList();
 
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
@@ -336,7 +341,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     _AnimItem(
                       fade: _fadeVehicles,
                       slide: _slideVehicles,
-                      child: _buildVehicleSection(context),
+                      child: _buildVehicleSection(context, filteredVehicleData),
                     ),
                     const SizedBox(height: 20),
 
@@ -701,7 +706,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   // ── Vehicle section ────────────────────────────────────────────────────────
 
-  Widget _buildVehicleSection(BuildContext context) {
+  Widget _buildVehicleSection(
+      BuildContext context, List<_VehicleData> filtered) {
+    final isLoading = ref.watch(vehicleProvider).isLoading;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -738,22 +745,28 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           ],
         ),
         const SizedBox(height: 12),
-        if (_filtered.isEmpty)
+        if (isLoading)
+          const Center(
+              child: Padding(
+            padding: EdgeInsets.all(24),
+            child: CircularProgressIndicator(),
+          ))
+        else if (filtered.isEmpty)
           Container(
             padding: const EdgeInsets.all(24),
             alignment: Alignment.center,
             child: const Text(
-              'No vehicles match your search',
+              'No vehicles found',
               style: TextStyle(color: AppTheme.textSecondary),
             ),
           )
         else
-          ...List.generate(_filtered.length, (i) {
+          ...List.generate(filtered.length, (i) {
             return Padding(
-              padding: EdgeInsets.only(
-                  bottom: i < _filtered.length - 1 ? 10 : 0),
+              padding:
+                  EdgeInsets.only(bottom: i < filtered.length - 1 ? 10 : 0),
               child: _VehicleCard(
-                vehicle: _filtered[i],
+                vehicle: filtered[i],
                 barAnimation: CurvedAnimation(
                   parent: _ctrl,
                   curve: Interval(
@@ -762,7 +775,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     curve: Curves.easeOutCubic,
                   ),
                 ),
-                onTap: () {},
+                onTap: () => context.push('/vehicles'),
               ),
             );
           }),

@@ -199,32 +199,33 @@ class VehicleResponse(BaseModel):
     year: int
     vehicle_type: str
     fuel_type: str
-    capacity: Optional[int]
-    color: Optional[str]
-    vin_number: Optional[str]
-    engine_number: Optional[str]
-    chassis_number: Optional[str]
-    purchase_date: Optional[date]
-    purchase_price: Optional[Decimal]
-    current_driver_id: Optional[str]
-    current_driver_name: Optional[str]
-    current_odometer: int
-    status: str
+    capacity: Optional[int] = None
+    color: Optional[str] = None
+    vin_number: Optional[str] = None
+    engine_number: Optional[str] = None
+    chassis_number: Optional[str] = None
+    purchase_date: Optional[date] = None
+    purchase_price: Optional[Decimal] = None
+    current_driver_id: Optional[str] = None
+    current_driver_name: Optional[str] = None
+    current_odometer: int = 0
+    status: str = 'active'
 
     # Insurance and compliance
-    insurance_provider: Optional[str]
-    insurance_policy_number: Optional[str]
-    insurance_expiry_date: Optional[date]
-    registration_expiry_date: Optional[date]
-    pollution_certificate_expiry: Optional[date]
-    fitness_certificate_expiry: Optional[date]
+    insurance_provider: Optional[str] = None
+    insurance_policy_number: Optional[str] = None
+    insurance_expiry_date: Optional[date] = None
+    registration_expiry_date: Optional[date] = None
+    pollution_certificate_expiry: Optional[date] = None
+    fitness_certificate_expiry: Optional[date] = None
 
-    notes: Optional[str]
+    notes: Optional[str] = None
+    photo_url: Optional[str] = None
     document_count: int = 0
     has_expiring_docs: bool = False
-    created_by: Optional[str]
-    created_at: datetime
-    updated_at: datetime
+    created_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:fleet_management/data/services/vehicle_api.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/vehicle_provider.dart';
 
 class AddVehicleScreen extends ConsumerStatefulWidget {
   const AddVehicleScreen({super.key});
@@ -193,6 +194,8 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
       }
 
       if (mounted) {
+        // Refresh both pages
+        ref.read(vehicleProvider.notifier).loadVehicles();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Vehicle registered successfully!'),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/providers/vehicle_provider.dart';
 
 class VehiclesListScreen extends ConsumerStatefulWidget {
   const VehiclesListScreen({super.key});
@@ -37,6 +38,8 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
     );
 
     _animationController.forward();
+    Future.microtask(
+        () => ref.read(vehicleProvider.notifier).loadVehicles());
   }
 
   @override
@@ -48,8 +51,9 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = false;
-    final vehicles = _getMockVehicles();
+    final vehicleState = ref.watch(vehicleProvider);
+    final isLoading = vehicleState.isLoading;
+    final vehicles = vehicleState.vehicles;
     final filteredVehicles = _filterAndSortVehicles(vehicles);
 
     return FadeTransition(
@@ -67,17 +71,23 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
 
           // Vehicle Grid/List
           Expanded(
-            child: isLoading
-                ? _buildLoadingState()
-                : filteredVehicles.isEmpty
-                    ? _EmptyState(
-                        searchQuery: _searchController.text,
-                        onClear: () {
-                          _searchController.clear();
-                          setState(() => _selectedFilter = 'all');
-                        },
-                      )
-                    : _buildVehiclesList(filteredVehicles),
+            child: RefreshIndicator(
+              onRefresh: () =>
+                  ref.read(vehicleProvider.notifier).loadVehicles(),
+              child: isLoading
+                  ? _buildLoadingState()
+                  : vehicleState.error != null && vehicles.isEmpty
+                      ? _buildErrorState(vehicleState.error!)
+                      : filteredVehicles.isEmpty
+                          ? _EmptyState(
+                              searchQuery: _searchController.text,
+                              onClear: () {
+                                _searchController.clear();
+                                setState(() => _selectedFilter = 'all');
+                              },
+                            )
+                          : _buildVehiclesList(filteredVehicles),
+            ),
           ),
         ],
       ),
@@ -119,7 +129,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                     ),
                   ),
                   Text(
-                    '${_getMockVehicles().length} vehicles registered',
+                    '${ref.watch(vehicleProvider).vehicles.length} vehicles registered',
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondary,
@@ -470,6 +480,31 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
     });
 
     return filtered;
+  }
+
+  Widget _buildErrorState(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const SizedBox(height: 16),
+            Text(error,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red)),
+            const SizedBox(height: 16),
+            FilledButton.icon(
+              onPressed: () =>
+                  ref.read(vehicleProvider.notifier).loadVehicles(),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   List<Map<String, dynamic>> _getMockVehicles() {

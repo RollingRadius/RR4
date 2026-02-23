@@ -8,6 +8,27 @@ class VehicleApi {
 
   Dio get _dio => _apiService.dio;
 
+  /// Get list of vehicles
+  Future<Map<String, dynamic>> getVehicles({
+    String? statusFilter,
+    int skip = 0,
+    int limit = 100,
+  }) async {
+    try {
+      final response = await _dio.get(
+        '/api/vehicles',
+        queryParameters: {
+          'skip': skip,
+          'limit': limit,
+          if (statusFilter != null) 'status': statusFilter,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
   /// Create a new vehicle
   Future<Map<String, dynamic>> createVehicle({
     required String vehicleNumber,
@@ -34,7 +55,7 @@ class VehicleApi {
           'vin_number': vinNumber,
       };
 
-      final response = await _dio.post('/api/v1/vehicles', data: data);
+      final response = await _dio.post('/api/vehicles', data: data);
       return response.data as Map<String, dynamic>;
     } catch (e) {
       throw _apiService.handleError(e);
@@ -52,7 +73,7 @@ class VehicleApi {
       });
 
       final response = await _dio.post(
-        '/api/v1/vehicles/$vehicleId/photo',
+        '/api/vehicles/$vehicleId/photo',
         data: formData,
       );
 
