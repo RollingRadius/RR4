@@ -182,26 +182,40 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
       final vehicleId = result['vehicle_id'] as String?;
 
       // Step 2: Upload photo if selected
+      String? photoError;
       if (vehicleId != null && _selectedImagePath != null) {
         try {
           await vehicleApi.uploadVehiclePhoto(
             vehicleId: vehicleId,
             filePath: _selectedImagePath!,
           );
-        } catch (_) {
-          // Photo upload failure is non-fatal — vehicle was created
+        } catch (e) {
+          photoError = e.toString().replaceFirst('Exception: ', '');
+          debugPrint('Photo upload error: $e');
         }
       }
 
       if (mounted) {
-        // Refresh both pages
+        // Refresh vehicle list
         ref.read(vehicleProvider.notifier).loadVehicles();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Vehicle registered successfully!'),
-            backgroundColor: Color(0xFF22C55E),
-          ),
-        );
+
+        if (photoError != null) {
+          // Show vehicle created but photo failed
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Vehicle created, but photo upload failed: $photoError'),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 6),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Vehicle registered successfully!'),
+              backgroundColor: Color(0xFF22C55E),
+            ),
+          );
+        }
         context.pop();
       }
     } catch (e) {

@@ -151,9 +151,10 @@ app.include_router(invoices.router, prefix="/api/invoices", tags=["Invoices"])
 app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])
 
-# Mount static files for logo uploads
+# Mount static files for uploads (logos, vehicle photos, etc.)
 uploads_path = os.path.join(os.getcwd(), settings.UPLOAD_DIR)
-os.makedirs(uploads_path, exist_ok=True)
+os.makedirs(os.path.join(uploads_path, "logos"), exist_ok=True)
+os.makedirs(os.path.join(uploads_path, "vehicles"), exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
 
 

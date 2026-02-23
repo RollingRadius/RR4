@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
+import 'package:fleet_management/core/config/app_config.dart';
 
 class VehiclesListScreen extends ConsumerStatefulWidget {
   const VehiclesListScreen({super.key});
@@ -736,6 +737,7 @@ class _EnhancedVehicleCardState extends State<_EnhancedVehicleCard> {
         scale: _isHovered ? 1.03 : 1.0,
         duration: const Duration(milliseconds: 200),
         child: Container(
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
@@ -763,19 +765,68 @@ class _EnhancedVehicleCardState extends State<_EnhancedVehicleCard> {
             child: InkWell(
               onTap: widget.onTap,
               borderRadius: BorderRadius.circular(20),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Status Badge and Icon
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Container(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Photo / Icon Banner at top
+                  Stack(
+                    children: [
+                      SizedBox(
+                        height: 110,
+                        width: double.infinity,
+                        child: (widget.vehicle['photo_url'] as String?) != null
+                            ? Image.network(
+                                '${AppConfig.apiBaseUrl}${widget.vehicle['photo_url']}',
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
+                                  child: Center(
+                                    child: Icon(
+                                      _getVehicleIcon(widget.vehicle['type']),
+                                      color: Colors.white.withOpacity(0.5),
+                                      size: 48,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : Container(
+                                decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
+                                child: Center(
+                                  child: Icon(
+                                    _getVehicleIcon(widget.vehicle['type']),
+                                    color: Colors.white.withOpacity(0.5),
+                                    size: 48,
+                                  ),
+                                ),
+                              ),
+                      ),
+                      // Gradient overlay at bottom of photo
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          height: 40,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Colors.black.withOpacity(0.35),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Status badge overlay
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
+                            horizontal: 10,
+                            vertical: 5,
                           ),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
@@ -793,170 +844,160 @@ class _EnhancedVehicleCardState extends State<_EnhancedVehicleCard> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                _getStatusIcon(status),
-                                color: Colors.white,
-                                size: 14,
-                              ),
+                              Icon(_getStatusIcon(status), color: Colors.white, size: 12),
                               const SizedBox(width: 4),
                               Text(
                                 status,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: AppTheme.primaryBlue.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            _getVehicleIcon(widget.vehicle['type']),
-                            color: AppTheme.primaryBlue,
-                            size: 24,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Registration Number
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryBlue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: AppTheme.primaryBlue.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Text(
-                        widget.vehicle['registration'] as String,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryBlue,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Vehicle Info
-                    Text(
-                      '${widget.vehicle['make']} ${widget.vehicle['model']}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${widget.vehicle['year']} • ${widget.vehicle['type']}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                    const Spacer(),
-
-                    // Divider
-                    Divider(color: Colors.grey[300]),
-                    const SizedBox(height: 8),
-
-                    // Details Row
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _CompactDetailItem(
-                          icon: Icons.local_gas_station_rounded,
-                          label: widget.vehicle['fuelType'] as String,
-                          color: AppTheme.accentCyan,
-                        ),
-                        _CompactDetailItem(
-                          icon: Icons.speed_rounded,
-                          label: '${(widget.vehicle['mileage'] as double) / 1000}k',
-                          color: AppTheme.accentIndigo,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Driver Info
-                    if (widget.vehicle['driver'] != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.statusActive.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 14,
-                              backgroundColor: AppTheme.statusActive,
-                              child: const Icon(
-                                Icons.person_rounded,
-                                size: 16,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                widget.vehicle['driver'] as String,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ] else ...[
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.person_off_outlined,
-                              size: 16,
-                              color: Colors.grey[500],
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'No driver',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey[600],
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                          ],
-                        ),
                       ),
                     ],
-                  ],
-                ),
+                  ),
+
+                  // Content below photo
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Registration Number
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 7,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryBlue.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: AppTheme.primaryBlue.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Text(
+                              widget.vehicle['registration'] as String,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryBlue,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Vehicle Info
+                          Text(
+                            '${widget.vehicle['make']} ${widget.vehicle['model']}',
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${widget.vehicle['year']} • ${widget.vehicle['type']}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          const Spacer(),
+
+                          // Divider
+                          Divider(color: Colors.grey[300]),
+                          const SizedBox(height: 6),
+
+                          // Details Row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              _CompactDetailItem(
+                                icon: Icons.local_gas_station_rounded,
+                                label: widget.vehicle['fuelType'] as String,
+                                color: AppTheme.accentCyan,
+                              ),
+                              _CompactDetailItem(
+                                icon: Icons.speed_rounded,
+                                label: '${(widget.vehicle['mileage'] as double) / 1000}k',
+                                color: AppTheme.accentIndigo,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Driver Info
+                          if (widget.vehicle['driver'] != null) ...[
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.statusActive.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 12,
+                                    backgroundColor: AppTheme.statusActive,
+                                    child: const Icon(
+                                      Icons.person_rounded,
+                                      size: 14,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      widget.vehicle['driver'] as String,
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else ...[
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.person_off_outlined, size: 14, color: Colors.grey[500]),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'No driver',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.grey[600],
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1105,24 +1146,37 @@ class _EnhancedVehicleListTileState extends State<_EnhancedVehicleListTile> {
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
-                  // Vehicle Icon
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: AppTheme.primaryGradient,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.primaryBlue.withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      _getVehicleIcon(widget.vehicle['type']),
-                      color: Colors.white,
-                      size: 32,
+                  // Vehicle Photo / Icon
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: SizedBox(
+                      width: 64,
+                      height: 64,
+                      child: (widget.vehicle['photo_url'] as String?) != null
+                          ? Image.network(
+                              '${AppConfig.apiBaseUrl}${widget.vehicle['photo_url']}',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
+                                child: Center(
+                                  child: Icon(
+                                    _getVehicleIcon(widget.vehicle['type']),
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Container(
+                              decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
+                              child: Center(
+                                child: Icon(
+                                  _getVehicleIcon(widget.vehicle['type']),
+                                  color: Colors.white,
+                                  size: 28,
+                                ),
+                              ),
+                            ),
                     ),
                   ),
                   const SizedBox(width: 16),
