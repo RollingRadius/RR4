@@ -122,7 +122,7 @@ start_dev() {
     print_step "Step 4: Checking service health..."
     sleep 10
 
-    BACKEND_HEALTHY=$($COMPOSE_CMD ps backend | grep -c "healthy" || echo "0")
+    BACKEND_HEALTHY=$($COMPOSE_CMD ps backend | grep "healthy" | wc -l)
 
     if [ "$BACKEND_HEALTHY" -eq "0" ]; then
         print_warning "Backend might not be healthy yet. Checking logs..."
@@ -279,7 +279,7 @@ fix_migrations() {
     $COMPOSE_CMD exec backend alembic current || true
 
     echo ""
-    HEADS_COUNT=$($COMPOSE_CMD exec backend alembic heads 2>/dev/null | grep -c "^[a-f0-9]" || echo "0")
+    HEADS_COUNT=$($COMPOSE_CMD exec backend alembic heads 2>/dev/null | grep "^[a-f0-9]" | wc -l)
 
     if [ "$HEADS_COUNT" -gt 1 ]; then
         print_warning "Multiple migration heads detected!"
