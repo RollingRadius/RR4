@@ -107,9 +107,12 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
               children: [
                 Row(
                   children: [
-                    Text(widget.vehicleName,
-                        style: const TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    Flexible(
+                      child: Text(widget.vehicleName,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
+                    ),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -129,7 +132,9 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
                 Text('ID: #${widget.vehicleId} • VIN: 1XK...492',
                     style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
                 const SizedBox(height: 10),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
                   children: [
                     _ActionChip(
                       icon: Icons.download_outlined,
@@ -137,7 +142,6 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
                       filled: true,
                       onTap: () {},
                     ),
-                    const SizedBox(width: 8),
                     _ActionChip(
                       icon: Icons.map_outlined,
                       label: 'View Live Map',
@@ -299,18 +303,24 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text.rich(TextSpan(
-                children: [
+              Flexible(
+                child: const Text.rich(
                   TextSpan(
-                      text: '45,280 ',
-                      style: TextStyle(
-                          fontSize: 20, fontWeight: FontWeight.bold)),
-                  TextSpan(
-                      text: 'mi',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey)),
-                ],
-              )),
+                    children: [
+                      TextSpan(
+                          text: '45,280 ',
+                          style: TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold)),
+                      TextSpan(
+                          text: 'mi',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey)),
+                    ],
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 8),
               Text('Next: 50k mi',
                   style: TextStyle(fontSize: 10, color: Colors.grey.shade400)),
             ],
@@ -372,16 +382,20 @@ class _VehicleAnalyticsScreenState extends State<VehicleAnalyticsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Fuel Efficiency Trend',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 2),
-                  Text('Daily average MPG over last 30 days',
-                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Fuel Efficiency Trend',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 2),
+                    Text('Daily average MPG over last 30 days',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Icon(Icons.show_chart_rounded, color: Colors.grey.shade400),
             ],
           ),
@@ -556,12 +570,15 @@ class _MetricCard extends StatelessWidget {
             children: [
               Icon(icon, color: Colors.grey.shade500, size: 16),
               const SizedBox(width: 6),
-              Text(label.toUpperCase(),
-                  style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade500,
-                      letterSpacing: 0.5)),
+              Expanded(
+                child: Text(label.toUpperCase(),
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey.shade500,
+                        letterSpacing: 0.5)),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -569,9 +586,12 @@ class _MetricCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold)),
+              Flexible(
+                child: Text(value,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 20, fontWeight: FontWeight.bold)),
+              ),
               const SizedBox(width: 6),
               Text(trend,
                   style: TextStyle(

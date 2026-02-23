@@ -98,7 +98,8 @@
       "Bash(fi:*)",
       "Bash(claude mcp add:*)",
       "Bash(claude mcp:*)",
-      "mcp__stitch__get_screen"
+      "mcp__stitch__get_screen",
+      "Bash(scp:*)"
     ]
   }
 }

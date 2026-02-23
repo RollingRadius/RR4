@@ -27,6 +27,7 @@ class CustomRoleState {
   final List<dynamic> customRoles;
   final Map<String, dynamic>? selectedRole;
   final Map<String, dynamic>? impactAnalysis;
+  final String? lastCreatedRoleId;
 
   CustomRoleState({
     this.isLoading = false,
@@ -34,6 +35,7 @@ class CustomRoleState {
     this.customRoles = const [],
     this.selectedRole,
     this.impactAnalysis,
+    this.lastCreatedRoleId,
   });
 
   CustomRoleState copyWith({
@@ -42,6 +44,7 @@ class CustomRoleState {
     List<dynamic>? customRoles,
     Map<String, dynamic>? selectedRole,
     Map<String, dynamic>? impactAnalysis,
+    String? lastCreatedRoleId,
   }) {
     return CustomRoleState(
       isLoading: isLoading ?? this.isLoading,
@@ -49,6 +52,7 @@ class CustomRoleState {
       customRoles: customRoles ?? this.customRoles,
       selectedRole: selectedRole ?? this.selectedRole,
       impactAnalysis: impactAnalysis ?? this.impactAnalysis,
+      lastCreatedRoleId: lastCreatedRoleId ?? this.lastCreatedRoleId,
     );
   }
 }
@@ -98,12 +102,13 @@ class CustomRoleNotifier extends StateNotifier<CustomRoleState> {
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _api.createCustomRole(
+      final response = await _api.createCustomRole(
         roleName: roleName,
         description: description,
         capabilities: capabilities,
       );
-      state = state.copyWith(isLoading: false);
+      final newId = (response['custom_role'] as Map<String, dynamic>?)?['custom_role_id'] as String?;
+      state = state.copyWith(isLoading: false, lastCreatedRoleId: newId);
       await loadCustomRoles();
       return true;
     } catch (e) {
@@ -124,14 +129,15 @@ class CustomRoleNotifier extends StateNotifier<CustomRoleState> {
   }) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      await _api.createFromTemplate(
+      final response = await _api.createFromTemplate(
         roleName: roleName,
         templateKeys: templateKeys,
         description: description,
         customizations: customizations,
         mergeStrategy: mergeStrategy,
       );
-      state = state.copyWith(isLoading: false);
+      final newId = (response['custom_role'] as Map<String, dynamic>?)?['custom_role_id'] as String?;
+      state = state.copyWith(isLoading: false, lastCreatedRoleId: newId);
       await loadCustomRoles();
       return true;
     } catch (e) {
