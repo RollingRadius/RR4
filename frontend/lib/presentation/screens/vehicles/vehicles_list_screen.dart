@@ -1097,64 +1097,70 @@ class _EnhancedVehicleListTileState extends State<_EnhancedVehicleListTile> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Registration + Status
                         Row(
                           children: [
-                            Text(
-                              widget.vehicle['registration'] as String,
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryBlue,
-                                letterSpacing: 1.2,
+                            Flexible(
+                              child: Text(
+                                widget.vehicle['registration'] as String,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primaryBlue,
+                                  letterSpacing: 1.0,
+                                ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
+                                horizontal: 8,
+                                vertical: 3,
                               ),
                               decoration: BoxDecoration(
                                 gradient: LinearGradient(
                                   colors: [statusColor, statusColor.withOpacity(0.8)],
                                 ),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
                                 status,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 11,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         Text(
                           '${widget.vehicle['make']} ${widget.vehicle['model']} (${widget.vehicle['year']})',
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 15,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                             color: Colors.grey[800],
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Row(
+                        // Detail badges — wrap so they never overflow
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
                           children: [
                             _ListDetailBadge(
                               icon: Icons.category_rounded,
                               label: widget.vehicle['type'] as String,
                               color: AppTheme.accentSky,
                             ),
-                            const SizedBox(width: 8),
                             _ListDetailBadge(
                               icon: Icons.local_gas_station_rounded,
                               label: widget.vehicle['fuelType'] as String,
                               color: AppTheme.accentCyan,
                             ),
-                            const SizedBox(width: 8),
                             _ListDetailBadge(
                               icon: Icons.speed_rounded,
                               label: '${widget.vehicle['mileage']} km',
@@ -1162,97 +1168,58 @@ class _EnhancedVehicleListTileState extends State<_EnhancedVehicleListTile> {
                             ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-
-                  // Driver Info
-                  if (widget.vehicle['driver'] != null) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppTheme.statusActive.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppTheme.statusActive.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: AppTheme.statusActive,
-                            child: const Icon(
-                              Icons.person_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
+                        const SizedBox(height: 8),
+                        // Driver info — inline inside expanded column
+                        if (widget.vehicle['driver'] != null)
+                          Row(
                             children: [
-                              Text(
-                                'Driver',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Colors.grey[600],
+                              CircleAvatar(
+                                radius: 10,
+                                backgroundColor: AppTheme.statusActive,
+                                child: const Icon(
+                                  Icons.person_rounded,
+                                  color: Colors.white,
+                                  size: 12,
                                 ),
                               ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  widget.vehicle['driver'] as String,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Row(
+                            children: [
+                              Icon(Icons.person_off_outlined,
+                                  size: 14, color: Colors.grey[400]),
+                              const SizedBox(width: 6),
                               Text(
-                                widget.vehicle['driver'] as String,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
+                                'No driver assigned',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[500],
+                                  fontStyle: FontStyle.italic,
                                 ),
                               ),
                             ],
                           ),
-                        ],
-                      ),
+                      ],
                     ),
-                  ] else ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.person_off_outlined,
-                            color: Colors.grey[500],
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'No driver',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey[600],
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
 
                   const SizedBox(width: 8),
                   Icon(
                     Icons.arrow_forward_ios_rounded,
                     color: AppTheme.primaryBlue,
-                    size: 20,
+                    size: 16,
                   ),
                 ],
               ),
