@@ -6,12 +6,24 @@ set -e
 # ─────────────────────────────────────────────
 #
 #  Usage:
-#    ./start.sh            → production  (docker compose)
+#    ./start.sh            → production  (docker)
 #    ./start.sh dev        → development (flutter run -d chrome)
 #    ./start.sh build      → build web only (no serve)
-#    ./start.sh stop       → stop docker containers
+#    ./start.sh stop       → stop docker container
 
 MODE=${1:-prod}
+
+# Detect docker compose v2 (plugin) vs v1 (standalone binary)
+if docker compose version &>/dev/null 2>&1; then
+  DC="docker compose"
+elif command -v docker-compose &>/dev/null; then
+  DC="docker-compose"
+else
+  echo "[error] Neither 'docker compose' nor 'docker-compose' found." >&2
+  exit 1
+fi
+
+echo "[info] Using: $DC"
 
 case "$MODE" in
 
@@ -34,14 +46,14 @@ case "$MODE" in
 
   # ── Stop containers ─────────────────────────
   stop)
-    echo "[stop] Stopping containers..."
-    docker compose down
+    echo "[stop] Stopping container..."
+    $DC down
     ;;
 
   # ── Production: Docker + nginx ──────────────
   prod|*)
     echo "[prod] Building & starting with Docker..."
-    docker compose up --build
+    $DC up --build
     ;;
 
 esac
