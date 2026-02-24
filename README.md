@@ -2200,6 +2200,3 @@ class Environment {
 
 [License information to be added]
 
-## Contact
-
-[Contact information to be added]

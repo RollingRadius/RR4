@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Override to point at a different backend
+        API_BASE_URL: http://34.127.125.215:8000
+    ports:
+      - "80:80"
+    restart: unless-stopped
