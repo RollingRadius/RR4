@@ -50,9 +50,14 @@ case "$MODE" in
     $DC down
     ;;
 
-  # ── Production: Docker + nginx ──────────────
+  # ── Production: build locally → ship only static files to Docker ──
   prod|*)
-    echo "[prod] Building & starting with Docker..."
+    echo "[prod] Step 1/2 — Building Flutter web locally..."
+    flutter pub get
+    flutter build web --release \
+      --dart-define=API_BASE_URL=http://34.127.125.215:8000
+
+    echo "[prod] Step 2/2 — Building nginx image & starting..."
     $DC up --build
     ;;
 

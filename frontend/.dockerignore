@@ -1,4 +1,8 @@
-build/
+# Keep build/web — the Dockerfile copies it into nginx
+build/app/
+build/flutter_background_service_android/
+build/fluttertoast/
+
 android/
 ios/
 macos/
