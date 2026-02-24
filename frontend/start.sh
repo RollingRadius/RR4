@@ -65,17 +65,13 @@ case "$MODE" in
     echo "[deploy] Done. SSH in and run:  bash start.sh serve"
     ;;
 
-  # ── Serve: run nginx via Docker (server, no Flutter needed) ────────────────
+  # ── Serve: build inside Docker then run nginx ──────────────────────────────
   serve)
     DC=$(get_dc)
     if [ -z "$DC" ]; then
       echo "[error] Docker not found." >&2; exit 1
     fi
-    if [ ! -d "build/web" ]; then
-      echo "[error] build/web not found. Run './start.sh build' locally and upload first." >&2
-      exit 1
-    fi
-    echo "[serve] Starting nginx container... (using $DC)"
+    echo "[serve] Building image & starting nginx... (using $DC)"
     $DC up --build -d
     echo "[serve] Running at http://${SERVER_HOST}"
     ;;
