@@ -73,7 +73,19 @@ DEFAULT_ROLES = [
     {
         "role_name": "Owner",
         "role_key": "owner",
-        "description": "Full access to company resources. Assigned to user who creates a new company.",
+        "description": "Full access to company resources. Assigned to user who creates a fleet/transport company.",
+        "is_system_role": True
+    },
+    {
+        "role_name": "Fleet Owner",
+        "role_key": "fleet_owner",
+        "description": "Fleet company owner with full access to fleet management resources. Assigned to user who creates a fleet_owner type company.",
+        "is_system_role": True
+    },
+    {
+        "role_name": "Load Owner",
+        "role_key": "load_owner",
+        "description": "Cargo/load owner who posts load requirements and seeks transport services. Assigned to user who creates a load_owner type company.",
         "is_system_role": True
     },
     {
@@ -166,6 +178,8 @@ BUSINESS_TYPES = [
     "delivery",
     "taxi",
     "rental",
+    "fleet_owner",
+    "load_owner",
     "other"
 ]
 

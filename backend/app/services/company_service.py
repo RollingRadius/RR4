@@ -222,15 +222,23 @@ class CompanyService:
         self.db.add(company)
         self.db.flush()
 
-        # Get Owner role
+        # Get owner role based on business type
+        business_type = company_data.get('business_type', 'other')
+        if business_type == 'fleet_owner':
+            owner_role_key = 'fleet_owner'
+        elif business_type == 'load_owner':
+            owner_role_key = 'load_owner'
+        else:
+            owner_role_key = 'owner'
+
         owner_role = self.db.query(Role).filter(
-            Role.role_key == 'owner'
+            Role.role_key == owner_role_key
         ).first()
 
         if not owner_role:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Owner role not found in database"
+                detail=f"Role '{owner_role_key}' not found in database"
             )
 
         # If user already has an independent_user record (no org), remove it first

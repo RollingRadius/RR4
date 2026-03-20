@@ -54,7 +54,9 @@ def get_current_user_profile(
         response.update({
             "company_id": str(user_org.organization_id),
             "company_name": user_org.organization.company_name,
-            "role": user_org.role.role_name if user_org.role else None
+            "business_type": user_org.organization.business_type,
+            "role": user_org.role.role_name if user_org.role else None,
+            "role_key": user_org.role.role_key if user_org.role else None
         })
 
     return response
@@ -107,7 +109,9 @@ def refresh_token(
         "full_name": current_user.full_name,
         "company_id": str(user_org.organization_id) if user_org else None,
         "company_name": user_org.organization.company_name if user_org and user_org.organization else None,
-        "role": user_org.role.role_name if user_org and user_org.role else "Independent User"
+        "business_type": user_org.organization.business_type if user_org and user_org.organization else None,
+        "role": user_org.role.role_name if user_org and user_org.role else "Independent User",
+        "role_key": user_org.role.role_key if user_org and user_org.role else "independent_user"
     }
 
 

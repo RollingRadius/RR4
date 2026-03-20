@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +8,7 @@ import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/core/web/web_utils.dart';
 
 class ProfileCompletionScreen extends ConsumerStatefulWidget {
   const ProfileCompletionScreen({super.key});
@@ -24,7 +26,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
 
   // Company fields
   final _companyNameController = TextEditingController();
-  final _businessTypeController = TextEditingController();
+  String? _selectedCompanyType; // 'fleet_owner' or 'load_owner'
   final _businessEmailController = TextEditingController();
   final _businessPhoneController = TextEditingController();
   final _addressController = TextEditingController();
@@ -57,7 +59,6 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
     _licenseNumberController.dispose();
     _licenseExpiryController.dispose();
     _companyNameController.dispose();
-    _businessTypeController.dispose();
     _businessEmailController.dispose();
     _businessPhoneController.dispose();
     _addressController.dispose();
@@ -71,6 +72,15 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
   Future<void> _submitProfile() async {
     if (_selectedRoleType == null) {
       _showError('Please select a role type');
+      return;
+    }
+
+    // Fix 401: ensure the token is applied to the API service before submitting
+    final authState = ref.read(authProvider);
+    if (authState.token != null) {
+      ref.read(apiServiceProvider).setToken(authState.token!);
+    } else {
+      _showError('Session expired. Please log in again.');
       return;
     }
 
@@ -101,16 +111,16 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
         profileData['requested_role_key'] = _selectedRoleKey;
       }
     } else if (_selectedRoleType == 'create_company') {
+      if (_selectedCompanyType == null) {
+        _showError('Please select a company type (Fleet or Load Provider)');
+        return;
+      }
       if (_companyNameController.text.isEmpty) {
         _showError('Please enter company name');
         return;
       }
-      if (_businessTypeController.text.isEmpty) {
-        _showError('Please enter business type');
-        return;
-      }
       profileData['company_name'] = _companyNameController.text.trim();
-      profileData['business_type'] = _businessTypeController.text.trim();
+      profileData['business_type'] = _selectedCompanyType!;
       profileData['business_email'] = _businessEmailController.text.trim();
       profileData['business_phone'] = _businessPhoneController.text.trim();
       profileData['address'] = _addressController.text.trim();
@@ -146,8 +156,18 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
               ),
             ),
           );
-          // Navigate to dashboard
-          context.go(AppConstants.routeDashboard);
+          // Navigate based on company type
+          final updatedUser = ref.read(authProvider).user;
+          if (updatedUser?.isLoadOwner == true) {
+            if (kIsWeb) {
+              final token = ref.read(authProvider).token ?? '';
+              redirectToLoadProvider(token);
+            } else {
+              context.go(AppConstants.routeLoadOwnerHome);
+            }
+          } else {
+            context.go(AppConstants.routeDashboard);
+          }
         }
       } else {
         final error = ref.read(profileProvider).error;
@@ -583,112 +603,193 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
       children: [
         const Divider(height: 32),
         const Text(
-          'Company Information',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          'What type of company are you registering?',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Select the category that best describes your business',
+          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
         ),
         const SizedBox(height: 16),
-        TextField(
-          controller: _companyNameController,
-          decoration: InputDecoration(
-            labelText: 'Company Name *',
-            prefixIcon: const Icon(Icons.business),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+
+        // Logistics / Fleet Company card
+        _buildCompanyTypeCard(
+          value: 'fleet_owner',
+          title: 'Logistics / Fleet Company',
+          description: 'You own and manage a fleet of vehicles for transportation',
+          icon: Icons.local_shipping_outlined,
+          color: Colors.blue,
+        ),
+        const SizedBox(height: 12),
+
+        // Load Provider Company card
+        _buildCompanyTypeCard(
+          value: 'load_owner',
+          title: 'Load Provider Company',
+          description: 'You have cargo/goods that need to be transported',
+          icon: Icons.inventory_2_outlined,
+          color: Colors.orange,
+        ),
+
+        // Company detail form — shown only after type is selected
+        if (_selectedCompanyType != null) ...[
+          const SizedBox(height: 24),
+          const Divider(height: 1),
+          const SizedBox(height: 20),
+          const Text(
+            'Company Information',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _companyNameController,
+            decoration: InputDecoration(
+              labelText: 'Company Name *',
+              prefixIcon: const Icon(Icons.business),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _businessTypeController,
-          decoration: InputDecoration(
-            labelText: 'Business Type *',
-            hintText: 'Transportation, Logistics, etc.',
-            prefixIcon: const Icon(Icons.category),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _businessEmailController,
+            decoration: InputDecoration(
+              labelText: 'Business Email',
+              prefixIcon: const Icon(Icons.email),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _businessPhoneController,
+            decoration: InputDecoration(
+              labelText: 'Business Phone',
+              prefixIcon: const Icon(Icons.phone),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            keyboardType: TextInputType.phone,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _addressController,
+            decoration: InputDecoration(
+              labelText: 'Address',
+              prefixIcon: const Icon(Icons.location_on),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _cityController,
+                  decoration: InputDecoration(
+                    labelText: 'City',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _stateController,
+                  decoration: InputDecoration(
+                    labelText: 'State',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _pincodeController,
+            decoration: InputDecoration(
+              labelText: 'Pincode',
+              prefixIcon: const Icon(Icons.pin_drop),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            keyboardType: TextInputType.number,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildCompanyTypeCard({
+    required String value,
+    required String title,
+    required String description,
+    required IconData icon,
+    required Color color,
+  }) {
+    final isSelected = _selectedCompanyType == value;
+    return InkWell(
+      onTap: () => setState(() => _selectedCompanyType = value),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.08) : Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? color : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
           ),
         ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _businessEmailController,
-          decoration: InputDecoration(
-            labelText: 'Business Email',
-            prefixIcon: const Icon(Icons.email),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _businessPhoneController,
-          decoration: InputDecoration(
-            labelText: 'Business Phone',
-            prefixIcon: const Icon(Icons.phone),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          keyboardType: TextInputType.phone,
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _addressController,
-          decoration: InputDecoration(
-            labelText: 'Address',
-            prefixIcon: const Icon(Icons.location_on),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-        Row(
+        child: Row(
           children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isSelected ? color : Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: isSelected ? Colors.white : Colors.grey[600], size: 26),
+            ),
+            const SizedBox(width: 16),
             Expanded(
-              child: TextField(
-                controller: _cityController,
-                decoration: InputDecoration(
-                  labelText: 'City',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? color : Colors.black87,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _stateController,
-                decoration: InputDecoration(
-                  labelText: 'State',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
+            if (isSelected)
+              Icon(Icons.check_circle, color: color, size: 22),
           ],
         ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _pincodeController,
-          decoration: InputDecoration(
-            labelText: 'Pincode',
-            prefixIcon: const Icon(Icons.pin_drop),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          keyboardType: TextInputType.number,
-        ),
-      ],
+      ),
     );
   }
 }

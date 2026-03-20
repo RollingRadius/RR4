@@ -10,7 +10,9 @@ class UserModel {
   final bool profileCompleted;
   final String? companyId;
   final String? companyName;
+  final String? businessType;
   final String? role;
+  final String? roleKey;
 
   UserModel({
     required this.userId,
@@ -23,7 +25,9 @@ class UserModel {
     required this.profileCompleted,
     this.companyId,
     this.companyName,
+    this.businessType,
     this.role,
+    this.roleKey,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -38,7 +42,9 @@ class UserModel {
       profileCompleted: json['profile_completed'] as bool? ?? false,
       companyId: json['company_id'] as String?,
       companyName: json['company_name'] as String?,
+      businessType: json['business_type'] as String?,
       role: json['role'] as String?,
+      roleKey: json['role_key'] as String?,
     );
   }
 
@@ -54,11 +60,15 @@ class UserModel {
       'profile_completed': profileCompleted,
       'company_id': companyId,
       'company_name': companyName,
+      'business_type': businessType,
       'role': role,
+      'role_key': roleKey,
     };
   }
 
   bool get isEmailVerified => authMethod == 'email' && status == 'active';
   bool get isSecurityQuestionsUser => authMethod == 'security_questions';
   bool get canLogin => status == 'active';
+  bool get isFleetOwner => roleKey == 'fleet_owner' || roleKey == 'owner';
+  bool get isLoadOwner => roleKey == 'load_owner';
 }

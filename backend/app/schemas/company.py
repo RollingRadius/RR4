@@ -8,6 +8,7 @@ from typing import Optional, List
 from datetime import date
 
 from app.utils.validators import validate_gstin, validate_pan, validate_pincode
+from app.utils.constants import BUSINESS_TYPES
 
 
 class CompanySearchResult(BaseModel):
@@ -82,6 +83,13 @@ class CompanyCreateRequest(BaseModel):
     state: str = Field(..., min_length=2, max_length=100)
     pincode: str = Field(..., min_length=6, max_length=10)
     country: str = Field(default="India", max_length=100)
+
+    @field_validator('business_type')
+    @classmethod
+    def validate_business_type(cls, v):
+        if v not in BUSINESS_TYPES:
+            raise ValueError(f"Invalid business type. Must be one of: {', '.join(BUSINESS_TYPES)}")
+        return v
 
     @field_validator('gstin')
     @classmethod

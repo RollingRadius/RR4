@@ -21,7 +21,9 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
 
   // Company Info
   final _companyNameController = TextEditingController();
-  final _businessTypeController = TextEditingController();
+  bool _isFleetOwner = false;
+  bool _isLoadOwner = false;
+  bool _businessTypeError = false;
   final _businessEmailController = TextEditingController();
   final _businessPhoneController = TextEditingController();
 
@@ -42,7 +44,6 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
   @override
   void dispose() {
     _companyNameController.dispose();
-    _businessTypeController.dispose();
     _businessEmailController.dispose();
     _businessPhoneController.dispose();
     _addressController.dispose();
@@ -95,14 +96,28 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
       return;
     }
 
+    if (!_isFleetOwner && !_isLoadOwner) {
+      setState(() {
+        _businessTypeError = true;
+      });
+      return;
+    }
+
     setState(() {
       _isCreating = true;
+      _businessTypeError = false;
     });
+
+    final businessType = _isFleetOwner && _isLoadOwner
+        ? 'fleet_owner'
+        : _isFleetOwner
+            ? 'fleet_owner'
+            : 'load_owner';
 
     // Prepare company data
     final companyData = {
       'company_name': _companyNameController.text.trim(),
-      'business_type': _businessTypeController.text.trim(),
+      'business_type': businessType,
       'business_email': _businessEmailController.text.trim(),
       'business_phone': _businessPhoneController.text.trim(),
       'address': _addressController.text.trim(),
@@ -237,19 +252,54 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                TextFormField(
-                  controller: _businessTypeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Business Type *',
-                    hintText: 'e.g., Logistics, Transportation',
-                    prefixIcon: Icon(Icons.category),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return AppConstants.validationRequired;
-                    }
-                    return null;
-                  },
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Business Type *',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.grey[700],
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    CheckboxListTile(
+                      title: const Text('Fleet Owner'),
+                      subtitle: const Text('Owns and manages a fleet of vehicles'),
+                      value: _isFleetOwner,
+                      onChanged: (val) {
+                        setState(() {
+                          _isFleetOwner = val ?? false;
+                          _businessTypeError = false;
+                        });
+                      },
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    CheckboxListTile(
+                      title: const Text('Load Owner'),
+                      subtitle: const Text('Posts load requirements and seeks transport'),
+                      value: _isLoadOwner,
+                      onChanged: (val) {
+                        setState(() {
+                          _isLoadOwner = val ?? false;
+                          _businessTypeError = false;
+                        });
+                      },
+                      controlAffinity: ListTileControlAffinity.leading,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    if (_businessTypeError)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 12.0, top: 4.0),
+                        child: Text(
+                          'Please select at least one business type',
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 

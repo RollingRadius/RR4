@@ -86,9 +86,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Load stored authentication
   Future<void> _loadStoredAuth() async {
     try {
-      final token = await _storage.read(key: AppConfig.tokenKey);
+      final rawToken = await _storage.read(key: AppConfig.tokenKey);
+      final token = rawToken?.trim();
 
-      if (token != null) {
+      if (token != null && token.isNotEmpty) {
         // Set token in API service
         _apiService.setToken(token);
 
@@ -127,8 +128,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       print('🔐 Login successful for user: ${user.username}');
 
-      // Store token
-      await _storage.write(key: AppConfig.tokenKey, value: token);
+      // Store token (trimmed to prevent whitespace/newline corruption)
+      await _storage.write(key: AppConfig.tokenKey, value: token.trim());
 
       // Set token in API service
       _apiService.setToken(token);
@@ -244,7 +245,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final response = await _userApi.refreshToken();
 
       if (response['access_token'] != null) {
-        final token = response['access_token'] as String;
+        final token = (response['access_token'] as String).trim();
 
         // Store new token
         await _storage.write(key: AppConfig.tokenKey, value: token);

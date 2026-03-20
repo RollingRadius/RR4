@@ -280,8 +280,8 @@ class OrganizationService:
                 detail=f"Invalid role: {role_key}"
             )
 
-        # Prevent assigning owner role
-        if role_key == 'owner':
+        # Prevent assigning owner roles (fleet_owner, load_owner, owner) through approval
+        if role_key in ('owner', 'fleet_owner', 'load_owner'):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot assign owner role through approval"
@@ -442,14 +442,16 @@ class OrganizationService:
             )
 
         # Prevent changing owner role unless current user is owner
-        if user_org.role.role_key == 'owner' and current_user_org.role.role_key != 'owner':
+        if user_org.role.role_key in ('owner', 'fleet_owner', 'load_owner') and \
+                current_user_org.role.role_key not in ('owner', 'fleet_owner', 'load_owner'):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only owners can change owner roles"
             )
 
         # Prevent assigning owner role unless current user is owner
-        if new_role_key == 'owner' and current_user_org.role.role_key != 'owner':
+        if new_role_key in ('owner', 'fleet_owner', 'load_owner') and \
+                current_user_org.role.role_key not in ('owner', 'fleet_owner', 'load_owner'):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only owners can assign owner role"
@@ -535,7 +537,8 @@ class OrganizationService:
             )
 
         # Prevent removing owner unless current user is owner
-        if user_org.role.role_key == 'owner' and current_user_org.role.role_key != 'owner':
+        if user_org.role.role_key in ('owner', 'fleet_owner', 'load_owner') and \
+                current_user_org.role.role_key not in ('owner', 'fleet_owner', 'load_owner'):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only owners can remove other owners"

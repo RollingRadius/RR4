@@ -61,8 +61,9 @@ class ApiService {
 
   /// Set authentication token
   void setToken(String token) {
-    _dio.options.headers['Authorization'] = 'Bearer $token';
-    print('🔑 Token set in API service: ${token.substring(0, 20)}...');
+    final clean = token.trim();
+    _dio.options.headers['Authorization'] = 'Bearer $clean';
+    print('🔑 Token set in API service: ${clean.substring(0, 20)}...');
   }
 
   /// Remove authentication token

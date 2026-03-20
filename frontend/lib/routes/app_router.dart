@@ -49,6 +49,9 @@ import 'package:fleet_management/presentation/screens/tracking/geofence_alerts_s
 import 'package:fleet_management/presentation/screens/tracking/route_optimizer_screen.dart';
 import 'package:fleet_management/presentation/screens/vehicles/vehicle_analytics_screen.dart';
 import 'package:fleet_management/presentation/screens/driver/driver_home_screen.dart';
+import 'package:fleet_management/presentation/screens/load_owner/upload_load_requirement_screen.dart';
+import 'package:fleet_management/presentation/screens/load_owner/load_owner_dashboard_screen.dart';
+import 'package:fleet_management/presentation/screens/load_owner/my_trips_screen.dart';
 import 'package:fleet_management/presentation/screens/driver/driver_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_work_orders_screen.dart';
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_inventory_screen.dart';
@@ -186,6 +189,35 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           );
         },
+      ),
+
+      // Load Owner Dashboard (standalone — has its own bottom nav)
+      GoRoute(
+        path: AppConstants.routeLoadOwnerHome,
+        name: 'load-owner-home',
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: LoadOwnerDashboardScreen(),
+        ),
+      ),
+
+      // Load Owner Upload (reached from the Loads tab in dashboard)
+      GoRoute(
+        path: AppConstants.routeLoadOwnerUpload,
+        name: 'load-owner-upload',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const UploadLoadRequirementScreen(),
+        ),
+      ),
+
+      // Load Owner My Trips
+      GoRoute(
+        path: AppConstants.routeLoadOwnerTrips,
+        name: 'load-owner-trips',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const MyTripsScreen(),
+        ),
       ),
 
       // Dashboard (with main scaffold)

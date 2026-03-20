@@ -318,6 +318,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     _buildSearchBar(),
                     const SizedBox(height: 16),
 
+                    // Quick actions
+                    _buildCreateLoadButton(),
+                    const SizedBox(height: 16),
+
                     // Fleet health hero
                     _AnimItem(
                       fade: _fadeHero,
@@ -436,6 +440,78 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 size: 18, color: AppTheme.textSecondary),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Create Load button ─────────────────────────────────────────────────────
+
+  Widget _buildCreateLoadButton() {
+    return GestureDetector(
+      onTap: () => context.push('/load-owner/upload'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFEC5B13), Color(0xFFD14A0A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFEC5B13).withOpacity(0.35),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.add_box_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Create New Load',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    'Upload load requirements for carriers',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.arrow_forward_ios_rounded,
+              color: Colors.white70,
+              size: 16,
+            ),
+          ],
+        ),
       ),
     );
   }

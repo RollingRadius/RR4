@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#001e40" />
+  <title>RR Logistics — Upload Load Requirement</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
+    rel="stylesheet"
+  />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+<div class="app-shell">
+
+  <!-- ── Top App Bar ──────────────────────────────────────────── -->
+  <header class="top-bar" id="topBar">
+    <div class="top-bar__left">
+      <button class="top-bar__menu" id="menuBtn" aria-label="Menu">
+        <span class="icon">menu</span>
+      </button>
+      <span class="top-bar__brand">RR Logistics</span>
+    </div>
+    <div class="top-bar__avatar" id="avatarBtn" aria-label="Profile">JD</div>
+  </header>
+
+  <!-- ── Main Content ─────────────────────────────────────────── -->
+  <main class="main-content">
+
+    <!-- Section 1 — Entry Method -->
+    <section class="animate-in" style="display:flex;flex-direction:column;gap:.75rem;">
+      <div class="section-header">
+        <span class="label-caps">Entry Method</span>
+        <h1 class="section-title">New Load</h1>
+      </div>
+
+      <div class="entry-toggle" role="tablist">
+        <button
+          class="entry-btn entry-btn--active"
+          id="btnManual"
+          role="tab"
+          aria-selected="true"
+          aria-controls="panelManual"
+          data-tab="manual"
+        >
+          <span class="icon">edit_note</span>
+          Manual
+        </button>
+        <button
+          class="entry-btn entry-btn--inactive"
+          id="btnBulk"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panelBulk"
+          data-tab="bulk"
+        >
+          <span class="icon">upload_file</span>
+          Bulk
+        </button>
+        <button
+          class="entry-btn entry-btn--inactive"
+          id="btnPhoto"
+          role="tab"
+          aria-selected="false"
+          aria-controls="panelPhoto"
+          data-tab="photo"
+        >
+          <span class="icon">photo_camera</span>
+          Photo
+        </button>
+      </div>
+    </section>
+
+    <!-- ── Panel: Manual ──────────────────────────────────────── -->
+    <div id="panelManual" class="entry-panel active animate-in" role="tabpanel">
+      <div class="form-card">
+
+        <!-- Route visual -->
+        <div class="route-visual">
+          <div class="route-line" aria-hidden="true"></div>
+
+          <!-- Origin stop -->
+          <div class="route-stop">
+            <div class="route-dot route-dot--origin" aria-hidden="true"></div>
+            <div class="field-group">
+              <label class="field-label" for="pickup">Pickup Location</label>
+              <input
+                class="field-input"
+                id="pickup"
+                type="text"
+                placeholder="Enter Origin Hub"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+
+          <!-- Destination stop -->
+          <div class="route-stop">
+            <div class="route-dot route-dot--dest" aria-hidden="true"></div>
+            <div class="field-group">
+              <label class="field-label" for="unload">Unload Location</label>
+              <input
+                class="field-input"
+                id="unload"
+                type="text"
+                placeholder="Enter Destination"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Material + Date -->
+        <div class="fields-row">
+          <div class="field-group">
+            <label class="field-label" for="material">Material Type</label>
+            <select class="field-input field-input--select" id="material">
+              <option value="steel_coils">Steel Coils</option>
+              <option value="perishables">Perishables</option>
+              <option value="electronics">Electronics</option>
+              <option value="industrial">Industrial</option>
+              <option value="chemicals">Chemicals</option>
+              <option value="auto_parts">Auto Parts</option>
+            </select>
+          </div>
+          <div class="field-group">
+            <label class="field-label" for="entryDate">Entry Date</label>
+            <input class="field-input" id="entryDate" type="date" />
+          </div>
+        </div>
+
+        <!-- Truck count -->
+        <div class="truck-count-row">
+          <div class="truck-count-info">
+            <span class="label-caps">Truck Count</span>
+            <span class="truck-count-value" id="truckDisplay">08 Units</span>
+          </div>
+          <div class="stepper">
+            <button class="stepper-btn stepper-btn--minus" id="btnMinus" aria-label="Decrease truck count">
+              <span class="icon">remove</span>
+            </button>
+            <button class="stepper-btn stepper-btn--plus" id="btnPlus" aria-label="Increase truck count">
+              <span class="icon">add</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Panel: Bulk ─────────────────────────────────────────── -->
+    <div id="panelBulk" class="entry-panel animate-in" role="tabpanel">
+      <div class="section" style="gap:.625rem;">
+        <span class="section-label">Bulk Operations</span>
+        <div
+          class="drop-zone"
+          id="dropZone"
+          tabindex="0"
+          role="button"
+          aria-label="Drag and drop or click to browse files"
+        >
+          <div class="drop-icon-wrap">
+            <span class="icon" style="font-size:26px;">cloud_upload</span>
+          </div>
+          <div>
+            <p class="drop-title">Drag &amp; Drop Manifest</p>
+            <p class="drop-subtitle">Excel or CSV &nbsp;·&nbsp; Max 5 files</p>
+          </div>
+          <button class="browse-btn" id="browseBtn" type="button">Browse Files</button>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" multiple />
+        </div>
+        <div class="bulk-file-list" id="fileList"></div>
+      </div>
+    </div>
+
+    <!-- ── Panel: Photo ─────────────────────────────────────────── -->
+    <div id="panelPhoto" class="entry-panel animate-in" role="tabpanel">
+      <div class="section">
+        <span class="section-label">Visual Verification</span>
+        <div class="camera-preview-wrap" id="cameraWrap">
+          <video id="cameraFeed" autoplay playsinline style="display:none;"></video>
+          <img id="capturedPhoto" style="display:none;" alt="Captured load photo" />
+          <div id="cameraPlaceholder" style="display:flex;flex-direction:column;align-items:center;gap:.5rem;">
+            <span class="icon" style="font-size:40px;color:var(--outline);">camera_alt</span>
+            <span style="font-size:.875rem;font-weight:600;color:var(--on-surface-variant);">Tap to start camera</span>
+            <span style="font-size:.6875rem;color:var(--outline);">AI-assisted data extraction</span>
+          </div>
+        </div>
+        <button class="camera-capture-btn" id="captureBtn" aria-label="Capture photo" style="display:none;"></button>
+        <button class="browse-btn" id="retakeBtn" style="display:none;margin:0 auto;">Retake</button>
+      </div>
+    </div>
+
+    <!-- ── Truck Specifications (always visible) ─────────────────── -->
+    <section class="section animate-in">
+      <button
+        class="specs-toggle"
+        id="specsToggle"
+        aria-expanded="true"
+        aria-controls="specsGrid"
+      >
+        <div class="specs-toggle__left">
+          <span class="icon" style="color:var(--primary);">local_shipping</span>
+          Truck Specifications
+        </div>
+        <span class="icon specs-toggle__chevron open" id="specsChevron">expand_more</span>
+      </button>
+
+      <div class="specs-grid open" id="specsGrid">
+        <div class="spec-card spec-card--accent">
+          <span class="spec-card__label">Capacity</span>
+          <span class="spec-card__value" id="specCapacity">24 Tons</span>
+        </div>
+        <div class="spec-card">
+          <span class="spec-card__label">Axel Type</span>
+          <span class="spec-card__value" id="specAxel">Multi-Axel</span>
+        </div>
+        <div class="spec-card">
+          <span class="spec-card__label">Body</span>
+          <span class="spec-card__value" id="specBody">Open Body</span>
+        </div>
+        <div class="spec-card">
+          <span class="spec-card__label">Floor</span>
+          <span class="spec-card__value" id="specFloor">Wooden</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Bulk Operations card (always visible shortcut) ─────────── -->
+    <section class="section animate-in" id="bulkShortcut">
+      <span class="section-label">Bulk Operations</span>
+      <div
+        class="drop-zone"
+        id="dropZone2"
+        tabindex="0"
+        role="button"
+        aria-label="Drag and drop or click to upload a manifest"
+        style="padding:1.5rem 1.25rem;"
+      >
+        <div class="drop-icon-wrap">
+          <span class="icon" style="font-size:26px;">cloud_upload</span>
+        </div>
+        <div>
+          <p class="drop-title">Drag &amp; Drop Manifest</p>
+          <p class="drop-subtitle">Excel or CSV &nbsp;·&nbsp; Max 5 trips</p>
+        </div>
+        <button class="browse-btn" id="browseBtn2" type="button">Browse Files</button>
+      </div>
+    </section>
+
+    <!-- ── Photo Verification Card (always visible shortcut) ──────── -->
+    <div class="photo-card animate-in" id="photoShortcut" role="button" tabindex="0">
+      <div class="photo-icon">
+        <span class="icon">camera</span>
+      </div>
+      <div class="photo-card__text">
+        <div class="photo-card__title">Visual Verification</div>
+        <div class="photo-card__sub">Capture load photos for instant AI data entry</div>
+      </div>
+      <span class="icon photo-card__chevron">chevron_right</span>
+    </div>
+
+  </main>
+</div><!-- /.app-shell -->
+
+<!-- ── Floating Submit Button ─────────────────────────────────── -->
+<div class="fab-wrap">
+  <button class="fab" id="submitBtn">
+    <span id="submitBtnText">Submit Load Requirement</span>
+    <span class="icon" id="submitBtnIcon">send</span>
+  </button>
+</div>
+
+<!-- ── Bottom Navigation ──────────────────────────────────────── -->
+<div class="bottom-nav-fixed">
+  <nav class="bottom-nav-inner" role="navigation" aria-label="Main navigation">
+    <button class="nav-item nav-item--active" data-nav="upload" aria-current="page">
+      <span class="icon">upload_file</span>
+      <span class="nav-label">Upload</span>
+    </button>
+    <button class="nav-item" data-nav="trips">
+      <span class="icon">local_shipping</span>
+      <span class="nav-label">My Trips</span>
+    </button>
+    <button class="nav-item" data-nav="fleet">
+      <span class="icon">inventory</span>
+      <span class="nav-label">Fleet</span>
+    </button>
+    <button class="nav-item" data-nav="profile">
+      <span class="icon">person</span>
+      <span class="nav-label">Profile</span>
+    </button>
+  </nav>
+</div>
+
+<!-- ── Snackbar ───────────────────────────────────────────────── -->
+<div class="snackbar" id="snackbar" role="status" aria-live="polite">
+  <span class="icon" id="snackIcon">check_circle</span>
+  <span id="snackMsg">Message</span>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

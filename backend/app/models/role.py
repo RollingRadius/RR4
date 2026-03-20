@@ -57,8 +57,16 @@ class Role(Base):
         return f"<Role(id={self.id}, name='{self.role_name}', key='{self.role_key}')>"
 
     def is_owner(self) -> bool:
-        """Check if this is the Owner role"""
-        return self.role_key == 'owner'
+        """Check if this is any owner role (generic, fleet, or load owner)"""
+        return self.role_key in ('owner', 'fleet_owner', 'load_owner')
+
+    def is_fleet_owner(self) -> bool:
+        """Check if this is the Fleet Owner role"""
+        return self.role_key == 'fleet_owner'
+
+    def is_load_owner(self) -> bool:
+        """Check if this is the Load Owner role"""
+        return self.role_key == 'load_owner'
 
     def is_pending_user(self) -> bool:
         """Check if this is the Pending User role"""

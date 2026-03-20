@@ -8,6 +8,20 @@ class AppConstants {
   static const String companyTypeExisting = 'existing';
   static const String companyTypeNew = 'new';
 
+  // Business Types
+  static const List<Map<String, String>> businessTypes = [
+    {'value': 'transportation', 'label': 'Transportation'},
+    {'value': 'logistics', 'label': 'Logistics'},
+    {'value': 'freight', 'label': 'Freight'},
+    {'value': 'courier', 'label': 'Courier'},
+    {'value': 'delivery', 'label': 'Delivery'},
+    {'value': 'taxi', 'label': 'Taxi'},
+    {'value': 'rental', 'label': 'Rental'},
+    {'value': 'fleet_owner', 'label': 'Fleet Owner'},
+    {'value': 'load_owner', 'label': 'Load Owner'},
+    {'value': 'other', 'label': 'Other'},
+  ];
+
   // User Status
   static const String userStatusPending = 'pending_verification';
   static const String userStatusActive = 'active';
@@ -23,6 +37,9 @@ class AppConstants {
   static const String routeCompanySearch = '/company-search';
   static const String routeCompanyCreate = '/company-create';
   static const String routeDashboard = '/dashboard';
+  static const String routeLoadOwnerHome = '/load-owner/dashboard';
+  static const String routeLoadOwnerUpload = '/load-owner/upload';
+  static const String routeLoadOwnerTrips = '/load-owner/trips';
 
   // Error Messages
   static const String errorNetwork = 'Network error. Please check your connection.';

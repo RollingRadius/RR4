@@ -177,6 +177,7 @@ class AuthService:
             "company_id": str(company.id) if company else None,
             "company_name": company.company_name if company else None,
             "role": role.role_name if role else None,
+            "role_key": role.role_key if role else None,
             "capabilities": ['*'] if role and role.is_owner() else [],
             "message": SUCCESS_SIGNUP_EMAIL if signup_data['auth_method'] == AUTH_METHOD_EMAIL else SUCCESS_SIGNUP_SECURITY_QUESTIONS,
             "verification_code": verification_code,  # 6-digit code for easy verification
@@ -321,8 +322,10 @@ class AuthService:
             "email": user.email,
             "profile_completed": user.profile_completed,
             "role": role.role_name if role else None,
+            "role_key": role.role_key if role else None,
             "company_id": str(company.id) if company else None,
-            "company_name": company.company_name if company else None
+            "company_name": company.company_name if company else None,
+            "business_type": company.business_type if company else None
         }
 
     def verify_email(self, token: str) -> dict:
@@ -496,8 +499,15 @@ class AuthService:
         self.db.add(company)
         self.db.flush()
 
-        # Get Owner role
-        role = self._get_role_by_key('owner')
+        # Assign owner role based on business type:
+        # fleet_owner → fleet_owner role, load_owner → load_owner role, others → generic owner role
+        business_type = company_details.get('business_type')
+        if business_type == 'fleet_owner':
+            role = self._get_role_by_key('fleet_owner')
+        elif business_type == 'load_owner':
+            role = self._get_role_by_key('load_owner')
+        else:
+            role = self._get_role_by_key('owner')
 
         # Create user-organization relationship with Owner role
         user_org = UserOrganization(
