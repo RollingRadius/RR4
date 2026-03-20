@@ -26,11 +26,11 @@ def upgrade() -> None:
         sa.text("""
             UPDATE user_organizations uo
             SET role_id = (SELECT id FROM roles WHERE role_key = 'fleet_owner')
-            FROM organizations o, roles current_role
+            FROM organizations o, roles r
             WHERE uo.organization_id = o.id
-              AND uo.role_id         = current_role.id
-              AND current_role.role_key = 'owner'
-              AND o.business_type       = 'fleet_owner'
+              AND uo.role_id         = r.id
+              AND r.role_key         = 'owner'
+              AND o.business_type    = 'fleet_owner'
               AND EXISTS (SELECT 1 FROM roles WHERE role_key = 'fleet_owner')
         """)
     )
@@ -40,11 +40,11 @@ def upgrade() -> None:
         sa.text("""
             UPDATE user_organizations uo
             SET role_id = (SELECT id FROM roles WHERE role_key = 'load_owner')
-            FROM organizations o, roles current_role
+            FROM organizations o, roles r
             WHERE uo.organization_id = o.id
-              AND uo.role_id         = current_role.id
-              AND current_role.role_key = 'owner'
-              AND o.business_type       = 'load_owner'
+              AND uo.role_id         = r.id
+              AND r.role_key         = 'owner'
+              AND o.business_type    = 'load_owner'
               AND EXISTS (SELECT 1 FROM roles WHERE role_key = 'load_owner')
         """)
     )
