@@ -61,7 +61,8 @@ class ApiService {
 
   /// Set authentication token
   void setToken(String token) {
-    final clean = token.trim();
+    // Strip ALL whitespace (including embedded \n from Android Keystore base64-wrapping)
+    final clean = token.replaceAll(RegExp(r'\s+'), '');
     _dio.options.headers['Authorization'] = 'Bearer $clean';
     print('🔑 Token set in API service: ${clean.substring(0, clean.length.clamp(0, 20))}...');
   }

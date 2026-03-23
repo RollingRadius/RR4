@@ -297,6 +297,165 @@ def get_trip_vehicle_location(
     }
 
 
+# ─── Stage Schemas ────────────────────────────────────────────────────────────
+
+class Stage1Payload(BaseModel):
+    driver_name:       str
+    driver_phone:      str
+    driving_license:   str
+    aadhaar:           str
+    rc:                str
+    insurance:         str
+    pollution:         str
+    fitness:           str
+    pan:               str
+    tax_declaration:   Optional[str] = None
+    cancelled_cheque:  Optional[str] = None
+
+
+class Stage2Payload(BaseModel):
+    specs_verified:    bool
+    docs_verified:     bool
+    driver_docs_valid: bool
+    entry_permission:  bool
+
+
+class Stage3Payload(BaseModel):
+    driver_parked:        bool
+    docs_submitted:       bool
+    security_verified:    bool
+    driver_exited_cabin:  bool
+    wheel_stoppers:       bool
+    safety_gear:          bool
+
+
+# ─── Stage Endpoints ──────────────────────────────────────────────────────────
+
+def _get_fleet_trip(trip_id: str, user_org, db: Session) -> Trip:
+    """Fetch a trip that belongs to the current fleet org. Raises 404/403."""
+    from datetime import datetime
+    import uuid as _uuid
+    try:
+        uid = _uuid.UUID(trip_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid trip ID")
+    trip = db.query(Trip).filter(Trip.id == uid).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    if str(trip.organization_id) != str(user_org.organization_id):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return trip
+
+
+@router.post("/trips/{trip_id}/stage/1", status_code=200)
+def submit_stage1(
+    trip_id: str,
+    body: Stage1Payload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stage 1 — Truck Detail Registration."""
+    from datetime import datetime, timezone
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('fleet_management', 'super_admin'):
+        raise HTTPException(status_code=403, detail="Fleet managers only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.current_stage >= 1:
+        raise HTTPException(status_code=409, detail="Stage 1 already submitted")
+
+    trip.s1_driver_name      = body.driver_name
+    trip.s1_driver_phone     = body.driver_phone
+    trip.s1_driving_license  = body.driving_license
+    trip.s1_aadhaar          = body.aadhaar
+    trip.s1_rc               = body.rc
+    trip.s1_insurance        = body.insurance
+    trip.s1_pollution        = body.pollution
+    trip.s1_fitness          = body.fitness
+    trip.s1_pan              = body.pan
+    trip.s1_tax_declaration  = body.tax_declaration
+    trip.s1_cancelled_cheque = body.cancelled_cheque
+    trip.s1_submitted_at     = datetime.now(timezone.utc)
+    trip.current_stage       = 1
+
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "message": "Stage 1 saved. Proceed to compliance check.", "trip": _enrich(trip, db)}
+
+
+@router.post("/trips/{trip_id}/stage/2", status_code=200)
+def submit_stage2(
+    trip_id: str,
+    body: Stage2Payload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stage 2 — Pre-Arrival Compliance Check."""
+    from datetime import datetime, timezone
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('fleet_management', 'super_admin'):
+        raise HTTPException(status_code=403, detail="Fleet managers only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.current_stage < 1:
+        raise HTTPException(status_code=409, detail="Complete Stage 1 first")
+    if trip.current_stage >= 2:
+        raise HTTPException(status_code=409, detail="Stage 2 already submitted")
+    if not body.entry_permission:
+        raise HTTPException(
+            status_code=400,
+            detail="Entry permission must be issued to proceed"
+        )
+
+    trip.s2_specs_verified    = body.specs_verified
+    trip.s2_docs_verified     = body.docs_verified
+    trip.s2_driver_docs_valid = body.driver_docs_valid
+    trip.s2_entry_permission  = body.entry_permission
+    trip.s2_verified_at       = datetime.now(timezone.utc)
+    trip.current_stage        = 2
+
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "message": "Entry permission issued. Coordinate truck arrival.", "trip": _enrich(trip, db)}
+
+
+@router.post("/trips/{trip_id}/stage/3", status_code=200)
+def submit_stage3(
+    trip_id: str,
+    body: Stage3Payload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stage 3 — Truck Arrival at Factory. Completes the trip intake."""
+    from datetime import datetime, timezone
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('fleet_management', 'super_admin'):
+        raise HTTPException(status_code=403, detail="Fleet managers only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.current_stage < 2:
+        raise HTTPException(status_code=409, detail="Complete Stage 2 first")
+    if trip.current_stage >= 3:
+        raise HTTPException(status_code=409, detail="Stage 3 already completed")
+
+    trip.s3_driver_parked       = body.driver_parked
+    trip.s3_docs_submitted      = body.docs_submitted
+    trip.s3_security_verified   = body.security_verified
+    trip.s3_driver_exited_cabin = body.driver_exited_cabin
+    trip.s3_wheel_stoppers      = body.wheel_stoppers
+    trip.s3_safety_gear         = body.safety_gear
+    trip.s3_completed_at        = datetime.now(timezone.utc)
+    trip.current_stage          = 3
+    trip.status                 = 'ongoing'  # now active in factory
+
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "message": "Truck intake complete. Trip is now active.", "trip": _enrich(trip, db)}
+
+
 # ─── Internal enrichment ─────────────────────────────────────────────────────
 
 def _enrich(trip: Trip, db: Session) -> dict:

@@ -87,7 +87,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _loadStoredAuth() async {
     try {
       final rawToken = await _storage.read(key: AppConfig.tokenKey);
-      final token = rawToken?.trim();
+      final token = rawToken?.replaceAll(RegExp(r'\s+'), '');
 
       if (token != null && token.isNotEmpty) {
         // Set token in API service
@@ -123,13 +123,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         password: password,
       );
 
-      final token = response['access_token'] as String;
+      final rawToken = response['access_token'] as String;
+      // Strip ALL whitespace to prevent Android Keystore base64-wrap corruption
+      final token = rawToken.replaceAll(RegExp(r'\s+'), '');
       final user = UserModel.fromJson(response);
 
       print('🔐 Login successful for user: ${user.username}');
 
-      // Store token (trimmed to prevent whitespace/newline corruption)
-      await _storage.write(key: AppConfig.tokenKey, value: token.trim());
+      // Store cleaned token
+      await _storage.write(key: AppConfig.tokenKey, value: token);
 
       // Set token in API service
       _apiService.setToken(token);
@@ -274,7 +276,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final response = await _userApi.refreshToken();
 
       if (response['access_token'] != null) {
-        final token = (response['access_token'] as String).trim();
+        final token = (response['access_token'] as String).replaceAll(RegExp(r'\s+'), '');
 
         // Store new token
         await _storage.write(key: AppConfig.tokenKey, value: token);

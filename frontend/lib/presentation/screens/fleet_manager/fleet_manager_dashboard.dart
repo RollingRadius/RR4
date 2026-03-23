@@ -12,6 +12,7 @@ import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/available_loads_provider.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
+import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
 
 // ─── Typography ───────────────────────────────────────────────────────────────
 TextStyle _manrope({
@@ -1568,18 +1569,13 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
         );
 
     if (!mounted) return;
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(); // close bottom sheet
 
     if (trip != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Load fulfilled! Trip ${trip.tripNumber} created.',
-              style: _inter(size: 13, color: Colors.white)),
-          backgroundColor: _tertiary,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      // Navigate directly into the 3-stage compliance flow
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => TripStagesScreen(trip: trip),
         ),
       );
     } else {

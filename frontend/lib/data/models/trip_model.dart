@@ -21,6 +21,7 @@ class TripModel {
   final String? startDate;
   final String? endDate;
   final String? createdAt;
+  final int currentStage;
 
   const TripModel({
     required this.id,
@@ -45,6 +46,7 @@ class TripModel {
     this.startDate,
     this.endDate,
     this.createdAt,
+    this.currentStage = 0,
   });
 
   bool get isOngoing => status == 'ongoing';
@@ -77,6 +79,7 @@ class TripModel {
       startDate: json['start_date'] as String?,
       endDate: json['end_date'] as String?,
       createdAt: json['created_at'] as String?,
+      currentStage: json['current_stage'] as int? ?? 0,
     );
   }
 }
