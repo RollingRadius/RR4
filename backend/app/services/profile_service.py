@@ -6,6 +6,7 @@ Handle profile completion and role selection
 from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 import uuid
 
@@ -213,7 +214,21 @@ class ProfileService:
                 status='active'
             )
             self.db.add(company)
-            self.db.flush()
+            try:
+                self.db.flush()
+            except IntegrityError as e:
+                self.db.rollback()
+                err_str = str(e.orig) if e.orig else str(e)
+                if 'check_business_type' in err_str or 'business_type' in err_str:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Business type '{profile_data.get('business_type')}' is not recognised. "
+                               "Please run database migrations on the server."
+                    )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Company creation failed: {err_str}"
+                )
 
             # Assign owner role based on business type
             business_type = profile_data.get('business_type', 'other')
@@ -244,7 +259,14 @@ class ProfileService:
         user.profile_completed = True
 
         # Commit all changes
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError as e:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Profile completion failed: {str(e.orig) if e.orig else str(e)}"
+            )
         self.db.refresh(user)
 
         # Log profile completion
@@ -460,7 +482,21 @@ class ProfileService:
                 status='active'
             )
             self.db.add(company)
-            self.db.flush()
+            try:
+                self.db.flush()
+            except IntegrityError as e:
+                self.db.rollback()
+                err_str = str(e.orig) if e.orig else str(e)
+                if 'check_business_type' in err_str or 'business_type' in err_str:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Business type '{profile_data.get('business_type')}' is not recognised. "
+                               "Please run database migrations on the server."
+                    )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Company creation failed: {err_str}"
+                )
 
             # Assign owner role based on business type
             business_type = profile_data.get('business_type', 'other')
@@ -490,7 +526,14 @@ class ProfileService:
             )
 
         # Commit all changes
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError as e:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Role change failed: {str(e.orig) if e.orig else str(e)}"
+            )
         self.db.refresh(user)
 
         # Log role change

@@ -307,7 +307,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                       _buildRoleOption(
                         'create_company',
                         'Create Company',
-                        'Create your own company and become the owner',
+                        'Register your company and become the Fleet Manager',
                         Icons.add_business_outlined,
                       ),
 
@@ -611,8 +611,8 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
         // Logistics / Fleet Company card
         _buildCompanyTypeCard(
           value: 'fleet_management',
-          title: 'Logistics / Fleet Company',
-          description: 'You own and manage a fleet of vehicles for transportation',
+          title: 'Fleet Manager Company',
+          description: 'You manage a fleet of vehicles for transportation — your role: Fleet Manager',
           icon: Icons.local_shipping_outlined,
           color: Colors.blue,
         ),

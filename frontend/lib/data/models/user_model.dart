@@ -69,7 +69,7 @@ class UserModel {
   bool get isEmailVerified => authMethod == 'email' && status == 'active';
   bool get isSecurityQuestionsUser => authMethod == 'security_questions';
   bool get canLogin => status == 'active';
-  bool get isFleetOwner =>
+  bool get isFleetManager =>
       roleKey == 'fleet_management' || businessType == 'fleet_management';
   bool get isLoadOwner =>
       roleKey == 'load_owner' || businessType == 'load_owner';

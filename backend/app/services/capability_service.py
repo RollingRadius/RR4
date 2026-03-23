@@ -97,12 +97,12 @@ class CapabilityService:
         Returns dict of {capability_key: {access_level, constraints}}
 
         Special cases:
-        - fleet_owner / super_admin → all non-system-critical capabilities at FULL
+        - fleet_manager / super_admin → all non-system-critical capabilities at FULL
         - load_owner                → only non-fleet capabilities (no vehicle.*, driver.*, etc.)
         - custom roles              → exactly what role_capabilities table contains
         """
         from app.models import UserOrganization
-        from app.core.permissions import _FLEET_OWNER_ONLY_PREFIXES
+        from app.core.permissions import _FLEET_MANAGER_ONLY_PREFIXES
 
         user_org = self.db.query(UserOrganization).filter(
             UserOrganization.user_id == user_id,
@@ -114,7 +114,7 @@ class CapabilityService:
 
         role_key = user_org.role.role_key
 
-        # fleet_owner and super_admin get all non-system-critical capabilities at FULL
+        # fleet_manager and super_admin get all non-system-critical capabilities at FULL
         if role_key in ('fleet_management', 'super_admin'):
             all_caps = self.db.query(Capability).filter(
                 Capability.is_system_critical == False  # noqa: E712
@@ -140,7 +140,7 @@ class CapabilityService:
                 for cap in all_caps
                 if not any(
                     cap.capability_key.startswith(p)
-                    for p in _FLEET_OWNER_ONLY_PREFIXES
+                    for p in _FLEET_MANAGER_ONLY_PREFIXES
                 )
             }
 

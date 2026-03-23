@@ -508,8 +508,8 @@ class AuthService:
         self.db.add(company)
         self.db.flush()
 
-        # Assign owner role based on business type:
-        # load_owner → load_owner role, all others (including fleet_owner) → fleet_owner role
+        # Assign role based on business type:
+        # load_owner → load_owner role, all others (including fleet_management) → fleet_manager role
         business_type = company_details.get('business_type')
         if business_type == 'load_owner':
             role = self._get_role_by_key('load_owner')

@@ -44,16 +44,16 @@ const _secondaryContainer = Color(0xFFD7E4EC);
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
-class FleetOwnerDashboardScreen extends ConsumerStatefulWidget {
-  const FleetOwnerDashboardScreen({super.key});
+class FleetManagerDashboard extends ConsumerStatefulWidget {
+  const FleetManagerDashboard({super.key});
 
   @override
-  ConsumerState<FleetOwnerDashboardScreen> createState() =>
-      _FleetOwnerDashboardScreenState();
+  ConsumerState<FleetManagerDashboard> createState() =>
+      _FleetManagerDashboardState();
 }
 
-class _FleetOwnerDashboardScreenState
-    extends ConsumerState<FleetOwnerDashboardScreen> {
+class _FleetManagerDashboardState
+    extends ConsumerState<FleetManagerDashboard> {
   int _navIndex = 0;
   Timer? _pollTimer;
 
@@ -63,11 +63,13 @@ class _FleetOwnerDashboardScreenState
     Future.microtask(() {
       ref.read(vehicleProvider.notifier).loadVehicles();
       ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing');
+      ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
     });
-    // Real-time: silent background refresh every 30 s (no loading shimmer)
+    // Silent background refresh every 30 s
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
         ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing');
+        ref.read(availableLoadsProvider.notifier).silentRefresh();
       }
     });
   }
@@ -82,9 +84,10 @@ class _FleetOwnerDashboardScreenState
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
     final initials = _initials(user?.fullName ?? 'FO');
+    final pendingLoadsCount = ref.watch(availableLoadsProvider).loads.length;
 
     final pages = [
-      const _DashboardTab(),
+      _DashboardTab(onViewLoads: () => setState(() => _navIndex = 2)),
       const _FleetTab(),
       const _AvailableLoadsTab(),
       const _ProfileTab(),
@@ -103,6 +106,7 @@ class _FleetOwnerDashboardScreenState
       bottomNavigationBar: _BottomNav(
         selectedIndex: _navIndex,
         onTap: (i) => setState(() => _navIndex = i),
+        pendingLoadsCount: pendingLoadsCount,
       ),
     );
   }
@@ -171,7 +175,12 @@ class _TopBar extends StatelessWidget {
 class _BottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
-  const _BottomNav({required this.selectedIndex, required this.onTap});
+  final int pendingLoadsCount;
+  const _BottomNav({
+    required this.selectedIndex,
+    required this.onTap,
+    this.pendingLoadsCount = 0,
+  });
 
   static const _items = [
     (Icons.dashboard_rounded, 'DASHBOARD'),
@@ -229,10 +238,37 @@ class _BottomNav extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(icon,
-                              color:
-                                  active ? Colors.white : _secondary,
-                              size: 22),
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Icon(icon,
+                                  color: active ? Colors.white : _secondary,
+                                  size: 22),
+                              // Badge on LOADS tab (index 2)
+                              if (i == 2 && pendingLoadsCount > 0)
+                                Positioned(
+                                  right: -6,
+                                  top: -4,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 4, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE53935),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      pendingLoadsCount > 99
+                                          ? '99+'
+                                          : '$pendingLoadsCount',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 8,
+                                          fontWeight: FontWeight.w800),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                           const SizedBox(height: 3),
                           Text(
                             label,
@@ -259,17 +295,20 @@ class _BottomNav extends StatelessWidget {
 // ─── Dashboard Tab ────────────────────────────────────────────────────────────
 
 class _DashboardTab extends ConsumerWidget {
-  const _DashboardTab();
+  final VoidCallback onViewLoads;
+  const _DashboardTab({required this.onViewLoads});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vehicleState = ref.watch(vehicleProvider);
     final tripState = ref.watch(tripProvider);
+    final loadsState = ref.watch(availableLoadsProvider);
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Fleet Manager';
 
     final vehicles = vehicleState.vehicles;
     final ongoingTrips = tripState.ongoingTrips;
+    final pendingLoads = loadsState.loads;
     final total = vehicles.length;
     final active =
         vehicles.where((v) => v['status'] == 'active').length;
@@ -291,10 +330,19 @@ class _DashboardTab extends ConsumerWidget {
           const SizedBox(height: 2),
           Text('Fleet Management Panel',
               style: _inter(size: 13, color: _secondary)),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
+          // ── Pending loads alert banner ───────────────────────────────
+          if (pendingLoads.isNotEmpty)
+            _PendingLoadsBanner(
+              count: pendingLoads.length,
+              loads: pendingLoads.take(2).toList(),
+              onViewAll: onViewLoads,
+            ),
+          if (pendingLoads.isNotEmpty) const SizedBox(height: 16),
 
           // Search New Loads — primary CTA
-          _SearchLoadsButton(),
+          _SearchLoadsButton(onTap: onViewLoads),
           const SizedBox(height: 12),
 
           // Manage Vehicles — secondary CTA
@@ -345,13 +393,62 @@ class _DashboardTab extends ConsumerWidget {
   }
 }
 
-// ─── Search New Loads Button (primary CTA) ────────────────────────────────────
+// ─── Pending Loads Alert Banner ───────────────────────────────────────────────
 
-class _SearchLoadsButton extends StatelessWidget {
+class _PendingLoadsBanner extends StatelessWidget {
+  final int count;
+  final List<LoadRequirementModel> loads;
+  final VoidCallback onViewAll;
+  const _PendingLoadsBanner({
+    required this.count,
+    required this.loads,
+    required this.onViewAll,
+  });
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push('/fleet-owner/available-loads'),
+      onTap: onViewAll,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF3E0),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFFF6B00), width: 1.5),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.local_shipping_outlined,
+                color: Color(0xFFFF6B00), size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '$count new load ${count == 1 ? 'requirement' : 'requirements'} available',
+                style: _inter(
+                    size: 13,
+                    weight: FontWeight.w600,
+                    color: const Color(0xFF7A3200)),
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded,
+                color: Color(0xFFFF6B00), size: 14),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Search New Loads Button (primary CTA) ────────────────────────────────────
+
+class _SearchLoadsButton extends StatelessWidget {
+  final VoidCallback? onTap;
+  const _SearchLoadsButton({this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap ?? () => context.push('/fleet-manager/available-loads'),
       child: Container(
         padding:
             const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
@@ -1177,6 +1274,19 @@ class _AvailableLoadCard extends ConsumerWidget {
                           if (load.companyName != null)
                             Text(
                               load.companyName!,
+                              style: _inter(
+                                  size: 12,
+                                  weight: FontWeight.w600,
+                                  color: _secondary),
+                            ),
+                          if (load.companyCity != null ||
+                              load.companyState != null)
+                            Text(
+                              [
+                                if (load.companyCity != null) load.companyCity!,
+                                if (load.companyState != null)
+                                  load.companyState!,
+                              ].join(', '),
                               style: _inter(size: 11, color: _secondary),
                             ),
                         ],
@@ -1193,14 +1303,53 @@ class _AvailableLoadCard extends ConsumerWidget {
                     drop: load.unloadLocation ?? '—'),
                 const SizedBox(height: 14),
 
+                // Trucks needed — highlighted row
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.07),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                        color: _primary.withValues(alpha: 0.20), width: 1),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.local_shipping_outlined,
+                          size: 15, color: _primary),
+                      const SizedBox(width: 7),
+                      Text(
+                        'Trucks Needed: ',
+                        style: _inter(
+                            size: 12,
+                            weight: FontWeight.w500,
+                            color: const Color(0xFF7A3200)),
+                      ),
+                      Text(
+                        '${load.truckCount}',
+                        style: _manrope(
+                            size: 14,
+                            weight: FontWeight.w800,
+                            color: _primary),
+                      ),
+                      Text(
+                        ' truck${load.truckCount == 1 ? '' : 's'}',
+                        style: _inter(
+                            size: 12,
+                            weight: FontWeight.w600,
+                            color: const Color(0xFF7A3200)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+
                 // Specs chips
                 Wrap(
                   spacing: 10,
                   runSpacing: 6,
                   children: [
-                    _SpecChip(
-                        icon: Icons.local_shipping_outlined,
-                        label: '${load.truckCount} truck${load.truckCount == 1 ? '' : 's'}'),
                     if (load.materialType != null)
                       _SpecChip(
                           icon: Icons.inventory_2_outlined,
@@ -1213,6 +1362,10 @@ class _AvailableLoadCard extends ConsumerWidget {
                       _SpecChip(
                           icon: Icons.settings_outlined,
                           label: load.axelType!),
+                    if (load.bodyType != null)
+                      _SpecChip(
+                          icon: Icons.category_outlined,
+                          label: load.bodyType!),
                     if (load.entryDate != null)
                       _SpecChip(
                           icon: Icons.calendar_today_outlined,

@@ -19,6 +19,9 @@ class LoadRequirementModel {
   final String createdAt;
   // Populated only in fleet management /available view
   final String? companyName;
+  final String? companyCity;
+  final String? companyState;
+  final String? companyPhone;
 
   const LoadRequirementModel({
     required this.id,
@@ -38,6 +41,9 @@ class LoadRequirementModel {
     required this.status,
     required this.createdAt,
     this.companyName,
+    this.companyCity,
+    this.companyState,
+    this.companyPhone,
   });
 
   factory LoadRequirementModel.fromJson(Map<String, dynamic> j) =>
@@ -59,6 +65,9 @@ class LoadRequirementModel {
         status: j['status'] as String? ?? 'pending',
         createdAt: j['created_at'] as String,
         companyName: j['company_name'] as String?,
+        companyCity: j['company_city'] as String?,
+        companyState: j['company_state'] as String?,
+        companyPhone: j['company_phone'] as String?,
       );
 
   /// Short reference ID derived from the UUID tail.

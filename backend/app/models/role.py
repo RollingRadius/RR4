@@ -60,8 +60,8 @@ class Role(Base):
         """Check if this is any owner role (fleet or load owner)"""
         return self.role_key in ('fleet_management', 'load_owner')
 
-    def is_fleet_owner(self) -> bool:
-        """Check if this is the Fleet Owner role"""
+    def is_fleet_manager(self) -> bool:
+        """Check if this is the Fleet Manager role"""
         return self.role_key == 'fleet_management'
 
     def is_load_owner(self) -> bool:

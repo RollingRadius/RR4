@@ -1,6 +1,6 @@
 """
 Trips API
-Endpoints for managing trips — accessible by both fleet_owner and load_owner roles.
+Endpoints for managing trips — accessible by both fleet_manager and load_owner roles.
 """
 
 import random
@@ -99,7 +99,7 @@ def list_trips(
 ):
     """
     List trips visible to the current user.
-    - fleet_owner: sees all trips for their organisation
+    - fleet_manager: sees all trips for their organisation
     - load_owner:  sees trips where load_owner_org_id == their org
     """
     user_org = _get_user_org(current_user, db)
@@ -161,14 +161,14 @@ def create_trip(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Create a trip. Only fleet_owner / super_admin can create trips."""
+    """Create a trip. Only fleet_manager / super_admin can create trips."""
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
 
     if role_key not in ('fleet_management', 'super_admin'):
         raise HTTPException(
             status_code=403,
-            detail="Only fleet owners can create trips"
+            detail="Only fleet managers can create trips"
         )
 
     trip = Trip(
@@ -204,12 +204,12 @@ def update_trip(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Update a trip. Only fleet_owner / super_admin can update trips."""
+    """Update a trip. Only fleet_manager / super_admin can update trips."""
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
 
     if role_key not in ('fleet_management', 'super_admin'):
-        raise HTTPException(status_code=403, detail="Only fleet owners can update trips")
+        raise HTTPException(status_code=403, detail="Only fleet managers can update trips")
 
     trip = db.query(Trip).filter(
         Trip.id == trip_id,
@@ -234,7 +234,7 @@ def get_trip_vehicle_location(
 ):
     """
     Get the current GPS location of the vehicle assigned to this trip.
-    Both fleet_owner and load_owner can call this to locate the trip on a map.
+    Both fleet_manager and load_owner can call this to locate the trip on a map.
     """
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)

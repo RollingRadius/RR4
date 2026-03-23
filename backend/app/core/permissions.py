@@ -14,11 +14,11 @@ from app.models.capability import AccessLevel
 
 # ---------------------------------------------------------------------------
 # Capability domain boundaries
-# These prefixes belong exclusively to fleet_owner (and super_admin).
+# These prefixes belong exclusively to fleet_manager (and super_admin).
 # load_owner must NOT auto-pass these — they will fail the capability check
 # since no vehicle capabilities are granted to load_owner in role_capabilities.
 # ---------------------------------------------------------------------------
-_FLEET_OWNER_ONLY_PREFIXES: tuple = (
+_FLEET_MANAGER_ONLY_PREFIXES: tuple = (
     'vehicle.',
     'driver.',
     'tracking.',
@@ -36,7 +36,7 @@ def _role_auto_passes(role_key: str, capability_key: str) -> bool:
 
     Rules:
     - super_admin  → always passes
-    - fleet_owner  → always passes (owns all fleet operations)
+    - fleet_manager → always passes (manages all fleet operations)
     - load_owner   → passes ONLY for non-fleet capabilities
                      (cannot access vehicle/driver/maintenance/trip/tracking)
     - all others   → never auto-passes; must have explicit role_capability row
@@ -46,7 +46,7 @@ def _role_auto_passes(role_key: str, capability_key: str) -> bool:
     if role_key == 'fleet_management':
         return True
     if role_key == 'load_owner':
-        for prefix in _FLEET_OWNER_ONLY_PREFIXES:
+        for prefix in _FLEET_MANAGER_ONLY_PREFIXES:
             if capability_key.startswith(prefix):
                 return False   # falls through to capability table check → 403
         return True

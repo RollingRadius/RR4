@@ -21,7 +21,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
 
   // Company Info
   final _companyNameController = TextEditingController();
-  bool _isFleetOwner = false;
+  bool _isFleetManager = false;
   bool _isLoadOwner = false;
   bool _businessTypeError = false;
   final _businessEmailController = TextEditingController();
@@ -96,7 +96,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
       return;
     }
 
-    if (!_isFleetOwner && !_isLoadOwner) {
+    if (!_isFleetManager && !_isLoadOwner) {
       setState(() {
         _businessTypeError = true;
       });
@@ -108,9 +108,9 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
       _businessTypeError = false;
     });
 
-    final businessType = _isFleetOwner && _isLoadOwner
+    final businessType = _isFleetManager && _isLoadOwner
         ? 'fleet_management'
-        : _isFleetOwner
+        : _isFleetManager
             ? 'fleet_management'
             : 'load_owner';
 
@@ -265,10 +265,10 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                     CheckboxListTile(
                       title: const Text('Fleet Management'),
                       subtitle: const Text('Manages a fleet and fulfills load requirements'),
-                      value: _isFleetOwner,
+                      value: _isFleetManager,
                       onChanged: (val) {
                         setState(() {
-                          _isFleetOwner = val ?? false;
+                          _isFleetManager = val ?? false;
                           _businessTypeError = false;
                         });
                       },

@@ -280,7 +280,7 @@ class OrganizationService:
                 detail=f"Invalid role: {role_key}"
             )
 
-        # Prevent assigning owner roles (fleet_owner, load_owner, owner) through approval
+        # Prevent assigning owner roles (fleet_manager, load_owner, owner) through approval
         if role_key in ('fleet_management', 'load_owner'):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

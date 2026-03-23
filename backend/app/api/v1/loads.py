@@ -68,7 +68,7 @@ class LoadRequirementResponse(BaseModel):
 
 def _get_fleet_management_company(current_user: User, db: Session) -> Organization:
     """
-    Verify the current user belongs to a fleet_owner (fleet management) company.
+    Verify the current user belongs to a fleet_manager (fleet management) company.
     Returns the Organization on success, raises 403 otherwise.
     """
     user_org = db.query(UserOrganization).filter(
@@ -333,6 +333,9 @@ def list_available_loads(
     for record, company in rows:
         item = _record_to_response(record)
         item['company_name'] = company.company_name
+        item['company_city'] = company.city
+        item['company_state'] = company.state
+        item['company_phone'] = company.business_phone
         loads.append(item)
 
     return {
