@@ -18,6 +18,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Remove any orphan 'Fleet Manager' row that conflicts with the rename
+    op.execute(
+        "DELETE FROM roles "
+        "WHERE role_name = 'Fleet Manager' AND role_key != 'fleet_management'"
+    )
     op.execute(
         "UPDATE roles "
         "SET role_name = 'Fleet Manager', "
