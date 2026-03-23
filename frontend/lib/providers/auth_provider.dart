@@ -134,9 +134,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Set token in API service
       _apiService.setToken(token);
 
-      // Load user profile with updated organization info
-      await loadUserProfile();
-
+      // Set state with login-response user FIRST so role-based routing
+      // (isLoadOwner, isFleetOwner) is always correct before navigation.
       state = state.copyWith(
         isAuthenticated: true,
         isLoading: false,
@@ -144,6 +143,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
         user: user,
         token: token,
       );
+
+      // Enrich profile with full_name / phone in the background.
+      // loadUserProfile now preserves role_key if the server omits it.
+      await loadUserProfile();
 
       return true;
     } catch (e) {
@@ -227,10 +230,36 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> loadUserProfile() async {
     try {
       final userData = await _userApi.getCurrentUser();
-      final user = UserModel.fromJson(userData);
+      final profileUser = UserModel.fromJson(userData);
+
+      // If the server didn't return role/businessType, preserve what we
+      // already have in state so routing decisions stay correct.
+      final current = state.user;
+      final mergedRoleKey = profileUser.roleKey ?? current?.roleKey;
+      final mergedBusinessType =
+          profileUser.businessType ?? current?.businessType;
+
+      final mergedUser = (mergedRoleKey != profileUser.roleKey ||
+              mergedBusinessType != profileUser.businessType)
+          ? UserModel(
+              userId: profileUser.userId,
+              username: profileUser.username,
+              email: profileUser.email,
+              fullName: profileUser.fullName,
+              phone: profileUser.phone,
+              authMethod: profileUser.authMethod,
+              status: profileUser.status,
+              profileCompleted: profileUser.profileCompleted,
+              companyId: profileUser.companyId,
+              companyName: profileUser.companyName,
+              businessType: mergedBusinessType,
+              role: profileUser.role,
+              roleKey: mergedRoleKey,
+            )
+          : profileUser;
 
       state = state.copyWith(
-        user: user,
+        user: mergedUser,
         isAuthenticated: true,
       );
     } catch (e) {

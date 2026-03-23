@@ -71,12 +71,6 @@ SECURITY_QUESTIONS = [
 # Default Roles for Signup
 DEFAULT_ROLES = [
     {
-        "role_name": "Owner",
-        "role_key": "owner",
-        "description": "Full access to company resources. Assigned to user who creates a fleet/transport company.",
-        "is_system_role": True
-    },
-    {
         "role_name": "Fleet Owner",
         "role_key": "fleet_owner",
         "description": "Fleet company owner with full access to fleet management resources. Assigned to user who creates a fleet_owner type company.",
@@ -180,6 +174,7 @@ BUSINESS_TYPES = [
     "rental",
     "fleet_owner",
     "load_owner",
+    # 'owner' removed — fleet_owner is the default for all non-load-owner business types
     "other"
 ]
 

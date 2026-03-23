@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,7 +7,6 @@ import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
-import 'package:fleet_management/core/web/web_utils.dart';
 
 class ProfileCompletionScreen extends ConsumerStatefulWidget {
   const ProfileCompletionScreen({super.key});
@@ -156,15 +154,12 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
               ),
             ),
           );
-          // Navigate based on company type
+          // Navigate based on role
           final updatedUser = ref.read(authProvider).user;
           if (updatedUser?.isLoadOwner == true) {
-            if (kIsWeb) {
-              final token = ref.read(authProvider).token ?? '';
-              redirectToLoadProvider(token);
-            } else {
-              context.go(AppConstants.routeLoadOwnerHome);
-            }
+            context.go(AppConstants.routeLoadOwnerHome);
+          } else if (updatedUser?.isDriver == true) {
+            context.go('/driver/home');
           } else {
             context.go(AppConstants.routeDashboard);
           }

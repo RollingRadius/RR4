@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,6 +31,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
   String _fuelType = 'diesel';
   String _vehicleType = 'car';
   String? _selectedImagePath;
+  Uint8List? _selectedImageBytes; // for web-safe preview
   bool _isSubmitting = false;
 
   final _picker = ImagePicker();
@@ -127,7 +130,11 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
     );
 
     if (picked != null && mounted) {
-      setState(() => _selectedImagePath = picked.path);
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _selectedImagePath = picked.path;
+        _selectedImageBytes = bytes;
+      });
     }
   }
 
@@ -364,12 +371,19 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
       children: [
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: Image.file(
-            File(_selectedImagePath!),
-            width: double.infinity,
-            height: 200,
-            fit: BoxFit.cover,
-          ),
+          child: kIsWeb
+              ? Image.memory(
+                  _selectedImageBytes!,
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                )
+              : Image.file(
+                  File(_selectedImagePath!),
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                ),
         ),
         Positioned(
           top: 10,

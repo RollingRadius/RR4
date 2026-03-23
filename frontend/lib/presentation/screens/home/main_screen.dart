@@ -50,18 +50,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     '/settings',
   ];
 
-  // Driver nav items: My Trips, My Vehicle, Schedule, Settings
+  // Driver nav items: Home, My Trips, My Vehicle, Settings
   static const _driverNavItems = [
+    _NavItem(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
     _NavItem(icon: Icons.route_outlined, activeIcon: Icons.route, label: 'My Trips'),
     _NavItem(icon: Icons.local_shipping_outlined, activeIcon: Icons.local_shipping, label: 'My Vehicle'),
-    _NavItem(icon: Icons.calendar_month_outlined, activeIcon: Icons.calendar_month, label: 'Schedule'),
     _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings, label: 'Settings'),
   ];
 
   static const _driverRoutes = [
+    '/driver/home',
     '/driver/trips',
     '/driver/vehicle',
-    '/maintenance/schedule',
     '/settings',
   ];
 
@@ -86,9 +86,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       return 0;
     }
     if (isDriverUser) {
-      if (location.startsWith('/driver/trips')) return 0;
-      if (location.startsWith('/driver/vehicle')) return 1;
-      if (location.startsWith('/maintenance/schedule')) return 2;
+      if (location.startsWith('/driver/home')) return 0;
+      if (location.startsWith('/driver/trips')) return 1;
+      if (location.startsWith('/driver/vehicle')) return 2;
       if (location.startsWith('/settings')) return 3;
       return 0;
     }

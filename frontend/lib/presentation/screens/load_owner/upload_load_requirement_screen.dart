@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/load_provider.dart';
 
 class UploadLoadRequirementScreen extends ConsumerStatefulWidget {
   const UploadLoadRequirementScreen({super.key});
@@ -869,16 +870,40 @@ class _UploadLoadRequirementScreenState
 
     setState(() => _isSubmitting = true);
 
-    // Simulate brief loading — backend integration coming later
-    await Future.delayed(const Duration(milliseconds: 600));
+    // Format date as ISO string (YYYY-MM-DD)
+    final dateStr =
+        '${_entryDate!.year.toString().padLeft(4, '0')}-'
+        '${_entryDate!.month.toString().padLeft(2, '0')}-'
+        '${_entryDate!.day.toString().padLeft(2, '0')}';
+
+    final load = await ref.read(loadProvider.notifier).createLoad(
+          pickupLocation: pickup,
+          unloadLocation: drop,
+          materialType: _materialType ?? 'Steel Coils',
+          entryDate: dateStr,
+          truckCount: _truckCount,
+        );
 
     if (!mounted) return;
+
+    if (load == null) {
+      // Show error from provider
+      final err = ref.read(loadProvider).error ?? 'Submission failed. Please try again.';
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(err),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     // Capture values before clearing
     final submittedMaterial = _materialType ?? 'Steel Coils';
     final submittedTruckCount = _truckCount;
-    final refId =
-        'REQ-${(DateTime.now().millisecondsSinceEpoch % 900000 + 100000)}';
+    final refId = load.refId;
 
     _pickupController.clear();
     _dropController.clear();

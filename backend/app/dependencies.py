@@ -163,7 +163,7 @@ def require_owner_or_admin(
     Raises:
         HTTPException: If user doesn't have required role
     """
-    if role not in ['owner', 'admin']:
+    if role not in ['fleet_owner', 'load_owner', 'admin']:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Insufficient permissions. Owner or Admin role required."

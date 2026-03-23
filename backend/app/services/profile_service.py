@@ -217,12 +217,10 @@ class ProfileService:
 
             # Assign owner role based on business type
             business_type = profile_data.get('business_type', 'other')
-            if business_type == 'fleet_owner':
-                role = self._get_role_by_key('fleet_owner')
-            elif business_type == 'load_owner':
+            if business_type == 'load_owner':
                 role = self._get_role_by_key('load_owner')
             else:
-                role = self._get_role_by_key('owner')
+                role = self._get_role_by_key('fleet_owner')
             user_org = UserOrganization(
                 user_id=user.id,
                 organization_id=company.id,
@@ -466,12 +464,10 @@ class ProfileService:
 
             # Assign owner role based on business type
             business_type = profile_data.get('business_type', 'other')
-            if business_type == 'fleet_owner':
-                role = self._get_role_by_key('fleet_owner')
-            elif business_type == 'load_owner':
+            if business_type == 'load_owner':
                 role = self._get_role_by_key('load_owner')
             else:
-                role = self._get_role_by_key('owner')
+                role = self._get_role_by_key('fleet_owner')
             user_org.organization_id = company.id
             user_org.role_id = role.id
             user_org.status = 'active'

@@ -95,9 +95,15 @@ class CapabilityService:
         """
         Get user's effective capabilities based on their role in the organization.
         Returns dict of {capability_key: {access_level, constraints}}
+
+        Special cases:
+        - fleet_owner / super_admin → all non-system-critical capabilities at FULL
+        - load_owner                → only non-fleet capabilities (no vehicle.*, driver.*, etc.)
+        - custom roles              → exactly what role_capabilities table contains
         """
-        # Get user's role in organization
         from app.models import UserOrganization
+        from app.core.permissions import _FLEET_OWNER_ONLY_PREFIXES
+
         user_org = self.db.query(UserOrganization).filter(
             UserOrganization.user_id == user_id,
             UserOrganization.organization_id == organization_id
@@ -106,12 +112,43 @@ class CapabilityService:
         if not user_org or not user_org.role:
             return {}
 
-        # Get role capabilities
+        role_key = user_org.role.role_key
+
+        # fleet_owner and super_admin get all non-system-critical capabilities at FULL
+        if role_key in ('fleet_owner', 'super_admin'):
+            all_caps = self.db.query(Capability).filter(
+                Capability.is_system_critical == False  # noqa: E712
+            ).all()
+            return {
+                cap.capability_key: {
+                    "access_level": AccessLevel.FULL,
+                    "constraints": None
+                }
+                for cap in all_caps
+            }
+
+        # load_owner gets all capabilities EXCEPT fleet-only prefixes
+        if role_key == 'load_owner':
+            all_caps = self.db.query(Capability).filter(
+                Capability.is_system_critical == False  # noqa: E712
+            ).all()
+            return {
+                cap.capability_key: {
+                    "access_level": AccessLevel.FULL,
+                    "constraints": None
+                }
+                for cap in all_caps
+                if not any(
+                    cap.capability_key.startswith(p)
+                    for p in _FLEET_OWNER_ONLY_PREFIXES
+                )
+            }
+
+        # Custom roles: look up role_capabilities table
         role_capabilities = self.db.query(RoleCapability).filter(
             RoleCapability.role_id == user_org.role_id
         ).all()
 
-        # Build capabilities dict
         capabilities = {}
         for role_cap in role_capabilities:
             capabilities[role_cap.capability_key] = {

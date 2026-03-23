@@ -28,6 +28,7 @@ from .part import Part, PartUsage
 from .report import Report, ReportExecution
 from .dashboard import Dashboard, DashboardWidget
 from .kpi import KPI, KPIHistory
+from .trip import Trip
 
 __all__ = [
     "User",
@@ -68,4 +69,5 @@ __all__ = [
     "DashboardWidget",
     "KPI",
     "KPIHistory",
+    "Trip",
 ]

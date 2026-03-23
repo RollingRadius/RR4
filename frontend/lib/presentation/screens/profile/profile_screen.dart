@@ -262,7 +262,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   Widget _buildProfileHero(user, profileState) {
     final isActive = user?.status == 'active';
-    final initials = (user?.username ?? 'U').substring(0, 2).toUpperCase();
+    final _raw = (user?.username ?? 'U').toUpperCase();
+    final initials = _raw.length >= 2 ? _raw.substring(0, 2) : _raw;
 
     return Container(
       width: double.infinity,

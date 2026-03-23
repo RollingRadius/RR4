@@ -1,11 +1,9 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
-import 'package:fleet_management/core/web/web_utils.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -43,13 +41,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _showSnackBar('Please complete your profile to continue',
               AppTheme.statusWarning, Icons.info_outline);
         } else if (user?.isLoadOwner == true) {
-          if (kIsWeb) {
-            // Leave Flutter canvas — go to native HTML portal
-            final token = ref.read(authProvider).token ?? '';
-            redirectToLoadProvider(token);
-          } else {
-            context.go(AppConstants.routeLoadOwnerHome);
-          }
+          context.go(AppConstants.routeLoadOwnerHome);
+          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
+              Icons.check_circle);
+        } else if (user?.isDriver == true) {
+          context.go('/driver/home');
           _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
               Icons.check_circle);
         } else {

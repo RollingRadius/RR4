@@ -144,7 +144,7 @@ def get_pending_role_requests(
         Role, UserOrganization.role_id == Role.id
     ).filter(
         UserOrganization.user_id == current_user.id,
-        Role.role_key == 'owner',
+        Role.role_key.in_(['fleet_owner', 'load_owner']),
         UserOrganization.status == 'active'
     ).first()
 
@@ -226,7 +226,7 @@ def approve_role_request(
         Role, UserOrganization.role_id == Role.id
     ).filter(
         UserOrganization.user_id == current_user.id,
-        Role.role_key == 'owner',
+        Role.role_key.in_(['fleet_owner', 'load_owner']),
         UserOrganization.status == 'active'
     ).first()
 
@@ -315,7 +315,7 @@ def reject_role_request(
         Role, UserOrganization.role_id == Role.id
     ).filter(
         UserOrganization.user_id == current_user.id,
-        Role.role_key == 'owner',
+        Role.role_key.in_(['fleet_owner', 'load_owner']),
         UserOrganization.status == 'active'
     ).first()
 

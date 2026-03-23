@@ -17,6 +17,7 @@ from app.models.security_question import SecurityQuestion
 from app.models.user_security_answer import UserSecurityAnswer
 from app.models.recovery_attempt import RecoveryAttempt
 from app.models.audit_log import AuditLog
+from app.models.driver import Driver
 from app.core.security import hash_password, verify_password, create_access_token
 from app.core.encryption import generate_salt, encrypt_answer, decrypt_and_compare
 from app.services.token_service import TokenService
@@ -302,11 +303,19 @@ class AuthService:
             entity_id=user.id
         )
 
+        # Detect driver: independent_user role + a Driver record
+        driver_record = self.db.query(Driver).filter(Driver.user_id == user.id).first()
+        effective_role_key = role.role_key if role else None
+        effective_role_name = role.role_name if role else None
+        if driver_record and role and role.role_key == 'independent_user':
+            effective_role_key = 'driver'
+            effective_role_name = 'Driver'
+
         # Create access token
         token_data = {
             "sub": str(user.id),
             "username": user.username,
-            "role": role.role_key if role else None,
+            "role": effective_role_key,
             "company_id": str(company.id) if company else None
         }
 
@@ -321,8 +330,8 @@ class AuthService:
             "username": user.username,
             "email": user.email,
             "profile_completed": user.profile_completed,
-            "role": role.role_name if role else None,
-            "role_key": role.role_key if role else None,
+            "role": effective_role_name,
+            "role_key": effective_role_key,
             "company_id": str(company.id) if company else None,
             "company_name": company.company_name if company else None,
             "business_type": company.business_type if company else None
@@ -500,14 +509,12 @@ class AuthService:
         self.db.flush()
 
         # Assign owner role based on business type:
-        # fleet_owner → fleet_owner role, load_owner → load_owner role, others → generic owner role
+        # load_owner → load_owner role, all others (including fleet_owner) → fleet_owner role
         business_type = company_details.get('business_type')
-        if business_type == 'fleet_owner':
-            role = self._get_role_by_key('fleet_owner')
-        elif business_type == 'load_owner':
+        if business_type == 'load_owner':
             role = self._get_role_by_key('load_owner')
         else:
-            role = self._get_role_by_key('owner')
+            role = self._get_role_by_key('fleet_owner')
 
         # Create user-organization relationship with Owner role
         user_org = UserOrganization(

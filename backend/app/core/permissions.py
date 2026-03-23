@@ -12,6 +12,46 @@ from app.models import User
 from app.services.capability_service import CapabilityService
 from app.models.capability import AccessLevel
 
+# ---------------------------------------------------------------------------
+# Capability domain boundaries
+# These prefixes belong exclusively to fleet_owner (and super_admin).
+# load_owner must NOT auto-pass these — they will fail the capability check
+# since no vehicle capabilities are granted to load_owner in role_capabilities.
+# ---------------------------------------------------------------------------
+_FLEET_OWNER_ONLY_PREFIXES: tuple = (
+    'vehicle.',
+    'driver.',
+    'tracking.',
+    'maintenance.',
+    'compliance.',
+    'trip.',
+    'fleet.',
+)
+
+
+def _role_auto_passes(role_key: str, capability_key: str) -> bool:
+    """
+    Determine whether a role auto-passes a capability check without hitting
+    the role_capabilities table.
+
+    Rules:
+    - super_admin  → always passes
+    - fleet_owner  → always passes (owns all fleet operations)
+    - load_owner   → passes ONLY for non-fleet capabilities
+                     (cannot access vehicle/driver/maintenance/trip/tracking)
+    - all others   → never auto-passes; must have explicit role_capability row
+    """
+    if role_key == 'super_admin':
+        return True
+    if role_key == 'fleet_owner':
+        return True
+    if role_key == 'load_owner':
+        for prefix in _FLEET_OWNER_ONLY_PREFIXES:
+            if capability_key.startswith(prefix):
+                return False   # falls through to capability table check → 403
+        return True
+    return False
+
 
 def require_capability(
     capability_key: str,
@@ -44,9 +84,10 @@ def require_capability(
                 detail="User must be associated with an active organization"
             )
 
-        # Owners and super admins have all capabilities — skip capability check
+        # Role-domain auto-pass (fleet_owner owns all; load_owner is blocked
+        # from fleet capabilities; others must have explicit row).
         user_role = db.query(RoleModel).filter(RoleModel.id == user_org.role_id).first()
-        if user_role and user_role.role_key in ('owner', 'super_admin'):
+        if user_role and _role_auto_passes(user_role.role_key, capability_key):
             return current_user
 
         organization_id = str(user_org.organization_id)
@@ -96,9 +137,11 @@ def require_any_capability(
                 detail="User must be associated with an active organization"
             )
 
-        # Owners and super admins have all capabilities — skip capability check
+        # Role-domain auto-pass — check against each requested capability
         user_role = db.query(RoleModel).filter(RoleModel.id == user_org.role_id).first()
-        if user_role and user_role.role_key in ('owner', 'super_admin'):
+        if user_role and all(
+            _role_auto_passes(user_role.role_key, k) for k in capability_keys
+        ):
             return current_user
 
         organization_id = str(user_org.organization_id)
@@ -147,9 +190,11 @@ def require_all_capabilities(
                 detail="User must be associated with an active organization"
             )
 
-        # Owners and super admins have all capabilities — skip capability check
+        # Role-domain auto-pass — all keys must pass for the role
         user_role = db.query(RoleModel).filter(RoleModel.id == user_org.role_id).first()
-        if user_role and user_role.role_key in ('owner', 'super_admin'):
+        if user_role and all(
+            _role_auto_passes(user_role.role_key, k) for k in capability_keys
+        ):
             return current_user
 
         organization_id = str(user_org.organization_id)
@@ -238,9 +283,10 @@ def require_role(allowed_roles: List[str]):
                 detail="User must be associated with an active organization"
             )
 
-        # Owner always passes role checks
+        # Only fleet_owner and super_admin bypass legacy role checks by default.
+        # load_owner must be explicitly listed in allowed_roles to pass.
         user_role_obj = db.query(RoleModel).filter(RoleModel.id == user_org.role_id).first()
-        if user_role_obj and user_role_obj.role_key == 'owner':
+        if user_role_obj and user_role_obj.role_key in ('fleet_owner', 'super_admin'):
             return current_user
 
         if not user_org or not user_org.role:

@@ -224,12 +224,10 @@ class CompanyService:
 
         # Get owner role based on business type
         business_type = company_data.get('business_type', 'other')
-        if business_type == 'fleet_owner':
-            owner_role_key = 'fleet_owner'
-        elif business_type == 'load_owner':
+        if business_type == 'load_owner':
             owner_role_key = 'load_owner'
         else:
-            owner_role_key = 'owner'
+            owner_role_key = 'fleet_owner'
 
         owner_role = self.db.query(Role).filter(
             Role.role_key == owner_role_key

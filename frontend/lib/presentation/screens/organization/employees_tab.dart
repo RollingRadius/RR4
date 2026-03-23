@@ -252,7 +252,7 @@ class _EmployeesTabState extends ConsumerState<EmployeesTab> {
                   itemCount: rolesState.roles.length,
                   itemBuilder: (context, index) {
                     final role = rolesState.roles[index];
-                    if (role.roleKey == 'owner') return const SizedBox();
+                    if (role.roleKey == 'fleet_owner' || role.roleKey == 'load_owner') return const SizedBox();
                     return ListTile(
                       contentPadding:
                           const EdgeInsets.symmetric(horizontal: 8),
@@ -353,7 +353,7 @@ class _EmployeeCard extends StatelessWidget {
     final role = employee['role'] as Map<String, dynamic>?;
     final status = employee['status'] as String? ?? '';
     final isActive = status == 'active';
-    final isOwner = role?['key'] == 'owner';
+    final isOwner = role?['key'] == 'fleet_owner' || role?['key'] == 'load_owner';
     final fullName = employee['full_name'] as String? ?? 'Unknown';
     final initial = fullName.isNotEmpty ? fullName[0].toUpperCase() : '?';
     final avatarColor = _colorFromName(fullName);

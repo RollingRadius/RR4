@@ -12,6 +12,7 @@ from app.models.user import User
 from app.models.user_organization import UserOrganization
 from app.models.company import Organization
 from app.models.role import Role
+from app.models.driver import Driver
 
 router = APIRouter()
 
@@ -31,11 +32,18 @@ def get_current_user_profile(
     - Current/default organization
     - Role information
     """
-    # Get user's primary organization (first active one)
+    # Try active UserOrganization first, fall back to any UserOrganization.
+    # This ensures role_key and business_type are always returned even when
+    # the status has not been explicitly set to 'active' yet.
     user_org = db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id,
         UserOrganization.status == 'active'
     ).first()
+
+    if not user_org:
+        user_org = db.query(UserOrganization).filter(
+            UserOrganization.user_id == current_user.id
+        ).first()
 
     response = {
         "user_id": str(current_user.id),
@@ -45,9 +53,12 @@ def get_current_user_profile(
         "phone": current_user.phone,
         "auth_method": current_user.auth_method,
         "status": current_user.status,
+        "profile_completed": current_user.profile_completed,
         "company_id": None,
         "company_name": None,
-        "role": None
+        "role": None,
+        "role_key": None,
+        "business_type": None,
     }
 
     if user_org and user_org.organization:
@@ -56,7 +67,7 @@ def get_current_user_profile(
             "company_name": user_org.organization.company_name,
             "business_type": user_org.organization.business_type,
             "role": user_org.role.role_name if user_org.role else None,
-            "role_key": user_org.role.role_key if user_org.role else None
+            "role_key": user_org.role.role_key if user_org.role else None,
         })
 
     return response
@@ -89,11 +100,22 @@ def refresh_token(
         UserOrganization.status == 'active'
     ).first()
 
+    # Detect driver: independent_user role + Driver record
+    driver_record = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+    raw_role_key = user_org.role.role_key if user_org and user_org.role else "independent_user"
+    raw_role_name = user_org.role.role_name if user_org and user_org.role else "Independent User"
+    if driver_record and raw_role_key == 'independent_user':
+        effective_role_key = 'driver'
+        effective_role_name = 'Driver'
+    else:
+        effective_role_key = raw_role_key
+        effective_role_name = raw_role_name
+
     # Generate new JWT token with updated context
     token_data = {
         "sub": str(current_user.id),
         "username": current_user.username,
-        "role": user_org.role.role_key if user_org and user_org.role else "independent_user",
+        "role": effective_role_key,
         "company_id": str(user_org.organization_id) if user_org else None
     }
 
@@ -110,8 +132,8 @@ def refresh_token(
         "company_id": str(user_org.organization_id) if user_org else None,
         "company_name": user_org.organization.company_name if user_org and user_org.organization else None,
         "business_type": user_org.organization.business_type if user_org and user_org.organization else None,
-        "role": user_org.role.role_name if user_org and user_org.role else "Independent User",
-        "role_key": user_org.role.role_key if user_org and user_org.role else "independent_user"
+        "role": effective_role_name,
+        "role_key": effective_role_key
     }
 
 

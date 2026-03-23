@@ -30,7 +30,7 @@ def verify_owner(current_user: User, db: Session) -> UserOrganization:
         Role, UserOrganization.role_id == Role.id
     ).filter(
         UserOrganization.user_id == current_user.id,
-        Role.role_key == 'owner',
+        Role.role_key.in_(['fleet_owner', 'load_owner']),
         UserOrganization.status == 'active'
     ).first()
 
@@ -234,7 +234,7 @@ def update_employee_role(
         )
 
     # Check if trying to change owner role
-    if emp_org.role and emp_org.role.role_key == 'owner':
+    if emp_org.role and emp_org.role.role_key in ('fleet_owner', 'load_owner'):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot change owner's role"
@@ -249,7 +249,7 @@ def update_employee_role(
         )
 
     # Don't allow assigning owner role
-    if new_role.role_key == 'owner':
+    if new_role.role_key in ('fleet_owner', 'load_owner'):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot assign owner role to another user"
