@@ -19,8 +19,16 @@ from app.schemas.security_question import SecurityQuestionsListResponse, Securit
 from app.services.auth_service import AuthService
 from app.services.recovery_service import RecoveryService
 from app.models.security_question import SecurityQuestion
+from app.models.user import User
 
 router = APIRouter()
+
+
+@router.get("/check-username/{username}")
+def check_username(username: str, db: Session = Depends(get_db)):
+    """Check if a username is already taken. Returns available: true/false."""
+    exists = db.query(User).filter(User.username == username).first() is not None
+    return {"username": username, "available": not exists}
 
 
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)

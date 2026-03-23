@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/data/services/api_service.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -27,8 +30,42 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   bool _obscureConfirmPassword = true;
   bool _termsAccepted = false;
 
+  // Username availability check
+  Timer? _usernameDebounce;
+  String? _usernameTakenError;   // non-null = taken
+  bool _checkingUsername = false;
+
+  void _onUsernameChanged(String value) {
+    // Clear previous result immediately
+    if (_usernameTakenError != null || _checkingUsername) {
+      setState(() { _usernameTakenError = null; _checkingUsername = false; });
+    }
+    _usernameDebounce?.cancel();
+    // Only check if the basic format is already valid (≥3 chars, no special chars)
+    if (value.length < 3 || !RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)) return;
+
+    _usernameDebounce = Timer(const Duration(milliseconds: 600), () async {
+      if (!mounted) return;
+      setState(() => _checkingUsername = true);
+      try {
+        final api = ref.read(apiServiceProvider);
+        final resp = await api.dio.get('/api/auth/check-username/$value');
+        final available = resp.data['available'] as bool? ?? true;
+        if (mounted) {
+          setState(() {
+            _checkingUsername = false;
+            _usernameTakenError = available ? null : 'This username is already taken';
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _checkingUsername = false);
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _usernameDebounce?.cancel();
     _fullNameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
@@ -41,6 +78,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_usernameTakenError != null) return;
+    if (_checkingUsername) {
+      _showSnackBar('Please wait — checking username availability',
+          AppTheme.statusWarning, Icons.hourglass_top_rounded);
+      return;
+    }
 
     if (!_termsAccepted) {
       _showSnackBar('Please accept the terms and conditions',
@@ -55,7 +98,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           ? _emailController.text.trim()
           : null,
       'organization': _organizationController.text.trim(),
-      'phone': _phoneController.text.trim(),
+      'phone': '+91${_phoneController.text.trim()}',
       'password': _passwordController.text,
       'auth_method': _authMethod,
       'terms_accepted': _termsAccepted,
@@ -202,10 +245,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         prefixIcon: Icons.person_outline,
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
-                            return AppConstants.validationRequired;
+                            return 'Full name is required';
                           }
                           if (RegExp(r'[0-9]').hasMatch(v)) {
-                            return 'Full name cannot contain numbers';
+                            return 'Do not enter numbers in full name — letters only';
                           }
                           if (v.trim().length < 2) {
                             return 'Full name must be at least 2 characters';
@@ -220,20 +263,35 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       const SizedBox(height: 8),
                       _SignupTextField(
                         controller: _usernameController,
-                        hintText: 'e.g. john99',
+                        hintText: 'e.g. johndoe or john99',
                         prefixIcon: Icons.account_circle_outlined,
+                        onChanged: _onUsernameChanged,
+                        suffixIcon: _checkingUsername
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.textSecondary),
+                                ),
+                              )
+                            : _usernameController.text.length >= 3 &&
+                                    RegExp(r'^[a-zA-Z0-9_]+$')
+                                        .hasMatch(_usernameController.text)
+                                ? _usernameTakenError != null
+                                    ? const Icon(Icons.cancel_rounded,
+                                        color: AppTheme.statusError, size: 22)
+                                    : const Icon(Icons.check_circle_rounded,
+                                        color: Color(0xFF006B5E), size: 22)
+                                : null,
                         validator: (v) {
                           if (v == null || v.isEmpty) {
-                            return AppConstants.validationRequired;
+                            return 'Username is required';
                           }
                           if (v.length < 3) {
                             return 'Username must be at least 3 characters';
-                          }
-                          if (!RegExp(r'[a-zA-Z]').hasMatch(v)) {
-                            return 'Username must contain at least one letter';
-                          }
-                          if (!RegExp(r'[0-9]').hasMatch(v)) {
-                            return 'Username must contain at least one number';
                           }
                           if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(v)) {
                             return 'Username can only contain letters, numbers, and underscores';
@@ -241,6 +299,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           return null;
                         },
                       ),
+                      if (_usernameTakenError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6, left: 4),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.cancel_rounded,
+                                  color: AppTheme.statusError, size: 14),
+                              const SizedBox(width: 6),
+                              Text(
+                                _usernameTakenError!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.statusError,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       const SizedBox(height: 16),
 
                       // Work Email (conditional)
@@ -254,21 +330,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           keyboardType: TextInputType.emailAddress,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) {
-                              return AppConstants.validationRequired;
+                              return 'Email is required';
                             }
                             if (!v.contains('@')) {
-                              return 'Email must contain @';
+                              return 'Email must contain "@" — e.g. name@company.com';
                             }
                             final parts = v.split('@');
                             if (parts.length != 2 || parts[1].isEmpty) {
-                              return 'Enter a valid email address';
+                              return 'Enter a valid email — e.g. name@company.com';
                             }
                             if (!parts[1].contains('.')) {
-                              return 'Email domain must contain a dot (e.g. .com)';
+                              return 'Email must have a domain ending — e.g. .com or .in';
                             }
                             final domainParts = parts[1].split('.');
                             if (domainParts.last.length < 2) {
-                              return 'Enter a valid email address';
+                              return 'Enter a valid email — e.g. name@company.com';
                             }
                             return null;
                           },
@@ -284,7 +360,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         hintText: 'Acme Logistics Corp',
                         prefixIcon: Icons.corporate_fare_outlined,
                         validator: (v) => (v == null || v.trim().isEmpty)
-                            ? AppConstants.validationRequired
+                            ? 'Organization name is required'
                             : null,
                       ),
                       const SizedBox(height: 16),
@@ -294,19 +370,20 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       const SizedBox(height: 8),
                       _SignupTextField(
                         controller: _phoneController,
-                        hintText: '+91 98765 43210',
+                        hintText: '9876543210',
                         prefixIcon: Icons.phone_outlined,
-                        keyboardType: TextInputType.phone,
+                        keyboardType: TextInputType.number,
+                        fixedPrefix: '+91 ',
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                        ],
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
-                            return AppConstants.validationRequired;
+                            return 'Phone number is required';
                           }
-                          if (RegExp(r'[a-zA-Z]').hasMatch(v)) {
-                            return 'Phone number cannot contain letters';
-                          }
-                          final digits = v.replaceAll(RegExp(r'[\s\+\-\(\)]'), '');
-                          if (digits.length < 7) {
-                            return 'Enter a valid phone number';
+                          if (v.trim().length < 10) {
+                            return 'Mobile number must be exactly 10 digits';
                           }
                           return null;
                         },
@@ -334,9 +411,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         ),
                         validator: (v) {
                           if (v == null || v.isEmpty) {
-                            return AppConstants.validationRequired;
+                            return 'Password is required';
                           }
-                          if (v.length < 8) return AppConstants.validationPassword;
+                          if (v.length < 8) {
+                            return 'Password must be at least 8 characters';
+                          }
                           return null;
                         },
                       ),
@@ -364,10 +443,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         ),
                         validator: (v) {
                           if (v == null || v.isEmpty) {
-                            return AppConstants.validationRequired;
+                            return 'Please confirm your password';
                           }
                           if (v != _passwordController.text) {
-                            return AppConstants.validationPasswordMismatch;
+                            return 'Passwords do not match — please re-enter';
                           }
                           return null;
                         },
@@ -534,6 +613,9 @@ class _SignupTextField extends StatelessWidget {
   final Widget? suffixIcon;
   final TextInputType? keyboardType;
   final String? Function(String?)? validator;
+  final String? fixedPrefix;
+  final void Function(String)? onChanged;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _SignupTextField({
     required this.controller,
@@ -543,6 +625,9 @@ class _SignupTextField extends StatelessWidget {
     this.suffixIcon,
     this.keyboardType,
     this.validator,
+    this.fixedPrefix,
+    this.onChanged,
+    this.inputFormatters,
   });
 
   @override
@@ -552,6 +637,9 @@ class _SignupTextField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       textInputAction: TextInputAction.next,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      onChanged: onChanged,
+      inputFormatters: inputFormatters,
       style: const TextStyle(fontSize: 15, color: AppTheme.textPrimary),
       decoration: InputDecoration(
         hintText: hintText,
@@ -559,6 +647,16 @@ class _SignupTextField extends StatelessWidget {
             const TextStyle(fontSize: 14, color: AppTheme.textTertiary),
         prefixIcon: Icon(prefixIcon,
             color: AppTheme.textSecondary, size: 20),
+        prefix: fixedPrefix != null
+            ? Text(
+                fixedPrefix!,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppTheme.textPrimary,
+                  fontWeight: FontWeight.w500,
+                ),
+              )
+            : null,
         suffixIcon: suffixIcon,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
