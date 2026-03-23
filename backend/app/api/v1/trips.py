@@ -107,7 +107,7 @@ def list_trips(
 
     query = db.query(Trip)
 
-    if role_key in ('fleet_owner', 'super_admin'):
+    if role_key in ('fleet_management', 'super_admin'):
         query = query.filter(Trip.organization_id == user_org.organization_id)
     elif role_key == 'load_owner':
         query = query.filter(Trip.load_owner_org_id == user_org.organization_id)
@@ -142,7 +142,7 @@ def get_trip(
         raise HTTPException(status_code=404, detail="Trip not found")
 
     # Access check
-    if role_key in ('fleet_owner', 'super_admin'):
+    if role_key in ('fleet_management', 'super_admin'):
         if str(trip.organization_id) != str(user_org.organization_id):
             raise HTTPException(status_code=403, detail="Access denied")
     elif role_key == 'load_owner':
@@ -165,7 +165,7 @@ def create_trip(
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
 
-    if role_key not in ('fleet_owner', 'super_admin'):
+    if role_key not in ('fleet_management', 'super_admin'):
         raise HTTPException(
             status_code=403,
             detail="Only fleet owners can create trips"
@@ -208,7 +208,7 @@ def update_trip(
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
 
-    if role_key not in ('fleet_owner', 'super_admin'):
+    if role_key not in ('fleet_management', 'super_admin'):
         raise HTTPException(status_code=403, detail="Only fleet owners can update trips")
 
     trip = db.query(Trip).filter(

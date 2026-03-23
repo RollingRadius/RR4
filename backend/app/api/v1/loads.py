@@ -3,11 +3,13 @@ Load Requirements API
 Endpoints for load_owner companies to submit and manage load requirements.
 """
 
+import random
+import string
 import uuid
 from datetime import date
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -17,6 +19,7 @@ from app.models.user import User
 from app.models.user_organization import UserOrganization
 from app.models.company import Organization
 from app.models.load_requirement import LoadRequirement
+from app.models.trip import Trip
 
 router = APIRouter()
 
@@ -63,6 +66,41 @@ class LoadRequirementResponse(BaseModel):
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
+def _get_fleet_management_company(current_user: User, db: Session) -> Organization:
+    """
+    Verify the current user belongs to a fleet_owner (fleet management) company.
+    Returns the Organization on success, raises 403 otherwise.
+    """
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == 'active'
+    ).first()
+
+    if not user_org or not user_org.organization:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must belong to a company to access this resource."
+        )
+
+    company = user_org.organization
+    if company.business_type != 'fleet_management':
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Fleet Management companies can access this resource."
+        )
+
+    return company
+
+
+def _generate_trip_number(db: Session) -> str:
+    for _ in range(10):
+        suffix = ''.join(random.choices(string.digits, k=5))
+        trip_number = f"RR-{suffix}"
+        if not db.query(Trip).filter(Trip.trip_number == trip_number).first():
+            return trip_number
+    raise HTTPException(status_code=500, detail="Could not generate unique trip number")
+
+
 def _get_load_owner_company(current_user: User, db: Session) -> Organization:
     """
     Verify the current user belongs to a load_owner company.
@@ -91,21 +129,22 @@ def _get_load_owner_company(current_user: User, db: Session) -> Organization:
 
 def _record_to_response(record: LoadRequirement) -> dict:
     return {
-        "id":               str(record.id),
-        "company_id":       str(record.company_id),
-        "created_by":       str(record.created_by) if record.created_by else None,
-        "entry_method":     record.entry_method,
-        "pickup_location":  record.pickup_location,
-        "unload_location":  record.unload_location,
-        "material_type":    record.material_type,
-        "entry_date":       record.entry_date.isoformat() if record.entry_date else None,
-        "truck_count":      record.truck_count,
-        "capacity":         record.capacity,
-        "axel_type":        record.axel_type,
-        "body_type":        record.body_type,
-        "floor_type":       record.floor_type,
-        "status":           record.status,
-        "created_at":       record.created_at.isoformat(),
+        "id":                  str(record.id),
+        "company_id":          str(record.company_id),
+        "created_by":          str(record.created_by) if record.created_by else None,
+        "entry_method":        record.entry_method,
+        "pickup_location":     record.pickup_location,
+        "unload_location":     record.unload_location,
+        "material_type":       record.material_type,
+        "entry_date":          record.entry_date.isoformat() if record.entry_date else None,
+        "truck_count":         record.truck_count,
+        "capacity":            record.capacity,
+        "axel_type":           record.axel_type,
+        "body_type":           record.body_type,
+        "floor_type":          record.floor_type,
+        "fulfilling_org_id":   str(record.fulfilling_org_id) if record.fulfilling_org_id else None,
+        "status":              record.status,
+        "created_at":          record.created_at.isoformat(),
     }
 
 
@@ -249,6 +288,135 @@ async def create_load_requirement_photo(
         "success": True,
         "message": "Photo received. AI extraction queued.",
         "load": _record_to_response(record),
+    }
+
+
+class FulfillPayload(BaseModel):
+    vehicle_id: Optional[str] = None
+    driver_id: Optional[str] = None
+    notes: Optional[str] = None
+
+
+# ── Fleet Management Endpoints ───────────────────────────────────────────────
+
+@router.get("/available", status_code=status.HTTP_200_OK)
+def list_available_loads(
+    pickup: Optional[str] = Query(None, description="Filter by pickup location (partial match)"),
+    drop: Optional[str] = Query(None, description="Filter by drop/unload location (partial match)"),
+    material: Optional[str] = Query(None, description="Filter by material type"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Browse all pending load requirements posted by load owner companies.
+
+    **Requires:** JWT · company business_type == 'fleet_management'
+    """
+    _get_fleet_management_company(current_user, db)
+
+    query = db.query(LoadRequirement, Organization).join(
+        Organization, Organization.id == LoadRequirement.company_id
+    ).filter(
+        LoadRequirement.status == 'pending'
+    )
+
+    if pickup:
+        query = query.filter(LoadRequirement.pickup_location.ilike(f'%{pickup}%'))
+    if drop:
+        query = query.filter(LoadRequirement.unload_location.ilike(f'%{drop}%'))
+    if material:
+        query = query.filter(LoadRequirement.material_type.ilike(f'%{material}%'))
+
+    rows = query.order_by(LoadRequirement.created_at.desc()).all()
+
+    loads = []
+    for record, company in rows:
+        item = _record_to_response(record)
+        item['company_name'] = company.company_name
+        loads.append(item)
+
+    return {
+        "success": True,
+        "loads": loads,
+        "count": len(loads),
+    }
+
+
+@router.post("/{load_id}/fulfill", status_code=status.HTTP_201_CREATED)
+def fulfill_load_requirement(
+    load_id: str,
+    payload: FulfillPayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Fleet management accepts a load requirement and creates a trip to fulfill it.
+
+    **Requires:** JWT · company business_type == 'fleet_management'
+    """
+    fleet_company = _get_fleet_management_company(current_user, db)
+
+    # Fetch load requirement
+    try:
+        load_uuid = uuid.UUID(load_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid load ID.")
+
+    load = db.query(LoadRequirement).filter(LoadRequirement.id == load_uuid).first()
+    if not load:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Load requirement not found.")
+    if load.status != 'pending':
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Load requirement is already '{load.status}' and cannot be fulfilled."
+        )
+
+    # Parse optional vehicle/driver IDs
+    vehicle_uuid = None
+    if payload.vehicle_id:
+        try:
+            vehicle_uuid = uuid.UUID(payload.vehicle_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid vehicle_id.")
+
+    driver_uuid = None
+    if payload.driver_id:
+        try:
+            driver_uuid = uuid.UUID(payload.driver_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid driver_id.")
+
+    # Create trip
+    trip = Trip(
+        id=uuid.uuid4(),
+        trip_number=_generate_trip_number(db),
+        origin=load.pickup_location or '',
+        destination=load.unload_location or '',
+        load_item=load.material_type or 'Cargo',
+        weight=load.capacity,
+        status='pending',
+        organization_id=fleet_company.id,
+        load_owner_org_id=load.company_id,
+        load_requirement_id=load.id,
+        vehicle_id=vehicle_uuid,
+        driver_id=driver_uuid,
+        created_by=current_user.id,
+    )
+    db.add(trip)
+
+    # Mark load as matched
+    load.status = 'matched'
+    load.fulfilling_org_id = fleet_company.id
+
+    db.commit()
+    db.refresh(trip)
+    db.refresh(load)
+
+    return {
+        "success": True,
+        "message": "Load requirement accepted. Trip created successfully.",
+        "trip": trip.to_dict(),
+        "load": _record_to_response(load),
     }
 
 

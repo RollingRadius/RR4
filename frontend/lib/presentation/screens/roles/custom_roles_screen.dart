@@ -752,7 +752,7 @@ class _PendingRequestCard extends ConsumerWidget {
                 ),
                 hint: const Text('Select role'),
                 items: availableRoles
-                    .where((r) => r.roleKey != 'fleet_owner' && r.roleKey != 'load_owner')
+                    .where((r) => r.roleKey != 'fleet_management' && r.roleKey != 'load_owner')
                     .map((r) => DropdownMenuItem(
                           value: r.id,
                           child: Text(r.roleName),
@@ -907,7 +907,7 @@ class _MemberCard extends ConsumerWidget {
         ? name.split(' ').take(2).map((w) => w[0]).join().toUpperCase()
         : '?';
     final isCustomRole = role?['is_custom'] as bool? ?? false;
-    final isOwner = roleKey == 'fleet_owner' || roleKey == 'load_owner';
+    final isOwner = roleKey == 'fleet_management' || roleKey == 'load_owner';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1017,7 +1017,7 @@ class _MemberCard extends ConsumerWidget {
                       EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
                 items: availableRoles
-                    .where((r) => r.roleKey != 'fleet_owner' && r.roleKey != 'load_owner')
+                    .where((r) => r.roleKey != 'fleet_management' && r.roleKey != 'load_owner')
                     .map((r) => DropdownMenuItem(
                           value: r.id,
                           child: Text(r.roleName),

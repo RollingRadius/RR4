@@ -61,7 +61,7 @@ class CapabilityGuard extends ConsumerWidget {
 
 // ─── Role-level guards ────────────────────────────────────────────────────────
 
-/// Shows [child] only for users with role_key == 'fleet_owner'.
+/// Shows [child] only for users with role_key == 'fleet_management'.
 /// Cheaper than [CapabilityGuard] — reads from already-loaded auth state.
 class FleetOwnerGuard extends ConsumerWidget {
   final Widget child;

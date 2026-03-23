@@ -171,7 +171,7 @@ class OrganizationService:
         self._check_organization_access(
             current_user_id,
             organization_id,
-            required_roles=['fleet_owner', 'load_owner', 'admin']
+            required_roles=['fleet_management', 'load_owner', 'admin']
         )
 
         # Get organization
@@ -251,7 +251,7 @@ class OrganizationService:
         self._check_organization_access(
             current_user_id,
             organization_id,
-            required_roles=['fleet_owner', 'load_owner', 'admin']
+            required_roles=['fleet_management', 'load_owner', 'admin']
         )
 
         # Get the pending user-organization relationship
@@ -281,7 +281,7 @@ class OrganizationService:
             )
 
         # Prevent assigning owner roles (fleet_owner, load_owner, owner) through approval
-        if role_key in ('fleet_owner', 'load_owner'):
+        if role_key in ('fleet_management', 'load_owner'):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot assign owner role through approval"
@@ -342,7 +342,7 @@ class OrganizationService:
         self._check_organization_access(
             current_user_id,
             organization_id,
-            required_roles=['fleet_owner', 'load_owner', 'admin']
+            required_roles=['fleet_management', 'load_owner', 'admin']
         )
 
         # Get the pending user-organization relationship
@@ -411,7 +411,7 @@ class OrganizationService:
         current_user_org = self._check_organization_access(
             current_user_id,
             organization_id,
-            required_roles=['fleet_owner', 'load_owner', 'admin']
+            required_roles=['fleet_management', 'load_owner', 'admin']
         )
 
         # Get the user-organization relationship
@@ -442,16 +442,16 @@ class OrganizationService:
             )
 
         # Prevent changing owner role unless current user is owner
-        if user_org.role.role_key in ('fleet_owner', 'load_owner') and \
-                current_user_org.role.role_key not in ('fleet_owner', 'load_owner'):
+        if user_org.role.role_key in ('fleet_management', 'load_owner') and \
+                current_user_org.role.role_key not in ('fleet_management', 'load_owner'):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only owners can change owner roles"
             )
 
         # Prevent assigning owner role unless current user is owner
-        if new_role_key in ('fleet_owner', 'load_owner') and \
-                current_user_org.role.role_key not in ('fleet_owner', 'load_owner'):
+        if new_role_key in ('fleet_management', 'load_owner') and \
+                current_user_org.role.role_key not in ('fleet_management', 'load_owner'):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only owners can assign owner role"
@@ -518,7 +518,7 @@ class OrganizationService:
         current_user_org = self._check_organization_access(
             current_user_id,
             organization_id,
-            required_roles=['fleet_owner', 'load_owner', 'admin']
+            required_roles=['fleet_management', 'load_owner', 'admin']
         )
 
         # Get the user-organization relationship
@@ -537,8 +537,8 @@ class OrganizationService:
             )
 
         # Prevent removing owner unless current user is owner
-        if user_org.role.role_key in ('fleet_owner', 'load_owner') and \
-                current_user_org.role.role_key not in ('fleet_owner', 'load_owner'):
+        if user_org.role.role_key in ('fleet_management', 'load_owner') and \
+                current_user_org.role.role_key not in ('fleet_management', 'load_owner'):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only owners can remove other owners"

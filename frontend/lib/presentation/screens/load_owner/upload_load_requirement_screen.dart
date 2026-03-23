@@ -32,7 +32,43 @@ class _UploadLoadRequirementScreenState
   String? _materialType = 'Steel Coils';
   final _pickupController = TextEditingController();
   final _dropController = TextEditingController();
+  final _capacityController = TextEditingController(text: '24');
   DateTime? _entryDate;
+
+  String? _selectedAxleType = 'Multi-Axle';
+  String? _selectedBodyType = 'Open Body';
+  String? _selectedFloorType = 'Wooden';
+
+  static const List<String> _axleTypes = [
+    'Single Axle',
+    'Tandem Axle',
+    'Tri-Axle',
+    'Multi-Axle',
+    'Semi-Trailer',
+    'Full Trailer',
+  ];
+
+  static const List<String> _bodyTypes = [
+    'Open Body',
+    'Closed Body',
+    'Flatbed',
+    'Container',
+    'Tipper / Dumper',
+    'Refrigerated',
+    'Tanker',
+    'Car Carrier',
+    'Low Bed',
+    'Side Wall',
+  ];
+
+  static const List<String> _floorTypes = [
+    'Wooden',
+    'Steel',
+    'Aluminium',
+    'Bamboo',
+    'Rubber Matted',
+    'Corrugated',
+  ];
 
   int _selectedNavIndex = 0;
 
@@ -47,6 +83,7 @@ class _UploadLoadRequirementScreenState
   void dispose() {
     _pickupController.dispose();
     _dropController.dispose();
+    _capacityController.dispose();
     super.dispose();
   }
 
@@ -483,7 +520,7 @@ class _UploadLoadRequirementScreenState
     );
   }
 
-  // ── Truck Specifications Section ─────────────────────────────────────
+  // ── Truck Requirements Section ────────────────────────────────────────
 
   Widget _truckSpecsSection() {
     return Column(
@@ -505,7 +542,7 @@ class _UploadLoadRequirementScreenState
                 const SizedBox(width: 12),
                 const Expanded(
                   child: Text(
-                    'Truck Specifications',
+                    'Truck Requirements',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
@@ -525,18 +562,38 @@ class _UploadLoadRequirementScreenState
         ),
         if (_truckSpecsExpanded) ...[
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 10,
-            mainAxisSpacing: 10,
-            childAspectRatio: 2.0,
+          Column(
             children: [
-              _specCard('Capacity', '24 Tons', accent: true),
-              _specCard('Axel Type', 'Multi-Axel'),
-              _specCard('Body', 'Open Body'),
-              _specCard('Floor', 'Wooden'),
+              Row(
+                children: [
+                  Expanded(child: _capacityField()),
+                  const SizedBox(width: 10),
+                  Expanded(child: _specDropdown(
+                    label: 'Axle Type',
+                    value: _selectedAxleType,
+                    items: _axleTypes,
+                    onChanged: (v) => setState(() => _selectedAxleType = v),
+                  )),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: _specDropdown(
+                    label: 'Body',
+                    value: _selectedBodyType,
+                    items: _bodyTypes,
+                    onChanged: (v) => setState(() => _selectedBodyType = v),
+                  )),
+                  const SizedBox(width: 10),
+                  Expanded(child: _specDropdown(
+                    label: 'Floor',
+                    value: _selectedFloorType,
+                    items: _floorTypes,
+                    onChanged: (v) => setState(() => _selectedFloorType = v),
+                  )),
+                ],
+              ),
             ],
           ),
         ],
@@ -544,20 +601,78 @@ class _UploadLoadRequirementScreenState
     );
   }
 
-  Widget _specCard(String label, String value, {bool accent = false}) {
+  Widget _capacityField() {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: _surfaceContainer,
         borderRadius: BorderRadius.circular(12),
-        border: accent
-            ? const Border(
-                left: BorderSide(color: Color(0xFF001e40), width: 4))
-            : null,
+        border: const Border(
+          left: BorderSide(color: Color(0xFF001e40), width: 4),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            'CAPACITY',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+              color: Color(0xFF43474F),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _capacityController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF001e40),
+                  ),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
+                    hintText: '0',
+                  ),
+                ),
+              ),
+              const Text(
+                'Tons',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF43474F),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _specDropdown({
+    required String label,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _surfaceContainer,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label.toUpperCase(),
@@ -568,13 +683,22 @@ class _UploadLoadRequirementScreenState
               color: Color(0xFF43474F),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF001e40),
+          const SizedBox(height: 2),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              isDense: true,
+              icon: const Icon(Icons.expand_more, size: 18, color: Color(0xFF43474F)),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF001e40),
+              ),
+              items: items
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
+              onChanged: onChanged,
             ),
           ),
         ],

@@ -237,17 +237,7 @@ class _TopBar extends StatelessWidget {
         child: Row(
           children: [
             const Icon(Icons.menu, color: _secondary, size: 24),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                'RR LOGISTICS',
-                style: _manrope(
-                  size: 18,
-                  weight: FontWeight.w900,
-                  color: _primary,
-                ).copyWith(letterSpacing: 1.0),
-              ),
-            ),
+            const Spacer(),
             const Icon(Icons.notifications_outlined,
                 color: _secondary, size: 24),
             const SizedBox(width: 12),

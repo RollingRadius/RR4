@@ -52,6 +52,10 @@ class Trip(Base):
                         nullable=True)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"),
                          nullable=True)
+    # Load requirement this trip was created to fulfill (optional)
+    load_requirement_id = Column(UUID(as_uuid=True),
+                                  ForeignKey("load_requirements.id", ondelete="SET NULL"),
+                                  nullable=True, index=True)
 
     # ── Dates ────────────────────────────────────────────────────────────────────
     start_date = Column(Date, nullable=True)
@@ -81,6 +85,7 @@ class Trip(Base):
             "created_by": str(self.created_by) if self.created_by else None,
             "start_date": str(self.start_date) if self.start_date else None,
             "end_date": str(self.end_date) if self.end_date else None,
+            "load_requirement_id": str(self.load_requirement_id) if self.load_requirement_id else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

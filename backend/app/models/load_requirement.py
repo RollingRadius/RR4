@@ -3,7 +3,7 @@ Load Requirement Model
 Represents cargo/load requirements posted by load_owner companies.
 """
 
-from sqlalchemy import Column, String, Text, Date, Integer, TIMESTAMP, CheckConstraint
+from sqlalchemy import Column, String, Text, Date, Integer, TIMESTAMP, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
@@ -31,5 +31,14 @@ class LoadRequirement(Base):
     body_type = Column(String(50), nullable=True)
     floor_type = Column(String(50), nullable=True)
 
+    # Which fleet management org is fulfilling this load (set on fulfill)
+    fulfilling_org_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     status = Column(String(20), nullable=False, default='pending')
+    # Values: pending | matched | fulfilled | cancelled
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)

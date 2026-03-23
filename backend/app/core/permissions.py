@@ -43,7 +43,7 @@ def _role_auto_passes(role_key: str, capability_key: str) -> bool:
     """
     if role_key == 'super_admin':
         return True
-    if role_key == 'fleet_owner':
+    if role_key == 'fleet_management':
         return True
     if role_key == 'load_owner':
         for prefix in _FLEET_OWNER_ONLY_PREFIXES:
@@ -286,7 +286,7 @@ def require_role(allowed_roles: List[str]):
         # Only fleet_owner and super_admin bypass legacy role checks by default.
         # load_owner must be explicitly listed in allowed_roles to pass.
         user_role_obj = db.query(RoleModel).filter(RoleModel.id == user_org.role_id).first()
-        if user_role_obj and user_role_obj.role_key in ('fleet_owner', 'super_admin'):
+        if user_role_obj and user_role_obj.role_key in ('fleet_management', 'super_admin'):
             return current_user
 
         if not user_org or not user_org.role:

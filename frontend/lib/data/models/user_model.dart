@@ -70,7 +70,7 @@ class UserModel {
   bool get isSecurityQuestionsUser => authMethod == 'security_questions';
   bool get canLogin => status == 'active';
   bool get isFleetOwner =>
-      roleKey == 'fleet_owner' || businessType == 'fleet_owner';
+      roleKey == 'fleet_management' || businessType == 'fleet_management';
   bool get isLoadOwner =>
       roleKey == 'load_owner' || businessType == 'load_owner';
   bool get isDriver {

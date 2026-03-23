@@ -227,7 +227,7 @@ class CompanyService:
         if business_type == 'load_owner':
             owner_role_key = 'load_owner'
         else:
-            owner_role_key = 'fleet_owner'
+            owner_role_key = 'fleet_management'
 
         owner_role = self.db.query(Role).filter(
             Role.role_key == owner_role_key

@@ -24,7 +24,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
 
   // Company fields
   final _companyNameController = TextEditingController();
-  String? _selectedCompanyType; // 'fleet_owner' or 'load_owner'
+  String? _selectedCompanyType; // 'fleet_management' or 'load_owner'
   final _businessEmailController = TextEditingController();
   final _businessPhoneController = TextEditingController();
   final _addressController = TextEditingController();
@@ -610,7 +610,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
 
         // Logistics / Fleet Company card
         _buildCompanyTypeCard(
-          value: 'fleet_owner',
+          value: 'fleet_management',
           title: 'Logistics / Fleet Company',
           description: 'You own and manage a fleet of vehicles for transportation',
           icon: Icons.local_shipping_outlined,

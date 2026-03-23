@@ -115,7 +115,7 @@ class CapabilityService:
         role_key = user_org.role.role_key
 
         # fleet_owner and super_admin get all non-system-critical capabilities at FULL
-        if role_key in ('fleet_owner', 'super_admin'):
+        if role_key in ('fleet_management', 'super_admin'):
             all_caps = self.db.query(Capability).filter(
                 Capability.is_system_critical == False  # noqa: E712
             ).all()

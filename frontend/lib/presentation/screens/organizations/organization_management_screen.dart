@@ -599,7 +599,7 @@ class _MemberCard extends StatelessWidget {
     final username = member['username'] as String? ?? '';
     final role = member['role'] as String? ?? 'No Role';
     final roleKey = member['role_key'] as String? ?? '';
-    final isOwner = roleKey == 'fleet_owner' || roleKey == 'load_owner';
+    final isOwner = roleKey == 'fleet_management' || roleKey == 'load_owner';
     final initial = fullName.isNotEmpty ? fullName[0].toUpperCase() : '?';
     final color = _avatarColor(fullName);
 

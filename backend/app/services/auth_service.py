@@ -514,7 +514,7 @@ class AuthService:
         if business_type == 'load_owner':
             role = self._get_role_by_key('load_owner')
         else:
-            role = self._get_role_by_key('fleet_owner')
+            role = self._get_role_by_key('fleet_management')
 
         # Create user-organization relationship with Owner role
         user_org = UserOrganization(

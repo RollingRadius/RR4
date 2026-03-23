@@ -109,9 +109,9 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
     });
 
     final businessType = _isFleetOwner && _isLoadOwner
-        ? 'fleet_owner'
+        ? 'fleet_management'
         : _isFleetOwner
-            ? 'fleet_owner'
+            ? 'fleet_management'
             : 'load_owner';
 
     // Prepare company data
@@ -263,8 +263,8 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                     ),
                     const SizedBox(height: 8),
                     CheckboxListTile(
-                      title: const Text('Fleet Owner'),
-                      subtitle: const Text('Owns and manages a fleet of vehicles'),
+                      title: const Text('Fleet Management'),
+                      subtitle: const Text('Manages a fleet and fulfills load requirements'),
                       value: _isFleetOwner,
                       onChanged: (val) {
                         setState(() {
