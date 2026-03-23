@@ -200,9 +200,18 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         controller: _fullNameController,
                         hintText: 'John Doe',
                         prefixIcon: Icons.person_outline,
-                        validator: (v) => (v == null || v.isEmpty)
-                            ? AppConstants.validationRequired
-                            : null,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return AppConstants.validationRequired;
+                          }
+                          if (RegExp(r'[0-9]').hasMatch(v)) {
+                            return 'Full name cannot contain numbers';
+                          }
+                          if (v.trim().length < 2) {
+                            return 'Full name must be at least 2 characters';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
 
@@ -211,13 +220,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       const SizedBox(height: 8),
                       _SignupTextField(
                         controller: _usernameController,
-                        hintText: 'Choose a username',
+                        hintText: 'e.g. john99',
                         prefixIcon: Icons.account_circle_outlined,
                         validator: (v) {
                           if (v == null || v.isEmpty) {
                             return AppConstants.validationRequired;
                           }
-                          if (v.length < 3) return AppConstants.validationUsername;
+                          if (v.length < 3) {
+                            return 'Username must be at least 3 characters';
+                          }
+                          if (!RegExp(r'[a-zA-Z]').hasMatch(v)) {
+                            return 'Username must contain at least one letter';
+                          }
+                          if (!RegExp(r'[0-9]').hasMatch(v)) {
+                            return 'Username must contain at least one number';
+                          }
+                          if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(v)) {
+                            return 'Username can only contain letters, numbers, and underscores';
+                          }
                           return null;
                         },
                       ),
@@ -233,11 +253,22 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           prefixIcon: Icons.mail_outline,
                           keyboardType: TextInputType.emailAddress,
                           validator: (v) {
-                            if (v == null || v.isEmpty) {
+                            if (v == null || v.trim().isEmpty) {
                               return AppConstants.validationRequired;
                             }
                             if (!v.contains('@')) {
-                              return AppConstants.validationEmail;
+                              return 'Email must contain @';
+                            }
+                            final parts = v.split('@');
+                            if (parts.length != 2 || parts[1].isEmpty) {
+                              return 'Enter a valid email address';
+                            }
+                            if (!parts[1].contains('.')) {
+                              return 'Email domain must contain a dot (e.g. .com)';
+                            }
+                            final domainParts = parts[1].split('.');
+                            if (domainParts.last.length < 2) {
+                              return 'Enter a valid email address';
                             }
                             return null;
                           },
@@ -252,7 +283,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         controller: _organizationController,
                         hintText: 'Acme Logistics Corp',
                         prefixIcon: Icons.corporate_fare_outlined,
-                        validator: (v) => (v == null || v.isEmpty)
+                        validator: (v) => (v == null || v.trim().isEmpty)
                             ? AppConstants.validationRequired
                             : null,
                       ),
@@ -263,12 +294,22 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       const SizedBox(height: 8),
                       _SignupTextField(
                         controller: _phoneController,
-                        hintText: '+1 555 000 0000',
+                        hintText: '+91 98765 43210',
                         prefixIcon: Icons.phone_outlined,
                         keyboardType: TextInputType.phone,
-                        validator: (v) => (v == null || v.isEmpty)
-                            ? AppConstants.validationRequired
-                            : null,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) {
+                            return AppConstants.validationRequired;
+                          }
+                          if (RegExp(r'[a-zA-Z]').hasMatch(v)) {
+                            return 'Phone number cannot contain letters';
+                          }
+                          final digits = v.replaceAll(RegExp(r'[\s\+\-\(\)]'), '');
+                          if (digits.length < 7) {
+                            return 'Enter a valid phone number';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 16),
 
