@@ -1562,6 +1562,11 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   String? _selectedDriverId;
 
   Future<void> _confirm() async {
+    // Capture navigator and scaffold messenger BEFORE the async gap
+    // so they remain valid after the bottom sheet is popped.
+    final navigator = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
     final trip = await ref.read(availableLoadsProvider.notifier).fulfillLoad(
           widget.load.id,
           vehicleId: _selectedVehicleId,
@@ -1569,18 +1574,18 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
         );
 
     if (!mounted) return;
-    Navigator.of(context).pop(); // close bottom sheet
+    navigator.pop(); // close bottom sheet
 
     if (trip != null) {
       // Navigate directly into the 3-stage compliance flow
-      Navigator.of(context).push(
+      navigator.push(
         MaterialPageRoute(
           builder: (_) => TripStagesScreen(trip: trip),
         ),
       );
     } else {
       final err = ref.read(availableLoadsProvider).error ?? 'Fulfillment failed';
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
           content: Text(err,
               style: _inter(size: 13, color: Colors.white)),
@@ -1868,7 +1873,7 @@ class _ProfileTab extends ConsumerWidget {
                     size: 15,
                     weight: FontWeight.w600,
                     color: _onSurface)),
-            onTap: () => context.push('/settings'),
+            onTap: () => context.push('/fleet-manager/settings'),
           ),
           ListTile(
             leading: const Icon(Icons.logout, color: _error),

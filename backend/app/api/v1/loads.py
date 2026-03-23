@@ -12,6 +12,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -389,31 +390,49 @@ def fulfill_load_requirement(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid driver_id.")
 
-    # Create trip
-    trip = Trip(
-        id=uuid.uuid4(),
-        trip_number=_generate_trip_number(db),
-        origin=load.pickup_location or '',
-        destination=load.unload_location or '',
-        load_item=load.material_type or 'Cargo',
-        weight=load.capacity,
-        status='pending',
-        organization_id=fleet_company.id,
-        load_owner_org_id=load.company_id,
-        load_requirement_id=load.id,
-        vehicle_id=vehicle_uuid,
-        driver_id=driver_uuid,
-        created_by=current_user.id,
-    )
-    db.add(trip)
+    # Build and persist the trip — wrapped fully so any error returns JSON (not a bare 500)
+    try:
+        trip_kwargs = dict(
+            id=uuid.uuid4(),
+            trip_number=_generate_trip_number(db),
+            origin=load.pickup_location or '',
+            destination=load.unload_location or '',
+            load_item=load.material_type or 'Cargo',
+            weight=load.capacity,
+            status='pending',
+            organization_id=fleet_company.id,
+            load_owner_org_id=load.company_id,
+            vehicle_id=vehicle_uuid,
+            driver_id=driver_uuid,
+            created_by=current_user.id,
+        )
+        # load_requirement_id added in migration 026 — only set if the column exists
+        if hasattr(Trip, 'load_requirement_id'):
+            trip_kwargs['load_requirement_id'] = load.id
 
-    # Mark load as matched
-    load.status = 'matched'
-    load.fulfilling_org_id = fleet_company.id
+        trip = Trip(**trip_kwargs)
+        db.add(trip)
 
-    db.commit()
-    db.refresh(trip)
-    db.refresh(load)
+        load.status = 'matched'
+        # fulfilling_org_id added in migration 026 — only set if the column exists
+        if hasattr(load, 'fulfilling_org_id'):
+            load.fulfilling_org_id = fleet_company.id
+
+        db.commit()
+        db.refresh(trip)
+        db.refresh(load)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error while creating trip: {str(exc)}"
+        )
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error while creating trip: {str(exc)}"
+        )
 
     return {
         "success": True,

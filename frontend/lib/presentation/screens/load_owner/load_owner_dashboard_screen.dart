@@ -198,6 +198,16 @@ class _LoadOwnerDashboardScreenState
             ),
             const SizedBox(height: 16),
             ListTile(
+              leading: const Icon(Icons.settings_outlined, color: _primary),
+              title: const Text('Settings',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/load-owner/settings');
+              },
+            ),
+            const Divider(height: 1, indent: 16, endIndent: 16),
+            ListTile(
               leading: const Icon(Icons.logout, color: _primary),
               title: const Text('Logout',
                   style: TextStyle(fontWeight: FontWeight.w600)),
