@@ -24,7 +24,7 @@ class _InvoicePdfScreenState extends ConsumerState<InvoicePdfScreen> {
   void initState() {
     super.initState();
     Future.microtask(() =>
-        ref.read(invoiceProvider.notifier).loadInvoice(widget.invoiceId));
+        ref.read(invoiceProvider.notifier).getInvoiceById(widget.invoiceId));
   }
 
   Future<void> _downloadPdf() async {
@@ -519,7 +519,7 @@ class _InvoicePreview extends StatelessWidget {
                 const SizedBox(height: 32),
 
                 // Notes and Terms
-                if (invoice.notes != null || invoice.terms != null)
+                if (invoice.notes != null || invoice.termsAndConditions != null)
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -539,9 +539,9 @@ class _InvoicePreview extends StatelessWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(invoice.notes!),
-                          if (invoice.terms != null) const SizedBox(height: 16),
+                          if (invoice.termsAndConditions != null) const SizedBox(height: 16),
                         ],
-                        if (invoice.terms != null) ...[
+                        if (invoice.termsAndConditions != null) ...[
                           Text(
                             'Terms & Conditions',
                             style: TextStyle(
@@ -550,7 +550,7 @@ class _InvoicePreview extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Text(invoice.terms!),
+                          Text(invoice.termsAndConditions!),
                         ],
                       ],
                     ),

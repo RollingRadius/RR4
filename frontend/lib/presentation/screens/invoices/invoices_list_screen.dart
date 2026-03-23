@@ -318,7 +318,7 @@ class _StatisticCard extends StatelessWidget {
   }
 }
 
-class _InvoiceCard extends StatelessWidget {
+class _InvoiceCard extends ConsumerWidget {
   final InvoiceModel invoice;
   final VoidCallback onTap;
   final VoidCallback onDelete;
@@ -349,7 +349,7 @@ class _InvoiceCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final statusColor = _getStatusColor();
     final dateFormat = DateFormat('MMM dd, yyyy');
 

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:photo_view/photo_view.dart';
 
 class AttachmentViewerScreen extends StatelessWidget {
   final String fileName;
@@ -65,49 +64,53 @@ class AttachmentViewerScreen extends StatelessWidget {
   }
 
   Widget _buildImageViewer() {
-    return PhotoView(
-      imageProvider: NetworkImage(filePath),
-      minScale: PhotoViewComputedScale.contained,
-      maxScale: PhotoViewComputedScale.covered * 2,
-      backgroundDecoration: const BoxDecoration(
-        color: Colors.black,
-      ),
-      loadingBuilder: (context, event) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 16),
-            Text(
-              'Loading...',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white,
-                  ),
+    return Container(
+      color: Colors.black,
+      child: InteractiveViewer(
+        minScale: 0.5,
+        maxScale: 4.0,
+        child: Center(
+          child: Image.network(
+            filePath,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) return child;
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      value: progress.expectedTotalBytes != null
+                          ? progress.cumulativeBytesLoaded /
+                              progress.expectedTotalBytes!
+                          : null,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Loading...',
+                        style: TextStyle(color: Colors.white)),
+                  ],
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline,
+                      size: 64, color: Colors.red),
+                  const SizedBox(height: 16),
+                  const Text('Failed to load image',
+                      style: TextStyle(
+                          color: Colors.white, fontSize: 18)),
+                  const SizedBox(height: 8),
+                  Text(error.toString(),
+                      style: const TextStyle(color: Colors.white70),
+                      textAlign: TextAlign.center),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
-      errorBuilder: (context, error, stackTrace) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 16),
-            Text(
-              'Failed to load image',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.white,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error.toString(),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white70,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+          ),
         ),
       ),
     );

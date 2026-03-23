@@ -1535,7 +1535,7 @@ class _VehicleAssignmentCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.directions_car_off_rounded,
+                  Icon(Icons.no_transfer,
                       color: Colors.grey[400]),
                   const SizedBox(width: 12),
                   Expanded(

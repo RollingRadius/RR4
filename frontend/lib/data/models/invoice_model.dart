@@ -157,6 +157,11 @@ class InvoiceModel {
     };
   }
 
+  // Alias getters for backwards compatibility
+  double get total => totalAmount;
+  String? get terms => termsAndConditions;
+  List<Map<String, dynamic>>? get payments => null;
+
   // Computed properties
   double get amountDue => totalAmount - amountPaid;
 

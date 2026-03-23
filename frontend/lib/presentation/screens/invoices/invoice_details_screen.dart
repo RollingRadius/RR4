@@ -28,7 +28,7 @@ class _InvoiceDetailsScreenState extends ConsumerState<InvoiceDetailsScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     Future.microtask(() =>
-        ref.read(invoiceProvider.notifier).loadInvoice(widget.invoiceId));
+        ref.read(invoiceProvider.notifier).getInvoiceById(widget.invoiceId));
   }
 
   @override
@@ -38,7 +38,7 @@ class _InvoiceDetailsScreenState extends ConsumerState<InvoiceDetailsScreen>
   }
 
   Future<void> _refreshInvoice() async {
-    await ref.read(invoiceProvider.notifier).loadInvoice(widget.invoiceId);
+    await ref.read(invoiceProvider.notifier).getInvoiceById(widget.invoiceId);
   }
 
   void _showSendDialog() {
@@ -57,10 +57,9 @@ class _InvoiceDetailsScreenState extends ConsumerState<InvoiceDetailsScreen>
           final success = await ref.read(invoiceProvider.notifier).recordPayment(
                 widget.invoiceId,
                 amount: amount,
-                date: date,
-                method: method,
-                reference: reference,
-                notes: notes,
+                paymentDate: '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+                paymentMethod: method,
+                referenceNumber: reference,
               );
           if (success && mounted) {
             Navigator.pop(context);

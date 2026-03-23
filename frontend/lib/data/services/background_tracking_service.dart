@@ -195,9 +195,12 @@ class BackgroundTrackingService {
       locationSettings: locationSettings,
     )) {
       // Check if service should stop
-      if (!(await service.isRunning())) {
-        uploadTimer?.cancel();
-        break;
+      if (service is AndroidServiceInstance) {
+        final running = await (service as AndroidServiceInstance).isForegroundService();
+        if (!running) {
+          uploadTimer?.cancel();
+          break;
+        }
       }
 
       // Add location to queue
