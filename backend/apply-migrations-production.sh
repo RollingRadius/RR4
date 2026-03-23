@@ -50,7 +50,6 @@ echo "  1. Docker containers must be running"
 echo "  2. PostgreSQL must be accessible"
 echo "  3. You must be in the backend directory"
 echo ""
-read -p "Press Enter to continue or Ctrl+C to cancel..."
 
 # Detect docker-compose command
 if docker compose version > /dev/null 2>&1; then
@@ -68,21 +67,11 @@ echo ""
 print_step "Step 1: Checking Docker containers"
 
 if ! $COMPOSE_CMD ps | grep -q "Up"; then
-    print_warning "No containers are running!"
-    echo ""
-    print_info "Do you want to start the containers? (yes/no)"
-    read -p "> " START_CONTAINERS
+    print_warning "No containers are running! Starting containers..."
+    $COMPOSE_CMD up -d
 
-    if [[ $START_CONTAINERS =~ ^[Yy][Ee][Ss]$ ]]; then
-        print_step "Starting containers..."
-        $COMPOSE_CMD up -d
-
-        print_step "Waiting for services to be ready..."
-        sleep 20
-    else
-        print_error "Cannot apply migrations without running containers"
-        exit 1
-    fi
+    print_step "Waiting for services to be ready..."
+    sleep 20
 fi
 
 $COMPOSE_CMD ps
@@ -135,30 +124,15 @@ print_step "Step 6: Creating database backup (recommended)"
 
 BACKUP_FILE="db_backup_$(date +%Y%m%d_%H%M%S).sql"
 
-print_info "Do you want to create a database backup? (yes/no)"
-read -p "> " CREATE_BACKUP
-
-if [[ $CREATE_BACKUP =~ ^[Yy][Ee][Ss]$ ]]; then
-    print_info "Creating backup: $BACKUP_FILE"
-    $COMPOSE_CMD exec -T postgres pg_dump -U fleet_user -d fleet_db > "$BACKUP_FILE"
-    print_success "Backup created: $BACKUP_FILE"
-else
-    print_warning "Skipping backup (not recommended for production!)"
-fi
+print_info "Creating backup: $BACKUP_FILE"
+$COMPOSE_CMD exec -T postgres pg_dump -U fleet_user -d fleet_db > "$BACKUP_FILE"
+print_success "Backup created: $BACKUP_FILE"
 
 echo ""
 print_step "Step 7: Applying migrations"
 
 print_warning "About to run: alembic $UPGRADE_CMD"
 print_info "This will modify the production database!"
-echo ""
-read -p "Continue? (yes/no): " CONTINUE
-
-if [[ ! $CONTINUE =~ ^[Yy][Ee][Ss]$ ]]; then
-    print_info "Migration cancelled"
-    exit 0
-fi
-
 echo ""
 print_info "Running migrations..."
 
