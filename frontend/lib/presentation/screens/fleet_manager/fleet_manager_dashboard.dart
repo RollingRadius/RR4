@@ -11,6 +11,7 @@ import 'package:fleet_management/presentation/screens/fleet_owner/vehicle_manage
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/available_loads_provider.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
+import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
 
@@ -1561,47 +1562,30 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   String? _selectedVehicleId;
   String? _selectedDriverId;
 
-  Future<void> _confirm() async {
-    // Capture navigator and scaffold messenger BEFORE the async gap
-    // so they remain valid after the bottom sheet is popped.
+  void _confirm() {
     final navigator = Navigator.of(context);
-    final messenger = ScaffoldMessenger.of(context);
-
-    final trip = await ref.read(availableLoadsProvider.notifier).fulfillLoad(
-          widget.load.id,
-          vehicleId: _selectedVehicleId,
-          driverId: _selectedDriverId,
-        );
-
-    if (!mounted) return;
     navigator.pop(); // close bottom sheet
 
-    if (trip != null) {
-      // Navigate directly into the 3-stage compliance flow
-      navigator.push(
-        MaterialPageRoute(
-          builder: (_) => TripStagesScreen(trip: trip),
-        ),
-      );
-    } else {
-      final err = ref.read(availableLoadsProvider).error ?? 'Fulfillment failed';
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(err,
-              style: _inter(size: 13, color: Colors.white)),
-          backgroundColor: _error,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
-    }
+    // Build a local stub from the load — no API call needed yet
+    final stub = TripModel(
+      id: widget.load.id,
+      tripNumber: widget.load.refId,
+      origin: widget.load.pickupLocation ?? '',
+      destination: widget.load.unloadLocation ?? '',
+      loadItem: widget.load.materialType ?? 'Cargo',
+      status: 'pending',
+      organizationId: widget.load.companyId,
+      currentStage: 0,
+    );
+
+    navigator.push(
+      MaterialPageRoute(builder: (_) => TripStagesScreen(trip: stub)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final vehicles = ref.watch(vehicleProvider).vehicles;
-    final isBusy = ref.watch(availableLoadsProvider).isFulfilling;
 
     return Container(
       decoration: const BoxDecoration(
@@ -1705,7 +1689,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: isBusy ? null : _confirm,
+              onPressed: _confirm,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primary,
                 foregroundColor: Colors.white,
@@ -1715,13 +1699,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 textStyle: GoogleFonts.manrope(
                     fontSize: 15, fontWeight: FontWeight.w700),
               ),
-              child: isBusy
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Text('Confirm Fulfillment'),
+              child: const Text('Confirm Fulfillment'),
             ),
           ),
         ],

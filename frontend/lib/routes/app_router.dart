@@ -54,6 +54,8 @@ import 'package:fleet_management/presentation/screens/load_owner/upload_load_req
 import 'package:fleet_management/presentation/screens/load_owner/load_owner_dashboard_screen.dart';
 import 'package:fleet_management/presentation/screens/fleet_manager/fleet_manager_dashboard.dart';
 import 'package:fleet_management/presentation/screens/load_owner/my_trips_screen.dart';
+import 'package:fleet_management/presentation/screens/load_owner/load_owner_settings_screen.dart';
+import 'package:fleet_management/presentation/screens/fleet_manager/fleet_manager_settings_screen.dart';
 import 'package:fleet_management/presentation/screens/driver/driver_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_work_orders_screen.dart';
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_inventory_screen.dart';
@@ -247,6 +249,58 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
           child: const MyTripsScreen(),
+        ),
+      ),
+
+      // Role-specific settings routes
+      GoRoute(
+        path: '/load-owner/settings',
+        name: 'load-owner-settings',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const LoadOwnerSettingsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/fleet-manager/settings',
+        name: 'fleet-manager-settings',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const FleetManagerSettingsScreen(),
+        ),
+      ),
+
+      // Shared routes — accessible by all roles (no fleet manager shell wrapping)
+      GoRoute(
+        path: '/profile',
+        name: 'profile',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const ProfileScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/settings',
+        name: 'settings',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const SettingsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/settings/branding',
+        name: 'branding-settings',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const BrandingSettingsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/help',
+        name: 'help',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const HelpCenterScreen(),
         ),
       ),
 
@@ -588,38 +642,6 @@ final routerProvider = Provider<GoRouter>((ref) {
                 child: EditCustomRoleScreen(customRoleId: customRoleId),
               );
             },
-          ),
-          GoRoute(
-            path: '/profile',
-            name: 'profile',
-            pageBuilder: (context, state) => MaterialPage(
-              key: state.pageKey,
-              child: const ProfileScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings',
-            name: 'settings',
-            pageBuilder: (context, state) => MaterialPage(
-              key: state.pageKey,
-              child: const SettingsScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/settings/branding',
-            name: 'branding-settings',
-            pageBuilder: (context, state) => MaterialPage(
-              key: state.pageKey,
-              child: const BrandingSettingsScreen(),
-            ),
-          ),
-          GoRoute(
-            path: '/help',
-            name: 'help',
-            pageBuilder: (context, state) => MaterialPage(
-              key: state.pageKey,
-              child: const HelpCenterScreen(),
-            ),
           ),
 
           // ── Maintenance Supervisor Routes ──────────────────────────────
