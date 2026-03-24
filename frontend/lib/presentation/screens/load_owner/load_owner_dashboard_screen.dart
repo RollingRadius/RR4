@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -2378,12 +2379,76 @@ class _TrackingTab extends ConsumerWidget {
   }
 }
 
-class _TrackingCard extends StatelessWidget {
+class _TrackingCard extends ConsumerStatefulWidget {
   final TripModel trip;
   const _TrackingCard({required this.trip});
 
   @override
+  ConsumerState<_TrackingCard> createState() => _TrackingCardState();
+}
+
+class _TrackingCardState extends ConsumerState<_TrackingCard> {
+  bool _cancelling = false;
+
+  Future<void> _confirmCancel() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Cancel Trip',
+            style: GoogleFonts.manrope(
+                fontSize: 16, fontWeight: FontWeight.w700, color: _onSurface)),
+        content: Text(
+          'Are you sure you want to cancel trip ${widget.trip.tripNumber}? This cannot be undone.',
+          style: GoogleFonts.inter(fontSize: 13, color: _secondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Keep Trip',
+                style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w600, color: _secondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Cancel Trip',
+                style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w700, color: _error)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _cancelling = true);
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch('/api/trips/${widget.trip.id}/cancel');
+      if (!mounted) return;
+      ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Trip ${widget.trip.tripNumber} cancelled.',
+              style: GoogleFonts.inter(fontSize: 13)),
+          backgroundColor: _onSurface,
+        ),
+      );
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final msg =
+          e.response?.data?['detail'] as String? ?? 'Failed to cancel trip.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: _error),
+      );
+    } finally {
+      if (mounted) setState(() => _cancelling = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final trip = widget.trip;
     return Container(
       decoration: BoxDecoration(
         color: _surfaceLowest,
@@ -2480,30 +2545,32 @@ class _TrackingCard extends StatelessWidget {
             ),
           ),
           Divider(height: 1, color: _surfaceContainer),
-          // Two action buttons side by side
+          // Three action buttons side by side
           IntrinsicHeight(
             child: Row(
               children: [
+                // View Details
                 Expanded(
                   child: InkWell(
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) =>
-                            ShipmentDetailsScreen(trip: trip),
+                        builder: (_) => ShipmentDetailsScreen(trip: trip),
                       ),
                     ),
+                    borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(16)),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 10),
+                          vertical: 12, horizontal: 6),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(Icons.info_outline_rounded,
-                              size: 15, color: _secondary),
-                          const SizedBox(width: 5),
-                          Text('View Details',
+                              size: 14, color: _secondary),
+                          const SizedBox(width: 4),
+                          Text('Details',
                               style: GoogleFonts.manrope(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: _secondary)),
                         ],
@@ -2513,6 +2580,41 @@ class _TrackingCard extends StatelessWidget {
                 ),
                 VerticalDivider(
                     width: 1, thickness: 1, color: _surfaceContainer),
+                // Cancel Trip
+                Expanded(
+                  child: InkWell(
+                    onTap: _cancelling ? null : _confirmCancel,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 6),
+                      child: _cancelling
+                          ? const Center(
+                              child: SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: _error),
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.cancel_outlined,
+                                    size: 14, color: _error),
+                                const SizedBox(width: 4),
+                                Text('Cancel',
+                                    style: GoogleFonts.manrope(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: _error)),
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
+                VerticalDivider(
+                    width: 1, thickness: 1, color: _surfaceContainer),
+                // Track Truck
                 Expanded(
                   child: InkWell(
                     onTap: () => Navigator.of(context).push(
@@ -2524,16 +2626,16 @@ class _TrackingCard extends StatelessWidget {
                         bottomRight: Radius.circular(16)),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          vertical: 12, horizontal: 10),
+                          vertical: 12, horizontal: 6),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(Icons.local_shipping_rounded,
-                              size: 15, color: _primary),
-                          const SizedBox(width: 5),
-                          Text('Track Truck',
+                              size: 14, color: _primary),
+                          const SizedBox(width: 4),
+                          Text('Track',
                               style: GoogleFonts.manrope(
-                                  fontSize: 12,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.w700,
                                   color: _primary)),
                         ],

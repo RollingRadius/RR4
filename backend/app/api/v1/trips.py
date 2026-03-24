@@ -464,6 +464,41 @@ def submit_stage3(
     return {"success": True, "message": "Truck intake complete. Trip is now active.", "trip": _enrich(trip, db)}
 
 
+@router.patch("/trips/{trip_id}/cancel")
+def cancel_trip(
+    trip_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Cancel a trip. Allowed by load_owner (their trip) or fleet_management (their org's trip)."""
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    # Access check
+    if role_key in ('fleet_management', 'super_admin'):
+        if str(trip.organization_id) != str(user_org.organization_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif role_key == 'load_owner':
+        if str(trip.load_owner_org_id) != str(user_org.organization_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if trip.status == 'cancelled':
+        raise HTTPException(status_code=409, detail="Trip is already cancelled.")
+    if trip.status == 'completed':
+        raise HTTPException(status_code=409, detail="Completed trips cannot be cancelled.")
+
+    trip.status = 'cancelled'
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "message": "Trip cancelled successfully.", "trip": _enrich(trip, db)}
+
+
 # ─── Internal enrichment ─────────────────────────────────────────────────────
 
 def _enrich(trip: Trip, db: Session) -> dict:
