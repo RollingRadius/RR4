@@ -31,7 +31,9 @@ class TruckTrackingScreen extends StatefulWidget {
 
   /// Optional weigh data passed from stage 3 completion
   final String? emptyWeightKg;
+  final String emptyWeightUnit;
   final String? loadedWeightKg;
+  final String loadedWeightUnit;
   final String? driverName;
   final String? vehiclePlate;
 
@@ -39,7 +41,9 @@ class TruckTrackingScreen extends StatefulWidget {
     super.key,
     required this.trip,
     this.emptyWeightKg,
+    this.emptyWeightUnit = 'tons',
     this.loadedWeightKg,
+    this.loadedWeightUnit = 'tons',
     this.driverName,
     this.vehiclePlate,
   });
@@ -109,8 +113,11 @@ class _TruckTrackingScreenState extends State<TruckTrackingScreen>
     final empty = double.tryParse(widget.emptyWeightKg ?? '');
     final loaded = double.tryParse(widget.loadedWeightKg ?? '');
     if (empty == null || loaded == null) return null;
+    // Both weights must share the same unit for the difference to be meaningful
+    if (widget.emptyWeightUnit != widget.loadedWeightUnit) return null;
     final net = loaded - empty;
-    return '${net.toStringAsFixed(0)} kg';
+    if (net <= 0) return null;
+    return '${net.toStringAsFixed(widget.emptyWeightUnit == 'tons' ? 2 : 0)} ${widget.emptyWeightUnit}';
   }
 
   @override
@@ -316,13 +323,13 @@ class _TruckTrackingScreenState extends State<TruckTrackingScreen>
                     _DetailRow(
                       icon: Icons.scale_outlined,
                       label: 'Empty Weight',
-                      value: '${widget.emptyWeightKg} kg',
+                      value: '${widget.emptyWeightKg} ${widget.emptyWeightUnit}',
                     ),
                   if (widget.loadedWeightKg?.isNotEmpty == true)
                     _DetailRow(
                       icon: Icons.scale_rounded,
                       label: 'Loaded Weight',
-                      value: '${widget.loadedWeightKg} kg',
+                      value: '${widget.loadedWeightKg} ${widget.loadedWeightUnit}',
                     ),
                   if (_netLoad != null)
                     _DetailRow(

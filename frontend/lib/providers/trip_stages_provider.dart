@@ -7,14 +7,18 @@ class TripStagesState {
   final String? error;
   final int currentStage; // 0-3
   final String? emptyWeightKg;
+  final String? emptyWeightUnit;
   final String? loadedWeightKg;
+  final String? loadedWeightUnit;
 
   const TripStagesState({
     this.isSubmitting = false,
     this.error,
     this.currentStage = 0,
     this.emptyWeightKg,
+    this.emptyWeightUnit,
     this.loadedWeightKg,
+    this.loadedWeightUnit,
   });
 
   TripStagesState copyWith({
@@ -22,7 +26,9 @@ class TripStagesState {
     String? error,
     int? currentStage,
     String? emptyWeightKg,
+    String? emptyWeightUnit,
     String? loadedWeightKg,
+    String? loadedWeightUnit,
     bool clearError = false,
   }) =>
       TripStagesState(
@@ -30,7 +36,9 @@ class TripStagesState {
         error: clearError ? null : (error ?? this.error),
         currentStage: currentStage ?? this.currentStage,
         emptyWeightKg: emptyWeightKg ?? this.emptyWeightKg,
+        emptyWeightUnit: emptyWeightUnit ?? this.emptyWeightUnit,
         loadedWeightKg: loadedWeightKg ?? this.loadedWeightKg,
+        loadedWeightUnit: loadedWeightUnit ?? this.loadedWeightUnit,
       );
 }
 
@@ -87,7 +95,9 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
         isSubmitting: false,
         currentStage: 3,
         emptyWeightKg: data['empty_truck_weight_kg'] as String?,
+        emptyWeightUnit: data['empty_truck_weight_unit'] as String? ?? 'tons',
         loadedWeightKg: data['loaded_truck_weight_kg'] as String?,
+        loadedWeightUnit: data['loaded_truck_weight_unit'] as String? ?? 'tons',
       );
       return true;
     } on DioException catch (e) {

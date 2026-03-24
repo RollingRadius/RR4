@@ -90,7 +90,9 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                 ? _CompletionView(
                     trip: widget.trip,
                     emptyWeightKg: state.emptyWeightKg,
+                    emptyWeightUnit: state.emptyWeightUnit ?? 'tons',
                     loadedWeightKg: state.loadedWeightKg,
+                    loadedWeightUnit: state.loadedWeightUnit ?? 'tons',
                     onDone: () => Navigator.of(context).pop(),
                   )
                 : stage == 0
@@ -475,6 +477,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
   final _emptyTruckWeight  = TextEditingController();
   final _loadedTruckWeight = TextEditingController();
+  final _emptyWeightUnit   = ValueNotifier<String>('tons');
+  final _loadedWeightUnit  = ValueNotifier<String>('tons');
 
   // Two-phase: first "Loading Complete", then "Complete Stage"
   bool _loadingComplete = false;
@@ -483,6 +487,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   void dispose() {
     _emptyTruckWeight.dispose();
     _loadedTruckWeight.dispose();
+    _emptyWeightUnit.dispose();
+    _loadedWeightUnit.dispose();
     super.dispose();
   }
 
@@ -508,14 +514,16 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
   Future<void> _completeStage() async {
     await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage3({
-      'driver_parked':          _driverParked,
-      'docs_submitted':         _docsSubmitted,
-      'security_verified':      _securityVerified,
-      'driver_exited_cabin':    _driverExitedCabin,
-      'wheel_stoppers':         _wheelStoppers,
-      'safety_gear':            _safetyGear,
-      'empty_truck_weight_kg':  _emptyTruckWeight.text.trim(),
-      'loaded_truck_weight_kg': _loadedTruckWeight.text.trim(),
+      'driver_parked':              _driverParked,
+      'docs_submitted':             _docsSubmitted,
+      'security_verified':          _securityVerified,
+      'driver_exited_cabin':        _driverExitedCabin,
+      'wheel_stoppers':             _wheelStoppers,
+      'safety_gear':                _safetyGear,
+      'empty_truck_weight_kg':      _emptyTruckWeight.text.trim(),
+      'empty_truck_weight_unit':    _emptyWeightUnit.value,
+      'loaded_truck_weight_kg':     _loadedTruckWeight.text.trim(),
+      'loaded_truck_weight_unit':   _loadedWeightUnit.value,
     });
   }
 
@@ -589,10 +597,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           _SectionHeader(icon: Icons.scale_rounded, title: 'Dharma Kanta (Weigh Bridge)'),
           _WeighField(
             controller: _emptyTruckWeight,
-            label: 'Empty Truck Weight (kg)',
-            hint: 'e.g. 12500',
+            label: 'Empty Truck Weight',
+            hint: 'e.g. 12.5',
             note: 'Record the empty truck weight before loading.',
             enabled: !_loadingComplete,
+            unitNotifier: _emptyWeightUnit,
           ),
           const SizedBox(height: 20),
 
@@ -637,10 +646,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
             _WeighField(
               controller: _loadedTruckWeight,
-              label: 'Loaded Truck Weight (kg)',
-              hint: 'e.g. 28500',
+              label: 'Loaded Truck Weight',
+              hint: 'e.g. 28.5',
               note: 'Record the truck weight after loading is done.',
               enabled: true,
+              unitNotifier: _loadedWeightUnit,
             ),
             const SizedBox(height: 28),
 
@@ -674,13 +684,17 @@ class _CompletionView extends StatelessWidget {
   final TripModel trip;
   final VoidCallback onDone;
   final String? emptyWeightKg;
+  final String emptyWeightUnit;
   final String? loadedWeightKg;
+  final String loadedWeightUnit;
 
   const _CompletionView({
     required this.trip,
     required this.onDone,
     this.emptyWeightKg,
+    this.emptyWeightUnit = 'tons',
     this.loadedWeightKg,
+    this.loadedWeightUnit = 'tons',
   });
 
   @override
@@ -728,7 +742,9 @@ class _CompletionView extends StatelessWidget {
                     builder: (_) => TruckTrackingScreen(
                       trip: trip,
                       emptyWeightKg: emptyWeightKg,
+                      emptyWeightUnit: emptyWeightUnit,
                       loadedWeightKg: loadedWeightKg,
+                      loadedWeightUnit: loadedWeightUnit,
                     ),
                   ),
                 ),
@@ -913,6 +929,7 @@ class _WeighField extends StatefulWidget {
   final String hint;
   final String note;
   final bool enabled;
+  final ValueNotifier<String>? unitNotifier;
 
   const _WeighField({
     required this.controller,
@@ -920,6 +937,7 @@ class _WeighField extends StatefulWidget {
     required this.hint,
     required this.note,
     this.enabled = true,
+    this.unitNotifier,
   });
 
   @override
@@ -998,6 +1016,8 @@ class _WeighFieldState extends State<_WeighField> {
 
   @override
   Widget build(BuildContext context) {
+    final unitNotifier = widget.unitNotifier;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1009,45 +1029,65 @@ class _WeighFieldState extends State<_WeighField> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.note, style: _inter(size: 12, color: _secondary)),
+          // Label row + unit toggle
+          Row(
+            children: [
+              Expanded(
+                child: Text(widget.note,
+                    style: _inter(size: 12, color: _secondary)),
+              ),
+              if (unitNotifier != null)
+                ValueListenableBuilder<String>(
+                  valueListenable: unitNotifier,
+                  builder: (_, unit, __) => _UnitToggle(
+                    selected: unit,
+                    enabled: widget.enabled,
+                    onChanged: (u) => unitNotifier.value = u,
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 12),
-          TextFormField(
-            controller: widget.controller,
-            enabled: widget.enabled,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
-            decoration: InputDecoration(
-              labelText: widget.label,
-              labelStyle: _inter(size: 12, color: _secondary),
-              hintText: widget.hint,
-              hintStyle: _inter(size: 12, color: _secondary),
-              prefixIcon:
-                  const Icon(Icons.scale_outlined, size: 18, color: _secondary),
-              suffixText: 'kg',
-              suffixStyle:
-                  _inter(size: 13, weight: FontWeight.w600, color: _secondary),
-              filled: true,
-              fillColor:
-                  widget.enabled ? _bg : _border.withValues(alpha: 0.3),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: _border),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: _border),
-              ),
-              disabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    BorderSide(color: _border.withValues(alpha: 0.5)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide:
-                    const BorderSide(color: _primary, width: 1.5),
+          ValueListenableBuilder<String>(
+            valueListenable: unitNotifier ?? ValueNotifier('tons'),
+            builder: (_, unit, __) => TextFormField(
+              controller: widget.controller,
+              enabled: widget.enabled,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+              decoration: InputDecoration(
+                labelText: widget.label,
+                labelStyle: _inter(size: 12, color: _secondary),
+                hintText: unit == 'tons' ? 'e.g. 12.5' : 'e.g. 12500',
+                hintStyle: _inter(size: 12, color: _secondary),
+                prefixIcon:
+                    const Icon(Icons.scale_outlined, size: 18, color: _secondary),
+                suffixText: unit,
+                suffixStyle:
+                    _inter(size: 13, weight: FontWeight.w600, color: _primary),
+                filled: true,
+                fillColor:
+                    widget.enabled ? _bg : _border.withValues(alpha: 0.3),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: _border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: _border),
+                ),
+                disabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide:
+                      BorderSide(color: _border.withValues(alpha: 0.5)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide:
+                      const BorderSide(color: _primary, width: 1.5),
+                ),
               ),
             ),
           ),
@@ -1158,6 +1198,59 @@ class _WeighFieldState extends State<_WeighField> {
               ],
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Unit Toggle (Tons / Kg) ──────────────────────────────────────────────────
+
+class _UnitToggle extends StatelessWidget {
+  final String selected;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+
+  const _UnitToggle({
+    required this.selected,
+    required this.onChanged,
+    this.enabled = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.45,
+      child: Container(
+        height: 30,
+        decoration: BoxDecoration(
+          color: _border.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: ['tons', 'kg'].map((unit) {
+            final active = selected == unit;
+            return GestureDetector(
+              onTap: enabled ? () => onChanged(unit) : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: active ? _primary : Colors.transparent,
+                  borderRadius: BorderRadius.circular(7),
+                ),
+                child: Text(
+                  unit,
+                  style: _inter(
+                    size: 12,
+                    weight: FontWeight.w700,
+                    color: active ? Colors.white : _secondary,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

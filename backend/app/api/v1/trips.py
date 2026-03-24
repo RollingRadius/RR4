@@ -321,14 +321,16 @@ class Stage2Payload(BaseModel):
 
 
 class Stage3Payload(BaseModel):
-    driver_parked:           bool
-    docs_submitted:          bool
-    security_verified:       bool
-    driver_exited_cabin:     bool
-    wheel_stoppers:          bool
-    safety_gear:             bool
-    empty_truck_weight_kg:   Optional[str] = None   # Dharma kanta — before loading
-    loaded_truck_weight_kg:  Optional[str] = None   # Dharma kanta — after loading
+    driver_parked:              bool
+    docs_submitted:             bool
+    security_verified:          bool
+    driver_exited_cabin:        bool
+    wheel_stoppers:             bool
+    safety_gear:                bool
+    empty_truck_weight_kg:      Optional[str] = None   # Dharma kanta — before loading (value)
+    empty_truck_weight_unit:    Optional[str] = 'tons' # 'tons' or 'kg'
+    loaded_truck_weight_kg:     Optional[str] = None   # Dharma kanta — after loading (value)
+    loaded_truck_weight_unit:   Optional[str] = 'tons' # 'tons' or 'kg'
 
 
 # ─── Stage Endpoints ──────────────────────────────────────────────────────────
@@ -450,7 +452,9 @@ def submit_stage3(
     trip.s3_wheel_stoppers           = body.wheel_stoppers
     trip.s3_safety_gear              = body.safety_gear
     trip.s3_empty_truck_weight_kg    = body.empty_truck_weight_kg
+    trip.s3_empty_truck_weight_unit  = body.empty_truck_weight_unit or 'tons'
     trip.s3_loaded_truck_weight_kg   = body.loaded_truck_weight_kg
+    trip.s3_loaded_truck_weight_unit = body.loaded_truck_weight_unit or 'tons'
     trip.s3_completed_at             = datetime.now(timezone.utc)
     trip.current_stage               = 3
     trip.status                      = 'ongoing'  # now active in factory
