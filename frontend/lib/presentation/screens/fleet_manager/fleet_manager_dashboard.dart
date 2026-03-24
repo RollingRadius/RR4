@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1607,6 +1608,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   String? _selectedVehicleId;
   String? _selectedDriverId;
   final _amountController = TextEditingController();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -1614,28 +1616,44 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     super.dispose();
   }
 
-  void _confirm() {
-    final navigator = Navigator.of(context);
-    navigator.pop(); // close bottom sheet
+  Future<void> _confirm() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
 
     final amount = double.tryParse(_amountController.text.trim());
+    final api = ref.read(apiServiceProvider);
 
-    // Build a local stub from the load — no API call needed yet
-    final stub = TripModel(
-      id: widget.load.id,
-      tripNumber: widget.load.refId,
-      origin: widget.load.pickupLocation ?? '',
-      destination: widget.load.unloadLocation ?? '',
-      loadItem: widget.load.materialType ?? 'Cargo',
-      status: 'pending',
-      organizationId: widget.load.companyId,
-      currentStage: 0,
-      tripAmount: amount,
-    );
+    try {
+      final resp = await api.dio.post(
+        '/api/loads/${widget.load.id}/fulfill',
+        data: {
+          if (_selectedVehicleId != null) 'vehicle_id': _selectedVehicleId,
+          if (_selectedDriverId != null) 'driver_id': _selectedDriverId,
+          if (amount != null) 'trip_amount': amount,
+        },
+      );
 
-    navigator.push(
-      MaterialPageRoute(builder: (_) => TripStagesScreen(trip: stub)),
-    );
+      final tripData = resp.data['trip'] as Map<String, dynamic>;
+      final trip = TripModel.fromJson(tripData);
+
+      if (!mounted) return;
+      Navigator.of(context).pop(); // close bottom sheet
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)),
+      );
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      final msg = e.response?.data?['detail'] as String? ??
+          'Failed to fulfill load. Please try again.';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg)));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Unexpected error: $e')));
+    }
   }
 
   @override
@@ -1779,7 +1797,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _confirm,
+              onPressed: _isLoading ? null : _confirm,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primary,
                 foregroundColor: Colors.white,
@@ -1789,7 +1807,14 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 textStyle: GoogleFonts.manrope(
                     fontSize: 15, fontWeight: FontWeight.w700),
               ),
-              child: const Text('Confirm Fulfillment'),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
+                    )
+                  : const Text('Confirm Fulfillment'),
             ),
           ),
         ],

@@ -293,9 +293,10 @@ async def create_load_requirement_photo(
 
 
 class FulfillPayload(BaseModel):
-    vehicle_id: Optional[str] = None
-    driver_id: Optional[str] = None
-    notes: Optional[str] = None
+    vehicle_id:  Optional[str]   = None
+    driver_id:   Optional[str]   = None
+    trip_amount: Optional[float] = None   # Agreed freight amount (₹)
+    notes:       Optional[str]   = None
 
 
 # ── Fleet Management Endpoints ───────────────────────────────────────────────
@@ -399,6 +400,7 @@ def fulfill_load_requirement(
             destination=load.unload_location or '',
             load_item=load.material_type or 'Cargo',
             weight=load.capacity,
+            trip_amount=payload.trip_amount,
             status='pending',
             organization_id=fleet_company.id,
             load_owner_org_id=load.company_id,

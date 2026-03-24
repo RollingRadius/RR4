@@ -82,13 +82,15 @@ class Trip(Base):
     s2_verified_at       = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Stage 3 — Truck Arrival at Factory
-    s3_driver_parked       = Column(Boolean, nullable=True)
-    s3_docs_submitted      = Column(Boolean, nullable=True)
-    s3_security_verified   = Column(Boolean, nullable=True)
-    s3_driver_exited_cabin = Column(Boolean, nullable=True)
-    s3_wheel_stoppers      = Column(Boolean, nullable=True)
-    s3_safety_gear         = Column(Boolean, nullable=True)
-    s3_completed_at        = Column(TIMESTAMP(timezone=True), nullable=True)
+    s3_driver_parked            = Column(Boolean,      nullable=True)
+    s3_docs_submitted           = Column(Boolean,      nullable=True)
+    s3_security_verified        = Column(Boolean,      nullable=True)
+    s3_driver_exited_cabin      = Column(Boolean,      nullable=True)
+    s3_wheel_stoppers           = Column(Boolean,      nullable=True)
+    s3_safety_gear              = Column(Boolean,      nullable=True)
+    s3_empty_truck_weight_kg    = Column(String(20),   nullable=True)   # Dharma kanta — before loading
+    s3_loaded_truck_weight_kg   = Column(String(20),   nullable=True)   # Dharma kanta — after loading
+    s3_completed_at             = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # ── Dates ────────────────────────────────────────────────────────────────────
     start_date = Column(Date, nullable=True)
@@ -146,6 +148,8 @@ class Trip(Base):
             "s3_driver_exited_cabin": self.s3_driver_exited_cabin,
             "s3_wheel_stoppers": self.s3_wheel_stoppers,
             "s3_safety_gear": self.s3_safety_gear,
+            "s3_empty_truck_weight_kg": self.s3_empty_truck_weight_kg,
+            "s3_loaded_truck_weight_kg": self.s3_loaded_truck_weight_kg,
             "s3_completed_at": self.s3_completed_at.isoformat() if self.s3_completed_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

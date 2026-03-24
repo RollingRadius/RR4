@@ -77,6 +77,22 @@ class _UploadLoadRequirementScreenState
     'Perishables',
     'Electronics',
     'Industrial',
+    'Paints & Coatings',
+    'Chemicals',
+    'Pharmaceuticals',
+    'Automotive Parts',
+    'Furniture',
+    'Textiles & Fabrics',
+    'FMCG / Packaged Goods',
+    'Construction Materials',
+    'Agricultural Produce',
+    'Machinery & Equipment',
+    'Hazardous Goods',
+    'Liquids / Beverages',
+    'Plastics & Rubber',
+    'Paper & Printing',
+    'Glass & Ceramics',
+    'Others',
   ];
 
   @override
