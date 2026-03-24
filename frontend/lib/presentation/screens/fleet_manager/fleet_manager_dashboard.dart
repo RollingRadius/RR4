@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
-import 'package:fleet_management/presentation/screens/fleet_owner/vehicle_management_screen.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/available_loads_provider.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
@@ -93,8 +92,7 @@ class _FleetManagerDashboardState
     final pendingLoadsCount = ref.watch(availableLoadsProvider).loads.length;
 
     final pages = [
-      _DashboardTab(onViewLoads: () => setState(() => _navIndex = 2)),
-      const _FleetTab(),
+      _DashboardTab(onViewLoads: () => setState(() => _navIndex = 1)),
       const _AvailableLoadsTab(),
       const _ProfileTab(),
     ];
@@ -187,7 +185,6 @@ class _BottomNav extends StatelessWidget {
 
   static const _items = [
     (Icons.dashboard_rounded, 'DASHBOARD'),
-    (Icons.local_shipping_rounded, 'FLEET'),
     (Icons.search_rounded, 'LOADS'),
     (Icons.person_outline, 'PROFILE'),
   ];
@@ -247,8 +244,8 @@ class _BottomNav extends StatelessWidget {
                               Icon(icon,
                                   color: active ? Colors.white : _secondary,
                                   size: 22),
-                              // Badge on LOADS tab (index 2)
-                              if (i == 2 && pendingLoadsCount > 0)
+                              // Badge on LOADS tab (index 1)
+                              if (i == 1 && pendingLoadsCount > 0)
                                 Positioned(
                                   right: -6,
                                   top: -4,
@@ -303,22 +300,13 @@ class _DashboardTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final vehicleState = ref.watch(vehicleProvider);
     final tripState = ref.watch(tripProvider);
     final loadsState = ref.watch(availableLoadsProvider);
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Fleet Manager';
 
-    final vehicles = vehicleState.vehicles;
     final ongoingTrips = tripState.ongoingTrips;
     final pendingLoads = loadsState.loads;
-    final total = vehicles.length;
-    final active =
-        vehicles.where((v) => v['status'] == 'active').length;
-    final maintenance =
-        vehicles.where((v) => v['status'] == 'maintenance').length;
-    final inactive =
-        vehicles.where((v) => v['status'] == 'inactive').length;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -346,18 +334,6 @@ class _DashboardTab extends ConsumerWidget {
 
           // Search New Loads — primary CTA
           _SearchLoadsButton(onTap: onViewLoads),
-          const SizedBox(height: 12),
-
-          // Manage Vehicles — secondary CTA
-          _ManageVehiclesButton(),
-          const SizedBox(height: 24),
-
-          // KPI grid
-          _KpiGrid(
-              total: total,
-              active: active,
-              maintenance: maintenance,
-              inactive: inactive),
           const SizedBox(height: 24),
 
           // ── Fleet Status — ongoing trips with Locate button ──────────
@@ -378,16 +354,6 @@ class _DashboardTab extends ConsumerWidget {
               ),
             ),
           const SizedBox(height: 24),
-
-          // Vehicle summary (compact, below trips)
-          if (vehicles.isNotEmpty) ...[
-            Text('Vehicles',
-                style: _manrope(size: 15, weight: FontWeight.w700,
-                    color: _secondary)),
-            const SizedBox(height: 10),
-            _VehicleList(vehicles: vehicles.take(3).toList()),
-            const SizedBox(height: 24),
-          ],
 
           _RecentActivity(),
         ],
@@ -504,320 +470,6 @@ class _SearchLoadsButton extends StatelessWidget {
             ),
             const Icon(Icons.arrow_forward_ios_rounded,
                 color: Colors.white70, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Manage Vehicles Button ───────────────────────────────────────────────────
-
-class _ManageVehiclesButton extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-            builder: (_) => const VehicleManagementScreen()),
-      ),
-      child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        decoration: BoxDecoration(
-          color: _surfaceLowest,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-              color: _primary.withValues(alpha: 0.25), width: 1.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: _primary.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child:
-                  const Icon(Icons.local_shipping_rounded, color: _primary, size: 22),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Manage Vehicles',
-                    style: _manrope(
-                        size: 15,
-                        weight: FontWeight.w800,
-                        color: _onSurface),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '11 capabilities — view, add, assign & more',
-                    style: _inter(size: 12, color: _secondary),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                color: _secondary, size: 15),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── KPI Grid ─────────────────────────────────────────────────────────────────
-
-class _KpiGrid extends StatelessWidget {
-  final int total, active, maintenance, inactive;
-  const _KpiGrid({
-    required this.total,
-    required this.active,
-    required this.maintenance,
-    required this.inactive,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.7,
-      children: [
-        _KpiCard(
-            label: 'TOTAL VEHICLES',
-            value: '$total',
-            accent: _primary),
-        _KpiCard(
-            label: 'ACTIVE',
-            value: '$active',
-            accent: _tertiary),
-        _KpiCard(
-            label: 'MAINTENANCE',
-            value: '$maintenance',
-            accent: _error,
-            showWarning: maintenance > 0),
-        _KpiCard(
-            label: 'INACTIVE',
-            value: '$inactive',
-            accent: const Color(0xFFBBC8D0)),
-      ],
-    );
-  }
-}
-
-class _KpiCard extends StatelessWidget {
-  final String label, value;
-  final Color accent;
-  final bool showWarning;
-  const _KpiCard({
-    required this.label,
-    required this.value,
-    required this.accent,
-    this.showWarning = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _surfaceLowest,
-        borderRadius: BorderRadius.circular(16),
-        border: Border(left: BorderSide(color: accent, width: 4)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: _inter(size: 9, weight: FontWeight.w700, color: _secondary)
-                .copyWith(letterSpacing: 0.8),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Text(
-                value,
-                style: _manrope(
-                    size: 32, weight: FontWeight.w800, color: _onSurface)
-                    .copyWith(height: 1.0),
-              ),
-              if (showWarning) ...[
-                const SizedBox(width: 6),
-                const Icon(Icons.warning_rounded, color: _error, size: 18),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Vehicle List ─────────────────────────────────────────────────────────────
-
-class _VehicleList extends StatelessWidget {
-  final List<Map<String, dynamic>> vehicles;
-  const _VehicleList({required this.vehicles});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: vehicles
-          .map((v) => _VehicleCard(vehicle: v))
-          .toList(),
-    );
-  }
-}
-
-class _VehicleCard extends StatelessWidget {
-  final Map<String, dynamic> vehicle;
-  const _VehicleCard({required this.vehicle});
-
-  Color _statusColor(String s) {
-    switch (s.toLowerCase()) {
-      case 'active':
-        return _tertiary;
-      case 'maintenance':
-        return _error;
-      default:
-        return _secondary;
-    }
-  }
-
-  Color _statusBg(String s) {
-    switch (s.toLowerCase()) {
-      case 'active':
-        return _tertiaryContainer.withValues(alpha: 0.12);
-      case 'maintenance':
-        return _errorContainer;
-      default:
-        return _surfaceContainer;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final reg = vehicle['registration'] as String? ?? '—';
-    final status = vehicle['status'] as String? ?? 'inactive';
-    final type = vehicle['type'] as String? ?? 'truck';
-    final driver = vehicle['driver'] as String?;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: _surfaceLowest,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04), blurRadius: 8),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: _surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(_iconForType(type), color: _secondary, size: 22),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(reg,
-                    style:
-                        _manrope(size: 14, weight: FontWeight.w700)),
-                if (driver != null)
-                  Text(driver,
-                      style: _inter(size: 12, color: _secondary)),
-              ],
-            ),
-          ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: _statusBg(status),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              status.toUpperCase(),
-              style: _inter(
-                      size: 9,
-                      weight: FontWeight.w700,
-                      color: _statusColor(status))
-                  .copyWith(letterSpacing: 0.5),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _iconForType(String type) {
-    switch (type.toLowerCase()) {
-      case 'bus':
-        return Icons.directions_bus_rounded;
-      case 'van':
-        return Icons.airport_shuttle_rounded;
-      case 'motorcycle':
-        return Icons.two_wheeler_rounded;
-      default:
-        return Icons.local_shipping_rounded;
-    }
-  }
-}
-
-class _EmptyFleet extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 140,
-      decoration: BoxDecoration(
-        color: _surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.local_shipping_outlined,
-                color: _secondary, size: 40),
-            const SizedBox(height: 8),
-            Text('No vehicles added yet',
-                style: _inter(
-                    size: 14,
-                    weight: FontWeight.w600,
-                    color: _secondary)),
           ],
         ),
       ),
@@ -1020,51 +672,6 @@ class _RecentActivity extends StatelessWidget {
               );
             }),
           ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─── Fleet Tab ────────────────────────────────────────────────────────────────
-
-class _FleetTab extends ConsumerWidget {
-  const _FleetTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final vehicles = ref.watch(vehicleProvider).vehicles;
-
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('My Fleet',
-                  style: _manrope(size: 20, weight: FontWeight.w800)),
-              TextButton.icon(
-                onPressed: () => context.push('/vehicles/add'),
-                icon: const Icon(Icons.add, size: 18, color: _primary),
-                label: Text('Add Vehicle',
-                    style: _inter(
-                        size: 13,
-                        weight: FontWeight.w700,
-                        color: _primary)),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: vehicles.isEmpty
-              ? Center(child: _EmptyFleet())
-              : ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  itemCount: vehicles.length,
-                  itemBuilder: (_, i) =>
-                      _VehicleCard(vehicle: vehicles[i]),
-                ),
         ),
       ],
     );
@@ -1930,9 +1537,8 @@ class _AppDrawer extends ConsumerWidget {
 
   static const _navItems = [
     (Icons.dashboard_rounded,       'Dashboard',       0),
-    (Icons.local_shipping_rounded,  'My Fleet',        1),
-    (Icons.inventory_2_outlined,    'Available Loads', 2),
-    (Icons.person_outline_rounded,  'Profile',         3),
+    (Icons.inventory_2_outlined,    'Available Loads', 1),
+    (Icons.person_outline_rounded,  'Profile',         2),
   ];
 
   @override

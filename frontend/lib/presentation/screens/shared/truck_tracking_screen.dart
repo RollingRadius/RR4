@@ -63,12 +63,11 @@ class _TruckTrackingScreenState extends State<TruckTrackingScreen>
   int _simulatedStep = 0;
 
   static const _simulatedUpdates = [
-    _StatusEvent(time: 'Just now',    icon: Icons.check_circle_rounded,  color: _success,  text: 'Truck intake complete. Vehicle loaded and cleared for departure.'),
-    _StatusEvent(time: '5 min ago',   icon: Icons.local_shipping_rounded, color: _primary,  text: 'Truck departed factory gate.'),
-    _StatusEvent(time: '10 min ago',  icon: Icons.scale_outlined,         color: Color(0xFF1565C0), text: 'Loaded weight recorded at dharma kanta.'),
-    _StatusEvent(time: '15 min ago',  icon: Icons.scale_outlined,         color: Color(0xFF1565C0), text: 'Empty truck weight recorded at dharma kanta.'),
-    _StatusEvent(time: '20 min ago',  icon: Icons.security_rounded,       color: _secondary, text: 'Security cleared. Entry permission issued.'),
-    _StatusEvent(time: '25 min ago',  icon: Icons.assignment_turned_in_outlined, color: _success, text: 'All compliance checks passed.'),
+    _StatusEvent(time: 'Just now',    icon: Icons.check_circle_rounded,            color: _success,           text: 'Truck intake complete. Vehicle loaded and cleared for departure.'),
+    _StatusEvent(time: '10 min ago',  icon: Icons.scale_outlined,                  color: Color(0xFF1565C0),  text: 'Loaded weight recorded at dharma kanta.'),
+    _StatusEvent(time: '15 min ago',  icon: Icons.scale_outlined,                  color: Color(0xFF1565C0),  text: 'Empty truck weight recorded at dharma kanta.'),
+    _StatusEvent(time: '20 min ago',  icon: Icons.security_rounded,                color: _secondary,         text: 'Security cleared. Entry permission issued.'),
+    _StatusEvent(time: '25 min ago',  icon: Icons.assignment_turned_in_outlined,   color: _success,           text: 'All compliance checks passed.'),
   ];
 
   @override
