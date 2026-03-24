@@ -1,0 +1,719 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:dio/dio.dart';
+
+import 'package:fleet_management/data/models/trip_model.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
+
+// ─── Colour tokens (shared with dashboard) ────────────────────────────────────
+const _primary = Color(0xFFFF6B00);
+const _background = Color(0xFFF8F9FB);
+const _surfaceLowest = Color(0xFFFFFFFF);
+const _surfaceContainer = Color(0xFFECEEF0);
+const _onSurface = Color(0xFF191C1E);
+const _secondary = Color(0xFF546067);
+const _tertiary = Color(0xFF006B5E);
+const _error = Color(0xFFBA1A1A);
+const _errorContainer = Color(0xFFFFDAD6);
+
+// ─── Provider: fetch full trip detail by ID ───────────────────────────────────
+
+final _tripDetailProvider =
+    FutureProvider.autoDispose.family<TripModel, String>((ref, tripId) async {
+  final dio = ref.read(dioProvider);
+  final response = await dio.get('/api/trips/$tripId');
+  final data = response.data as Map<String, dynamic>;
+  // Backend returns the trip dict directly (no 'trip' wrapper key)
+  return TripModel.fromJson(data);
+});
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
+
+class ShipmentDetailsScreen extends ConsumerWidget {
+  final TripModel trip;
+
+  const ShipmentDetailsScreen({super.key, required this.trip});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final detailAsync = ref.watch(_tripDetailProvider(trip.id));
+
+    return Scaffold(
+      backgroundColor: _background,
+      appBar: AppBar(
+        backgroundColor: _surfaceLowest,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded,
+              size: 18, color: _onSurface),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          trip.tripNumber,
+          style: GoogleFonts.manrope(
+              fontSize: 16, fontWeight: FontWeight.w800, color: _onSurface),
+        ),
+        actions: [
+          detailAsync.whenOrNull(
+            data: (fullTrip) => fullTrip.currentStage >= 3
+                ? Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: TextButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => TruckTrackingScreen(
+                            trip: fullTrip,
+                            emptyWeightUnit:
+                                fullTrip.s3EmptyTruckWeightUnit ?? 'tons',
+                            loadedWeightUnit:
+                                fullTrip.s3LoadedTruckWeightUnit ?? 'tons',
+                          ),
+                        ),
+                      ),
+                      icon: const Icon(Icons.local_shipping_rounded,
+                          size: 16, color: _primary),
+                      label: Text('Track',
+                          style: GoogleFonts.manrope(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _primary)),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ) ??
+              const SizedBox.shrink(),
+        ],
+      ),
+      body: detailAsync.when(
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: _primary),
+        ),
+        error: (e, _) => Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline_rounded,
+                  size: 48, color: _error),
+              const SizedBox(height: 12),
+              Text('Failed to load details',
+                  style: GoogleFonts.manrope(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: _onSurface)),
+              const SizedBox(height: 4),
+              Text(e.toString(),
+                  style: GoogleFonts.inter(fontSize: 12, color: _secondary),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => ref.invalidate(_tripDetailProvider(trip.id)),
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+        data: (fullTrip) => _ShipmentBody(trip: fullTrip),
+      ),
+    );
+  }
+}
+
+// ─── Body ─────────────────────────────────────────────────────────────────────
+
+class _ShipmentBody extends StatelessWidget {
+  final TripModel trip;
+  const _ShipmentBody({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _TripHeaderCard(trip: trip),
+        const SizedBox(height: 16),
+        _StageTimeline(trip: trip),
+        const SizedBox(height: 16),
+        if (trip.currentStage >= 1) ...[
+          _Stage1Card(trip: trip),
+          const SizedBox(height: 12),
+        ],
+        if (trip.currentStage >= 2) ...[
+          _Stage2Card(trip: trip),
+          const SizedBox(height: 12),
+        ],
+        if (trip.currentStage >= 3) ...[
+          _Stage3Card(trip: trip),
+          const SizedBox(height: 12),
+        ],
+        const SizedBox(height: 32),
+      ],
+    );
+  }
+}
+
+// ─── Trip header card ─────────────────────────────────────────────────────────
+
+class _TripHeaderCard extends StatelessWidget {
+  final TripModel trip;
+  const _TripHeaderCard({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _surfaceContainer),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  trip.loadItem,
+                  style: GoogleFonts.manrope(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: _onSurface),
+                ),
+              ),
+              _StatusBadge(status: trip.status),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _RouteRow(
+            icon: Icons.radio_button_checked_rounded,
+            iconColor: _tertiary,
+            label: trip.origin,
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 8),
+            child: Container(width: 2, height: 10, color: _surfaceContainer),
+          ),
+          _RouteRow(
+            icon: Icons.location_on_rounded,
+            iconColor: _secondary,
+            label: trip.destination,
+          ),
+          if (trip.tripAmount != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.currency_rupee_rounded,
+                    size: 14, color: _secondary),
+                Text(
+                  '${trip.tripAmount!.toStringAsFixed(0)} agreed freight',
+                  style: GoogleFonts.inter(fontSize: 12, color: _secondary),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RouteRow extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String label;
+  const _RouteRow(
+      {required this.icon, required this.iconColor, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: iconColor),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: _onSurface),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+
+  Color get _bg {
+    switch (status) {
+      case 'ongoing':
+        return _primary.withValues(alpha: 0.10);
+      case 'completed':
+        return const Color(0xFF006B5E).withValues(alpha: 0.10);
+      case 'cancelled':
+        return _errorContainer;
+      default:
+        return _surfaceContainer;
+    }
+  }
+
+  Color get _fg {
+    switch (status) {
+      case 'ongoing':
+        return _primary;
+      case 'completed':
+        return const Color(0xFF006B5E);
+      case 'cancelled':
+        return _error;
+      default:
+        return _secondary;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: GoogleFonts.inter(
+            fontSize: 10, fontWeight: FontWeight.w700, color: _fg),
+      ),
+    );
+  }
+}
+
+// ─── Stage progress timeline ──────────────────────────────────────────────────
+
+class _StageTimeline extends StatelessWidget {
+  final TripModel trip;
+  const _StageTimeline({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        color: _surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _surfaceContainer),
+      ),
+      child: Row(
+        children: [
+          _StepDot(label: 'Verification', done: trip.currentStage >= 1, step: 1),
+          _StepLine(done: trip.currentStage >= 2),
+          _StepDot(label: 'Compliance', done: trip.currentStage >= 2, step: 2),
+          _StepLine(done: trip.currentStage >= 3),
+          _StepDot(label: 'Weighing', done: trip.currentStage >= 3, step: 3),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepDot extends StatelessWidget {
+  final String label;
+  final bool done;
+  final int step;
+  const _StepDot({required this.label, required this.done, required this.step});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: done ? _primary : _surfaceContainer,
+              shape: BoxShape.circle,
+            ),
+            child: done
+                ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                : Center(
+                    child: Text(
+                      '$step',
+                      style: GoogleFonts.manrope(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _secondary),
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: done ? _primary : _secondary),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepLine extends StatelessWidget {
+  final bool done;
+  const _StepLine({required this.done});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 32,
+      height: 2,
+      color: done ? _primary : _surfaceContainer,
+    );
+  }
+}
+
+// ─── Stage section header ─────────────────────────────────────────────────────
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final bool completed;
+  const _SectionHeader({required this.title, required this.completed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          decoration: BoxDecoration(
+            color: completed ? _primary : _surfaceContainer,
+            shape: BoxShape.circle,
+          ),
+          child: completed
+              ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+              : null,
+        ),
+        const SizedBox(width: 10),
+        Text(
+          title,
+          style: GoogleFonts.manrope(
+              fontSize: 14, fontWeight: FontWeight.w700, color: _onSurface),
+        ),
+        const Spacer(),
+        if (completed)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: _primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text('COMPLETED',
+                style: GoogleFonts.inter(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    color: _primary)),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Info row ─────────────────────────────────────────────────────────────────
+
+class _InfoRow extends StatelessWidget {
+  final String label;
+  final String? value;
+  const _InfoRow({required this.label, this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    if (value == null || value!.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(label,
+                style:
+                    GoogleFonts.inter(fontSize: 12, color: _secondary)),
+          ),
+          Expanded(
+            child: Text(value!,
+                style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: _onSurface)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Stage 1 card ─────────────────────────────────────────────────────────────
+
+class _Stage1Card extends StatelessWidget {
+  final TripModel trip;
+  const _Stage1Card({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _surfaceContainer),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionHeader(
+              title: 'Stage 1 — Driver & Vehicle Verification',
+              completed: true),
+          const SizedBox(height: 14),
+          _InfoRow(label: 'Driver Name', value: trip.s1DriverName),
+          _InfoRow(label: 'Driver Phone', value: trip.s1DriverPhone),
+          _InfoRow(label: 'Driving License', value: trip.s1DrivingLicense),
+          _InfoRow(label: 'Aadhaar', value: trip.s1Aadhaar),
+          _InfoRow(label: 'RC Number', value: trip.s1Rc),
+          _InfoRow(label: 'Insurance', value: trip.s1Insurance),
+          _InfoRow(label: 'Pollution Cert.', value: trip.s1Pollution),
+          _InfoRow(label: 'Fitness Cert.', value: trip.s1Fitness),
+          _InfoRow(label: 'PAN', value: trip.s1Pan),
+          if (trip.vehiclePlate != null || trip.vehicleModel != null) ...[
+            const Divider(height: 20),
+            _InfoRow(label: 'Vehicle Plate', value: trip.vehiclePlate),
+            _InfoRow(label: 'Vehicle Model', value: trip.vehicleModel),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Stage 2 card ─────────────────────────────────────────────────────────────
+
+class _Stage2Card extends StatelessWidget {
+  final TripModel trip;
+  const _Stage2Card({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _surfaceContainer),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionHeader(
+              title: 'Stage 2 — Safety & Compliance', completed: true),
+          const SizedBox(height: 14),
+          _CheckRow(label: 'Truck Specs Verified', value: trip.s2SpecsVerified),
+          _CheckRow(label: 'Documents Verified', value: trip.s2DocsVerified),
+          _CheckRow(
+              label: 'Driver Documents Valid', value: trip.s2DriverDocsValid),
+          _CheckRow(
+              label: 'Entry Permission Granted', value: trip.s2EntryPermission),
+        ],
+      ),
+    );
+  }
+}
+
+class _CheckRow extends StatelessWidget {
+  final String label;
+  final bool? value;
+  const _CheckRow({required this.label, this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final ok = value == true;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: ok
+                  ? const Color(0xFF006B5E).withValues(alpha: 0.12)
+                  : _surfaceContainer,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              ok ? Icons.check_rounded : Icons.close_rounded,
+              size: 12,
+              color: ok ? const Color(0xFF006B5E) : _secondary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(label,
+              style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: ok ? _onSurface : _secondary)),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Stage 3 card ─────────────────────────────────────────────────────────────
+
+class _Stage3Card extends StatelessWidget {
+  final TripModel trip;
+  const _Stage3Card({required this.trip});
+
+  String? get _netLoad {
+    final emptyUnit = trip.s3EmptyTruckWeightUnit ?? 'tons';
+    final loadedUnit = trip.s3LoadedTruckWeightUnit ?? 'tons';
+    final empty = double.tryParse(trip.s3EmptyTruckWeightKg ?? '');
+    final loaded = double.tryParse(trip.s3LoadedTruckWeightKg ?? '');
+    if (empty == null || loaded == null) return null;
+    if (emptyUnit != loadedUnit) return null;
+    final net = loaded - empty;
+    if (net <= 0) return null;
+    return '${net.toStringAsFixed(emptyUnit == 'tons' ? 2 : 0)} $emptyUnit';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final emptyUnit = trip.s3EmptyTruckWeightUnit ?? 'tons';
+    final loadedUnit = trip.s3LoadedTruckWeightUnit ?? 'tons';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _surfaceContainer),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionHeader(
+              title: 'Stage 3 — Arrival & Weighing', completed: true),
+          const SizedBox(height: 14),
+          _WeightRow(
+            label: 'Empty Truck Weight',
+            value: trip.s3EmptyTruckWeightKg,
+            unit: emptyUnit,
+          ),
+          _WeightRow(
+            label: 'Loaded Truck Weight',
+            value: trip.s3LoadedTruckWeightKg,
+            unit: loadedUnit,
+          ),
+          if (_netLoad != null) ...[
+            const Divider(height: 20),
+            Row(
+              children: [
+                Text('Net Load',
+                    style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: _onSurface)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    _netLoad!,
+                    style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: _primary),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => TruckTrackingScreen(
+                    trip: trip,
+                    emptyWeightUnit: emptyUnit,
+                    loadedWeightUnit: loadedUnit,
+                  ),
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: _primary),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+              icon: const Icon(Icons.local_shipping_rounded,
+                  size: 16, color: _primary),
+              label: Text('Track Truck',
+                  style: GoogleFonts.manrope(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: _primary)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeightRow extends StatelessWidget {
+  final String label;
+  final String? value;
+  final String unit;
+  const _WeightRow(
+      {required this.label, required this.value, required this.unit});
+
+  @override
+  Widget build(BuildContext context) {
+    if (value == null || value!.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label,
+                style: GoogleFonts.inter(fontSize: 12, color: _secondary)),
+          ),
+          Text(
+            '$value $unit',
+            style: GoogleFonts.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _onSurface),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -10,6 +10,7 @@ import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
+import 'package:fleet_management/presentation/screens/load_owner/shipment_details_screen.dart';
 
 // ─── Typography helpers (Stitch: Manrope headline, Inter body) ────────────────
 TextStyle _manrope(
@@ -2479,33 +2480,68 @@ class _TrackingCard extends StatelessWidget {
             ),
           ),
           Divider(height: 1, color: _surfaceContainer),
-          InkWell(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => TruckTrackingScreen(trip: trip),
-              ),
-            ),
-            borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                  vertical: 12, horizontal: 14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.local_shipping_rounded,
-                      size: 16, color: _primary),
-                  const SizedBox(width: 6),
-                  Text('Track This Truck',
-                      style: GoogleFonts.manrope(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: _primary)),
-                  const SizedBox(width: 4),
-                  const Icon(Icons.arrow_forward_ios_rounded,
-                      size: 12, color: _primary),
-                ],
-              ),
+          // Two action buttons side by side
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            ShipmentDetailsScreen(trip: trip),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.info_outline_rounded,
+                              size: 15, color: _secondary),
+                          const SizedBox(width: 5),
+                          Text('View Details',
+                              style: GoogleFonts.manrope(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _secondary)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                VerticalDivider(
+                    width: 1, thickness: 1, color: _surfaceContainer),
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => TruckTrackingScreen(trip: trip),
+                      ),
+                    ),
+                    borderRadius: const BorderRadius.only(
+                        bottomRight: Radius.circular(16)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.local_shipping_rounded,
+                              size: 15, color: _primary),
+                          const SizedBox(width: 5),
+                          Text('Track Truck',
+                              style: GoogleFonts.manrope(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: _primary)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

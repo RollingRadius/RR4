@@ -23,6 +23,29 @@ class TripModel {
   final String? createdAt;
   final int currentStage;
 
+  // ── Stage 1 fields ───────────────────────────────────────────────────────────
+  final String? s1DriverName;
+  final String? s1DriverPhone;
+  final String? s1DrivingLicense;
+  final String? s1Aadhaar;
+  final String? s1Rc;
+  final String? s1Insurance;
+  final String? s1Pollution;
+  final String? s1Fitness;
+  final String? s1Pan;
+
+  // ── Stage 2 fields ───────────────────────────────────────────────────────────
+  final bool? s2SpecsVerified;
+  final bool? s2DocsVerified;
+  final bool? s2DriverDocsValid;
+  final bool? s2EntryPermission;
+
+  // ── Stage 3 fields ───────────────────────────────────────────────────────────
+  final String? s3EmptyTruckWeightKg;
+  final String? s3EmptyTruckWeightUnit;
+  final String? s3LoadedTruckWeightKg;
+  final String? s3LoadedTruckWeightUnit;
+
   const TripModel({
     required this.id,
     required this.tripNumber,
@@ -47,6 +70,23 @@ class TripModel {
     this.endDate,
     this.createdAt,
     this.currentStage = 0,
+    this.s1DriverName,
+    this.s1DriverPhone,
+    this.s1DrivingLicense,
+    this.s1Aadhaar,
+    this.s1Rc,
+    this.s1Insurance,
+    this.s1Pollution,
+    this.s1Fitness,
+    this.s1Pan,
+    this.s2SpecsVerified,
+    this.s2DocsVerified,
+    this.s2DriverDocsValid,
+    this.s2EntryPermission,
+    this.s3EmptyTruckWeightKg,
+    this.s3EmptyTruckWeightUnit,
+    this.s3LoadedTruckWeightKg,
+    this.s3LoadedTruckWeightUnit,
   });
 
   bool get isOngoing => status == 'ongoing';
@@ -80,6 +120,23 @@ class TripModel {
       endDate: json['end_date'] as String?,
       createdAt: json['created_at'] as String?,
       currentStage: json['current_stage'] as int? ?? 0,
+      s1DriverName: json['s1_driver_name'] as String?,
+      s1DriverPhone: json['s1_driver_phone'] as String?,
+      s1DrivingLicense: json['s1_driving_license'] as String?,
+      s1Aadhaar: json['s1_aadhaar'] as String?,
+      s1Rc: json['s1_rc'] as String?,
+      s1Insurance: json['s1_insurance'] as String?,
+      s1Pollution: json['s1_pollution'] as String?,
+      s1Fitness: json['s1_fitness'] as String?,
+      s1Pan: json['s1_pan'] as String?,
+      s2SpecsVerified: json['s2_specs_verified'] as bool?,
+      s2DocsVerified: json['s2_docs_verified'] as bool?,
+      s2DriverDocsValid: json['s2_driver_docs_valid'] as bool?,
+      s2EntryPermission: json['s2_entry_permission'] as bool?,
+      s3EmptyTruckWeightKg: json['s3_empty_truck_weight_kg'] as String?,
+      s3EmptyTruckWeightUnit: json['s3_empty_truck_weight_unit'] as String?,
+      s3LoadedTruckWeightKg: json['s3_loaded_truck_weight_kg'] as String?,
+      s3LoadedTruckWeightUnit: json['s3_loaded_truck_weight_unit'] as String?,
     );
   }
 }
