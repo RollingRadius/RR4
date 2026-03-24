@@ -7,7 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
+import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
+import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 
 // ─── Typography helpers (Stitch: Manrope headline, Inter body) ────────────────
 TextStyle _manrope(
@@ -122,6 +124,7 @@ class _LoadOwnerDashboardScreenState
   int _navIndex = 0;
   late final List<Widget> _pages;
   Timer? _pollTimer;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -151,13 +154,25 @@ class _LoadOwnerDashboardScreenState
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
-    final initials = _initials(user?.fullName ?? 'JD');
-
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: _background,
+      drawer: _AppDrawer(
+        user: user,
+        role: 'Load Owner',
+        navIndex: _navIndex,
+        onNavTap: (i) {
+          _scaffoldKey.currentState?.closeDrawer();
+          setState(() => _navIndex = i);
+        },
+        onProfileTap: () {
+          _scaffoldKey.currentState?.closeDrawer();
+          _showProfileSheet(context);
+        },
+      ),
       body: Column(
         children: [
-          _TopBar(initials: initials),
+          _TopBar(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
           Expanded(
             child: IndexedStack(index: _navIndex, children: _pages),
           ),
@@ -234,8 +249,8 @@ String _initials(String name) {
 // ─── Top App Bar ──────────────────────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
-  final String initials;
-  const _TopBar({required this.initials});
+  final VoidCallback onMenuTap;
+  const _TopBar({required this.onMenuTap});
 
   @override
   Widget build(BuildContext context) {
@@ -246,29 +261,332 @@ class _TopBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         child: Row(
           children: [
-            const Icon(Icons.menu, color: _secondary, size: 24),
+            GestureDetector(
+              onTap: onMenuTap,
+              child: const Icon(Icons.menu, color: _secondary, size: 24),
+            ),
             const Spacer(),
             const Icon(Icons.notifications_outlined,
                 color: _secondary, size: 24),
-            const SizedBox(width: 12),
-            Container(
-              width: 34,
-              height: 34,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFF1A2E44),
-              ),
-              child: Center(
-                child: Text(
-                  initials,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
-                  ),
-                ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Bottom Nav ───────────────────────────────────────────────────────────────
+
+// ─── App Drawer ───────────────────────────────────────────────────────────────
+
+class _AppDrawer extends ConsumerWidget {
+  final dynamic user;
+  final String role;
+  final int navIndex;
+  final ValueChanged<int> onNavTap;
+  final VoidCallback? onProfileTap;
+
+  const _AppDrawer({
+    required this.user,
+    required this.role,
+    required this.navIndex,
+    required this.onNavTap,
+    this.onProfileTap,
+  });
+
+  static const _navItems = [
+    (Icons.dashboard_rounded,      'Dashboard',  0),
+    (Icons.inventory_2_outlined,   'My Loads',   1),
+    (Icons.local_shipping_rounded, 'Tracking',   2),
+    (Icons.description_outlined,   'Documents',  3),
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final name     = user?.fullName ?? 'Load Owner';
+    final company  = user?.companyName ?? '';
+    final username = user?.username ?? '';
+
+    return Drawer(
+      width: MediaQuery.of(context).size.width * 0.78,
+      backgroundColor: Colors.white,
+      child: Column(
+        children: [
+          // ── Header ──────────────────────────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(
+                20, MediaQuery.of(context).padding.top + 24, 20, 24),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1A2E44), Color(0xFF243B55)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
             ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: _primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white24, width: 2),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _initials(name),
+                      style: GoogleFonts.manrope(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(name,
+                    style: GoogleFonts.manrope(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white)),
+                if (username.isNotEmpty)
+                  Text('@$username',
+                      style: GoogleFonts.inter(
+                          fontSize: 12, color: Colors.white60)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _primary.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: _primary.withValues(alpha: 0.5)),
+                      ),
+                      child: Text(role,
+                          style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white)),
+                    ),
+                    if (company.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(company,
+                            style: GoogleFonts.inter(
+                                fontSize: 11, color: Colors.white54),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // ── Navigation ──────────────────────────────────────────────────
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Text('NAVIGATION',
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: _secondary)),
+                ),
+                ..._navItems.map((item) {
+                  final (icon, label, index) = item;
+                  final isActive = navIndex == index;
+                  return _DrawerNavTile(
+                    icon: icon,
+                    label: label,
+                    isActive: isActive,
+                    onTap: () => onNavTap(index),
+                  );
+                }),
+                _DrawerNavTile(
+                  icon: Icons.person_outline_rounded,
+                  label: 'Profile',
+                  isActive: false,
+                  onTap: () => onProfileTap?.call(),
+                ),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Divider(height: 1, color: Color(0xFFECEEF0)),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                  child: Text('MORE',
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: _secondary)),
+                ),
+                _DrawerActionTile(
+                  icon: Icons.help_outline_rounded,
+                  label: 'Help & Support',
+                  onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Help & Support coming soon.',
+                            style: GoogleFonts.inter(
+                                fontSize: 13, color: Colors.white)),
+                        backgroundColor: _secondary,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                    );
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.info_outline_rounded,
+                  label: 'About RR Logistics',
+                  onTap: () {
+                    Navigator.pop(context);
+                    showAboutDialog(
+                      context: context,
+                      applicationName: 'RR Logistics',
+                      applicationVersion: '1.0.0',
+                      applicationLegalese: '© 2025 RR Logistics',
+                    );
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.privacy_tip_outlined,
+                  label: 'Privacy Policy',
+                  onTap: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Logout ──────────────────────────────────────────────────────
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Divider(height: 1, color: Color(0xFFECEEF0)),
+          ),
+          InkWell(
+            onTap: () async {
+              Navigator.pop(context);
+              await ref.read(authProvider.notifier).logout();
+              if (context.mounted) context.go('/login');
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  const Icon(Icons.logout_rounded,
+                      color: Color(0xFFBA1A1A), size: 20),
+                  const SizedBox(width: 14),
+                  Text('Log Out',
+                      style: GoogleFonts.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFBA1A1A))),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _DrawerNavTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _DrawerNavTile({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive
+              ? _primary.withValues(alpha: 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon,
+                size: 20,
+                color: isActive ? _primary : _secondary),
+            const SizedBox(width: 14),
+            Text(label,
+                style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight:
+                        isActive ? FontWeight.w700 : FontWeight.w400,
+                    color: isActive ? _primary : _onSurface)),
+            if (isActive) ...[
+              const Spacer(),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                    color: _primary, shape: BoxShape.circle),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _DrawerActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: _secondary),
+            const SizedBox(width: 14),
+            Text(label,
+                style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: _onSurface)),
           ],
         ),
       ),
@@ -2011,28 +2329,184 @@ class _LoadListTile extends StatelessWidget {
   }
 }
 
-class _TrackingTab extends StatelessWidget {
+class _TrackingTab extends ConsumerWidget {
   const _TrackingTab();
 
   @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tripState = ref.watch(tripProvider);
+    final activeTrips = tripState.trips
+        .where((t) => t.status == 'ongoing' || t.status == 'matched' || t.status == 'pending')
+        .toList();
+
+    if (tripState.isLoading) {
+      return const Center(
+          child: CircularProgressIndicator(color: _primary));
+    }
+
+    if (activeTrips.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.local_shipping_outlined, size: 64, color: _surfaceContainer),
+            const SizedBox(height: 16),
+            Text('No Active Trips',
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: _onSurface)),
+            const SizedBox(height: 8),
+            Text('Active trips will appear here once a fleet\nfulfills your load requirement.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: _secondary)),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: activeTrips.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (_, i) {
+        final trip = activeTrips[i];
+        return _TrackingCard(trip: trip);
+      },
+    );
+  }
+}
+
+class _TrackingCard extends StatelessWidget {
+  final TripModel trip;
+  const _TrackingCard({required this.trip});
+
+  @override
   Widget build(BuildContext context) {
-    return Center(
+    return Container(
+      decoration: BoxDecoration(
+        color: _surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _surfaceContainer),
+      ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.explore_outlined, size: 64, color: _primary),
-          const SizedBox(height: 16),
-          const Text(
-            'Live Tracking',
-            style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: _onSurface),
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(trip.tripNumber,
+                        style: GoogleFonts.manrope(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: _onSurface)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _primary.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(
+                                color: _primary, shape: BoxShape.circle),
+                          ),
+                          const SizedBox(width: 4),
+                          Text('IN TRANSIT',
+                              style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: _primary)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.radio_button_checked_rounded,
+                        size: 14, color: _tertiary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(trip.origin,
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: _onSurface),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: Container(
+                      width: 2, height: 12, color: _surfaceContainer),
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_rounded,
+                        size: 14, color: _secondary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(trip.destination,
+                          style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: _secondary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
+                if (trip.loadItem.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(trip.loadItem,
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: _secondary)),
+                ],
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Real-time GPS tracking coming soon.',
-            style: TextStyle(fontSize: 14, color: _secondary),
+          Divider(height: 1, color: _surfaceContainer),
+          InkWell(
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => TruckTrackingScreen(trip: trip),
+              ),
+            ),
+            borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  vertical: 12, horizontal: 14),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.local_shipping_rounded,
+                      size: 16, color: _primary),
+                  const SizedBox(width: 6),
+                  Text('Track This Truck',
+                      style: GoogleFonts.manrope(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _primary)),
+                  const SizedBox(width: 4),
+                  const Icon(Icons.arrow_forward_ios_rounded,
+                      size: 12, color: _primary),
+                ],
+              ),
+            ),
           ),
         ],
       ),

@@ -4,23 +4,31 @@ class TripStagesState {
   final bool isSubmitting;
   final String? error;
   final int currentStage; // 0-3
+  final String? emptyWeightKg;
+  final String? loadedWeightKg;
 
   const TripStagesState({
     this.isSubmitting = false,
     this.error,
     this.currentStage = 0,
+    this.emptyWeightKg,
+    this.loadedWeightKg,
   });
 
   TripStagesState copyWith({
     bool? isSubmitting,
     String? error,
     int? currentStage,
+    String? emptyWeightKg,
+    String? loadedWeightKg,
     bool clearError = false,
   }) =>
       TripStagesState(
         isSubmitting: isSubmitting ?? this.isSubmitting,
         error: clearError ? null : (error ?? this.error),
         currentStage: currentStage ?? this.currentStage,
+        emptyWeightKg: emptyWeightKg ?? this.emptyWeightKg,
+        loadedWeightKg: loadedWeightKg ?? this.loadedWeightKg,
       );
 }
 
@@ -48,7 +56,12 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
   Future<bool> submitStage3(Map<String, dynamic> data) async {
     state = state.copyWith(isSubmitting: true, clearError: true);
     await Future.delayed(const Duration(milliseconds: 400));
-    state = state.copyWith(isSubmitting: false, currentStage: 3);
+    state = state.copyWith(
+      isSubmitting: false,
+      currentStage: 3,
+      emptyWeightKg: data['empty_truck_weight_kg'] as String?,
+      loadedWeightKg: data['loaded_truck_weight_kg'] as String?,
+    );
     return true;
   }
 }

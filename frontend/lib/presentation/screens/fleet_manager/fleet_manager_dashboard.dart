@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,6 +15,7 @@ import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
+import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 
 // ─── Typography ───────────────────────────────────────────────────────────────
 TextStyle _manrope({
@@ -58,6 +60,7 @@ class _FleetManagerDashboardState
     extends ConsumerState<FleetManagerDashboard> {
   int _navIndex = 0;
   Timer? _pollTimer;
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
@@ -85,7 +88,7 @@ class _FleetManagerDashboardState
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
-    final initials = _initials(user?.fullName ?? 'FO');
+
     final pendingLoadsCount = ref.watch(availableLoadsProvider).loads.length;
 
     final pages = [
@@ -96,10 +99,20 @@ class _FleetManagerDashboardState
     ];
 
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: _background,
+      drawer: _AppDrawer(
+        user: user,
+        role: 'Fleet Manager',
+        navIndex: _navIndex,
+        onNavTap: (i) {
+          _scaffoldKey.currentState?.closeDrawer();
+          setState(() => _navIndex = i);
+        },
+      ),
       body: Column(
         children: [
-          _TopBar(initials: initials),
+          _TopBar(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
           Expanded(
             child: IndexedStack(index: _navIndex, children: pages),
           ),
@@ -123,8 +136,8 @@ String _initials(String name) {
 // ─── Top Bar ──────────────────────────────────────────────────────────────────
 
 class _TopBar extends StatelessWidget {
-  final String initials;
-  const _TopBar({required this.initials});
+  final VoidCallback onMenuTap;
+  const _TopBar({required this.onMenuTap});
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +148,10 @@ class _TopBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         child: Row(
           children: [
-            const Icon(Icons.menu, color: _secondary, size: 24),
+            GestureDetector(
+              onTap: onMenuTap,
+              child: const Icon(Icons.menu, color: _secondary, size: 24),
+            ),
             const SizedBox(width: 14),
             Expanded(
               child: Text(
@@ -149,22 +165,6 @@ class _TopBar extends StatelessWidget {
             ),
             const Icon(Icons.notifications_outlined,
                 color: _secondary, size: 24),
-            const SizedBox(width: 12),
-            Container(
-              width: 34,
-              height: 34,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFF1A2E44),
-              ),
-              child: Center(
-                child: Text(
-                  initials,
-                  style: _manrope(
-                      size: 12, weight: FontWeight.w700, color: Colors.white),
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -1378,7 +1378,7 @@ class _AvailableLoadCard extends ConsumerWidget {
             ),
           ),
 
-          // Divider + Fulfill button
+          // Divider + action button
           Divider(
               height: 1,
               color: _surfaceContainer.withValues(alpha: 0.7),
@@ -1386,46 +1386,91 @@ class _AvailableLoadCard extends ConsumerWidget {
               endIndent: 16),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: GestureDetector(
-                onTap: isFulfilling
-                    ? null
-                    : () => _showFulfillSheet(context, ref, load),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFF6B00), Color(0xFFE55C00)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                          color: _primary.withValues(alpha: 0.30),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3))
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.check_circle_outline_rounded,
-                          color: Colors.white, size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Fulfill This Load',
-                        style: _manrope(
-                            size: 14,
-                            weight: FontWeight.w700,
-                            color: Colors.white),
+            child: load.status == 'matched'
+                ? SizedBox(
+                    width: double.infinity,
+                    child: GestureDetector(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => TruckTrackingScreen(
+                            trip: TripModel(
+                              id: load.id,
+                              tripNumber: load.refId,
+                              origin: load.pickupLocation ?? '',
+                              destination: load.unloadLocation ?? '',
+                              loadItem: load.materialType ?? 'Cargo',
+                              status: 'ongoing',
+                              organizationId: load.companyId,
+                            ),
+                          ),
+                        ),
                       ),
-                    ],
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D47A1).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: const Color(0xFF0D47A1).withValues(alpha: 0.25)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.local_shipping_rounded,
+                                color: Color(0xFF0D47A1), size: 16),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Track Truck',
+                              style: _manrope(
+                                  size: 14,
+                                  weight: FontWeight.w700,
+                                  color: const Color(0xFF0D47A1)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                : SizedBox(
+                    width: double.infinity,
+                    child: GestureDetector(
+                      onTap: isFulfilling
+                          ? null
+                          : () => _showFulfillSheet(context, ref, load),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF6B00), Color(0xFFE55C00)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                                color: _primary.withValues(alpha: 0.30),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3))
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_circle_outline_rounded,
+                                color: Colors.white, size: 16),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Fulfill This Load',
+                              style: _manrope(
+                                  size: 14,
+                                  weight: FontWeight.w700,
+                                  color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -1561,10 +1606,19 @@ class _FulfillSheet extends ConsumerStatefulWidget {
 class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   String? _selectedVehicleId;
   String? _selectedDriverId;
+  final _amountController = TextEditingController();
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
 
   void _confirm() {
     final navigator = Navigator.of(context);
     navigator.pop(); // close bottom sheet
+
+    final amount = double.tryParse(_amountController.text.trim());
 
     // Build a local stub from the load — no API call needed yet
     final stub = TripModel(
@@ -1576,6 +1630,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       status: 'pending',
       organizationId: widget.load.companyId,
       currentStage: 0,
+      tripAmount: amount,
     );
 
     navigator.push(
@@ -1685,6 +1740,41 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
             const SizedBox(height: 20),
           ],
 
+          // Trip Amount
+          Text('Trip Amount (₹)',
+              style: _inter(
+                  size: 12, weight: FontWeight.w700, color: _secondary)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _amountController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+            ],
+            decoration: InputDecoration(
+              hintText: 'Enter agreed trip amount',
+              hintStyle: _inter(size: 13, color: _secondary),
+              prefixIcon: const Icon(Icons.currency_rupee, size: 18),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+              filled: true,
+              fillColor: _surfaceContainerLow,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: _surfaceContainer),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: _surfaceContainer),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: _primary, width: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
           // Confirm button
           SizedBox(
             width: double.infinity,
@@ -1791,6 +1881,313 @@ class _LoadsError extends StatelessWidget {
             Text(message,
                 textAlign: TextAlign.center,
                 style: _inter(size: 13, color: _secondary)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── App Drawer ───────────────────────────────────────────────────────────────
+
+class _AppDrawer extends ConsumerWidget {
+  final dynamic user;
+  final String role;
+  final int navIndex;
+  final ValueChanged<int> onNavTap;
+
+  const _AppDrawer({
+    required this.user,
+    required this.role,
+    required this.navIndex,
+    required this.onNavTap,
+  });
+
+  static const _navItems = [
+    (Icons.dashboard_rounded,       'Dashboard',       0),
+    (Icons.local_shipping_rounded,  'My Fleet',        1),
+    (Icons.inventory_2_outlined,    'Available Loads', 2),
+    (Icons.person_outline_rounded,  'Profile',         3),
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final name    = user?.fullName ?? 'Fleet Manager';
+    final company = user?.companyName ?? '';
+    final username = user?.username ?? '';
+
+    return Drawer(
+      width: MediaQuery.of(context).size.width * 0.78,
+      backgroundColor: Colors.white,
+      child: Column(
+        children: [
+          // ── Header ──────────────────────────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(
+                20, MediaQuery.of(context).padding.top + 24, 20, 24),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF1A2E44), Color(0xFF243B55)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Avatar circle
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: _primary,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white24, width: 2),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _initials(name),
+                      style: _manrope(
+                          size: 18,
+                          weight: FontWeight.w800,
+                          color: Colors.white),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(name,
+                    style: _manrope(
+                        size: 15,
+                        weight: FontWeight.w700,
+                        color: Colors.white)),
+                if (username.isNotEmpty)
+                  Text('@$username',
+                      style: _inter(
+                          size: 12, color: Colors.white60)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _primary.withValues(alpha: 0.25),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: _primary.withValues(alpha: 0.5)),
+                      ),
+                      child: Text(role,
+                          style: _inter(
+                              size: 10,
+                              weight: FontWeight.w700,
+                              color: Colors.white)),
+                    ),
+                    if (company.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(company,
+                            style: _inter(size: 11, color: Colors.white54),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // ── Navigation ──────────────────────────────────────────────────
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Text('NAVIGATION',
+                      style: _inter(
+                          size: 10,
+                          weight: FontWeight.w700,
+                          color: _secondary)),
+                ),
+                ..._navItems.map((item) {
+                  final (icon, label, index) = item;
+                  final isActive = navIndex == index;
+                  return _DrawerNavTile(
+                    icon: icon,
+                    label: label,
+                    isActive: isActive,
+                    onTap: () => onNavTap(index),
+                  );
+                }),
+
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Divider(height: 1, color: Color(0xFFECEEF0)),
+                ),
+
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                  child: Text('MORE',
+                      style: _inter(
+                          size: 10,
+                          weight: FontWeight.w700,
+                          color: _secondary)),
+                ),
+                _DrawerActionTile(
+                  icon: Icons.help_outline_rounded,
+                  label: 'Help & Support',
+                  onTap: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Help & Support coming soon.',
+                            style: _inter(size: 13, color: Colors.white)),
+                        backgroundColor: _secondary,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                      ),
+                    );
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.info_outline_rounded,
+                  label: 'About RR Logistics',
+                  onTap: () {
+                    Navigator.pop(context);
+                    showAboutDialog(
+                      context: context,
+                      applicationName: 'RR Logistics',
+                      applicationVersion: '1.0.0',
+                      applicationLegalese: '© 2025 RR Logistics',
+                    );
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.privacy_tip_outlined,
+                  label: 'Privacy Policy',
+                  onTap: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+
+          // ── Logout ──────────────────────────────────────────────────────
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Divider(height: 1, color: Color(0xFFECEEF0)),
+          ),
+          InkWell(
+            onTap: () async {
+              Navigator.pop(context);
+              await ref.read(authProvider.notifier).logout();
+              if (context.mounted) context.go('/login');
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  const Icon(Icons.logout_rounded,
+                      color: Color(0xFFBA1A1A), size: 20),
+                  const SizedBox(width: 14),
+                  Text('Log Out',
+                      style: _inter(
+                          size: 14,
+                          weight: FontWeight.w600,
+                          color: const Color(0xFFBA1A1A))),
+                ],
+              ),
+            ),
+          ),
+          SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _DrawerNavTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _DrawerNavTile({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive
+              ? _primary.withValues(alpha: 0.08)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon,
+                size: 20,
+                color: isActive ? _primary : _secondary),
+            const SizedBox(width: 14),
+            Text(label,
+                style: _inter(
+                    size: 14,
+                    weight: isActive ? FontWeight.w700 : FontWeight.w400,
+                    color: isActive ? _primary : _onSurface)),
+            if (isActive) ...[
+              const Spacer(),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: const BoxDecoration(
+                    color: _primary, shape: BoxShape.circle),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerActionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  const _DrawerActionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: _secondary),
+            const SizedBox(width: 14),
+            Text(label,
+                style: _inter(
+                    size: 14,
+                    weight: FontWeight.w400,
+                    color: _onSurface)),
           ],
         ),
       ),
