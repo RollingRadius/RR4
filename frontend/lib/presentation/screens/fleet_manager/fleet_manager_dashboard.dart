@@ -1387,7 +1387,7 @@ class _AvailableLoadCard extends ConsumerWidget {
               endIndent: 16),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: load.status == 'matched'
+            child: load.status == 'assigned'
                 ? SizedBox(
                     width: double.infinity,
                     child: GestureDetector(
@@ -1570,8 +1570,8 @@ class _LoadStatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, bg, fg) = switch (status) {
-      'matched' => (
-          'MATCHED',
+      'assigned' => (
+          'ASSIGNED',
           const Color(0xFFD5E3FC),
           const Color(0xFF0D47A1)
         ),

@@ -415,7 +415,7 @@ def fulfill_load_requirement(
         trip = Trip(**trip_kwargs)
         db.add(trip)
 
-        load.status = 'matched'
+        load.status = 'assigned'
         # fulfilling_org_id added in migration 026 — only set if the column exists
         if hasattr(load, 'fulfilling_org_id'):
             load.fulfilling_org_id = fleet_company.id
