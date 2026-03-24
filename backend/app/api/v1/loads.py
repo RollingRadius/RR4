@@ -21,6 +21,7 @@ from app.models.user_organization import UserOrganization
 from app.models.company import Organization
 from app.models.load_requirement import LoadRequirement
 from app.models.trip import Trip
+from app.models.role import Role
 
 router = APIRouter()
 
@@ -69,7 +70,7 @@ class LoadRequirementResponse(BaseModel):
 
 def _get_fleet_management_company(current_user: User, db: Session) -> Organization:
     """
-    Verify the current user belongs to a fleet_manager (fleet management) company.
+    Verify the current user has a fleet_management (or super_admin) role.
     Returns the Organization on success, raises 403 otherwise.
     """
     user_org = db.query(UserOrganization).filter(
@@ -83,14 +84,15 @@ def _get_fleet_management_company(current_user: User, db: Session) -> Organizati
             detail="You must belong to a company to access this resource."
         )
 
-    company = user_org.organization
-    if company.business_type != 'fleet_management':
+    role = db.query(Role).filter(Role.id == user_org.role_id).first()
+    role_key = role.role_key if role else ''
+    if role_key not in ('fleet_management', 'super_admin'):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only Fleet Management companies can access this resource."
+            detail="Only Fleet Management users can access this resource."
         )
 
-    return company
+    return user_org.organization
 
 
 def _generate_trip_number(db: Session) -> str:
@@ -104,7 +106,7 @@ def _generate_trip_number(db: Session) -> str:
 
 def _get_load_owner_company(current_user: User, db: Session) -> Organization:
     """
-    Verify the current user belongs to a load_owner company.
+    Verify the current user has a load_owner (or super_admin) role.
     Returns the Organization on success, raises 403 otherwise.
     """
     user_org = db.query(UserOrganization).filter(
@@ -118,14 +120,15 @@ def _get_load_owner_company(current_user: User, db: Session) -> Organization:
             detail="You must belong to a company to submit load requirements."
         )
 
-    company = user_org.organization
-    if company.business_type != 'load_owner':
+    role = db.query(Role).filter(Role.id == user_org.role_id).first()
+    role_key = role.role_key if role else ''
+    if role_key not in ('load_owner', 'super_admin'):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only Load Provider companies can submit load requirements."
+            detail="Only Load Owner users can submit load requirements."
         )
 
-    return company
+    return user_org.organization
 
 
 def _record_to_response(record: LoadRequirement) -> dict:
