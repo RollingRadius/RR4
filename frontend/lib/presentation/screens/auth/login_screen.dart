@@ -188,14 +188,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 40),
 
-                          // Email / Username field
-                          _FieldLabel(label: 'Email Address'),
+                          // Username field
+                          _FieldLabel(label: 'Username'),
                           const SizedBox(height: 8),
                           _AuthTextField(
                             controller: _usernameController,
-                            hintText: 'driver@fleet-corp.com',
-                            prefixIcon: Icons.mail_outline,
-                            keyboardType: TextInputType.emailAddress,
+                            hintText: 'Enter your username',
+                            prefixIcon: Icons.account_circle_outlined,
+                            keyboardType: TextInputType.text,
                             textInputAction: TextInputAction.next,
                             validator: (v) => (v == null || v.isEmpty)
                                 ? AppConstants.validationRequired

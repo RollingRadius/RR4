@@ -6,6 +6,7 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:flutter/services.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
 
 class ProfileCompletionScreen extends ConsumerStatefulWidget {
@@ -31,6 +32,8 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
   final _cityController = TextEditingController();
   final _stateController = TextEditingController();
   final _pincodeController = TextEditingController();
+
+  String? _pincodeError;
 
   // Join company
   String? _selectedCompanyId;
@@ -120,11 +123,16 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
       profileData['company_name'] = _companyNameController.text.trim();
       profileData['business_type'] = _selectedCompanyType!;
       profileData['business_email'] = _businessEmailController.text.trim();
-      profileData['business_phone'] = _businessPhoneController.text.trim();
+      profileData['business_phone'] = '+91${_businessPhoneController.text.trim()}';
       profileData['address'] = _addressController.text.trim();
       profileData['city'] = _cityController.text.trim();
       profileData['state'] = _stateController.text.trim();
-      profileData['pincode'] = _pincodeController.text.trim();
+      final pincode = _pincodeController.text.trim();
+      if (pincode.length != 6 || pincode[0] == '0') {
+        _showError('Enter a valid 6-digit Indian pincode');
+        return;
+      }
+      profileData['pincode'] = pincode;
       profileData['country'] = 'India';
     }
 
@@ -662,14 +670,27 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
           const SizedBox(height: 16),
           TextField(
             controller: _businessPhoneController,
+            keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(10),
+            ],
             decoration: InputDecoration(
               labelText: 'Business Phone',
+              hintText: '9876543210',
               prefixIcon: const Icon(Icons.phone),
+              prefix: const Text(
+                '+91 ',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.black87,
+                ),
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            keyboardType: TextInputType.phone,
           ),
           const SizedBox(height: 16),
           TextField(

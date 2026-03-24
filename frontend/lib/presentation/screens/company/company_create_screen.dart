@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/company_provider.dart';
@@ -40,6 +41,35 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
 
   bool _isCreating = false;
   bool _showLegalInfo = false;
+
+  // Email live-validation state
+  bool _emailTouched = false;
+  bool _emailValid = false;
+
+  bool _isValidEmail(String value) {
+    if (value.trim().isEmpty) return false;
+    if (!value.contains('@')) return false;
+    final parts = value.split('@');
+    if (parts.length != 2 || parts[1].isEmpty) return false;
+    if (!parts[1].contains('.')) return false;
+    final domainParts = parts[1].split('.');
+    if (domainParts.last.length < 2) return false;
+    return true;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _businessEmailController.addListener(() {
+      final valid = _isValidEmail(_businessEmailController.text);
+      if (valid != _emailValid || !_emailTouched) {
+        setState(() {
+          _emailTouched = true;
+          _emailValid = valid;
+        });
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -119,7 +149,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
       'company_name': _companyNameController.text.trim(),
       'business_type': businessType,
       'business_email': _businessEmailController.text.trim(),
-      'business_phone': _businessPhoneController.text.trim(),
+      'business_phone': '+91${_businessPhoneController.text.trim()}',
       'address': _addressController.text.trim(),
       'city': _cityController.text.trim(),
       'state': _stateController.text.trim(),
@@ -306,16 +336,36 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                 TextFormField(
                   controller: _businessEmailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  decoration: InputDecoration(
                     labelText: 'Business Email *',
-                    prefixIcon: Icon(Icons.email),
+                    hintText: 'name@company.com',
+                    prefixIcon: const Icon(Icons.email),
+                    suffixIcon: _emailTouched
+                        ? _emailValid
+                            ? const Icon(Icons.check_circle_rounded,
+                                color: Color(0xFF006B5E), size: 22)
+                            : const Icon(Icons.warning_rounded,
+                                color: Colors.red, size: 22)
+                        : null,
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return AppConstants.validationRequired;
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Business email is required';
                     }
                     if (!value.contains('@')) {
-                      return AppConstants.validationEmail;
+                      return 'Email must contain "@" — e.g. name@company.com';
+                    }
+                    final parts = value.split('@');
+                    if (parts.length != 2 || parts[1].isEmpty) {
+                      return 'Enter a valid email — e.g. name@company.com';
+                    }
+                    if (!parts[1].contains('.')) {
+                      return 'Email must have a domain ending — e.g. .com or .in';
+                    }
+                    final domainParts = parts[1].split('.');
+                    if (domainParts.last.length < 2) {
+                      return 'Enter a valid email — e.g. name@company.com';
                     }
                     return null;
                   },
@@ -324,14 +374,31 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
 
                 TextFormField(
                   controller: _businessPhoneController,
-                  keyboardType: TextInputType.phone,
+                  keyboardType: TextInputType.number,
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
+                  ],
                   decoration: const InputDecoration(
                     labelText: 'Business Phone *',
+                    hintText: '9876543210',
                     prefixIcon: Icon(Icons.phone),
+                    prefix: Text(
+                      '+91 ',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
+                    ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return AppConstants.validationRequired;
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Business phone is required';
+                    }
+                    if (value.trim().length < 10) {
+                      return 'Mobile number must be exactly 10 digits';
                     }
                     return null;
                   },
@@ -406,6 +473,11 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                       child: TextFormField(
                         controller: _pincodeController,
                         keyboardType: TextInputType.number,
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(6),
+                        ],
                         decoration: const InputDecoration(
                           labelText: 'Pincode *',
                           prefixIcon: Icon(Icons.pin_drop),
@@ -413,6 +485,12 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return AppConstants.validationRequired;
+                          }
+                          if (value.length != 6) {
+                            return 'Enter a valid 6-digit Indian pincode';
+                          }
+                          if (value[0] == '0') {
+                            return 'Enter a valid 6-digit Indian pincode';
                           }
                           return null;
                         },
