@@ -24,11 +24,11 @@ class Driver(Base):
     # Primary Key
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # Organization Reference
+    # Organization Reference (nullable for independent/self-registered drivers)
     organization_id = Column(
         UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True
     )
 
@@ -41,9 +41,9 @@ class Driver(Base):
         index=True
     )
 
-    # Employment Information
-    employee_id = Column(String(50), nullable=False)
-    join_date = Column(Date, nullable=False)
+    # Employment Information (nullable for self-registered independent drivers)
+    employee_id = Column(String(50), nullable=True)
+    join_date = Column(Date, nullable=True)
     status = Column(
         String(20),
         nullable=False,
@@ -64,6 +64,11 @@ class Driver(Base):
     state = Column(String(100), nullable=True)
     pincode = Column(String(10), nullable=True)
     country = Column(String(100), nullable=False, default='India')
+
+    # License info for self-registered independent drivers
+    # (Company-hired drivers use the separate DriverLicense table instead)
+    license_number = Column(String(50), nullable=True)
+    license_expiry = Column(Date, nullable=True)
 
     # Emergency Contact
     emergency_contact_name = Column(String(255), nullable=True)

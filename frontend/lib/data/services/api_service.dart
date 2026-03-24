@@ -91,6 +91,9 @@ class ApiService {
           }
           return 'Server error: ${error.response?.statusCode}';
 
+        case DioExceptionType.connectionError:
+          return 'Cannot connect to server. Please check your connection.';
+
         case DioExceptionType.cancel:
           return 'Request cancelled';
 

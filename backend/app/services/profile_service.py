@@ -125,21 +125,47 @@ class ProfileService:
                     detail="License number required for driver role"
                 )
 
-            # Create driver record
+            # Split full_name into first_name and last_name
+            full_name = (user.full_name or "").strip()
+            name_parts = full_name.split(' ', 1)
+            first_name = name_parts[0] if name_parts else user.username
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+            # Parse license expiry date
+            license_expiry = None
+            if profile_data.get('license_expiry'):
+                try:
+                    license_expiry = datetime.fromisoformat(profile_data['license_expiry']).date()
+                except ValueError:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Invalid license_expiry format. Use YYYY-MM-DD"
+                    )
+
+            # Create driver record (independent driver — no organization)
             driver = Driver(
                 id=uuid.uuid4(),
                 user_id=user.id,
-                driver_name=user.full_name,
+                first_name=first_name,
+                last_name=last_name,
                 phone=user.phone,
                 email=user.email,
                 license_number=profile_data['license_number'],
-                license_expiry=datetime.fromisoformat(profile_data['license_expiry']) if profile_data.get('license_expiry') else None,
-                status='available',
-                employment_type='permanent',
-                is_verified=True
+                license_expiry=license_expiry,
+                status='active',
+                organization_id=None,
+                employee_id=None,
+                join_date=None,
             )
             self.db.add(driver)
-            self.db.flush()
+            try:
+                self.db.flush()
+            except Exception as e:
+                self.db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Driver creation failed: {str(e)}"
+                )
             driver_id = driver.id
 
             # Drivers are independent users with a driver record
@@ -404,21 +430,47 @@ class ProfileService:
                     detail="You are already registered as a driver"
                 )
 
-            # Create driver record
+            # Split full_name into first_name and last_name
+            full_name = (user.full_name or "").strip()
+            name_parts = full_name.split(' ', 1)
+            first_name = name_parts[0] if name_parts else user.username
+            last_name = name_parts[1] if len(name_parts) > 1 else ""
+
+            # Parse license expiry date
+            license_expiry = None
+            if profile_data.get('license_expiry'):
+                try:
+                    license_expiry = datetime.fromisoformat(profile_data['license_expiry']).date()
+                except ValueError:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Invalid license_expiry format. Use YYYY-MM-DD"
+                    )
+
+            # Create driver record (independent driver — no organization)
             driver = Driver(
                 id=uuid.uuid4(),
                 user_id=user.id,
-                driver_name=user.full_name,
+                first_name=first_name,
+                last_name=last_name,
                 phone=user.phone,
                 email=user.email,
                 license_number=profile_data['license_number'],
-                license_expiry=datetime.fromisoformat(profile_data['license_expiry']) if profile_data.get('license_expiry') else None,
-                status='available',
-                employment_type='permanent',
-                is_verified=True
+                license_expiry=license_expiry,
+                status='active',
+                organization_id=None,
+                employee_id=None,
+                join_date=None,
             )
             self.db.add(driver)
-            self.db.flush()
+            try:
+                self.db.flush()
+            except Exception as e:
+                self.db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Driver creation failed: {str(e)}"
+                )
             driver_id = driver.id
 
             # Role remains Independent User

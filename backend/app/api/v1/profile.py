@@ -3,8 +3,9 @@ Profile API Endpoints
 User profile completion and management
 """
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -115,10 +116,17 @@ def complete_profile(
     # Convert Pydantic model to dict
     profile_dict = profile_data.model_dump()
 
-    result = profile_service.complete_profile(
-        user_id=current_user.id,
-        profile_data=profile_dict
-    )
+    try:
+        result = profile_service.complete_profile(
+            user_id=current_user.id,
+            profile_data=profile_dict
+        )
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(exc)}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(exc)}")
 
     return ProfileCompletionResponse(**result)
 
@@ -189,10 +197,17 @@ def change_user_role(
     # Convert Pydantic model to dict
     profile_dict = profile_data.model_dump()
 
-    result = profile_service.change_role(
-        user_id=current_user.id,
-        profile_data=profile_dict
-    )
+    try:
+        result = profile_service.change_role(
+            user_id=current_user.id,
+            profile_data=profile_dict
+        )
+    except HTTPException:
+        raise
+    except SQLAlchemyError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(exc)}")
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {str(exc)}")
 
     return ProfileCompletionResponse(**result)
 
