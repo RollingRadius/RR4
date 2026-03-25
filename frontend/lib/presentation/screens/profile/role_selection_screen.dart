@@ -231,11 +231,14 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
       itemCount: filteredRoles.length,
       itemBuilder: (context, index) {
         final role = filteredRoles[index];
+        final isAvailable = role.roleKey == 'fleet_manager' || role.roleKey == 'load_owner';
         final isSelected = _selectedRole?.id == role.id;
 
         return StaggeredItem(
           index: index,
           staggerMs: 60,
+          child: Opacity(
+          opacity: isAvailable ? 1.0 : 0.5,
           child: Card(
           margin: const EdgeInsets.only(bottom: 12),
           elevation: isSelected ? 4 : 1,
@@ -249,11 +252,13 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
             ),
           ),
           child: InkWell(
-            onTap: () {
-              setState(() {
-                _selectedRole = role;
-              });
-            },
+            onTap: isAvailable
+                ? () {
+                    setState(() {
+                      _selectedRole = role;
+                    });
+                  }
+                : null,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
               padding: const EdgeInsets.all(16.0),
@@ -310,8 +315,24 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
                     ),
                   ),
 
-                  // Selection Indicator
-                  if (isSelected)
+                  // Selection Indicator or Coming Soon badge
+                  if (!isAvailable)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Coming Soon',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    )
+                  else if (isSelected)
                     Icon(
                       Icons.check_circle,
                       color: Theme.of(context).primaryColor,
@@ -327,7 +348,8 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
               ),
             ),
           ),
-        ),  // closes StaggeredItem
+        ),  // closes Card
+        ),  // closes Opacity
         );
       },
     );
