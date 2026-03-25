@@ -29,7 +29,7 @@ def upgrade() -> None:
     op.create_table(
         'notifications',
         sa.Column('id',               UUID(as_uuid=True), primary_key=True, server_default=sa.text('gen_random_uuid()')),
-        sa.Column('recipient_org_id', UUID(as_uuid=True), nullable=False, index=True),
+        sa.Column('recipient_org_id', UUID(as_uuid=True), nullable=False),
         sa.Column('trip_id',          UUID(as_uuid=True), nullable=True),
         sa.Column('type',             sa.String(50),  nullable=False),
         sa.Column('title',            sa.String(200), nullable=False),
@@ -37,13 +37,14 @@ def upgrade() -> None:
         sa.Column('is_read',          sa.Boolean(),   nullable=False, server_default='false'),
         sa.Column('created_at',       sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=False),
     )
-    op.create_index('ix_notifications_recipient_org_id', 'notifications', ['recipient_org_id'])
-    op.create_index('ix_notifications_trip_id',          'notifications', ['trip_id'])
+    # Indexes created separately (not via index=True on columns) to avoid naming conflicts
+    op.create_index('ix_notif_recipient_org_id', 'notifications', ['recipient_org_id'])
+    op.create_index('ix_notif_trip_id',          'notifications', ['trip_id'])
 
 
 def downgrade() -> None:
-    op.drop_index('ix_notifications_trip_id',          table_name='notifications')
-    op.drop_index('ix_notifications_recipient_org_id', table_name='notifications')
+    op.drop_index('ix_notif_trip_id',          table_name='notifications')
+    op.drop_index('ix_notif_recipient_org_id', table_name='notifications')
     op.drop_table('notifications')
 
     op.drop_column('trips', 's4_notified_at')
