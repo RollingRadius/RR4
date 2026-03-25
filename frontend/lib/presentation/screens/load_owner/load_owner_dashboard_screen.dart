@@ -394,9 +394,42 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
   @override
   void initState() {
     super.initState();
-    // Mark all as read when sheet opens
     Future.microtask(() =>
         ref.read(notificationsProvider.notifier).markAllRead());
+  }
+
+  Future<void> _confirmClearAll(BuildContext ctx, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: ctx,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Clear all notifications?',
+            style: GoogleFonts.manrope(
+                fontSize: 16, fontWeight: FontWeight.w800)),
+        content: Text('This will permanently delete all notifications.',
+            style: GoogleFonts.inter(fontSize: 13,
+                color: const Color(0xFF546067))),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(_).pop(false),
+            child: Text('Cancel',
+                style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF546067))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(_).pop(true),
+            child: Text('Clear All',
+                style: GoogleFonts.manrope(
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFBA1A1A))),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      ref.read(notificationsProvider.notifier).clearAll();
+    }
   }
 
   @override
@@ -429,7 +462,7 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
               child: Row(
                 children: [
                   Text('Notifications',
@@ -439,11 +472,29 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
                           color: const Color(0xFF191C1E))),
                   const Spacer(),
                   if (state.loading)
-                    const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: _primary)),
+                    const Padding(
+                      padding: EdgeInsets.only(right: 8),
+                      child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: _primary)),
+                    ),
+                  if (items.isNotEmpty)
+                    TextButton(
+                      onPressed: () => _confirmClearAll(context, ref),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFFBA1A1A),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Text('Clear All',
+                          style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFFBA1A1A))),
+                    ),
                 ],
               ),
             ),
@@ -470,7 +521,12 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
                       padding: const EdgeInsets.all(16),
                       itemCount: items.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (_, i) => _NotifTile(notif: items[i]),
+                      itemBuilder: (_, i) => _NotifTile(
+                        notif: items[i],
+                        onDismiss: () => ref
+                            .read(notificationsProvider.notifier)
+                            .deleteOne(items[i].id),
+                      ),
                     ),
             ),
           ],
@@ -482,11 +538,26 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
 
 class _NotifTile extends StatelessWidget {
   final NotificationModel notif;
-  const _NotifTile({required this.notif});
+  final VoidCallback? onDismiss;
+  const _NotifTile({required this.notif, this.onDismiss});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Dismissible(
+      key: ValueKey(notif.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFDAD6),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.delete_outline_rounded,
+            color: Color(0xFFBA1A1A), size: 22),
+      ),
+      onDismissed: (_) => onDismiss?.call(),
+      child: Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: notif.isRead ? Colors.white : _primary.withValues(alpha: 0.05),
@@ -537,17 +608,41 @@ class _NotifTile extends StatelessWidget {
               ],
             ),
           ),
-          if (!notif.isRead)
-            Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.only(top: 4),
-              decoration: const BoxDecoration(
-                  color: _primary, shape: BoxShape.circle),
-            ),
+          // Trailing column: unread dot + delete icon
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (!notif.isRead)
+                Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.only(bottom: 6),
+                  decoration: const BoxDecoration(
+                      color: _primary, shape: BoxShape.circle),
+                ),
+              GestureDetector(
+                onTap: onDismiss,
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFDAD6),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: Color(0xFFBA1A1A),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
-    );
+      ), // end inner Container
+    ); // end Dismissible
   }
 
   String _formatTime(String iso) {

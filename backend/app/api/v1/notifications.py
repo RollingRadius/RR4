@@ -131,3 +131,33 @@ def mark_all_read(
     ).update({"is_read": True})
     db.commit()
     return {"success": True}
+
+
+@router.delete("/api/notifications/{notif_id}")
+def delete_notification(
+    notif_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a single notification."""
+    user_org = _current_user_org(current_user, db)
+    notif = db.query(Notification).filter(Notification.id == notif_id).first()
+    if not notif or str(notif.recipient_org_id) != str(user_org.organization_id):
+        raise HTTPException(status_code=404, detail="Notification not found")
+    db.delete(notif)
+    db.commit()
+    return {"success": True}
+
+
+@router.delete("/api/notifications")
+def clear_all_notifications(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete all notifications for the current user's org."""
+    user_org = _current_user_org(current_user, db)
+    db.query(Notification).filter(
+        Notification.recipient_org_id == user_org.organization_id
+    ).delete()
+    db.commit()
+    return {"success": True}

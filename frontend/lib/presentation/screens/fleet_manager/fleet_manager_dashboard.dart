@@ -65,11 +65,6 @@ class _FleetManagerDashboardState
   @override
   void initState() {
     super.initState();
-    Future.microtask(() {
-      ref.read(vehicleProvider.notifier).loadVehicles();
-      ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing');
-      ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
-    });
     // Silent background refresh every 30 s
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
@@ -87,6 +82,15 @@ class _FleetManagerDashboardState
 
   @override
   Widget build(BuildContext context) {
+    // Defer initial data load until auth is confirmed — fixes reload race condition
+    ref.listen<AuthState>(authProvider, (_, next) {
+      if (next.isInitialized && next.isAuthenticated) {
+        ref.read(vehicleProvider.notifier).loadVehicles();
+        ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing');
+        ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
+      }
+    }, fireImmediately: true);
+
     final user = ref.watch(authProvider).user;
 
     final pendingLoadsCount = ref.watch(availableLoadsProvider).loads.length;
@@ -694,8 +698,7 @@ class _AvailableLoadsTabState extends ConsumerState<_AvailableLoadsTab> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(
-        () => ref.read(availableLoadsProvider.notifier).loadAvailableLoads());
+    // Initial load is triggered by the dashboard's auth listener
   }
 
   @override

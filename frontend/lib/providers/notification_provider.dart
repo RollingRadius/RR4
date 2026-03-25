@@ -91,6 +91,22 @@ class NotificationsNotifier extends StateNotifier<NotificationsState> {
     } catch (_) {}
   }
 
+  Future<void> deleteOne(String id) async {
+    state = state.copyWith(
+      items: state.items.where((n) => n.id != id).toList(),
+    );
+    try {
+      await _dio.delete('/api/notifications/$id');
+    } catch (_) {}
+  }
+
+  Future<void> clearAll() async {
+    state = state.copyWith(items: []);
+    try {
+      await _dio.delete('/api/notifications');
+    } catch (_) {}
+  }
+
   void stop() {
     _ws.disconnect();
     _sub?.cancel();
