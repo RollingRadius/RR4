@@ -60,6 +60,7 @@ class _FleetManagerDashboardState
     extends ConsumerState<FleetManagerDashboard> {
   int _navIndex = 0;
   Timer? _pollTimer;
+  bool _initialLoadTriggered = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -82,16 +83,19 @@ class _FleetManagerDashboardState
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+
     // Defer initial data load until auth is confirmed — fixes reload race condition
-    ref.listen<AuthState>(authProvider, (_, next) {
-      if (next.isInitialized && next.isAuthenticated) {
+    if (!_initialLoadTriggered && authState.isInitialized && authState.isAuthenticated) {
+      _initialLoadTriggered = true;
+      Future.microtask(() {
         ref.read(vehicleProvider.notifier).loadVehicles();
         ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing');
         ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
-      }
-    }, fireImmediately: true);
+      });
+    }
 
-    final user = ref.watch(authProvider).user;
+    final user = authState.user;
 
     final pendingLoadsCount = ref.watch(availableLoadsProvider).loads.length;
 
