@@ -483,6 +483,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   // Two-phase: first "Loading Complete", then "Complete Stage"
   bool _loadingComplete = false;
 
+  // Document uploads
+  File?       _biltyFile;
+  List<File>  _materialDocs = [];
+
+  final _picker = ImagePicker();
+
   @override
   void dispose() {
     _emptyTruckWeight.dispose();
@@ -491,6 +497,20 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _loadedWeightUnit.dispose();
     super.dispose();
   }
+
+  Future<void> _pickBilty() async {
+    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked != null && mounted) setState(() => _biltyFile = File(picked.path));
+  }
+
+  Future<void> _pickMaterialDocs() async {
+    final picked = await _picker.pickMultiImage(imageQuality: 85);
+    if (picked.isNotEmpty && mounted) {
+      setState(() => _materialDocs = [..._materialDocs, ...picked.map((x) => File(x.path))]);
+    }
+  }
+
+  void _removeMaterialDoc(int index) => setState(() => _materialDocs.removeAt(index));
 
   bool get _allChecked =>
       _driverParked && _docsSubmitted && _securityVerified &&
@@ -651,6 +671,28 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               note: 'Record the truck weight after loading is done.',
               enabled: true,
               unitNotifier: _loadedWeightUnit,
+            ),
+            const SizedBox(height: 20),
+
+            // ── Bilty Upload ──────────────────────────────────────────
+            _SectionHeader(icon: Icons.receipt_long_rounded, title: 'Bilty'),
+            _DocUploadTile(
+              label: 'Upload Bilty',
+              subtitle: 'Attach the lorry receipt / bilty document',
+              file: _biltyFile,
+              onTap: _pickBilty,
+              onRemove: () => setState(() => _biltyFile = null),
+            ),
+            const SizedBox(height: 20),
+
+            // ── Material Documents Upload ─────────────────────────────
+            _SectionHeader(icon: Icons.folder_open_rounded, title: 'Material Documents'),
+            _MultiDocUploadTile(
+              label: 'Upload Material Documents',
+              subtitle: 'Attach invoices, packing lists, or other material docs',
+              files: _materialDocs,
+              onTap: _pickMaterialDocs,
+              onRemove: _removeMaterialDoc,
             ),
             const SizedBox(height: 28),
 
@@ -1199,6 +1241,237 @@ class _WeighFieldState extends State<_WeighField> {
             ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Single-file Document Upload Tile ────────────────────────────────────────
+
+class _DocUploadTile extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final File? file;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  const _DocUploadTile({
+    required this.label,
+    required this.subtitle,
+    required this.file,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (file != null) {
+      return Container(
+        decoration: BoxDecoration(
+          color: _success.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _success.withValues(alpha: 0.30)),
+        ),
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(13)),
+              child: Image.file(file!,
+                  width: double.infinity,
+                  height: 160,
+                  fit: BoxFit.cover),
+            ),
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded,
+                      size: 16, color: _success),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      file!.path.split('/').last,
+                      style: GoogleFonts.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: _success),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onRemove,
+                    icon: const Icon(Icons.delete_outline_rounded,
+                        size: 18, color: _error),
+                    visualDensity: VisualDensity.compact,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _border, style: BorderStyle.solid),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: _primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.upload_file_rounded,
+                  color: _primary, size: 22),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: GoogleFonts.manrope(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _onSurface)),
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: _secondary)),
+                ],
+              ),
+            ),
+            const Icon(Icons.add_circle_outline_rounded,
+                color: _primary, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Multi-file Document Upload Tile ─────────────────────────────────────────
+
+class _MultiDocUploadTile extends StatelessWidget {
+  final String label;
+  final String subtitle;
+  final List<File> files;
+  final VoidCallback onTap;
+  final void Function(int) onRemove;
+
+  const _MultiDocUploadTile({
+    required this.label,
+    required this.subtitle,
+    required this.files,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (files.isNotEmpty) ...[
+          SizedBox(
+            height: 100,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: files.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) => Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.file(files[i],
+                        width: 90,
+                        height: 100,
+                        fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: GestureDetector(
+                      onTap: () => onRemove(i),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.55),
+                          shape: BoxShape.circle,
+                        ),
+                        padding: const EdgeInsets.all(3),
+                        child: const Icon(Icons.close_rounded,
+                            size: 12, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+            decoration: BoxDecoration(
+              color: _surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.photo_library_rounded,
+                      color: _primary, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        files.isEmpty
+                            ? label
+                            : '${files.length} file${files.length > 1 ? 's' : ''} selected',
+                        style: GoogleFonts.manrope(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: files.isEmpty ? _onSurface : _success),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(subtitle,
+                          style: GoogleFonts.inter(
+                              fontSize: 11, color: _secondary)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.add_circle_outline_rounded,
+                    color: _primary, size: 20),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

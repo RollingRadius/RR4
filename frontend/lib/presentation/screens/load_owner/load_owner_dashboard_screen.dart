@@ -128,12 +128,28 @@ class _LoadOwnerDashboardScreenState
   Timer? _pollTimer;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  void _goToLoads() => setState(() => _navIndex = 1);
+
+  void _setNavIndex(int i) {
+    if (i == 0 && _navIndex != 0) {
+      // Refresh loads whenever returning to dashboard tab
+      ref.invalidate(_loadsProvider);
+    }
+    setState(() => _navIndex = i);
+  }
+
+  Future<void> _openUpload() async {
+    await context.push('/load-owner/upload');
+    // Refresh after returning from the upload screen
+    if (mounted) ref.invalidate(_loadsProvider);
+  }
+
   @override
   void initState() {
     super.initState();
     _pages = [
-      const _DashboardTab(),
-      _LoadsTab(onCreateLoad: () => context.push('/load-owner/upload')),
+      _DashboardTab(onViewAllLoads: _goToLoads),
+      _LoadsTab(onCreateLoad: _openUpload),
       const _TrackingTab(),
       const _DocsTab(),
     ];
@@ -165,7 +181,7 @@ class _LoadOwnerDashboardScreenState
         navIndex: _navIndex,
         onNavTap: (i) {
           _scaffoldKey.currentState?.closeDrawer();
-          setState(() => _navIndex = i);
+          _setNavIndex(i);
         },
         onProfileTap: () {
           _scaffoldKey.currentState?.closeDrawer();
@@ -186,7 +202,7 @@ class _LoadOwnerDashboardScreenState
           if (i == 4) {
             _showProfileSheet(context);
           } else {
-            setState(() => _navIndex = i);
+            _setNavIndex(i);
           }
         },
       ),
@@ -689,7 +705,8 @@ class _BottomNav extends StatelessWidget {
 // ─── Dashboard Tab ────────────────────────────────────────────────────────────
 
 class _DashboardTab extends ConsumerWidget {
-  const _DashboardTab();
+  final VoidCallback onViewAllLoads;
+  const _DashboardTab({required this.onViewAllLoads});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -750,6 +767,7 @@ class _DashboardTab extends ConsumerWidget {
                 loads: loads,
                 trips: ongoingTrips,
                 isLive: !tripState.isLoading,
+                onViewAllLoads: onViewAllLoads,
               ),
               const SizedBox(height: 24),
 
@@ -896,11 +914,13 @@ class _ShipmentStatusWithTrips extends StatelessWidget {
   final List<LoadItem> loads;
   final List<dynamic> trips;  // List<TripModel>
   final bool isLive;
+  final VoidCallback onViewAllLoads;
 
   const _ShipmentStatusWithTrips({
     required this.loads,
     required this.trips,
     required this.isLive,
+    required this.onViewAllLoads,
   });
 
   @override
@@ -993,7 +1013,7 @@ class _ShipmentStatusWithTrips extends StatelessWidget {
                   style: _manrope(size: 14, weight: FontWeight.w700,
                       color: _secondary)),
               TextButton(
-                onPressed: () {},
+                onPressed: onViewAllLoads,
                 style: TextButton.styleFrom(
                     foregroundColor: _primary,
                     padding: EdgeInsets.zero),
@@ -2092,7 +2112,7 @@ class _ActionButtons extends StatelessWidget {
 // ─── Placeholder tabs ─────────────────────────────────────────────────────────
 
 class _LoadsTab extends ConsumerWidget {
-  final VoidCallback onCreateLoad;
+  final Future<void> Function() onCreateLoad;
   const _LoadsTab({required this.onCreateLoad});
 
   @override
