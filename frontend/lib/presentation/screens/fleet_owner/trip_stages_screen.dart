@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/trip_stages_provider.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 
 // ─── Typography & Colours ─────────────────────────────────────────────────────
@@ -36,11 +37,18 @@ class TripStagesScreen extends ConsumerStatefulWidget {
 
 class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
   late final (String, int) _providerKey;
+  bool _showStage4 = false;
+  bool _stage4Done = false;
 
   @override
   void initState() {
     super.initState();
     _providerKey = (widget.trip.id, widget.trip.currentStage);
+    // If trip already has stage 4 done (currentStage >= 4) restore local state
+    if (widget.trip.currentStage >= 4) {
+      _showStage4 = true;
+      _stage4Done = true;
+    }
   }
 
   @override
@@ -87,20 +95,31 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
               ),
             ),
           Expanded(
-            child: stage == 3
-                ? _CompletionView(
+            child: _stage4Done
+                ? _Stage4CompleteView(
                     trip: widget.trip,
-                    emptyWeightKg: state.emptyWeightKg,
-                    emptyWeightUnit: state.emptyWeightUnit ?? 'tons',
-                    loadedWeightKg: state.loadedWeightKg,
-                    loadedWeightUnit: state.loadedWeightUnit ?? 'tons',
                     onDone: () => Navigator.of(context).pop(),
                   )
-                : stage == 0
-                    ? _Stage1Form(providerKey: _providerKey)
-                    : stage == 1
-                        ? _Stage2Form(providerKey: _providerKey, trip: widget.trip)
-                        : _Stage3Form(providerKey: _providerKey),
+                : _showStage4
+                    ? _Stage4Form(
+                        trip: widget.trip,
+                        onComplete: () => setState(() => _stage4Done = true),
+                      )
+                    : stage == 3
+                        ? _CompletionView(
+                            trip: widget.trip,
+                            emptyWeightKg: state.emptyWeightKg,
+                            emptyWeightUnit: state.emptyWeightUnit ?? 'tons',
+                            loadedWeightKg: state.loadedWeightKg,
+                            loadedWeightUnit: state.loadedWeightUnit ?? 'tons',
+                            onDone: () => Navigator.of(context).pop(),
+                            onNextStage: () => setState(() => _showStage4 = true),
+                          )
+                        : stage == 0
+                            ? _Stage1Form(providerKey: _providerKey)
+                            : stage == 1
+                                ? _Stage2Form(providerKey: _providerKey, trip: widget.trip)
+                                : _Stage3Form(providerKey: _providerKey),
           ),
         ],
       ),
@@ -114,7 +133,7 @@ class _StepIndicator extends StatelessWidget {
   final int currentStage;
   const _StepIndicator({required this.currentStage});
 
-  static const _labels = ['Truck Details', 'Compliance', 'Arrival'];
+  static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit'];
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +141,7 @@ class _StepIndicator extends StatelessWidget {
       color: _surface,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Row(
-        children: List.generate(3, (i) {
+        children: List.generate(4, (i) {
           final stepNum = i + 1;
           final isDone = currentStage > i;
           final isActive = currentStage == i;
@@ -139,8 +158,8 @@ class _StepIndicator extends StatelessWidget {
                 Column(
                   children: [
                     Container(
-                      width: 36,
-                      height: 36,
+                      width: 32,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: bgColor,
                         shape: BoxShape.circle,
@@ -148,10 +167,10 @@ class _StepIndicator extends StatelessWidget {
                       ),
                       child: Center(
                         child: isDone
-                            ? Icon(Icons.check_rounded, color: _success, size: 18)
+                            ? Icon(Icons.check_rounded, color: _success, size: 16)
                             : Text(
                                 '$stepNum',
-                                style: _manrope(size: 14, weight: FontWeight.w800, color: color),
+                                style: _manrope(size: 12, weight: FontWeight.w800, color: color),
                               ),
                       ),
                     ),
@@ -159,14 +178,14 @@ class _StepIndicator extends StatelessWidget {
                     Text(
                       _labels[i],
                       style: _inter(
-                          size: 10,
+                          size: 9,
                           weight: isActive ? FontWeight.w700 : FontWeight.w400,
                           color: color),
                       textAlign: TextAlign.center,
                     ),
                   ],
                 ),
-                if (i < 2)
+                if (i < 3)
                   Expanded(
                     child: Container(
                       height: 2,
@@ -484,9 +503,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   // Two-phase: first "Loading Complete", then "Complete Stage"
   bool _loadingComplete = false;
 
-  // Document uploads
-  File?       _biltyFile;
-  List<File>  _materialDocs = [];
+  // Document uploads — stored as (bytes, filename) tuples for web compatibility
+  ({Uint8List bytes, String name})? _biltyData;
+  List<({Uint8List bytes, String name})> _materialDocs = [];
 
   final _picker = ImagePicker();
 
@@ -501,20 +520,24 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
   Future<void> _pickBilty(ImageSource source) async {
     final picked = await _picker.pickImage(source: source, imageQuality: 85);
-    if (picked != null && mounted) setState(() => _biltyFile = File(picked.path));
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    setState(() => _biltyData = (bytes: bytes, name: picked.name));
   }
 
   Future<void> _pickMaterialDocs(ImageSource source) async {
     if (source == ImageSource.camera) {
       final picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-      if (picked != null && mounted) {
-        setState(() => _materialDocs = [..._materialDocs, File(picked.path)]);
-      }
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      setState(() => _materialDocs = [..._materialDocs, (bytes: bytes, name: picked.name)]);
     } else {
       final picked = await _picker.pickMultiImage(imageQuality: 85);
-      if (picked.isNotEmpty && mounted) {
-        setState(() => _materialDocs = [..._materialDocs, ...picked.map((x) => File(x.path))]);
-      }
+      if (picked.isEmpty || !mounted) return;
+      final items = await Future.wait(
+        picked.map((x) async => (bytes: await x.readAsBytes(), name: x.name)),
+      );
+      setState(() => _materialDocs = [..._materialDocs, ...items]);
     }
   }
 
@@ -541,31 +564,33 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   }
 
   Future<void> _completeStage() async {
-    final formData = FormData.fromMap({
-      'driver_parked':           _driverParked.toString(),
-      'docs_submitted':          _docsSubmitted.toString(),
-      'security_verified':       _securityVerified.toString(),
-      'driver_exited_cabin':     _driverExitedCabin.toString(),
-      'wheel_stoppers':          _wheelStoppers.toString(),
-      'safety_gear':             _safetyGear.toString(),
-      'empty_truck_weight_kg':   _emptyTruckWeight.text.trim(),
-      'empty_truck_weight_unit': _emptyWeightUnit.value,
-      'loaded_truck_weight_kg':  _loadedTruckWeight.text.trim(),
-      'loaded_truck_weight_unit':_loadedWeightUnit.value,
-      if (_biltyFile != null)
-        'bilty': await MultipartFile.fromFile(
-          _biltyFile!.path,
-          filename: 'bilty_${DateTime.now().millisecondsSinceEpoch}.jpg',
-        ),
-      if (_materialDocs.isNotEmpty)
-        'material_docs': [
-          for (final f in _materialDocs)
-            await MultipartFile.fromFile(
-              f.path,
-              filename: 'material_${DateTime.now().millisecondsSinceEpoch}_${_materialDocs.indexOf(f)}.jpg',
-            ),
-        ],
-    });
+    final fields = <String, dynamic>{
+      'driver_parked':            _driverParked.toString(),
+      'docs_submitted':           _docsSubmitted.toString(),
+      'security_verified':        _securityVerified.toString(),
+      'driver_exited_cabin':      _driverExitedCabin.toString(),
+      'wheel_stoppers':           _wheelStoppers.toString(),
+      'safety_gear':              _safetyGear.toString(),
+      'empty_truck_weight_kg':    _emptyTruckWeight.text.trim(),
+      'empty_truck_weight_unit':  _emptyWeightUnit.value,
+      'loaded_truck_weight_kg':   _loadedTruckWeight.text.trim(),
+      'loaded_truck_weight_unit': _loadedWeightUnit.value,
+    };
+
+    if (_biltyData != null) {
+      fields['bilty'] = MultipartFile.fromBytes(
+        _biltyData!.bytes,
+        filename: _biltyData!.name,
+      );
+    }
+
+    if (_materialDocs.isNotEmpty) {
+      fields['material_docs'] = _materialDocs
+          .map((d) => MultipartFile.fromBytes(d.bytes, filename: d.name))
+          .toList();
+    }
+
+    final formData = FormData.fromMap(fields);
     await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage3(formData);
   }
 
@@ -701,9 +726,10 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             _DocUploadTile(
               label: 'Upload Bilty',
               subtitle: 'Attach the lorry receipt / bilty document',
-              file: _biltyFile,
+              bytes: _biltyData?.bytes,
+              fileName: _biltyData?.name,
               onPickSource: _pickBilty,
-              onRemove: () => setState(() => _biltyFile = null),
+              onRemove: () => setState(() => _biltyData = null),
             ),
             const SizedBox(height: 20),
 
@@ -712,7 +738,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             _MultiDocUploadTile(
               label: 'Upload Material Documents',
               subtitle: 'Attach invoices, packing lists, or other material docs',
-              files: _materialDocs,
+              bytesList: _materialDocs.map((d) => d.bytes).toList(),
               onPickSource: _pickMaterialDocs,
               onRemove: _removeMaterialDoc,
             ),
@@ -747,6 +773,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 class _CompletionView extends StatelessWidget {
   final TripModel trip;
   final VoidCallback onDone;
+  final VoidCallback onNextStage;
   final String? emptyWeightKg;
   final String emptyWeightUnit;
   final String? loadedWeightKg;
@@ -755,6 +782,7 @@ class _CompletionView extends StatelessWidget {
   const _CompletionView({
     required this.trip,
     required this.onDone,
+    required this.onNextStage,
     this.emptyWeightKg,
     this.emptyWeightUnit = 'tons',
     this.loadedWeightKg,
@@ -763,85 +791,100 @@ class _CompletionView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: const BoxDecoration(
-                color: Color(0xFFE8F5E9),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.check_circle_rounded, color: _success, size: 56),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Color(0xFFE8F5E9),
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 24),
-            Text('Truck Intake Complete!',
-                style: _manrope(size: 22, weight: FontWeight.w800, color: _success)),
-            const SizedBox(height: 8),
-            Text(trip.tripNumber,
-                style: _manrope(size: 16, weight: FontWeight.w700, color: _secondary)),
-            const SizedBox(height: 6),
-            Text(
-              '${trip.origin} → ${trip.destination}',
-              style: _inter(size: 13),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'All 3 compliance stages completed.\nThe trip is now active.',
-              textAlign: TextAlign.center,
-              style: _inter(size: 13, color: _secondary),
-            ),
-            const SizedBox(height: 32),
+            child: const Icon(Icons.check_circle_rounded, color: _success, size: 56),
+          ),
+          const SizedBox(height: 24),
+          Text('Truck Loading Complete!',
+              style: _manrope(size: 22, weight: FontWeight.w800, color: _success)),
+          const SizedBox(height: 8),
+          Text(trip.tripNumber,
+              style: _manrope(size: 16, weight: FontWeight.w700, color: _secondary)),
+          const SizedBox(height: 6),
+          Text(
+            '${trip.origin} → ${trip.destination}',
+            style: _inter(size: 13),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Loading complete. Proceed to factory exit.',
+            textAlign: TextAlign.center,
+            style: _inter(size: 13, color: _secondary),
+          ),
+          const SizedBox(height: 32),
 
-            // Track Truck — primary CTA
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => TruckTrackingScreen(
-                      trip: trip,
-                      emptyWeightKg: emptyWeightKg,
-                      emptyWeightUnit: emptyWeightUnit,
-                      loadedWeightKg: loadedWeightKg,
-                      loadedWeightUnit: loadedWeightUnit,
-                    ),
+          // Next Stage — primary CTA
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: onNextStage,
+              icon: const Icon(Icons.exit_to_app_rounded, size: 18),
+              label: const Text('Next Stage — Truck Exit →'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Track Truck
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => TruckTrackingScreen(
+                    trip: trip,
+                    emptyWeightKg: emptyWeightKg,
+                    emptyWeightUnit: emptyWeightUnit,
+                    loadedWeightKg: loadedWeightKg,
+                    loadedWeightUnit: loadedWeightUnit,
                   ),
                 ),
-                icon: const Icon(Icons.local_shipping_rounded, size: 18),
-                label: const Text('Track Truck →'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
+              ),
+              icon: const Icon(Icons.local_shipping_rounded, size: 16, color: _primary),
+              label: Text('Track Truck', style: GoogleFonts.manrope(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: _primary)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: const BorderSide(color: _primary),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
             ),
-            const SizedBox(height: 12),
+          ),
+          const SizedBox(height: 12),
 
-            // Back to Dashboard — secondary
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: onDone,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _secondary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: const BorderSide(color: _border, width: 1.5),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  textStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-                child: const Text('Back to Dashboard'),
+          // Back to Dashboard — secondary
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: onDone,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _secondary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: const BorderSide(color: _border, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600),
               ),
+              child: const Text('Back to Dashboard'),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1009,7 +1052,7 @@ class _WeighField extends StatefulWidget {
 }
 
 class _WeighFieldState extends State<_WeighField> {
-  File? _slipImage;
+  Uint8List? _slipBytes;
   final _picker = ImagePicker();
 
   Future<void> _pickImage(ImageSource source) async {
@@ -1019,7 +1062,8 @@ class _WeighFieldState extends State<_WeighField> {
       maxWidth: 1920,
     );
     if (picked != null && mounted) {
-      setState(() => _slipImage = File(picked.path));
+      final bytes = await picked.readAsBytes();
+      setState(() => _slipBytes = bytes);
     }
   }
 
@@ -1158,7 +1202,7 @@ class _WeighFieldState extends State<_WeighField> {
           const SizedBox(height: 12),
 
           // Slip upload area
-          if (_slipImage == null)
+          if (_slipBytes == null)
             GestureDetector(
               onTap: widget.enabled ? _showPickerSheet : null,
               child: Container(
@@ -1201,8 +1245,8 @@ class _WeighFieldState extends State<_WeighField> {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.file(
-                    _slipImage!,
+                  child: Image.memory(
+                    _slipBytes!,
                     width: double.infinity,
                     height: 160,
                     fit: BoxFit.cover,
@@ -1228,7 +1272,7 @@ class _WeighFieldState extends State<_WeighField> {
                   top: 6,
                   left: 6,
                   child: GestureDetector(
-                    onTap: () => setState(() => _slipImage = null),
+                    onTap: () => setState(() => _slipBytes = null),
                     child: Container(
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
@@ -1335,14 +1379,16 @@ Future<ImageSource?> _showSourcePicker(BuildContext context) {
 class _DocUploadTile extends StatelessWidget {
   final String label;
   final String subtitle;
-  final File? file;
+  final Uint8List? bytes;
+  final String? fileName;
   final Future<void> Function(ImageSource) onPickSource;
   final VoidCallback onRemove;
 
   const _DocUploadTile({
     required this.label,
     required this.subtitle,
-    required this.file,
+    required this.bytes,
+    this.fileName,
     required this.onPickSource,
     required this.onRemove,
   });
@@ -1354,7 +1400,7 @@ class _DocUploadTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (file != null) {
+    if (bytes != null) {
       return Container(
         decoration: BoxDecoration(
           color: _success.withValues(alpha: 0.06),
@@ -1366,7 +1412,7 @@ class _DocUploadTile extends StatelessWidget {
             ClipRRect(
               borderRadius:
                   const BorderRadius.vertical(top: Radius.circular(13)),
-              child: Image.file(file!,
+              child: Image.memory(bytes!,
                   width: double.infinity,
                   height: 160,
                   fit: BoxFit.cover),
@@ -1381,7 +1427,7 @@ class _DocUploadTile extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      file!.path.split('/').last,
+                      fileName ?? 'Image selected',
                       style: GoogleFonts.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -1469,14 +1515,14 @@ class _DocUploadTile extends StatelessWidget {
 class _MultiDocUploadTile extends StatelessWidget {
   final String label;
   final String subtitle;
-  final List<File> files;
+  final List<Uint8List> bytesList;
   final Future<void> Function(ImageSource) onPickSource;
   final void Function(int) onRemove;
 
   const _MultiDocUploadTile({
     required this.label,
     required this.subtitle,
-    required this.files,
+    required this.bytesList,
     required this.onPickSource,
     required this.onRemove,
   });
@@ -1491,18 +1537,18 @@ class _MultiDocUploadTile extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (files.isNotEmpty) ...[
+        if (bytesList.isNotEmpty) ...[
           SizedBox(
             height: 100,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: files.length,
+              itemCount: bytesList.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (_, i) => Stack(
                 children: [
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.file(files[i],
+                    child: Image.memory(bytesList[i],
                         width: 90,
                         height: 100,
                         fit: BoxFit.cover),
@@ -1556,13 +1602,13 @@ class _MultiDocUploadTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        files.isEmpty
+                        bytesList.isEmpty
                             ? label
-                            : '${files.length} file${files.length > 1 ? 's' : ''} selected — tap to add more',
+                            : '${bytesList.length} file${bytesList.length > 1 ? 's' : ''} selected — tap to add more',
                         style: GoogleFonts.manrope(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: files.isEmpty ? _onSurface : _success),
+                            color: bytesList.isEmpty ? _onSurface : _success),
                       ),
                       const SizedBox(height: 2),
                       Text(subtitle,
@@ -1669,6 +1715,443 @@ class _PickerOption extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Stage 4: Truck Exit From Factory ─────────────────────────────────────────
+
+class _Stage4Form extends ConsumerStatefulWidget {
+  final TripModel trip;
+  final VoidCallback onComplete;
+  const _Stage4Form({required this.trip, required this.onComplete});
+
+  @override
+  ConsumerState<_Stage4Form> createState() => _Stage4FormState();
+}
+
+class _Stage4FormState extends ConsumerState<_Stage4Form> {
+  bool _truckMoved    = false;
+  bool _securityCheck = false;
+  bool _biltyChecked  = false;
+  bool _weightChecked = false;
+  bool _materialChecked = false;
+  bool _submitting = false;
+
+  bool get _allDone =>
+      _truckMoved && _securityCheck && _biltyChecked && _weightChecked && _materialChecked;
+
+  Future<void> _submit() async {
+    if (!_allDone || _submitting) return;
+    setState(() => _submitting = true);
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/trips/${widget.trip.id}/stage/4', data: {
+        'truck_moved':        _truckMoved,
+        'security_verified':  _securityCheck,
+        'bilty_checked':      _biltyChecked,
+        'weight_checked':     _weightChecked,
+        'material_checked':   _materialChecked,
+      });
+      widget.onComplete();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed: $e', style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Widget _buildCheckTile({
+    required bool value,
+    required String label,
+    required ValueChanged<bool?> onChanged,
+  }) {
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: value ? _success.withValues(alpha: 0.06) : _surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: value ? _success.withValues(alpha: 0.35) : _border,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: value ? _success : Colors.transparent,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: value ? _success : _secondary.withValues(alpha: 0.4),
+                  width: 2,
+                ),
+              ),
+              child: value
+                  ? const Icon(Icons.check_rounded, color: Colors.white, size: 14)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: _manrope(
+                  size: 14,
+                  weight: FontWeight.w600,
+                  color: value ? _success : _onSurface,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _primary.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _primary.withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.exit_to_app_rounded, color: _primary, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Truck Exit From Factory',
+                          style: _manrope(size: 15, weight: FontWeight.w800)),
+                      const SizedBox(height: 2),
+                      Text('Verify all exit procedures before releasing truck',
+                          style: _inter(size: 12)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Arrival steps section
+          _SectionHeader(icon: Icons.directions_car_outlined, title: 'Exit Procedure'),
+          const SizedBox(height: 8),
+          _buildCheckTile(
+            value: _truckMoved,
+            label: 'Truck moves to factory exit gate',
+            onChanged: (v) => setState(() => _truckMoved = v ?? false),
+          ),
+          _buildCheckTile(
+            value: _securityCheck,
+            label: 'Security verifies documents',
+            onChanged: (v) => setState(() => _securityCheck = v ?? false),
+          ),
+          const SizedBox(height: 16),
+
+          // Documents checked section
+          _SectionHeader(icon: Icons.description_outlined, title: 'Documents Checked'),
+          const SizedBox(height: 8),
+          _buildCheckTile(
+            value: _biltyChecked,
+            label: 'Bilty',
+            onChanged: (v) => setState(() => _biltyChecked = v ?? false),
+          ),
+          _buildCheckTile(
+            value: _weightChecked,
+            label: 'Loaded Weight Slip',
+            onChanged: (v) => setState(() => _weightChecked = v ?? false),
+          ),
+          _buildCheckTile(
+            value: _materialChecked,
+            label: 'Material Documents',
+            onChanged: (v) => setState(() => _materialChecked = v ?? false),
+          ),
+          const SizedBox(height: 32),
+
+          // Complete button
+          if (!_allDone)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: Color(0xFFE65100), size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Please confirm all items above before proceeding',
+                      style: _inter(size: 12, color: const Color(0xFFE65100)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (!_allDone) const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: (_allDone && !_submitting) ? _submit : null,
+              icon: _submitting
+                  ? const SizedBox(width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.logout_rounded, size: 18),
+              label: Text(_submitting ? 'Saving…' : 'Truck Exits Factory'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: _border,
+                disabledForegroundColor: _secondary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Stage 4 Complete View ────────────────────────────────────────────────────
+
+class _Stage4CompleteView extends ConsumerStatefulWidget {
+  final TripModel trip;
+  final VoidCallback onDone;
+  const _Stage4CompleteView({required this.trip, required this.onDone});
+
+  @override
+  ConsumerState<_Stage4CompleteView> createState() => _Stage4CompleteViewState();
+}
+
+class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
+  bool _notifying = false;
+  bool _notified  = false;
+
+  Future<void> _notify() async {
+    if (_notifying || _notified) return;
+    setState(() => _notifying = true);
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/trips/${widget.trip.id}/notify-stage4');
+      if (mounted) {
+        setState(() { _notified = true; });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Load owner notified successfully!',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Notification failed: $e',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _notifying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final trip = widget.trip;
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 24),
+          Container(
+            padding: const EdgeInsets.all(28),
+            decoration: BoxDecoration(
+              color: _primary.withValues(alpha: 0.08),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.local_shipping_rounded, color: _primary, size: 56),
+          ),
+          const SizedBox(height: 24),
+          Text('Truck Exits Factory!',
+              style: _manrope(size: 22, weight: FontWeight.w800, color: _primary),
+              textAlign: TextAlign.center),
+          const SizedBox(height: 10),
+          Text(trip.tripNumber,
+              style: _manrope(size: 16, weight: FontWeight.w700, color: _secondary)),
+          const SizedBox(height: 6),
+          Text(
+            '${trip.origin} → ${trip.destination}',
+            style: _inter(size: 13),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+
+          // Status chip
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            decoration: BoxDecoration(
+              color: _success.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _success.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(color: _success, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 8),
+                Text('Trip is Active', style: _manrope(size: 13, weight: FontWeight.w700, color: _success)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'All factory exit procedures have been completed.\nThe truck is now on its way.',
+            textAlign: TextAlign.center,
+            style: _inter(size: 13, color: _secondary),
+          ),
+          const SizedBox(height: 28),
+
+          // Summary info row
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border),
+            ),
+            child: Column(
+              children: [
+                _SummaryRow(label: 'Load', value: trip.loadItem),
+                if (trip.weight != null) ...[
+                  const Divider(height: 16, color: _border),
+                  _SummaryRow(label: 'Weight', value: trip.weight!),
+                ],
+                if (trip.vehiclePlate != null) ...[
+                  const Divider(height: 16, color: _border),
+                  _SummaryRow(label: 'Vehicle', value: trip.vehiclePlate!),
+                ],
+                if (trip.driverName != null) ...[
+                  const Divider(height: 16, color: _border),
+                  _SummaryRow(label: 'Driver', value: trip.driverName!),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Notify Load Owner button ──
+          if (trip.loadOwnerOrgId != null) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: (_notifying || _notified) ? null : _notify,
+                icon: _notifying
+                    ? const SizedBox(width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Icon(_notified ? Icons.check_circle_rounded : Icons.notifications_rounded,
+                        size: 18),
+                label: Text(_notified
+                    ? 'Load Owner Notified'
+                    : _notifying
+                        ? 'Sending…'
+                        : 'Notify Load Owner'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _notified ? _success : _primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: _success.withValues(alpha: 0.7),
+                  disabledForegroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // Back to Dashboard — secondary
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: widget.onDone,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _secondary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: const BorderSide(color: _border, width: 1.5),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600),
+              ),
+              child: const Text('Back to Dashboard'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _SummaryRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: _inter(size: 13, color: _secondary)),
+        Flexible(
+          child: Text(value,
+              style: _manrope(size: 13, weight: FontWeight.w700),
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis),
+        ),
+      ],
     );
   }
 }

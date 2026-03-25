@@ -8,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
+import 'package:fleet_management/providers/notification_provider.dart';
+import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
@@ -172,6 +174,49 @@ class _LoadOwnerDashboardScreenState
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
+
+    // Show a toast banner when a real-time notification arrives
+    ref.listen<NotificationsState>(notificationsProvider, (prev, next) {
+      if (prev == null) return;
+      if (next.items.length > prev.items.length) {
+        final newest = next.items.first;
+        if (!newest.isRead) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.notifications_rounded,
+                    color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(newest.title,
+                          style: GoogleFonts.manrope(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white)),
+                      Text(newest.body,
+                          style: GoogleFonts.inter(
+                              fontSize: 11, color: Colors.white70),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: _primary,
+            duration: const Duration(seconds: 5),
+            behavior: SnackBarBehavior.floating,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ));
+        }
+      }
+    });
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: _background,
@@ -266,12 +311,14 @@ String _initials(String name) {
 
 // ─── Top App Bar ──────────────────────────────────────────────────────────────
 
-class _TopBar extends StatelessWidget {
+class _TopBar extends ConsumerWidget {
   final VoidCallback onMenuTap;
   const _TopBar({required this.onMenuTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(notificationsProvider.select((s) => s.unreadCount));
+
     return SafeArea(
       bottom: false,
       child: Container(
@@ -284,12 +331,237 @@ class _TopBar extends StatelessWidget {
               child: const Icon(Icons.menu, color: _secondary, size: 24),
             ),
             const Spacer(),
-            const Icon(Icons.notifications_outlined,
-                color: _secondary, size: 24),
+            GestureDetector(
+              onTap: () => _showNotificationsSheet(context, ref),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.notifications_outlined,
+                      color: _secondary, size: 24),
+                  if (unread > 0)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: _primary,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                        child: Text(
+                          unread > 9 ? '9+' : '$unread',
+                          style: GoogleFonts.inter(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  void _showNotificationsSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ProviderScope(
+        parent: ProviderScope.containerOf(context),
+        child: const _NotificationsSheet(),
+      ),
+    );
+  }
+}
+
+// ─── Notifications Bottom Sheet ───────────────────────────────────────────────
+
+class _NotificationsSheet extends ConsumerStatefulWidget {
+  const _NotificationsSheet();
+
+  @override
+  ConsumerState<_NotificationsSheet> createState() => _NotificationsSheetState();
+}
+
+class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
+  @override
+  void initState() {
+    super.initState();
+    // Mark all as read when sheet opens
+    Future.microtask(() =>
+        ref.read(notificationsProvider.notifier).markAllRead());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(notificationsProvider);
+    final items = state.items;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.55,
+      maxChildSize: 0.9,
+      minChildSize: 0.3,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFFF8F9FB),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 4),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECEEF0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              child: Row(
+                children: [
+                  Text('Notifications',
+                      style: GoogleFonts.manrope(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: const Color(0xFF191C1E))),
+                  const Spacer(),
+                  if (state.loading)
+                    const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: _primary)),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Color(0xFFECEEF0)),
+            Expanded(
+              child: items.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.notifications_none_rounded,
+                              size: 48, color: Color(0xFF546067)),
+                          const SizedBox(height: 12),
+                          Text('No notifications yet',
+                              style: GoogleFonts.manrope(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: const Color(0xFF546067))),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: controller,
+                      padding: const EdgeInsets.all(16),
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (_, i) => _NotifTile(notif: items[i]),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotifTile extends StatelessWidget {
+  final NotificationModel notif;
+  const _NotifTile({required this.notif});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: notif.isRead ? Colors.white : _primary.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: notif.isRead
+              ? const Color(0xFFECEEF0)
+              : _primary.withValues(alpha: 0.2),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: _primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.local_shipping_rounded,
+                color: _primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(notif.title,
+                    style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF191C1E))),
+                const SizedBox(height: 4),
+                Text(notif.body,
+                    style: GoogleFonts.inter(
+                        fontSize: 12,
+                        color: const Color(0xFF546067))),
+                if (notif.createdAt != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _formatTime(notif.createdAt!),
+                    style: GoogleFonts.inter(
+                        fontSize: 10,
+                        color: const Color(0xFF546067)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (!notif.isRead)
+            Container(
+              width: 8,
+              height: 8,
+              margin: const EdgeInsets.only(top: 4),
+              decoration: const BoxDecoration(
+                  color: _primary, shape: BoxShape.circle),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      final now = DateTime.now();
+      final diff = now.difference(dt);
+      if (diff.inMinutes < 1) return 'Just now';
+      if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+      if (diff.inDays < 1) return '${diff.inHours}h ago';
+      return '${diff.inDays}d ago';
+    } catch (_) {
+      return '';
+    }
   }
 }
 

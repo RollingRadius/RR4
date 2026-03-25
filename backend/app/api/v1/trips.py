@@ -503,6 +503,117 @@ async def submit_stage3(
     return {"success": True, "message": "Truck intake complete. Trip is now active.", "trip": _enrich(trip, db)}
 
 
+class Stage4Payload(BaseModel):
+    truck_moved:       bool
+    security_verified: bool
+    bilty_checked:     bool
+    weight_checked:    bool
+    material_checked:  bool
+
+
+@router.post("/trips/{trip_id}/stage/4", status_code=200)
+def submit_stage4(
+    trip_id: str,
+    body: Stage4Payload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stage 4 — Truck Exit From Factory. Records exit checklist; advances currentStage to 4."""
+    from datetime import datetime, timezone
+
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('fleet_management', 'super_admin'):
+        raise HTTPException(status_code=403, detail="Fleet managers only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.current_stage < 3:
+        raise HTTPException(status_code=409, detail="Complete Stage 3 first")
+    if trip.current_stage >= 4:
+        raise HTTPException(status_code=409, detail="Stage 4 already completed")
+
+    trip.s4_truck_moved       = body.truck_moved
+    trip.s4_security_verified = body.security_verified
+    trip.s4_bilty_checked     = body.bilty_checked
+    trip.s4_weight_checked    = body.weight_checked
+    trip.s4_material_checked  = body.material_checked
+    trip.s4_completed_at      = datetime.now(timezone.utc)
+    trip.current_stage        = 4
+
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "message": "Truck exit recorded. You can now notify the load owner.", "trip": _enrich(trip, db)}
+
+
+@router.post("/trips/{trip_id}/notify-stage4", status_code=200)
+async def notify_stage4(
+    trip_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Send a real-time notification + persist it for the load owner org."""
+    import uuid as _uuid_mod
+    from datetime import datetime, timezone
+
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('fleet_management', 'super_admin'):
+        raise HTTPException(status_code=403, detail="Fleet managers only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.current_stage < 4:
+        raise HTTPException(status_code=409, detail="Complete Stage 4 first before notifying")
+
+    if not trip.load_owner_org_id:
+        raise HTTPException(status_code=400, detail="No load owner organisation linked to this trip")
+
+    recipient_org_id = str(trip.load_owner_org_id)
+    title = "Truck has exited the factory"
+    body  = (
+        f"Your shipment {trip.trip_number} ({trip.origin} → {trip.destination}) "
+        "truck has completed factory exit. All documents were verified."
+    )
+
+    # Persist notification
+    from app.models.notification import Notification
+    notif = Notification(
+        recipient_org_id=trip.load_owner_org_id,
+        trip_id=trip.id,
+        type="stage4_exit",
+        title=title,
+        body=body,
+    )
+    db.add(notif)
+
+    trip.s4_notified_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(notif)
+
+    # Push real-time message over WebSocket (best-effort)
+    from app.services.ws_manager import manager
+    message = {
+        "type":        "stage4_exit",
+        "id":          str(notif.id),
+        "trip_id":     str(trip.id),
+        "trip_number": trip.trip_number,
+        "origin":      trip.origin,
+        "destination": trip.destination,
+        "title":       title,
+        "body":        body,
+        "is_read":     False,
+        "created_at":  notif.created_at.isoformat() if notif.created_at else None,
+    }
+    await manager.send_to_org(recipient_org_id, message)
+
+    connected = manager.connected_count(recipient_org_id)
+    return {
+        "success": True,
+        "message": "Notification sent.",
+        "realtime_clients": connected,
+        "notification": notif.to_dict(),
+    }
+
+
 @router.patch("/trips/{trip_id}/cancel")
 def cancel_trip(
     trip_id: str,

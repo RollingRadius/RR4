@@ -96,6 +96,15 @@ class Trip(Base):
     s3_material_doc_urls        = Column(Text,         nullable=True)   # JSON list of material doc URL paths
     s3_completed_at             = Column(TIMESTAMP(timezone=True), nullable=True)
 
+    # Stage 4 — Truck Exit From Factory
+    s4_truck_moved      = Column(Boolean, nullable=True)
+    s4_security_verified = Column(Boolean, nullable=True)
+    s4_bilty_checked    = Column(Boolean, nullable=True)
+    s4_weight_checked   = Column(Boolean, nullable=True)
+    s4_material_checked = Column(Boolean, nullable=True)
+    s4_completed_at     = Column(TIMESTAMP(timezone=True), nullable=True)
+    s4_notified_at      = Column(TIMESTAMP(timezone=True), nullable=True)
+
     # ── Dates ────────────────────────────────────────────────────────────────────
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
@@ -159,6 +168,14 @@ class Trip(Base):
             "s3_bilty_url": self.s3_bilty_url,
             "s3_material_doc_urls": self.s3_material_doc_urls,
             "s3_completed_at": self.s3_completed_at.isoformat() if self.s3_completed_at else None,
+            # Stage 4
+            "s4_truck_moved": self.s4_truck_moved,
+            "s4_security_verified": self.s4_security_verified,
+            "s4_bilty_checked": self.s4_bilty_checked,
+            "s4_weight_checked": self.s4_weight_checked,
+            "s4_material_checked": self.s4_material_checked,
+            "s4_completed_at": self.s4_completed_at.isoformat() if self.s4_completed_at else None,
+            "s4_notified_at": self.s4_notified_at.isoformat() if self.s4_notified_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

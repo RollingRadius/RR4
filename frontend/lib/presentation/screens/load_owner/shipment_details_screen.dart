@@ -3,9 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:dio/dio.dart';
 
+import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
+
+// Additional colour used for stage 4
+const _stage4Color = Color(0xFF6750A4);
 
 // ─── Colour tokens (shared with dashboard) ────────────────────────────────────
 const _primary = Color(0xFFFF6B00);
@@ -146,6 +150,10 @@ class _ShipmentBody extends StatelessWidget {
         ],
         if (trip.currentStage >= 3) ...[
           _Stage3Card(trip: trip),
+          const SizedBox(height: 12),
+        ],
+        if (trip.currentStage >= 4) ...[
+          _Stage4Card(trip: trip),
           const SizedBox(height: 12),
         ],
         const SizedBox(height: 32),
@@ -318,6 +326,9 @@ class _StageTimeline extends StatelessWidget {
           _StepDot(label: 'Compliance', done: trip.currentStage >= 2, step: 2),
           _StepLine(done: trip.currentStage >= 3),
           _StepDot(label: 'Weighing', done: trip.currentStage >= 3, step: 3),
+          _StepLine(done: trip.currentStage >= 4),
+          _StepDot(label: 'Exit', done: trip.currentStage >= 4, step: 4,
+              activeColor: _stage4Color),
         ],
       ),
     );
@@ -328,40 +339,44 @@ class _StepDot extends StatelessWidget {
   final String label;
   final bool done;
   final int step;
-  const _StepDot({required this.label, required this.done, required this.step});
+  final Color? activeColor;
+  const _StepDot({required this.label, required this.done, required this.step,
+      this.activeColor});
 
   @override
   Widget build(BuildContext context) {
+    final fillColor = done ? (activeColor ?? _primary) : _surfaceContainer;
+    final textColor = done ? (activeColor ?? _primary) : _secondary;
     return Expanded(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
-              color: done ? _primary : _surfaceContainer,
+              color: fillColor,
               shape: BoxShape.circle,
             ),
             child: done
-                ? const Icon(Icons.check_rounded, size: 16, color: Colors.white)
+                ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
                 : Center(
                     child: Text(
                       '$step',
                       style: GoogleFonts.manrope(
-                          fontSize: 13,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                           color: _secondary),
                     ),
                   ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           Text(
             label,
             style: GoogleFonts.inter(
-                fontSize: 10,
+                fontSize: 9,
                 fontWeight: FontWeight.w500,
-                color: done ? _primary : _secondary),
+                color: textColor),
             textAlign: TextAlign.center,
           ),
         ],
@@ -653,6 +668,25 @@ class _Stage3Card extends StatelessWidget {
               ],
             ),
           ],
+          // Bilty image
+          if (trip.s3BiltyUrl != null) ...[
+            const Divider(height: 24),
+            _DocImageSection(
+              title: 'Bilty',
+              icon: Icons.receipt_long_rounded,
+              urls: [trip.s3BiltyUrl!],
+            ),
+          ],
+          // Material documents
+          if (trip.s3MaterialDocUrls != null &&
+              trip.s3MaterialDocUrls!.isNotEmpty) ...[
+            const Divider(height: 24),
+            _DocImageSection(
+              title: 'Material Documents',
+              icon: Icons.folder_open_rounded,
+              urls: trip.s3MaterialDocUrls!,
+            ),
+          ],
           const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
@@ -682,6 +716,212 @@ class _Stage3Card extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Stage 4 card ─────────────────────────────────────────────────────────────
+
+class _Stage4Card extends StatelessWidget {
+  final TripModel trip;
+  const _Stage4Card({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    final notified = trip.s4NotifiedAt != null;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _stage4Color.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: const BoxDecoration(
+                  color: _stage4Color,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_rounded, size: 14, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Stage 4 — Truck Exit From Factory',
+                  style: GoogleFonts.manrope(
+                      fontSize: 14, fontWeight: FontWeight.w700, color: _onSurface),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: _stage4Color.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text('COMPLETED',
+                    style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: _stage4Color)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _CheckRow(label: 'Truck moved to exit gate',      value: trip.s4TruckMoved),
+          _CheckRow(label: 'Security verified documents',   value: trip.s4SecurityVerified),
+          _CheckRow(label: 'Bilty checked',                 value: trip.s4BiltyChecked),
+          _CheckRow(label: 'Loaded weight slip checked',    value: trip.s4WeightChecked),
+          _CheckRow(label: 'Material documents checked',    value: trip.s4MaterialChecked),
+          const SizedBox(height: 8),
+          // Notification status
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: notified
+                  ? const Color(0xFF006B5E).withValues(alpha: 0.07)
+                  : _surfaceContainer.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  notified ? Icons.notifications_active_rounded : Icons.notifications_off_rounded,
+                  size: 14,
+                  color: notified ? const Color(0xFF006B5E) : _secondary,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  notified
+                      ? 'You were notified by the fleet manager'
+                      : 'Fleet manager has not sent a notification yet',
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: notified ? const Color(0xFF006B5E) : _secondary),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Document image section ───────────────────────────────────────────────────
+
+class _DocImageSection extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final List<String> urls;
+
+  const _DocImageSection({
+    required this.title,
+    required this.icon,
+    required this.urls,
+  });
+
+  String _fullUrl(String path) {
+    if (path.startsWith('http')) return path;
+    return '${AppConfig.apiBaseUrl}$path';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 15, color: _secondary),
+            const SizedBox(width: 6),
+            Text(title,
+                style: GoogleFonts.manrope(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _onSurface)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (urls.length == 1)
+          _NetworkImage(url: _fullUrl(urls.first), fullWidth: true)
+        else
+          SizedBox(
+            height: 120,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: urls.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (_, i) =>
+                  _NetworkImage(url: _fullUrl(urls[i]), fullWidth: false),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _NetworkImage extends StatelessWidget {
+  final String url;
+  final bool fullWidth;
+  const _NetworkImage({required this.url, required this.fullWidth});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _showFullScreen(context),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.network(
+          url,
+          width: fullWidth ? double.infinity : 110,
+          height: fullWidth ? 200 : 120,
+          fit: BoxFit.cover,
+          loadingBuilder: (_, child, progress) => progress == null
+              ? child
+              : Container(
+                  width: fullWidth ? double.infinity : 110,
+                  height: fullWidth ? 200 : 120,
+                  color: _surfaceContainer,
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: _primary),
+                  ),
+                ),
+          errorBuilder: (_, __, ___) => Container(
+            width: fullWidth ? double.infinity : 110,
+            height: fullWidth ? 200 : 120,
+            color: _surfaceContainer,
+            child: const Icon(Icons.broken_image_rounded,
+                color: _secondary, size: 32),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showFullScreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: const IconThemeData(color: Colors.white),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: Image.network(url, fit: BoxFit.contain),
+            ),
+          ),
+        ),
       ),
     );
   }

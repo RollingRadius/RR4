@@ -29,6 +29,7 @@ from .report import Report, ReportExecution
 from .dashboard import Dashboard, DashboardWidget
 from .kpi import KPI, KPIHistory
 from .trip import Trip
+from .notification import Notification
 
 __all__ = [
     "User",
@@ -70,4 +71,5 @@ __all__ = [
     "KPI",
     "KPIHistory",
     "Trip",
+    "Notification",
 ]

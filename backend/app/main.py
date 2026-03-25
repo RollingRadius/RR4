@@ -123,7 +123,8 @@ async def shutdown_event():
 from app.api.v1 import (
     auth, company, driver, user, organization, reports, capabilities,
     custom_roles, templates, vehicles, profile, roles, organization_management,
-    tracking, expenses, invoices, payments, budgets, branding, loads, trips
+    tracking, expenses, invoices, payments, budgets, branding, loads, trips,
+    notifications,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -149,6 +150,9 @@ app.include_router(payments.router, prefix="/api/payments", tags=["Payments"])
 app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])
 app.include_router(loads.router, prefix="/api/loads", tags=["Loads"])
 app.include_router(trips.router, prefix="/api", tags=["Trips"])
+# Notifications — prefix="" so the router's own full paths (/ws/notifications,
+# /api/notifications, etc.) are used unchanged.
+app.include_router(notifications.router, prefix="", tags=["Notifications"])
 
 # Mount static files for uploads (logos, vehicle photos, etc.)
 uploads_path = os.path.join(os.getcwd(), settings.UPLOAD_DIR)

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class TripModel {
   final String id;
   final String tripNumber;
@@ -45,6 +47,17 @@ class TripModel {
   final String? s3EmptyTruckWeightUnit;
   final String? s3LoadedTruckWeightKg;
   final String? s3LoadedTruckWeightUnit;
+  final String? s3BiltyUrl;
+  final List<String>? s3MaterialDocUrls;
+
+  // ── Stage 4 fields ───────────────────────────────────────────────────────────
+  final bool? s4TruckMoved;
+  final bool? s4SecurityVerified;
+  final bool? s4BiltyChecked;
+  final bool? s4WeightChecked;
+  final bool? s4MaterialChecked;
+  final String? s4CompletedAt;
+  final String? s4NotifiedAt;
 
   const TripModel({
     required this.id,
@@ -87,6 +100,15 @@ class TripModel {
     this.s3EmptyTruckWeightUnit,
     this.s3LoadedTruckWeightKg,
     this.s3LoadedTruckWeightUnit,
+    this.s3BiltyUrl,
+    this.s3MaterialDocUrls,
+    this.s4TruckMoved,
+    this.s4SecurityVerified,
+    this.s4BiltyChecked,
+    this.s4WeightChecked,
+    this.s4MaterialChecked,
+    this.s4CompletedAt,
+    this.s4NotifiedAt,
   });
 
   bool get isOngoing => status == 'ongoing';
@@ -137,7 +159,28 @@ class TripModel {
       s3EmptyTruckWeightUnit: json['s3_empty_truck_weight_unit'] as String?,
       s3LoadedTruckWeightKg: json['s3_loaded_truck_weight_kg'] as String?,
       s3LoadedTruckWeightUnit: json['s3_loaded_truck_weight_unit'] as String?,
+      s3BiltyUrl: json['s3_bilty_url'] as String?,
+      s3MaterialDocUrls: _parseUrlList(json['s3_material_doc_urls']),
+      s4TruckMoved:       json['s4_truck_moved']       as bool?,
+      s4SecurityVerified: json['s4_security_verified'] as bool?,
+      s4BiltyChecked:     json['s4_bilty_checked']     as bool?,
+      s4WeightChecked:    json['s4_weight_checked']     as bool?,
+      s4MaterialChecked:  json['s4_material_checked']   as bool?,
+      s4CompletedAt:      json['s4_completed_at']       as String?,
+      s4NotifiedAt:       json['s4_notified_at']        as String?,
     );
+  }
+
+  static List<String>? _parseUrlList(dynamic value) {
+    if (value == null) return null;
+    if (value is List) return List<String>.from(value);
+    if (value is String && value.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List) return List<String>.from(decoded);
+      } catch (_) {}
+    }
+    return null;
   }
 }
 
