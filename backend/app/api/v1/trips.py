@@ -8,7 +8,11 @@ import string
 from typing import Optional, List
 from datetime import date
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import json
+import uuid as _uuid_module
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -320,17 +324,10 @@ class Stage2Payload(BaseModel):
     entry_permission:  bool
 
 
-class Stage3Payload(BaseModel):
-    driver_parked:              bool
-    docs_submitted:             bool
-    security_verified:          bool
-    driver_exited_cabin:        bool
-    wheel_stoppers:             bool
-    safety_gear:                bool
-    empty_truck_weight_kg:      Optional[str] = None   # Dharma kanta — before loading (value)
-    empty_truck_weight_unit:    Optional[str] = 'tons' # 'tons' or 'kg'
-    loaded_truck_weight_kg:     Optional[str] = None   # Dharma kanta — after loading (value)
-    loaded_truck_weight_unit:   Optional[str] = 'tons' # 'tons' or 'kg'
+# Stage3Payload is replaced by Form fields + UploadFile in the endpoint below.
+# Helper to coerce form string → bool
+def _form_bool(v: str) -> bool:
+    return v.lower() in ('true', '1', 'yes')
 
 
 # ─── Stage Endpoints ──────────────────────────────────────────────────────────
@@ -426,14 +423,28 @@ def submit_stage2(
 
 
 @router.post("/trips/{trip_id}/stage/3", status_code=200)
-def submit_stage3(
+async def submit_stage3(
     trip_id: str,
-    body: Stage3Payload,
+    driver_parked:           str = Form(...),
+    docs_submitted:          str = Form(...),
+    security_verified:       str = Form(...),
+    driver_exited_cabin:     str = Form(...),
+    wheel_stoppers:          str = Form(...),
+    safety_gear:             str = Form(...),
+    empty_truck_weight_kg:   Optional[str] = Form(None),
+    empty_truck_weight_unit: Optional[str] = Form('tons'),
+    loaded_truck_weight_kg:  Optional[str] = Form(None),
+    loaded_truck_weight_unit: Optional[str] = Form('tons'),
+    bilty:                   Optional[UploadFile] = File(None),
+    material_docs:           Optional[List[UploadFile]] = File(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Stage 3 — Truck Arrival at Factory. Completes the trip intake."""
+    """Stage 3 — Truck Arrival at Factory. Completes the trip intake.
+    Accepts multipart/form-data so bilty and material documents can be uploaded."""
     from datetime import datetime, timezone
+    from app.config import settings
+
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
     if role_key not in ('fleet_management', 'super_admin'):
@@ -445,19 +456,47 @@ def submit_stage3(
     if trip.current_stage >= 3:
         raise HTTPException(status_code=409, detail="Stage 3 already completed")
 
-    trip.s3_driver_parked            = body.driver_parked
-    trip.s3_docs_submitted           = body.docs_submitted
-    trip.s3_security_verified        = body.security_verified
-    trip.s3_driver_exited_cabin      = body.driver_exited_cabin
-    trip.s3_wheel_stoppers           = body.wheel_stoppers
-    trip.s3_safety_gear              = body.safety_gear
-    trip.s3_empty_truck_weight_kg    = body.empty_truck_weight_kg
-    trip.s3_empty_truck_weight_unit  = body.empty_truck_weight_unit or 'tons'
-    trip.s3_loaded_truck_weight_kg   = body.loaded_truck_weight_kg
-    trip.s3_loaded_truck_weight_unit = body.loaded_truck_weight_unit or 'tons'
+    # Save bilty file
+    bilty_url = None
+    if bilty and bilty.filename:
+        ext = Path(bilty.filename).suffix or '.jpg'
+        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+        trip_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"bilty_{_uuid_module.uuid4().hex}{ext}"
+        with open(trip_dir / filename, "wb") as f:
+            f.write(await bilty.read())
+        bilty_url = f"/uploads/trips/{trip_id}/{filename}"
+
+    # Save material doc files
+    material_urls = []
+    if material_docs:
+        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+        trip_dir.mkdir(parents=True, exist_ok=True)
+        for doc in material_docs:
+            if doc and doc.filename:
+                ext = Path(doc.filename).suffix or '.jpg'
+                filename = f"material_{_uuid_module.uuid4().hex}{ext}"
+                with open(trip_dir / filename, "wb") as f:
+                    f.write(await doc.read())
+                material_urls.append(f"/uploads/trips/{trip_id}/{filename}")
+
+    trip.s3_driver_parked            = _form_bool(driver_parked)
+    trip.s3_docs_submitted           = _form_bool(docs_submitted)
+    trip.s3_security_verified        = _form_bool(security_verified)
+    trip.s3_driver_exited_cabin      = _form_bool(driver_exited_cabin)
+    trip.s3_wheel_stoppers           = _form_bool(wheel_stoppers)
+    trip.s3_safety_gear              = _form_bool(safety_gear)
+    trip.s3_empty_truck_weight_kg    = empty_truck_weight_kg
+    trip.s3_empty_truck_weight_unit  = empty_truck_weight_unit or 'tons'
+    trip.s3_loaded_truck_weight_kg   = loaded_truck_weight_kg
+    trip.s3_loaded_truck_weight_unit = loaded_truck_weight_unit or 'tons'
+    if bilty_url:
+        trip.s3_bilty_url = bilty_url
+    if material_urls:
+        trip.s3_material_doc_urls = json.dumps(material_urls)
     trip.s3_completed_at             = datetime.now(timezone.utc)
     trip.current_stage               = 3
-    trip.status                      = 'ongoing'  # now active in factory
+    trip.status                      = 'ongoing'
 
     db.commit()
     db.refresh(trip)

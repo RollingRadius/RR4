@@ -86,18 +86,23 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
     }
   }
 
-  Future<bool> submitStage3(Map<String, dynamic> data) async {
+  Future<bool> submitStage3(FormData formData) async {
     state = state.copyWith(isSubmitting: true, clearError: true);
     try {
       final api = _ref.read(apiServiceProvider);
-      await api.dio.post('/api/trips/$tripId/stage/3', data: data);
+      await api.dio.post('/api/trips/$tripId/stage/3', data: formData);
+      // Extract weight values from form fields for local state
+      String? _field(String key) {
+        final entry = formData.fields.where((f) => f.key == key).firstOrNull;
+        return entry?.value;
+      }
       state = state.copyWith(
         isSubmitting: false,
         currentStage: 3,
-        emptyWeightKg: data['empty_truck_weight_kg'] as String?,
-        emptyWeightUnit: data['empty_truck_weight_unit'] as String? ?? 'tons',
-        loadedWeightKg: data['loaded_truck_weight_kg'] as String?,
-        loadedWeightUnit: data['loaded_truck_weight_unit'] as String? ?? 'tons',
+        emptyWeightKg: _field('empty_truck_weight_kg'),
+        emptyWeightUnit: _field('empty_truck_weight_unit') ?? 'tons',
+        loadedWeightKg: _field('loaded_truck_weight_kg'),
+        loadedWeightUnit: _field('loaded_truck_weight_unit') ?? 'tons',
       );
       return true;
     } on DioException catch (e) {

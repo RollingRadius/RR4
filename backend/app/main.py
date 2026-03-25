@@ -153,7 +153,7 @@ app.include_router(trips.router, prefix="/api", tags=["Trips"])
 # Mount static files for uploads (logos, vehicle photos, etc.)
 uploads_path = os.path.join(os.getcwd(), settings.UPLOAD_DIR)
 os.makedirs(uploads_path, exist_ok=True)
-for subdir in ("logos", "vehicles"):
+for subdir in ("logos", "vehicles", "trips"):
     try:
         os.makedirs(os.path.join(uploads_path, subdir), exist_ok=True)
     except PermissionError:

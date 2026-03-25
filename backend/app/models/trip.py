@@ -92,6 +92,8 @@ class Trip(Base):
     s3_empty_truck_weight_unit  = Column(String(10),   nullable=True, default='tons')  # 'tons' or 'kg'
     s3_loaded_truck_weight_kg   = Column(String(20),   nullable=True)   # Dharma kanta — after loading (value)
     s3_loaded_truck_weight_unit = Column(String(10),   nullable=True, default='tons')  # 'tons' or 'kg'
+    s3_bilty_url                = Column(String(500),  nullable=True)   # URL path to bilty image
+    s3_material_doc_urls        = Column(Text,         nullable=True)   # JSON list of material doc URL paths
     s3_completed_at             = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # ── Dates ────────────────────────────────────────────────────────────────────
@@ -154,6 +156,8 @@ class Trip(Base):
             "s3_empty_truck_weight_unit": self.s3_empty_truck_weight_unit or 'tons',
             "s3_loaded_truck_weight_kg": self.s3_loaded_truck_weight_kg,
             "s3_loaded_truck_weight_unit": self.s3_loaded_truck_weight_unit or 'tons',
+            "s3_bilty_url": self.s3_bilty_url,
+            "s3_material_doc_urls": self.s3_material_doc_urls,
             "s3_completed_at": self.s3_completed_at.isoformat() if self.s3_completed_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

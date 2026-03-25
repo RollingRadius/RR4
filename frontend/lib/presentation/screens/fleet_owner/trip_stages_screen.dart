@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -498,15 +499,22 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     super.dispose();
   }
 
-  Future<void> _pickBilty() async {
-    final picked = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+  Future<void> _pickBilty(ImageSource source) async {
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
     if (picked != null && mounted) setState(() => _biltyFile = File(picked.path));
   }
 
-  Future<void> _pickMaterialDocs() async {
-    final picked = await _picker.pickMultiImage(imageQuality: 85);
-    if (picked.isNotEmpty && mounted) {
-      setState(() => _materialDocs = [..._materialDocs, ...picked.map((x) => File(x.path))]);
+  Future<void> _pickMaterialDocs(ImageSource source) async {
+    if (source == ImageSource.camera) {
+      final picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+      if (picked != null && mounted) {
+        setState(() => _materialDocs = [..._materialDocs, File(picked.path)]);
+      }
+    } else {
+      final picked = await _picker.pickMultiImage(imageQuality: 85);
+      if (picked.isNotEmpty && mounted) {
+        setState(() => _materialDocs = [..._materialDocs, ...picked.map((x) => File(x.path))]);
+      }
     }
   }
 
@@ -533,18 +541,32 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   }
 
   Future<void> _completeStage() async {
-    await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage3({
-      'driver_parked':              _driverParked,
-      'docs_submitted':             _docsSubmitted,
-      'security_verified':          _securityVerified,
-      'driver_exited_cabin':        _driverExitedCabin,
-      'wheel_stoppers':             _wheelStoppers,
-      'safety_gear':                _safetyGear,
-      'empty_truck_weight_kg':      _emptyTruckWeight.text.trim(),
-      'empty_truck_weight_unit':    _emptyWeightUnit.value,
-      'loaded_truck_weight_kg':     _loadedTruckWeight.text.trim(),
-      'loaded_truck_weight_unit':   _loadedWeightUnit.value,
+    final formData = FormData.fromMap({
+      'driver_parked':           _driverParked.toString(),
+      'docs_submitted':          _docsSubmitted.toString(),
+      'security_verified':       _securityVerified.toString(),
+      'driver_exited_cabin':     _driverExitedCabin.toString(),
+      'wheel_stoppers':          _wheelStoppers.toString(),
+      'safety_gear':             _safetyGear.toString(),
+      'empty_truck_weight_kg':   _emptyTruckWeight.text.trim(),
+      'empty_truck_weight_unit': _emptyWeightUnit.value,
+      'loaded_truck_weight_kg':  _loadedTruckWeight.text.trim(),
+      'loaded_truck_weight_unit':_loadedWeightUnit.value,
+      if (_biltyFile != null)
+        'bilty': await MultipartFile.fromFile(
+          _biltyFile!.path,
+          filename: 'bilty_${DateTime.now().millisecondsSinceEpoch}.jpg',
+        ),
+      if (_materialDocs.isNotEmpty)
+        'material_docs': [
+          for (final f in _materialDocs)
+            await MultipartFile.fromFile(
+              f.path,
+              filename: 'material_${DateTime.now().millisecondsSinceEpoch}_${_materialDocs.indexOf(f)}.jpg',
+            ),
+        ],
     });
+    await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage3(formData);
   }
 
   @override
@@ -680,7 +702,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               label: 'Upload Bilty',
               subtitle: 'Attach the lorry receipt / bilty document',
               file: _biltyFile,
-              onTap: _pickBilty,
+              onPickSource: _pickBilty,
               onRemove: () => setState(() => _biltyFile = null),
             ),
             const SizedBox(height: 20),
@@ -691,7 +713,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               label: 'Upload Material Documents',
               subtitle: 'Attach invoices, packing lists, or other material docs',
               files: _materialDocs,
-              onTap: _pickMaterialDocs,
+              onPickSource: _pickMaterialDocs,
               onRemove: _removeMaterialDoc,
             ),
             const SizedBox(height: 28),
@@ -1245,22 +1267,90 @@ class _WeighFieldState extends State<_WeighField> {
   }
 }
 
+// ─── Source picker bottom sheet helper ───────────────────────────────────────
+
+Future<ImageSource?> _showSourcePicker(BuildContext context) {
+  return showModalBottomSheet<ImageSource>(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (_) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 36,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFECEEF0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            ListTile(
+              leading: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: _primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.camera_alt_rounded, color: _primary, size: 20),
+              ),
+              title: Text('Take Photo',
+                  style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600,
+                      color: _onSurface)),
+              subtitle: Text('Use camera',
+                  style: GoogleFonts.inter(fontSize: 12, color: _secondary)),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: _primary.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.photo_library_rounded, color: _primary, size: 20),
+              ),
+              title: Text('Choose from Gallery',
+                  style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600,
+                      color: _onSurface)),
+              subtitle: Text('Browse photos',
+                  style: GoogleFonts.inter(fontSize: 12, color: _secondary)),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
 // ─── Single-file Document Upload Tile ────────────────────────────────────────
 
 class _DocUploadTile extends StatelessWidget {
   final String label;
   final String subtitle;
   final File? file;
-  final VoidCallback onTap;
+  final Future<void> Function(ImageSource) onPickSource;
   final VoidCallback onRemove;
 
   const _DocUploadTile({
     required this.label,
     required this.subtitle,
     required this.file,
-    required this.onTap,
+    required this.onPickSource,
     required this.onRemove,
   });
+
+  Future<void> _pick(BuildContext context) async {
+    final source = await _showSourcePicker(context);
+    if (source != null) await onPickSource(source);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1300,6 +1390,17 @@ class _DocUploadTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  GestureDetector(
+                    onTap: () => _pick(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('Retake',
+                          style: GoogleFonts.manrope(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: _primary)),
+                    ),
+                  ),
                   IconButton(
                     onPressed: onRemove,
                     icon: const Icon(Icons.delete_outline_rounded,
@@ -1317,13 +1418,13 @@ class _DocUploadTile extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: () => _pick(context),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
         decoration: BoxDecoration(
           color: _surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _border, style: BorderStyle.solid),
+          border: Border.all(color: _border),
         ),
         child: Row(
           children: [
@@ -1369,16 +1470,21 @@ class _MultiDocUploadTile extends StatelessWidget {
   final String label;
   final String subtitle;
   final List<File> files;
-  final VoidCallback onTap;
+  final Future<void> Function(ImageSource) onPickSource;
   final void Function(int) onRemove;
 
   const _MultiDocUploadTile({
     required this.label,
     required this.subtitle,
     required this.files,
-    required this.onTap,
+    required this.onPickSource,
     required this.onRemove,
   });
+
+  Future<void> _pick(BuildContext context) async {
+    final source = await _showSourcePicker(context);
+    if (source != null) await onPickSource(source);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1424,7 +1530,7 @@ class _MultiDocUploadTile extends StatelessWidget {
           const SizedBox(height: 10),
         ],
         GestureDetector(
-          onTap: onTap,
+          onTap: () => _pick(context),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
             decoration: BoxDecoration(
@@ -1452,7 +1558,7 @@ class _MultiDocUploadTile extends StatelessWidget {
                       Text(
                         files.isEmpty
                             ? label
-                            : '${files.length} file${files.length > 1 ? 's' : ''} selected',
+                            : '${files.length} file${files.length > 1 ? 's' : ''} selected — tap to add more',
                         style: GoogleFonts.manrope(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
