@@ -88,6 +88,25 @@ class TripNotifier extends StateNotifier<TripState> {
   Future<void> silentRefresh({String? statusFilter}) =>
       loadTrips(statusFilter: statusFilter, silent: true);
 
+  /// Replace one trip in the in-memory list without hitting the API.
+  void patchTrip(TripModel updated) {
+    final exists = state.trips.any((t) => t.id == updated.id);
+    state = state.copyWith(
+      trips: exists
+          ? state.trips.map((t) => t.id == updated.id ? updated : t).toList()
+          : [updated, ...state.trips],
+      lastUpdated: DateTime.now(),
+    );
+  }
+
+  /// Fetch one trip from the API and patch the list silently.
+  Future<void> fetchSingleTrip(String tripId) async {
+    try {
+      final resp = await _apiService.dio.get('/api/trips/$tripId');
+      patchTrip(TripModel.fromJson(resp.data as Map<String, dynamic>));
+    } catch (_) {}
+  }
+
   Future<TripLocationModel?> fetchTripLocation(String tripId) async {
     try {
       final resp =

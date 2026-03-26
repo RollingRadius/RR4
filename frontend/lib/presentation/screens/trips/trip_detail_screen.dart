@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
+import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _primary = Color(0xFFFF6B00);
@@ -71,6 +72,12 @@ class TripDetailScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ── Go to Present Stage button ───────────────────────────
+                  if (trip.currentStage < 4) ...[
+                    _GoToStageButton(trip: trip),
+                    const SizedBox(height: 14),
+                  ],
+
                   // ── Route card ──────────────────────────────────────────────
                   _RouteCard(trip: trip),
                   const SizedBox(height: 14),
@@ -164,6 +171,91 @@ class TripDetailScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Go to Present Stage button ───────────────────────────────────────────────
+
+class _GoToStageButton extends ConsumerWidget {
+  final TripModel trip;
+  const _GoToStageButton({required this.trip});
+
+  static String _stageName(int stage) => switch (stage) {
+        0 => 'Truck Registration',
+        1 => 'Compliance Check',
+        2 => 'Factory Arrival',
+        _ => 'Exit & Complete',
+      };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stage = trip.currentStage;
+    return GestureDetector(
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)))
+          .then((_) {
+        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing');
+      }),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF001E40), Color(0xFF003070)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF001E40).withValues(alpha: 0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.play_arrow_rounded,
+                  color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'GO TO PRESENT STAGE',
+                    style: _inter(
+                            size: 9,
+                            weight: FontWeight.w700,
+                            color: Colors.white70)
+                        .copyWith(letterSpacing: 1.2),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Stage ${stage + 1}: ${_stageName(stage)}',
+                    style: _manrope(
+                        size: 14,
+                        weight: FontWeight.w800,
+                        color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.arrow_forward_ios_rounded,
+                color: Colors.white70, size: 14),
+          ],
+        ),
       ),
     );
   }

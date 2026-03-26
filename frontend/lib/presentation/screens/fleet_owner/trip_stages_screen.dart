@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/trip_stages_provider.dart';
+import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 
@@ -37,18 +38,48 @@ class TripStagesScreen extends ConsumerStatefulWidget {
 }
 
 class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
-  late final (String, int) _providerKey;
+  late TripModel _trip;           // always the freshest copy
+  late (String, int) _providerKey;
+  int _tripFreshness = 0;         // increments when fresh data arrives → stage forms rebuild
+  bool _fetchingFresh = false;
   bool _showStage4 = false;
   bool _stage4Done = false;
 
   @override
   void initState() {
     super.initState();
-    _providerKey = (widget.trip.id, widget.trip.currentStage);
-    // If trip already has stage 4 done (currentStage >= 4) restore local state
-    if (widget.trip.currentStage >= 4) {
+    _trip = widget.trip;
+    _providerKey = (_trip.id, _trip.currentStage);
+    if (_trip.currentStage >= 4) {
       _showStage4 = true;
       _stage4Done = true;
+    }
+    // Fetch fresh data after first frame so ref is available
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchFreshTrip());
+  }
+
+  Future<void> _fetchFreshTrip() async {
+    if (!mounted) return;
+    setState(() => _fetchingFresh = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final resp = await dio.get('/api/trips/${widget.trip.id}');
+      if (!mounted) return;
+      final fresh = TripModel.fromJson(resp.data as Map<String, dynamic>);
+      setState(() {
+        _trip = fresh;
+        _tripFreshness++;
+        _fetchingFresh = false;
+        _providerKey = (fresh.id, fresh.currentStage);
+        if (fresh.currentStage >= 4 && !_stage4Done) {
+          _showStage4 = true;
+          _stage4Done = true;
+        }
+      });
+      // Keep the main trips list in sync
+      ref.read(tripProvider.notifier).patchTrip(fresh);
+    } catch (_) {
+      if (mounted) setState(() => _fetchingFresh = false);
     }
   }
 
@@ -78,6 +109,13 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
       ),
       body: Column(
         children: [
+          // Thin sync indicator while fetching fresh data
+          if (_fetchingFresh)
+            const LinearProgressIndicator(
+              minHeight: 2,
+              backgroundColor: Colors.transparent,
+              color: _primary,
+            ),
           _StepIndicator(currentStage: stage),
           if (state.error != null)
             Container(
@@ -98,17 +136,17 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
           Expanded(
             child: _stage4Done
                 ? _Stage4CompleteView(
-                    trip: widget.trip,
+                    trip: _trip,
                     onDone: () => Navigator.of(context).pop(),
                   )
                 : _showStage4
                     ? _Stage4Form(
-                        trip: widget.trip,
+                        trip: _trip,
                         onComplete: () => setState(() => _stage4Done = true),
                       )
                     : stage == 3
                         ? _CompletionView(
-                            trip: widget.trip,
+                            trip: _trip,
                             emptyWeightKg: state.emptyWeightKg,
                             emptyWeightUnit: state.emptyWeightUnit ?? 'tons',
                             loadedWeightKg: state.loadedWeightKg,
@@ -117,10 +155,22 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                             onNextStage: () => setState(() => _showStage4 = true),
                           )
                         : stage == 0
-                            ? _Stage1Form(providerKey: _providerKey, trip: widget.trip)
+                            ? _Stage1Form(
+                                key: ValueKey('s1_${_trip.id}_$_tripFreshness'),
+                                providerKey: _providerKey,
+                                trip: _trip,
+                              )
                             : stage == 1
-                                ? _Stage2Form(providerKey: _providerKey, trip: widget.trip)
-                                : _Stage3Form(providerKey: _providerKey, trip: widget.trip),
+                                ? _Stage2Form(
+                                    key: ValueKey('s2_${_trip.id}_$_tripFreshness'),
+                                    providerKey: _providerKey,
+                                    trip: _trip,
+                                  )
+                                : _Stage3Form(
+                                    key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
+                                    providerKey: _providerKey,
+                                    trip: _trip,
+                                  ),
           ),
         ],
       ),
@@ -208,7 +258,7 @@ class _StepIndicator extends StatelessWidget {
 class _Stage1Form extends ConsumerStatefulWidget {
   final (String, int) providerKey;
   final TripModel trip;
-  const _Stage1Form({required this.providerKey, required this.trip});
+  const _Stage1Form({super.key, required this.providerKey, required this.trip});
 
   @override
   ConsumerState<_Stage1Form> createState() => _Stage1FormState();
@@ -412,7 +462,7 @@ String _formatSaved(DateTime dt) {
 class _Stage2Form extends ConsumerStatefulWidget {
   final (String, int) providerKey;
   final TripModel trip;
-  const _Stage2Form({required this.providerKey, required this.trip});
+  const _Stage2Form({super.key, required this.providerKey, required this.trip});
 
   @override
   ConsumerState<_Stage2Form> createState() => _Stage2FormState();
@@ -567,7 +617,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
 class _Stage3Form extends ConsumerStatefulWidget {
   final (String, int) providerKey;
   final TripModel trip;
-  const _Stage3Form({required this.providerKey, required this.trip});
+  const _Stage3Form({super.key, required this.providerKey, required this.trip});
 
   @override
   ConsumerState<_Stage3Form> createState() => _Stage3FormState();

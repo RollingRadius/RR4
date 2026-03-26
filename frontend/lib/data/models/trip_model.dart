@@ -23,6 +23,7 @@ class TripModel {
   final String? startDate;
   final String? endDate;
   final String? createdAt;
+  final String? updatedAt;
   final int currentStage;
 
   // ── Stage 1 fields ───────────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ class TripModel {
     this.startDate,
     this.endDate,
     this.createdAt,
+    this.updatedAt,
     this.currentStage = 0,
     this.s1DriverName,
     this.s1DriverPhone,
@@ -145,6 +147,7 @@ class TripModel {
       startDate: json['start_date'] as String?,
       endDate: json['end_date'] as String?,
       createdAt: json['created_at'] as String?,
+      updatedAt: json['updated_at'] as String?,
       currentStage: json['current_stage'] as int? ?? 0,
       s1DriverName: json['s1_driver_name'] as String?,
       s1DriverPhone: json['s1_driver_phone'] as String?,

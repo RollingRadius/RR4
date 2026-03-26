@@ -8,6 +8,7 @@ import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_detail_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
+import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _primary = Color(0xFFFF6B00);
@@ -111,34 +112,81 @@ class OngoingTripCard extends ConsumerWidget {
           // ── Action buttons ────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: Row(
+            child: Column(
               children: [
-                // View Details
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => TripDetailScreen(trip: trip))),
-                    child: _ActionChip(
-                      icon: Icons.receipt_long_outlined,
-                      label: 'View Details',
-                      color: _onSurface,
-                      bg: const Color(0xFFF2F4F6),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-
-                // Locate Trip
-                Expanded(
-                  child: trip.hasVehicle
-                      ? _LocateBtn(trip: trip)
-                      : _ActionChip(
-                          icon: Icons.location_off_rounded,
-                          label: 'No Vehicle',
-                          color: _outline,
+                Row(
+                  children: [
+                    // View Details
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                                builder: (_) => TripDetailScreen(trip: trip))),
+                        child: _ActionChip(
+                          icon: Icons.receipt_long_outlined,
+                          label: 'View Details',
+                          color: _onSurface,
                           bg: const Color(0xFFF2F4F6),
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+
+                    // Locate Trip
+                    Expanded(
+                      child: trip.hasVehicle
+                          ? _LocateBtn(trip: trip)
+                          : _ActionChip(
+                              icon: Icons.location_off_rounded,
+                              label: 'No Vehicle',
+                              color: _outline,
+                              bg: const Color(0xFFF2F4F6),
+                            ),
+                    ),
+                  ],
                 ),
+
+                // Go to Present Stage — only when trip has a pending stage
+                if (trip.currentStage < 4) ...[
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: () => Navigator.of(context)
+                        .push(MaterialPageRoute(
+                            builder: (_) => TripStagesScreen(trip: trip)))
+                        .then((_) {
+                      ref
+                          .read(tripProvider.notifier)
+                          .silentRefresh(statusFilter: 'ongoing');
+                    }),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF001E40), Color(0xFF003070)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.play_arrow_rounded,
+                              color: Colors.white, size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Go to Stage ${trip.currentStage + 1}  ·  ${_stageName(trip.currentStage)}',
+                            style: _inter(
+                                size: 12,
+                                weight: FontWeight.w700,
+                                color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -431,6 +479,15 @@ class _StatusBadge extends StatelessWidget {
               .copyWith(letterSpacing: 0.6)),
     );
   }
+}
+
+String _stageName(int currentStage) {
+  return switch (currentStage) {
+    0 => 'Truck Registration',
+    1 => 'Compliance Check',
+    2 => 'Factory Arrival',
+    _ => 'Exit & Complete',
+  };
 }
 
 class _DashedPainter extends CustomPainter {

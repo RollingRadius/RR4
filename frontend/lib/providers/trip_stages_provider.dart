@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/trip_provider.dart';
+import 'package:fleet_management/data/models/trip_model.dart';
 
 class TripStagesState {
   final bool isSubmitting;
@@ -50,11 +52,23 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
   TripStagesNotifier(this.tripId, this.initialStage, this._ref)
       : super(TripStagesState(currentStage: initialStage));
 
+  /// Parse trip from a stage response and push it into the trips list.
+  void _patchTripFromResponse(dynamic respData) {
+    try {
+      final tripJson =
+          (respData as Map<String, dynamic>)['trip'] as Map<String, dynamic>?;
+      if (tripJson != null) {
+        _ref.read(tripProvider.notifier).patchTrip(TripModel.fromJson(tripJson));
+      }
+    } catch (_) {}
+  }
+
   Future<bool> submitStage1(Map<String, dynamic> data) async {
     state = state.copyWith(isSubmitting: true, clearError: true);
     try {
       final api = _ref.read(apiServiceProvider);
-      await api.dio.post('/api/trips/$tripId/stage/1', data: data);
+      final resp = await api.dio.post('/api/trips/$tripId/stage/1', data: data);
+      _patchTripFromResponse(resp.data);
       state = state.copyWith(isSubmitting: false, currentStage: 1);
       return true;
     } on DioException catch (e) {
@@ -72,7 +86,8 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
     state = state.copyWith(isSubmitting: true, clearError: true);
     try {
       final api = _ref.read(apiServiceProvider);
-      await api.dio.post('/api/trips/$tripId/stage/2', data: data);
+      final resp = await api.dio.post('/api/trips/$tripId/stage/2', data: data);
+      _patchTripFromResponse(resp.data);
       state = state.copyWith(isSubmitting: false, currentStage: 2);
       return true;
     } on DioException catch (e) {
@@ -90,8 +105,9 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
     state = state.copyWith(isSubmitting: true, clearError: true);
     try {
       final api = _ref.read(apiServiceProvider);
-      await api.dio.post('/api/trips/$tripId/stage/3', data: formData);
-      // Extract weight values from form fields for local state
+      final resp =
+          await api.dio.post('/api/trips/$tripId/stage/3', data: formData);
+      _patchTripFromResponse(resp.data);
       String? _field(String key) {
         final entry = formData.fields.where((f) => f.key == key).firstOrNull;
         return entry?.value;
