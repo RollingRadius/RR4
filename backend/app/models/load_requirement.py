@@ -4,7 +4,7 @@ Represents cargo/load requirements posted by load_owner companies.
 """
 
 from sqlalchemy import Column, String, Text, Date, Integer, TIMESTAMP, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 import uuid
 
@@ -38,6 +38,9 @@ class LoadRequirement(Base):
         nullable=True,
         index=True,
     )
+
+    # If set, only these fleet-management orgs can see this load; null = visible to all
+    target_org_ids = Column(JSONB, nullable=True)
 
     status = Column(String(20), nullable=False, default='pending')
     # Values: pending | matched | fulfilled | cancelled

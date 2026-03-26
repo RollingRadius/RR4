@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +7,14 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/load_provider.dart';
 
 class UploadLoadRequirementScreen extends ConsumerStatefulWidget {
-  const UploadLoadRequirementScreen({super.key});
+  final bool embedded;
+  final VoidCallback? onDone;
+
+  const UploadLoadRequirementScreen({
+    super.key,
+    this.embedded = false,
+    this.onDone,
+  });
 
   @override
   ConsumerState<UploadLoadRequirementScreen> createState() =>
@@ -28,16 +36,27 @@ class _UploadLoadRequirementScreenState
   String _entryMethod = 'manual'; // 'manual' | 'bulk' | 'photo'
   bool _truckSpecsExpanded = true;
   bool _isSubmitting = false;
-  int _truckCount = 8;
+  int _truckCount = 1;
   String? _materialType = 'Steel Coils';
   final _pickupController = TextEditingController();
   final _dropController = TextEditingController();
-  final _capacityController = TextEditingController(text: '24');
+  final _capacityController = TextEditingController(text: '0');
+  final _truckCountController = TextEditingController(text: '1');
+  String _capacityUnit = 'Tons';
   DateTime? _entryDate;
 
   String? _selectedAxleType = 'Multi-Axle';
   String? _selectedBodyType = 'Open Body';
-  String? _selectedFloorType = 'Wooden';
+  String? _selectedFloorType = 'Plain Floor';
+
+  // ── Partner targeting ──────────────────────────────────────────────────────
+  final List<PartnerResult> _selectedPartners = [];
+  List<PartnerResult> _partnerResults = [];
+  bool _partnerSearchLoading = false;
+  final _partnerController = TextEditingController();
+  Timer? _partnerDebounce;
+  final _partnerFocusNode = FocusNode();
+  bool _showPartnerDropdown = false;
 
   static const List<String> _axleTypes = [
     'Single Axle',
@@ -62,6 +81,7 @@ class _UploadLoadRequirementScreenState
   ];
 
   static const List<String> _floorTypes = [
+    'Plain Floor',
     'Wooden',
     'Steel',
     'Aluminium',
@@ -69,8 +89,6 @@ class _UploadLoadRequirementScreenState
     'Rubber Matted',
     'Corrugated',
   ];
-
-  int _selectedNavIndex = 0;
 
   final List<String> _materials = [
     'Steel Coils',
@@ -100,6 +118,10 @@ class _UploadLoadRequirementScreenState
     _pickupController.dispose();
     _dropController.dispose();
     _capacityController.dispose();
+    _truckCountController.dispose();
+    _partnerController.dispose();
+    _partnerDebounce?.cancel();
+    _partnerFocusNode.dispose();
     super.dispose();
   }
 
@@ -108,76 +130,93 @@ class _UploadLoadRequirementScreenState
     final user = ref.watch(authProvider).user;
     final initials = _initials(user?.fullName ?? 'JD');
 
-    return Scaffold(
-      backgroundColor: _background,
-      appBar: _GlassAppBar(
-        initials: initials,
-        onBackTap: () => context.pop(),
-      ),
-      body: Stack(
-        children: [
-          // Scrollable content
-          CustomScrollView(
-            slivers: [
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 24, 20, 160),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    // ── Section 1: Entry Method ─────────────────────
-                    _sectionLabel('Entry Method'),
-                    const SizedBox(height: 4),
-                    Text(
-                      'New Load',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: _primary,
-                        letterSpacing: -0.5,
-                      ),
+    final submitBottomOffset = widget.embedded ? 16.0 : 80.0;
+    final contentBottomPadding = widget.embedded ? 100.0 : 160.0;
+
+    final body = Stack(
+      children: [
+        // Scrollable content
+        CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(20, 24, 20, contentBottomPadding),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  // ── Section 1: Entry Method ─────────────────────
+                  _sectionLabel('Entry Method'),
+                  const SizedBox(height: 4),
+                  Text(
+                    'New Load',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: _primary,
+                      letterSpacing: -0.5,
                     ),
-                    const SizedBox(height: 16),
-                    _entryMethodToggle(),
+                  ),
+                  const SizedBox(height: 16),
+                  _entryMethodToggle(),
+                  const SizedBox(height: 28),
+
+                  // ── Section 2: Manual Form ──────────────────────
+                  if (_entryMethod == 'manual') ...[
+                    _manualForm(),
                     const SizedBox(height: 28),
+                  ],
 
-                    // ── Section 2: Manual Form ──────────────────────
-                    if (_entryMethod == 'manual') ...[
-                      _manualForm(),
-                      const SizedBox(height: 28),
-                    ],
+                  // ── Section 3: Truck Specifications ────────────
+                  _truckSpecsSection(),
+                  const SizedBox(height: 28),
 
-                    // ── Section 3: Truck Specifications ────────────
-                    _truckSpecsSection(),
-                    const SizedBox(height: 28),
+                  // ── Section 4: Target Partners ──────────────────
+                  _partnerTargetSection(),
+                  const SizedBox(height: 28),
 
-                    // ── Section 4: Bulk Upload ──────────────────────
-                    _bulkUploadSection(),
-                    const SizedBox(height: 28),
+                  // ── Section 5: Bulk Upload ──────────────────────
+                  _bulkUploadSection(),
+                  const SizedBox(height: 28),
 
-                    // ── Section 5: Photo Visual Verification ────────
-                    _photoVerificationCard(),
-                  ]),
-                ),
+                  // ── Section 6: Photo Visual Verification ────────
+                  _photoVerificationCard(),
+                ]),
               ),
-            ],
-          ),
+            ),
+          ],
+        ),
 
-          // Floating Submit button
-          Positioned(
-            bottom: 80,
-            left: 20,
-            right: 20,
-            child: _submitButton(),
-          ),
+        // Floating Submit button
+        Positioned(
+          bottom: submitBottomOffset,
+          left: 20,
+          right: 20,
+          child: _submitButton(),
+        ),
 
-          // Bottom Navigation
+        // Bottom Navigation — only shown when not embedded in dashboard
+        if (!widget.embedded)
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: _bottomNav(),
           ),
-        ],
+      ],
+    );
+
+    if (widget.embedded) {
+      return Scaffold(
+        backgroundColor: _background,
+        body: body,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: _background,
+      appBar: _GlassAppBar(
+        initials: initials,
+        onBackTap: () => context.pop(),
       ),
+      body: body,
     );
   }
 
@@ -473,14 +512,43 @@ class _UploadLoadRequirementScreenState
               children: [
                 _fieldLabel('Truck Count'),
                 const SizedBox(height: 2),
-                Text(
-                  '${_truckCount.toString().padLeft(2, '0')} Units',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF001e40),
-                    letterSpacing: -0.3,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    IntrinsicWidth(
+                      child: TextField(
+                        controller: _truckCountController,
+                        keyboardType: TextInputType.number,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF001e40),
+                          letterSpacing: -0.3,
+                        ),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                          border: InputBorder.none,
+                        ),
+                        onChanged: (v) {
+                          final n = int.tryParse(v);
+                          if (n != null && n >= 1) {
+                            setState(() => _truckCount = n);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Units',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF43474F),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -491,7 +559,10 @@ class _UploadLoadRequirementScreenState
                 icon: Icons.remove,
                 onTap: () {
                   if (_truckCount > 1) {
-                    setState(() => _truckCount--);
+                    setState(() {
+                      _truckCount--;
+                      _truckCountController.text = _truckCount.toString();
+                    });
                   }
                 },
                 filled: false,
@@ -499,7 +570,12 @@ class _UploadLoadRequirementScreenState
               const SizedBox(width: 10),
               _countButton(
                 icon: Icons.add,
-                onTap: () => setState(() => _truckCount++),
+                onTap: () {
+                  setState(() {
+                    _truckCount++;
+                    _truckCountController.text = _truckCount.toString();
+                  });
+                },
                 filled: true,
               ),
             ],
@@ -660,12 +736,31 @@ class _UploadLoadRequirementScreenState
                   ),
                 ),
               ),
-              const Text(
-                'Tons',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF43474F),
+              GestureDetector(
+                onTap: () => setState(() =>
+                    _capacityUnit = _capacityUnit == 'Tons' ? 'Kg' : 'Tons'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF001e40).withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _capacityUnit,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF001e40),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(Icons.swap_vert_rounded,
+                          size: 14, color: Color(0xFF001e40)),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -843,6 +938,351 @@ class _UploadLoadRequirementScreenState
     );
   }
 
+  // ── Partner Target Section ────────────────────────────────────────────
+
+  Widget _partnerTargetSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel('Send To'),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: _surfaceContainerLow,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header row
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: _primary.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.business_center_outlined,
+                      color: Color(0xFF001e40),
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Target Partners',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF001e40),
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Leave empty to broadcast to all',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF43474F),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // ── Fleet Management search ──────────────────────────────
+              _partnerTypeRow(
+                icon: Icons.local_shipping_outlined,
+                label: 'Fleet Management',
+                comingSoon: false,
+                child: Column(
+                  children: [
+                    // Search field
+                    TextField(
+                      controller: _partnerController,
+                      focusNode: _partnerFocusNode,
+                      style: const TextStyle(fontSize: 14, color: Color(0xFF191C1E)),
+                      decoration: InputDecoration(
+                        hintText: 'Search by company or name…',
+                        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF737780)),
+                        prefixIcon: _partnerSearchLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.8,
+                                    color: Color(0xFF001e40),
+                                  ),
+                                ),
+                              )
+                            : const Icon(Icons.search, size: 18, color: Color(0xFF43474F)),
+                        suffixIcon: _partnerController.text.isNotEmpty
+                            ? GestureDetector(
+                                onTap: () {
+                                  _partnerController.clear();
+                                  setState(() {
+                                    _partnerResults = [];
+                                    _showPartnerDropdown = false;
+                                  });
+                                },
+                                child: const Icon(Icons.close, size: 16, color: Color(0xFF43474F)),
+                              )
+                            : null,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        filled: true,
+                        fillColor: _surfaceContainerLowest,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: Color(0xFF001e40), width: 2),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        _partnerDebounce?.cancel();
+                        if (val.trim().isEmpty) {
+                          setState(() {
+                            _partnerResults = [];
+                            _showPartnerDropdown = false;
+                          });
+                          return;
+                        }
+                        setState(() => _partnerSearchLoading = true);
+                        _partnerDebounce = Timer(const Duration(milliseconds: 350), () async {
+                          final results = await ref.read(loadProvider.notifier).searchPartners(val.trim());
+                          if (mounted) {
+                            setState(() {
+                              _partnerResults = results;
+                              _partnerSearchLoading = false;
+                              _showPartnerDropdown = results.isNotEmpty;
+                            });
+                          }
+                        });
+                      },
+                    ),
+
+                    // Dropdown results
+                    if (_showPartnerDropdown && _partnerResults.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: _surfaceContainerLowest,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.08),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: _partnerResults.map((p) {
+                            final already = _selectedPartners.any((s) => s.orgId == p.orgId);
+                            return InkWell(
+                              onTap: already
+                                  ? null
+                                  : () {
+                                      setState(() {
+                                        _selectedPartners.add(p);
+                                        _partnerController.clear();
+                                        _partnerResults = [];
+                                        _showPartnerDropdown = false;
+                                      });
+                                    },
+                              borderRadius: BorderRadius.circular(10),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 32,
+                                      height: 32,
+                                      decoration: BoxDecoration(
+                                        color: _primary.withOpacity(0.08),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          p.orgName.isNotEmpty ? p.orgName[0].toUpperCase() : '?',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF001e40),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            p.orgName,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: Color(0xFF191C1E),
+                                            ),
+                                          ),
+                                          if (p.orgCity.isNotEmpty)
+                                            Text(
+                                              p.orgCity,
+                                              style: const TextStyle(
+                                                fontSize: 11,
+                                                color: Color(0xFF43474F),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (already)
+                                      const Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 18)
+                                    else
+                                      const Icon(Icons.add_circle_outline, color: Color(0xFF001e40), size: 18),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // ── Logistic Partner (Coming Soon) ──────────────────────
+              _partnerTypeRow(
+                icon: Icons.handshake_outlined,
+                label: 'Logistic Partner',
+                comingSoon: true,
+                child: const SizedBox.shrink(),
+              ),
+
+              // ── Selected chips ──────────────────────────────────────
+              if (_selectedPartners.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                const Divider(height: 1, color: Color(0xFFC3C6D1)),
+                const SizedBox(height: 12),
+                Text(
+                  'SELECTED (${_selectedPartners.length})',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.0,
+                    color: Color(0xFF43474F),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _selectedPartners.map((p) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _primary.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: _primary.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            p.displayLabel,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF001e40),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: () => setState(() => _selectedPartners.remove(p)),
+                            child: const Icon(
+                              Icons.close,
+                              size: 14,
+                              color: Color(0xFF001e40),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _partnerTypeRow({
+    required IconData icon,
+    required String label,
+    required bool comingSoon,
+    required Widget child,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 16, color: comingSoon ? const Color(0xFF737780) : const Color(0xFF001e40)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: comingSoon ? const Color(0xFF737780) : const Color(0xFF001e40),
+              ),
+            ),
+            if (comingSoon) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F0F0),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'COMING SOON',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                    color: Color(0xFF737780),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+
   // ── Submit Button ─────────────────────────────────────────────────────
 
   Widget _submitButton() {
@@ -876,10 +1316,19 @@ class _UploadLoadRequirementScreenState
 
   // ── Bottom Navigation ─────────────────────────────────────────────────
 
+  static const _navItems = [
+    (Icons.dashboard_rounded,      'DASHBOARD'),
+    (Icons.local_shipping_rounded, 'LOADS'),
+    (Icons.explore_outlined,       'TRACKING'),
+    (Icons.description_outlined,   'DOCS'),
+    (Icons.person_outline,         'PROFILE'),
+  ];
+
   Widget _bottomNav() {
+    // "LOADS" (index 1) is always active since this is the loads/upload screen
+    const activeIndex = 1;
     return ClipRect(
       child: Container(
-        height: 72,
         decoration: BoxDecoration(
           color: Colors.white.withOpacity(0.85),
           boxShadow: [
@@ -890,59 +1339,58 @@ class _UploadLoadRequirementScreenState
             ),
           ],
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _navItem(0, Icons.upload_file, 'Upload'),
-            _navItem(1, Icons.local_shipping, 'My Trips'),
-            _navItem(2, Icons.inventory_2_outlined, 'Fleet'),
-            _navItem(3, Icons.person_outline, 'Profile'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _navItem(int index, IconData icon, String label) {
-    final isActive = _selectedNavIndex == index;
-    return GestureDetector(
-      onTap: () {
-        if (index == 1) {
-          context.push(AppConstants.routeLoadOwnerTrips);
-          return;
-        }
-        if (index == 3) {
-          _showProfileMenu();
-          return;
-        }
-        setState(() => _selectedNavIndex = index);
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: isActive
-            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
-            : const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: isActive ? _primary : Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                color: isActive ? Colors.white : _onSurfaceVariant,
-                size: 22),
-            const SizedBox(height: 3),
-            Text(
-              label.toUpperCase(),
-              style: TextStyle(
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
-                color: isActive ? Colors.white : _onSurfaceVariant,
-              ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: List.generate(_navItems.length, (i) {
+                final (icon, label) = _navItems[i];
+                final isActive = i == activeIndex;
+                return GestureDetector(
+                  onTap: () {
+                    if (i == activeIndex) return; // already here
+                    if (i == 4) {
+                      _showProfileMenu();
+                      return;
+                    }
+                    // Go back to dashboard for all other tabs
+                    context.go(AppConstants.routeLoadOwnerHome);
+                  },
+                  behavior: HitTestBehavior.opaque,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: isActive
+                        ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
+                        : const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isActive ? _primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon,
+                            color: isActive ? Colors.white : _onSurfaceVariant,
+                            size: 22),
+                        const SizedBox(height: 3),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                            color: isActive ? Colors.white : _onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -1016,12 +1464,14 @@ class _UploadLoadRequirementScreenState
         '${_entryDate!.month.toString().padLeft(2, '0')}-'
         '${_entryDate!.day.toString().padLeft(2, '0')}';
 
+    final targetOrgIds = _selectedPartners.map((p) => p.orgId).toList();
     final load = await ref.read(loadProvider.notifier).createLoad(
           pickupLocation: pickup,
           unloadLocation: drop,
           materialType: _materialType ?? 'Steel Coils',
           entryDate: dateStr,
           truckCount: _truckCount,
+          targetOrgIds: targetOrgIds.isEmpty ? null : targetOrgIds,
         );
 
     if (!mounted) return;
@@ -1047,10 +1497,18 @@ class _UploadLoadRequirementScreenState
 
     _pickupController.clear();
     _dropController.clear();
+    _partnerController.clear();
     setState(() {
-      _truckCount = 8;
+      _truckCount = 1;
+      _truckCountController.text = '1';
+      _capacityController.text = '0';
+      _capacityUnit = 'Tons';
+      _selectedFloorType = 'Plain Floor';
       _entryDate = null;
       _materialType = 'Steel Coils';
+      _selectedPartners.clear();
+      _partnerResults.clear();
+      _showPartnerDropdown = false;
       _isSubmitting = false;
     });
 
@@ -1077,6 +1535,11 @@ class _UploadLoadRequirementScreenState
         ),
       ),
     );
+
+    // If embedded inside dashboard, notify parent to switch back to Loads tab
+    if (mounted && widget.embedded) {
+      widget.onDone?.call();
+    }
   }
 
   void _showProfileMenu() {

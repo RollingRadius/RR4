@@ -3,6 +3,7 @@ Load Requirements API
 Endpoints for load_owner companies to submit and manage load requirements.
 """
 
+import json
 import random
 import string
 import uuid
@@ -13,6 +14,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import or_, func
+from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -43,6 +46,8 @@ class LoadRequirementCreate(BaseModel):
     entry_date: Optional[date] = None
     truck_count: int = 1
     specifications: Optional[TruckSpecifications] = None
+    # Optional: restrict visibility to specific fleet-management orgs (list of org UUIDs)
+    target_org_ids: Optional[List[str]] = None
 
 
 class LoadRequirementResponse(BaseModel):
@@ -147,6 +152,7 @@ def _record_to_response(record: LoadRequirement) -> dict:
         "body_type":           record.body_type,
         "floor_type":          record.floor_type,
         "fulfilling_org_id":   str(record.fulfilling_org_id) if record.fulfilling_org_id else None,
+        "target_org_ids":      record.target_org_ids or [],
         "status":              record.status,
         "created_at":          record.created_at.isoformat(),
     }
@@ -169,6 +175,8 @@ def create_load_requirement(
 
     specs = payload.specifications or TruckSpecifications()
 
+    target_org_ids = payload.target_org_ids if payload.target_org_ids else None
+
     record = LoadRequirement(
         id=uuid.uuid4(),
         company_id=company.id,
@@ -183,6 +191,7 @@ def create_load_requirement(
         axel_type=specs.axel_type,
         body_type=specs.body,
         floor_type=specs.floor,
+        target_org_ids=target_org_ids,
         status='pending',
     )
 
@@ -313,16 +322,27 @@ def list_available_loads(
     db: Session = Depends(get_db),
 ):
     """
-    Browse all pending load requirements posted by load owner companies.
+    Browse pending load requirements posted by load owner companies.
+    Loads with target_org_ids set are only visible to those specific fleet-management orgs.
 
     **Requires:** JWT · company business_type == 'fleet_management'
     """
-    _get_fleet_management_company(current_user, db)
+    fleet_org = _get_fleet_management_company(current_user, db)
+    org_id_str = str(fleet_org.id)
 
+    from sqlalchemy import cast as sa_cast, text
     query = db.query(LoadRequirement, Organization).join(
         Organization, Organization.id == LoadRequirement.company_id
     ).filter(
-        LoadRequirement.status == 'pending'
+        LoadRequirement.status == 'pending',
+        # Show load if: no target set, empty target list, or current org is in target list
+        or_(
+            LoadRequirement.target_org_ids == None,
+            func.jsonb_array_length(LoadRequirement.target_org_ids) == 0,
+            LoadRequirement.target_org_ids.contains(
+                sa_cast(json.dumps([org_id_str]), JSONB)
+            ),
+        )
     )
 
     if pickup:
@@ -348,6 +368,64 @@ def list_available_loads(
         "loads": loads,
         "count": len(loads),
     }
+
+
+@router.get("/search-partners", status_code=status.HTTP_200_OK)
+def search_fleet_partners(
+    q: str = Query(..., min_length=1, description="Search query (user name or company name)"),
+    limit: int = Query(10, le=20),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Search for fleet-management (and future logistic_partner) organisations to target
+    when creating a load requirement.
+
+    Returns distinct organisations matched by company name OR a member's full name / username.
+    **Requires:** JWT · load_owner role
+    """
+    _get_load_owner_company(current_user, db)
+
+    target_roles = ('fleet_manager', 'logistic_partner')
+
+    rows = (
+        db.query(
+            Organization.id,
+            Organization.company_name,
+            Organization.city,
+            func.min(User.full_name).label('user_name'),
+            func.min(User.username).label('username'),
+        )
+        .join(UserOrganization, UserOrganization.organization_id == Organization.id)
+        .join(User, User.id == UserOrganization.user_id)
+        .join(Role, Role.id == UserOrganization.role_id)
+        .filter(
+            UserOrganization.status == 'active',
+            Role.role_key.in_(target_roles),
+            or_(
+                User.full_name.ilike(f'%{q}%'),
+                User.username.ilike(f'%{q}%'),
+                Organization.company_name.ilike(f'%{q}%'),
+            ),
+        )
+        .group_by(Organization.id, Organization.company_name, Organization.city)
+        .order_by(Organization.company_name)
+        .limit(limit)
+        .all()
+    )
+
+    partners = [
+        {
+            "org_id":       str(row.id),
+            "org_name":     row.company_name,
+            "org_city":     row.city or '',
+            "user_name":    row.user_name,
+            "username":     row.username,
+        }
+        for row in rows
+    ]
+
+    return {"success": True, "partners": partners}
 
 
 @router.post("/{load_id}/fulfill", status_code=status.HTTP_201_CREATED)

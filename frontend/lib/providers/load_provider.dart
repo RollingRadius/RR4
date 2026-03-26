@@ -3,6 +3,34 @@ import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/services/api_service.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 
+// ─── Partner result (for load targeting search) ───────────────────────────────
+
+class PartnerResult {
+  final String orgId;
+  final String orgName;
+  final String orgCity;
+  final String userName;
+  final String username;
+
+  const PartnerResult({
+    required this.orgId,
+    required this.orgName,
+    required this.orgCity,
+    required this.userName,
+    required this.username,
+  });
+
+  factory PartnerResult.fromJson(Map<String, dynamic> j) => PartnerResult(
+        orgId: j['org_id'] as String,
+        orgName: j['org_name'] as String,
+        orgCity: j['org_city'] as String? ?? '',
+        userName: j['user_name'] as String? ?? '',
+        username: j['username'] as String? ?? '',
+      );
+
+  String get displayLabel => orgCity.isNotEmpty ? '$orgName · $orgCity' : orgName;
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
 
 class LoadState {
@@ -80,6 +108,23 @@ class LoadNotifier extends StateNotifier<LoadState> {
     }
   }
 
+  /// Search for fleet-management partner organisations by name (for load targeting).
+  Future<List<PartnerResult>> searchPartners(String query) async {
+    if (query.trim().isEmpty) return [];
+    try {
+      final resp = await _api.dio.get(
+        '/api/loads/search-partners',
+        queryParameters: {'q': query.trim(), 'limit': 10},
+      );
+      final data = resp.data as Map<String, dynamic>;
+      return (data['partners'] as List<dynamic>? ?? [])
+          .map((j) => PartnerResult.fromJson(j as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Submit a new manual load requirement. Returns the created model on
   /// success, null on failure (error stored in state).
   Future<LoadRequirementModel?> createLoad({
@@ -92,6 +137,7 @@ class LoadNotifier extends StateNotifier<LoadState> {
     String? axelType,
     String? bodyType,
     String? floorType,
+    List<String>? targetOrgIds,
   }) async {
     state = state.copyWith(isSubmitting: true, clearError: true);
     try {
@@ -109,6 +155,8 @@ class LoadNotifier extends StateNotifier<LoadState> {
             if (bodyType != null) 'body': bodyType,
             if (floorType != null) 'floor': floorType,
           },
+        if (targetOrgIds != null && targetOrgIds.isNotEmpty)
+          'target_org_ids': targetOrgIds,
       };
 
       final resp = await _api.dio.post('/api/loads', data: body);

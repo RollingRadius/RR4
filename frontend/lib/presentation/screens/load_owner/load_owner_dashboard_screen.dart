@@ -14,6 +14,7 @@ import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/shipment_details_screen.dart';
+import 'package:fleet_management/presentation/screens/load_owner/upload_load_requirement_screen.dart';
 
 // ─── Typography helpers (Stitch: Manrope headline, Inter body) ────────────────
 TextStyle _manrope(
@@ -141,9 +142,7 @@ class _LoadOwnerDashboardScreenState
   }
 
   Future<void> _openUpload() async {
-    await context.push('/load-owner/upload');
-    // Refresh after returning from the upload screen
-    if (mounted) ref.invalidate(_loadsProvider);
+    setState(() => _navIndex = 4);
   }
 
   @override
@@ -154,6 +153,13 @@ class _LoadOwnerDashboardScreenState
       _LoadsTab(onCreateLoad: _openUpload),
       const _TrackingTab(),
       const _DocsTab(),
+      UploadLoadRequirementScreen(
+        embedded: true,
+        onDone: () {
+          ref.invalidate(_loadsProvider);
+          setState(() => _navIndex = 1);
+        },
+      ),
     ];
     Future.microtask(
         () => ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing'));
@@ -242,7 +248,8 @@ class _LoadOwnerDashboardScreenState
         ],
       ),
       bottomNavigationBar: _BottomNav(
-        selectedIndex: _navIndex,
+        // Treat upload tab (4) as LOADS (1) being active in the nav bar
+        selectedIndex: _navIndex == 4 ? 1 : _navIndex,
         onTap: (i) {
           if (i == 4) {
             _showProfileSheet(context);

@@ -15,6 +15,7 @@ class LoadRequirementModel {
   final String? bodyType;
   final String? floorType;
   final String? fulfillingOrgId;
+  final List<String> targetOrgIds;
   final String status;
   final String createdAt;
   // Populated only in fleet management /available view
@@ -38,6 +39,7 @@ class LoadRequirementModel {
     this.bodyType,
     this.floorType,
     this.fulfillingOrgId,
+    this.targetOrgIds = const [],
     required this.status,
     required this.createdAt,
     this.companyName,
@@ -62,6 +64,9 @@ class LoadRequirementModel {
         bodyType: j['body_type'] as String?,
         floorType: j['floor_type'] as String?,
         fulfillingOrgId: j['fulfilling_org_id'] as String?,
+        targetOrgIds: (j['target_org_ids'] as List<dynamic>? ?? [])
+            .map((e) => e as String)
+            .toList(),
         status: j['status'] as String? ?? 'pending',
         createdAt: j['created_at'] as String,
         companyName: j['company_name'] as String?,
