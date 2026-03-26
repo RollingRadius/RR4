@@ -386,7 +386,7 @@ def search_fleet_partners(
     """
     _get_load_owner_company(current_user, db)
 
-    target_roles = ('fleet_manager', 'logistic_partner')
+    target_roles = ('fleet_management', 'logistic_partner')
 
     rows = (
         db.query(
