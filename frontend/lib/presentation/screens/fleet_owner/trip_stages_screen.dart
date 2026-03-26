@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -116,10 +117,10 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                             onNextStage: () => setState(() => _showStage4 = true),
                           )
                         : stage == 0
-                            ? _Stage1Form(providerKey: _providerKey)
+                            ? _Stage1Form(providerKey: _providerKey, trip: widget.trip)
                             : stage == 1
                                 ? _Stage2Form(providerKey: _providerKey, trip: widget.trip)
-                                : _Stage3Form(providerKey: _providerKey),
+                                : _Stage3Form(providerKey: _providerKey, trip: widget.trip),
           ),
         ],
       ),
@@ -206,7 +207,8 @@ class _StepIndicator extends StatelessWidget {
 
 class _Stage1Form extends ConsumerStatefulWidget {
   final (String, int) providerKey;
-  const _Stage1Form({required this.providerKey});
+  final TripModel trip;
+  const _Stage1Form({required this.providerKey, required this.trip});
 
   @override
   ConsumerState<_Stage1Form> createState() => _Stage1FormState();
@@ -227,8 +229,71 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   final _taxDeclaration  = TextEditingController();
   final _cancelledCheque = TextEditingController();
 
+  Timer? _debounce;
+  DateTime? _lastSaved;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillFromDraft();
+    for (final c in [_driverName, _driverPhone, _drivingLicense, _aadhaar,
+        _rc, _insurance, _pollution, _fitness, _pan, _taxDeclaration, _cancelledCheque]) {
+      c.addListener(_onFieldChanged);
+    }
+  }
+
+  void _prefillFromDraft() {
+    final draft = widget.trip.draftData;
+    if (draft == null || draft['stage'] != 1) return;
+    final d = draft['data'] as Map<String, dynamic>? ?? {};
+    _driverName.text      = d['driver_name']      as String? ?? '';
+    _driverPhone.text     = d['driver_phone']      as String? ?? '';
+    _drivingLicense.text  = d['driving_license']   as String? ?? '';
+    _aadhaar.text         = d['aadhaar']           as String? ?? '';
+    _rc.text              = d['rc']                as String? ?? '';
+    _insurance.text       = d['insurance']         as String? ?? '';
+    _pollution.text       = d['pollution']         as String? ?? '';
+    _fitness.text         = d['fitness']           as String? ?? '';
+    _pan.text             = d['pan']               as String? ?? '';
+    _taxDeclaration.text  = d['tax_declaration']   as String? ?? '';
+    _cancelledCheque.text = d['cancelled_cheque']  as String? ?? '';
+    if (draft['saved_at'] != null) {
+      _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
+    }
+  }
+
+  void _onFieldChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 1500), _saveDraft);
+  }
+
+  Future<void> _saveDraft() async {
+    if (!mounted) return;
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
+        'stage': 1,
+        'data': {
+          'driver_name':      _driverName.text.trim(),
+          'driver_phone':     _driverPhone.text.trim(),
+          'driving_license':  _drivingLicense.text.trim(),
+          'aadhaar':          _aadhaar.text.trim(),
+          'rc':               _rc.text.trim(),
+          'insurance':        _insurance.text.trim(),
+          'pollution':        _pollution.text.trim(),
+          'fitness':          _fitness.text.trim(),
+          'pan':              _pan.text.trim(),
+          'tax_declaration':  _taxDeclaration.text.trim(),
+          'cancelled_cheque': _cancelledCheque.text.trim(),
+        },
+      });
+      if (mounted) setState(() => _lastSaved = DateTime.now());
+    } catch (_) {}
+  }
+
   @override
   void dispose() {
+    _debounce?.cancel();
     for (final c in [_driverName, _driverPhone, _drivingLicense, _aadhaar,
         _rc, _insurance, _pollution, _fitness, _pan, _taxDeclaration, _cancelledCheque]) {
       c.dispose();
@@ -296,7 +361,20 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
 
             _SectionHeader(icon: Icons.account_balance_outlined, title: 'Truck Owner Payment Details'),
             _FormField(controller: _cancelledCheque, label: 'Cancelled Cheque (Owner / Transporter)', required: false),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+            if (_lastSaved != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
+                    const SizedBox(width: 4),
+                    Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                        style: _inter(size: 11, color: _success)),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 8),
 
             SizedBox(
               width: double.infinity,
@@ -320,6 +398,13 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       ),
     );
   }
+}
+
+String _formatSaved(DateTime dt) {
+  final diff = DateTime.now().difference(dt);
+  if (diff.inSeconds < 60) return 'just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+  return '${diff.inHours}h ago';
 }
 
 // ─── Stage 2: Pre-Arrival Compliance Check ────────────────────────────────────
@@ -481,7 +566,8 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
 
 class _Stage3Form extends ConsumerStatefulWidget {
   final (String, int) providerKey;
-  const _Stage3Form({required this.providerKey});
+  final TripModel trip;
+  const _Stage3Form({required this.providerKey, required this.trip});
 
   @override
   ConsumerState<_Stage3Form> createState() => _Stage3FormState();
@@ -507,10 +593,78 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   ({Uint8List bytes, String name})? _biltyData;
   List<({Uint8List bytes, String name})> _materialDocs = [];
 
+  Timer? _debounce;
+  DateTime? _lastSaved;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillFromDraft();
+    _emptyTruckWeight.addListener(_onFieldChanged);
+    _loadedTruckWeight.addListener(_onFieldChanged);
+    _emptyWeightUnit.addListener(_onFieldChanged);
+    _loadedWeightUnit.addListener(_onFieldChanged);
+  }
+
+  void _prefillFromDraft() {
+    final draft = widget.trip.draftData;
+    if (draft == null || draft['stage'] != 3) return;
+    final d = draft['data'] as Map<String, dynamic>? ?? {};
+    _driverParked       = d['driver_parked']       as bool? ?? false;
+    _docsSubmitted      = d['docs_submitted']       as bool? ?? false;
+    _securityVerified   = d['security_verified']    as bool? ?? false;
+    _driverExitedCabin  = d['driver_exited_cabin']  as bool? ?? false;
+    _wheelStoppers      = d['wheel_stoppers']       as bool? ?? false;
+    _safetyGear         = d['safety_gear']          as bool? ?? false;
+    _loadingComplete    = d['loading_complete']     as bool? ?? false;
+    _emptyTruckWeight.text = d['empty_truck_weight']      as String? ?? '';
+    _loadedTruckWeight.text = d['loaded_truck_weight']    as String? ?? '';
+    _emptyWeightUnit.value = d['empty_truck_weight_unit'] as String? ?? 'tons';
+    _loadedWeightUnit.value = d['loaded_truck_weight_unit'] as String? ?? 'tons';
+    if (draft['saved_at'] != null) {
+      _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
+    }
+  }
+
+  void _onFieldChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 1500), _saveDraft);
+  }
+
+  void _onCheckChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 1500), _saveDraft);
+  }
+
+  Future<void> _saveDraft() async {
+    if (!mounted) return;
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
+        'stage': 3,
+        'data': {
+          'driver_parked':           _driverParked,
+          'docs_submitted':          _docsSubmitted,
+          'security_verified':       _securityVerified,
+          'driver_exited_cabin':     _driverExitedCabin,
+          'wheel_stoppers':          _wheelStoppers,
+          'safety_gear':             _safetyGear,
+          'loading_complete':        _loadingComplete,
+          'empty_truck_weight':      _emptyTruckWeight.text.trim(),
+          'empty_truck_weight_unit': _emptyWeightUnit.value,
+          'loaded_truck_weight':     _loadedTruckWeight.text.trim(),
+          'loaded_truck_weight_unit': _loadedWeightUnit.value,
+        },
+      });
+      if (mounted) setState(() => _lastSaved = DateTime.now());
+    } catch (_) {}
+  }
+
   final _picker = ImagePicker();
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _emptyTruckWeight.dispose();
     _loadedTruckWeight.dispose();
     _emptyWeightUnit.dispose();
@@ -561,6 +715,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       return;
     }
     setState(() => _loadingComplete = true);
+    _saveDraft();
   }
 
   Future<void> _completeStage() async {
@@ -576,6 +731,10 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       'loaded_truck_weight_kg':   _loadedTruckWeight.text.trim(),
       'loaded_truck_weight_unit': _loadedWeightUnit.value,
     };
+
+    if (_lastSaved != null) {
+      // draft is cleared by server on submit — nothing extra needed
+    }
 
     if (_biltyData != null) {
       fields['bilty'] = MultipartFile.fromBytes(
@@ -611,17 +770,17 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           _CheckItem(
             label: 'Driver parks outside factory',
             value: _driverParked,
-            onChanged: (v) => setState(() => _driverParked = v),
+            onChanged: (v) { setState(() => _driverParked = v); _onCheckChanged(); },
           ),
           _CheckItem(
             label: 'Documents submitted to security',
             value: _docsSubmitted,
-            onChanged: (v) => setState(() => _docsSubmitted = v),
+            onChanged: (v) { setState(() => _docsSubmitted = v); _onCheckChanged(); },
           ),
           _CheckItem(
             label: 'Security verifies vehicle requirements',
             value: _securityVerified,
-            onChanged: (v) => setState(() => _securityVerified = v),
+            onChanged: (v) { setState(() => _securityVerified = v); _onCheckChanged(); },
           ),
           const SizedBox(height: 8),
 
@@ -638,21 +797,21 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                 _CheckItem(
                   label: 'Driver must exit cabin',
                   value: _driverExitedCabin,
-                  onChanged: (v) => setState(() => _driverExitedCabin = v),
+                  onChanged: (v) { setState(() => _driverExitedCabin = v); _onCheckChanged(); },
                   activeColor: _primary,
                 ),
                 Divider(height: 1, indent: 16, endIndent: 16, color: _primary.withValues(alpha: 0.15)),
                 _CheckItem(
                   label: 'Wheel stoppers installed',
                   value: _wheelStoppers,
-                  onChanged: (v) => setState(() => _wheelStoppers = v),
+                  onChanged: (v) { setState(() => _wheelStoppers = v); _onCheckChanged(); },
                   activeColor: _primary,
                 ),
                 Divider(height: 1, indent: 16, endIndent: 16, color: _primary.withValues(alpha: 0.15)),
                 _CheckItem(
                   label: 'Safety shoes and helmet required',
                   value: _safetyGear,
-                  onChanged: (v) => setState(() => _safetyGear = v),
+                  onChanged: (v) { setState(() => _safetyGear = v); _onCheckChanged(); },
                   activeColor: _primary,
                 ),
               ],
@@ -744,6 +903,18 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             ),
             const SizedBox(height: 28),
 
+            if (_lastSaved != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
+                    const SizedBox(width: 4),
+                    Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                        style: _inter(size: 11, color: _success)),
+                  ],
+                ),
+              ),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -1738,6 +1909,58 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   bool _materialChecked = false;
   bool _submitting = false;
 
+  Timer? _debounce;
+  DateTime? _lastSaved;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillFromDraft();
+  }
+
+  void _prefillFromDraft() {
+    final draft = widget.trip.draftData;
+    if (draft == null || draft['stage'] != 4) return;
+    final d = draft['data'] as Map<String, dynamic>? ?? {};
+    _truckMoved     = d['truck_moved']      as bool? ?? false;
+    _securityCheck  = d['security_check']   as bool? ?? false;
+    _biltyChecked   = d['bilty_checked']    as bool? ?? false;
+    _weightChecked  = d['weight_checked']   as bool? ?? false;
+    _materialChecked = d['material_checked'] as bool? ?? false;
+    if (draft['saved_at'] != null) {
+      _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
+    }
+  }
+
+  void _onCheckChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 1500), _saveDraft);
+  }
+
+  Future<void> _saveDraft() async {
+    if (!mounted) return;
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
+        'stage': 4,
+        'data': {
+          'truck_moved':      _truckMoved,
+          'security_check':   _securityCheck,
+          'bilty_checked':    _biltyChecked,
+          'weight_checked':   _weightChecked,
+          'material_checked': _materialChecked,
+        },
+      });
+      if (mounted) setState(() => _lastSaved = DateTime.now());
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
   bool get _allDone =>
       _truckMoved && _securityCheck && _biltyChecked && _weightChecked && _materialChecked;
 
@@ -1871,12 +2094,12 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           _buildCheckTile(
             value: _truckMoved,
             label: 'Truck moves to factory exit gate',
-            onChanged: (v) => setState(() => _truckMoved = v ?? false),
+            onChanged: (v) { setState(() => _truckMoved = v ?? false); _onCheckChanged(); },
           ),
           _buildCheckTile(
             value: _securityCheck,
             label: 'Security verifies documents',
-            onChanged: (v) => setState(() => _securityCheck = v ?? false),
+            onChanged: (v) { setState(() => _securityCheck = v ?? false); _onCheckChanged(); },
           ),
           const SizedBox(height: 16),
 
@@ -1886,17 +2109,17 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           _buildCheckTile(
             value: _biltyChecked,
             label: 'Bilty',
-            onChanged: (v) => setState(() => _biltyChecked = v ?? false),
+            onChanged: (v) { setState(() => _biltyChecked = v ?? false); _onCheckChanged(); },
           ),
           _buildCheckTile(
             value: _weightChecked,
             label: 'Loaded Weight Slip',
-            onChanged: (v) => setState(() => _weightChecked = v ?? false),
+            onChanged: (v) { setState(() => _weightChecked = v ?? false); _onCheckChanged(); },
           ),
           _buildCheckTile(
             value: _materialChecked,
             label: 'Material Documents',
-            onChanged: (v) => setState(() => _materialChecked = v ?? false),
+            onChanged: (v) { setState(() => _materialChecked = v ?? false); _onCheckChanged(); },
           ),
           const SizedBox(height: 32),
 
@@ -1922,6 +2145,18 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
               ),
             ),
           if (!_allDone) const SizedBox(height: 12),
+          if (_lastSaved != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
+                  const SizedBox(width: 4),
+                  Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                      style: _inter(size: 11, color: _success)),
+                ],
+              ),
+            ),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(

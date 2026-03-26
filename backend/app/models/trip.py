@@ -4,7 +4,7 @@ Represents an active or completed cargo trip with full logistics details.
 """
 
 from sqlalchemy import Column, String, Text, Date, TIMESTAMP, Numeric, ForeignKey, Integer, Boolean
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 import uuid
 
@@ -105,6 +105,9 @@ class Trip(Base):
     s4_completed_at     = Column(TIMESTAMP(timezone=True), nullable=True)
     s4_notified_at      = Column(TIMESTAMP(timezone=True), nullable=True)
 
+    # ── Draft (cross-device in-progress form data) ───────────────────────────────
+    draft_data = Column(JSONB, nullable=True)
+
     # ── Dates ────────────────────────────────────────────────────────────────────
     start_date = Column(Date, nullable=True)
     end_date = Column(Date, nullable=True)
@@ -176,6 +179,7 @@ class Trip(Base):
             "s4_material_checked": self.s4_material_checked,
             "s4_completed_at": self.s4_completed_at.isoformat() if self.s4_completed_at else None,
             "s4_notified_at": self.s4_notified_at.isoformat() if self.s4_notified_at else None,
+            "draft_data": self.draft_data,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

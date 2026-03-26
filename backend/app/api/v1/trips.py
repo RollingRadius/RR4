@@ -379,6 +379,7 @@ def submit_stage1(
     trip.s1_cancelled_cheque = body.cancelled_cheque
     trip.s1_submitted_at     = datetime.now(timezone.utc)
     trip.current_stage       = 1
+    trip.draft_data          = None  # clear draft on submit
 
     db.commit()
     db.refresh(trip)
@@ -497,6 +498,7 @@ async def submit_stage3(
     trip.s3_completed_at             = datetime.now(timezone.utc)
     trip.current_stage               = 3
     trip.status                      = 'ongoing'
+    trip.draft_data                  = None  # clear draft on submit
 
     db.commit()
     db.refresh(trip)
@@ -539,10 +541,39 @@ def submit_stage4(
     trip.s4_material_checked  = body.material_checked
     trip.s4_completed_at      = datetime.now(timezone.utc)
     trip.current_stage        = 4
+    trip.draft_data           = None  # clear draft on submit
 
     db.commit()
     db.refresh(trip)
     return {"success": True, "message": "Truck exit recorded. You can now notify the load owner.", "trip": _enrich(trip, db)}
+
+
+class DraftPayload(BaseModel):
+    stage: int
+    data: dict
+    saved_at: Optional[str] = None
+
+
+@router.patch("/trips/{trip_id}/draft", status_code=200)
+def save_draft(
+    trip_id: str,
+    body: DraftPayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Save partial stage form data as a draft. Does not advance the stage."""
+    from datetime import datetime, timezone
+
+    user_org = _get_user_org(current_user, db)
+    trip = _get_fleet_trip(trip_id, user_org, db)
+
+    trip.draft_data = {
+        "stage": body.stage,
+        "data": body.data,
+        "saved_at": body.saved_at or datetime.now(timezone.utc).isoformat(),
+    }
+    db.commit()
+    return {"success": True}
 
 
 @router.post("/trips/{trip_id}/notify-stage4", status_code=200)

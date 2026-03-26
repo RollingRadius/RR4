@@ -59,6 +59,9 @@ class TripModel {
   final String? s4CompletedAt;
   final String? s4NotifiedAt;
 
+  // ── Draft (cross-device in-progress form data) ────────────────────────────────
+  final Map<String, dynamic>? draftData;
+
   const TripModel({
     required this.id,
     required this.tripNumber,
@@ -109,6 +112,7 @@ class TripModel {
     this.s4MaterialChecked,
     this.s4CompletedAt,
     this.s4NotifiedAt,
+    this.draftData,
   });
 
   bool get isOngoing => status == 'ongoing';
@@ -168,6 +172,7 @@ class TripModel {
       s4MaterialChecked:  json['s4_material_checked']   as bool?,
       s4CompletedAt:      json['s4_completed_at']       as String?,
       s4NotifiedAt:       json['s4_notified_at']        as String?,
+      draftData:          json['draft_data'] as Map<String, dynamic>?,
     );
   }
 

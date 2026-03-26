@@ -296,6 +296,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                         'Independent User',
                         'Use basic features without company affiliation',
                         Icons.person_outline,
+                        comingSoon: true,
                       ),
                       const SizedBox(height: 12),
                       _buildRoleOption(
@@ -303,6 +304,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                         'Driver',
                         'Register as a driver with license information',
                         Icons.local_shipping_outlined,
+                        comingSoon: true,
                       ),
                       const SizedBox(height: 12),
                       _buildRoleOption(
@@ -310,6 +312,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                         'Join Company',
                         'Join an existing company (requires approval)',
                         Icons.business_outlined,
+                        comingSoon: true,
                       ),
                       const SizedBox(height: 12),
                       _buildRoleOption(
@@ -370,71 +373,92 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
     );
   }
 
-  Widget _buildRoleOption(String value, String title, String description, IconData icon) {
+  Widget _buildRoleOption(String value, String title, String description, IconData icon, {bool comingSoon = false}) {
     final isSelected = _selectedRoleType == value;
 
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedRoleType = value;
-        });
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : Colors.grey[50],
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[300]!,
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[300],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                icon,
-                color: isSelected ? Colors.white : Colors.grey[600],
-                size: 24,
-              ),
+    return Opacity(
+      opacity: comingSoon ? 0.5 : 1.0,
+      child: InkWell(
+        onTap: comingSoon
+            ? null
+            : () {
+                setState(() {
+                  _selectedRoleType = value;
+                });
+              },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isSelected ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : Colors.grey[50],
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[300]!,
+              width: isSelected ? 2 : 1,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: isSelected ? Theme.of(context).colorScheme.primary : Colors.black87,
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey[300],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: isSelected ? Colors.white : Colors.grey[600],
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.black87,
+                      ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (comingSoon)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
+                  child: Text(
+                    'Coming Soon',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                       color: Colors.grey[600],
                     ),
                   ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(
-                Icons.check_circle,
-                color: Theme.of(context).colorScheme.primary,
-                size: 24,
-              ),
-          ],
+                )
+              else if (isSelected)
+                Icon(
+                  Icons.check_circle,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 24,
+                ),
+            ],
+          ),
         ),
       ),
     );
