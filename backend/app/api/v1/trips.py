@@ -120,7 +120,11 @@ def list_trips(
         query = query.filter(Trip.organization_id == user_org.organization_id)
 
     if status_filter:
-        query = query.filter(Trip.status == status_filter)
+        statuses = [s.strip() for s in status_filter.split(',') if s.strip()]
+        if len(statuses) == 1:
+            query = query.filter(Trip.status == statuses[0])
+        elif len(statuses) > 1:
+            query = query.filter(Trip.status.in_(statuses))
 
     total = query.count()
     trips = query.order_by(Trip.created_at.desc()).offset(offset).limit(limit).all()

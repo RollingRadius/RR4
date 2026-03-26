@@ -498,7 +498,7 @@ def fulfill_load_requirement(
             load_item=load.material_type or 'Cargo',
             weight=load.capacity,
             trip_amount=payload.trip_amount,
-            status='pending',
+            status='ongoing',
             organization_id=fleet_company.id,
             load_owner_org_id=load.company_id,
             vehicle_id=vehicle_uuid,

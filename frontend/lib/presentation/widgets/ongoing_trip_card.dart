@@ -102,6 +102,12 @@ class OngoingTripCard extends ConsumerWidget {
             ),
           ),
 
+          // ── Stage progress strip ───────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 4, 18, 10),
+            child: _StageStrip(currentStage: trip.currentStage),
+          ),
+
           // ── Divider ───────────────────────────────────────────────────
           Divider(
               height: 1,
@@ -156,7 +162,7 @@ class OngoingTripCard extends ConsumerWidget {
                         .then((_) {
                       ref
                           .read(tripProvider.notifier)
-                          .silentRefresh(statusFilter: 'ongoing');
+                          .loadTrips(statusFilter: 'ongoing,pending');
                     }),
                     child: Container(
                       width: double.infinity,
@@ -488,6 +494,82 @@ String _stageName(int currentStage) {
     2 => 'Factory Arrival',
     _ => 'Exit & Complete',
   };
+}
+
+// ─── Mini stage progress strip ────────────────────────────────────────────────
+
+class _StageStrip extends StatelessWidget {
+  final int currentStage; // 0-4
+  const _StageStrip({required this.currentStage});
+
+  static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit'];
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(4, (i) {
+        final isDone = currentStage > i;
+        final isActive = currentStage == i;
+        final dotColor = isDone
+            ? const Color(0xFF2E7D32)
+            : isActive
+                ? _primary
+                : _outlineVariant;
+        final textColor = isDone
+            ? const Color(0xFF2E7D32)
+            : isActive
+                ? _primary
+                : _outline;
+
+        return Expanded(
+          child: Row(
+            children: [
+              Column(
+                children: [
+                  Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isDone
+                          ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
+                          : isActive
+                              ? _primary.withValues(alpha: 0.12)
+                              : _outlineVariant.withValues(alpha: 0.5),
+                      border: Border.all(color: dotColor, width: isDone || isActive ? 1.5 : 1),
+                    ),
+                    child: Center(
+                      child: isDone
+                          ? const Icon(Icons.check_rounded, size: 11, color: Color(0xFF2E7D32))
+                          : Text(
+                              '${i + 1}',
+                              style: _inter(size: 9, weight: FontWeight.w700, color: textColor),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _labels[i],
+                    style: _inter(size: 8, weight: FontWeight.w500, color: textColor),
+                  ),
+                ],
+              ),
+              if (i < 3)
+                Expanded(
+                  child: Container(
+                    height: 1.5,
+                    margin: const EdgeInsets.only(bottom: 14),
+                    color: isDone
+                        ? const Color(0xFF2E7D32).withValues(alpha: 0.4)
+                        : _outlineVariant.withValues(alpha: 0.5),
+                  ),
+                ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
 }
 
 class _DashedPainter extends CustomPainter {

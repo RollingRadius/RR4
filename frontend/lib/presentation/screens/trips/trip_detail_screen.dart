@@ -196,7 +196,7 @@ class _GoToStageButton extends ConsumerWidget {
       onTap: () => Navigator.of(context)
           .push(MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)))
           .then((_) {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing');
+        ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
       }),
       child: Container(
         width: double.infinity,

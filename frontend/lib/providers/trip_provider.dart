@@ -37,6 +37,10 @@ class TripState {
 
   List<TripModel> get ongoingTrips =>
       trips.where((t) => t.isOngoing).toList();
+  /// All trips that are actively being worked on (pending + ongoing).
+  /// Used by the fleet manager dashboard.
+  List<TripModel> get activeTrips =>
+      trips.where((t) => t.isOngoing || t.isPending).toList();
   List<TripModel> get completedTrips =>
       trips.where((t) => t.isCompleted).toList();
 }

@@ -116,7 +116,7 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
               backgroundColor: Colors.transparent,
               color: _primary,
             ),
-          _StepIndicator(currentStage: stage),
+          _StepIndicator(currentStage: _stage4Done ? 4 : stage),
           if (state.error != null)
             Container(
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -2019,13 +2019,20 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     setState(() => _submitting = true);
     try {
       final dio = ref.read(dioProvider);
-      await dio.post('/api/trips/${widget.trip.id}/stage/4', data: {
+      final resp = await dio.post('/api/trips/${widget.trip.id}/stage/4', data: {
         'truck_moved':        _truckMoved,
         'security_verified':  _securityCheck,
         'bilty_checked':      _biltyChecked,
         'weight_checked':     _weightChecked,
         'material_checked':   _materialChecked,
       });
+      // Immediately patch the in-memory trip so currentStage: 4 is reflected
+      try {
+        final tripJson = (resp.data as Map<String, dynamic>?)?['trip'] as Map<String, dynamic>?;
+        if (tripJson != null) {
+          ref.read(tripProvider.notifier).patchTrip(TripModel.fromJson(tripJson));
+        }
+      } catch (_) {}
       widget.onComplete();
     } catch (e) {
       if (mounted) {

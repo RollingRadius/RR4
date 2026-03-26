@@ -60,19 +60,38 @@ class _FleetManagerDashboardState
     extends ConsumerState<FleetManagerDashboard> {
   int _navIndex = 0;
   Timer? _pollTimer;
-  bool _initialLoadTriggered = false;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
-    // Silent background refresh every 30 s
+    // Background refresh every 30 s
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing');
+        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
         ref.read(availableLoadsProvider.notifier).silentRefresh();
       }
     });
+    // Initial data load — runs after first frame so ref/auth are ready
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAllData());
+  }
+
+  /// Load all dashboard data. Called on init and whenever Dashboard tab
+  /// comes into focus (e.g. switching back from Loads tab).
+  void _loadAllData() {
+    if (!mounted) return;
+    ref.read(vehicleProvider.notifier).loadVehicles();
+    ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+    ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
+  }
+
+  /// Switch tabs — refreshes fleet data whenever user navigates to Dashboard.
+  void _switchNav(int index) {
+    if (index == 0 && _navIndex != 0) {
+      // Switching back to Dashboard tab — force fresh fleet data
+      ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+    }
+    setState(() => _navIndex = index);
   }
 
   @override
@@ -84,23 +103,11 @@ class _FleetManagerDashboardState
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-
-    // Defer initial data load until auth is confirmed — fixes reload race condition
-    if (!_initialLoadTriggered && authState.isInitialized && authState.isAuthenticated) {
-      _initialLoadTriggered = true;
-      Future.microtask(() {
-        ref.read(vehicleProvider.notifier).loadVehicles();
-        ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing');
-        ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
-      });
-    }
-
     final user = authState.user;
-
     final pendingLoadsCount = ref.watch(availableLoadsProvider).loads.length;
 
     final pages = [
-      _DashboardTab(onViewLoads: () => setState(() => _navIndex = 1)),
+      _DashboardTab(onViewLoads: () => _switchNav(1)),
       const _AvailableLoadsTab(),
       const _ProfileTab(),
     ];
@@ -114,7 +121,7 @@ class _FleetManagerDashboardState
         navIndex: _navIndex,
         onNavTap: (i) {
           _scaffoldKey.currentState?.closeDrawer();
-          setState(() => _navIndex = i);
+          _switchNav(i);
         },
       ),
       body: Column(
@@ -127,7 +134,7 @@ class _FleetManagerDashboardState
       ),
       bottomNavigationBar: _BottomNav(
         selectedIndex: _navIndex,
-        onTap: (i) => setState(() => _navIndex = i),
+        onTap: _switchNav,
         pendingLoadsCount: pendingLoadsCount,
       ),
     );
@@ -313,10 +320,17 @@ class _DashboardTab extends ConsumerWidget {
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Fleet Manager';
 
-    final ongoingTrips = tripState.ongoingTrips;
+    final ongoingTrips = tripState.activeTrips;
     final pendingLoads = loadsState.loads;
 
-    return SingleChildScrollView(
+    return RefreshIndicator(
+      color: _primary,
+      onRefresh: () async {
+        await ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+        await ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
+      },
+      child: SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,6 +380,7 @@ class _DashboardTab extends ConsumerWidget {
           _RecentActivity(),
         ],
       ),
+    ),
     );
   }
 }
@@ -510,7 +525,7 @@ class _FleetStatusHeader extends ConsumerWidget {
               Text(
                 tripCount == 0
                     ? 'No active trips'
-                    : '$tripCount trip${tripCount == 1 ? '' : 's'} in transit'
+                    : '$tripCount active trip${tripCount == 1 ? '' : 's'}'
                         '${updatedStr != null ? ' · $updatedStr' : ''}',
                 style: _inter(size: 12),
               ),
@@ -577,7 +592,7 @@ class _EmptyTrips extends StatelessWidget {
           children: [
             const Icon(Icons.route_rounded, color: _secondary, size: 40),
             const SizedBox(height: 8),
-            Text('No ongoing trips',
+            Text('No active trips',
                 style: _inter(
                     size: 14,
                     weight: FontWeight.w600,
@@ -1250,11 +1265,18 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       final tripData = resp.data['trip'] as Map<String, dynamic>;
       final trip = TripModel.fromJson(tripData);
 
+      // Immediately add the new trip to the in-memory list so it shows in fleet status
+      ref.read(tripProvider.notifier).patchTrip(trip);
+
       if (!mounted) return;
-      Navigator.of(context).pop(); // close bottom sheet
-      Navigator.of(context).push(
+      final nav = Navigator.of(context);
+      nav.pop(); // close bottom sheet
+      nav.push(
         MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)),
-      );
+      ).then((_) {
+        // ref.read is safe without mounted — force fresh data and switch to Dashboard
+        ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+      });
     } on DioException catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
