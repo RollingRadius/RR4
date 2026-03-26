@@ -307,7 +307,7 @@ ERROR_PAN_INVALID_FORMAT = "Invalid PAN format. Expected format: ABCDE1234F"
 ERROR_COMPANY_NOT_FOUND = "Company not found"
 ERROR_INSUFFICIENT_SECURITY_QUESTIONS = "Please answer at least 3 security questions"
 ERROR_DUPLICATE_SECURITY_QUESTIONS = "Please select different security questions"
-ERROR_WEAK_PASSWORD = "Password must be at least 8 characters with uppercase, lowercase, and digit"
+ERROR_WEAK_PASSWORD = "Password must be at least 8 characters"
 
 # Success Messages
 SUCCESS_SIGNUP_EMAIL = "Signup successful! Please check your email for verification link."

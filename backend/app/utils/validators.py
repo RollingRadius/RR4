@@ -194,10 +194,8 @@ def validate_password(password: str) -> Tuple[bool, Optional[str]]:
     Validate password strength.
 
     Requirements:
-    - At least 8 characters
-    - At least 1 uppercase letter
-    - At least 1 lowercase letter
-    - At least 1 digit
+    - At least 6 characters
+    - At least 1 special character (!, @, #, $, %, ^, &, *, etc.)
     - Maximum 128 characters
 
     Args:
@@ -214,15 +212,6 @@ def validate_password(password: str) -> Tuple[bool, Optional[str]]:
 
     if len(password) > 128:
         return False, "Password is too long (max 128 characters)"
-
-    if not re.search(r'[A-Z]', password):
-        return False, "Password must contain at least one uppercase letter"
-
-    if not re.search(r'[a-z]', password):
-        return False, "Password must contain at least one lowercase letter"
-
-    if not re.search(r'\d', password):
-        return False, "Password must contain at least one digit"
 
     return True, None
 
