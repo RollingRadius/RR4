@@ -469,10 +469,81 @@ class _Stage2Form extends ConsumerStatefulWidget {
 }
 
 class _Stage2FormState extends ConsumerState<_Stage2Form> {
-  bool _specsVerified    = false;
-  bool _docsVerified     = false;
-  bool _driverDocsValid  = false;
-  bool _entryPermission  = false;
+  bool _specsVerified       = false;
+  bool _docsVerified        = false;
+  bool _driverDocsValid     = false;
+  bool _entryPermission     = false;
+  String? _dharamKantaLoc;  // 'inside' | 'outside'
+  bool _s2WeightConfirmed   = false;
+  final _emptyWeightCtrl    = TextEditingController();
+
+  Timer? _debounce;
+  DateTime? _lastSaved;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefillFromDraft();
+    _emptyWeightCtrl.addListener(_onWeightTextChanged);
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _emptyWeightCtrl.dispose();
+    super.dispose();
+  }
+
+  void _prefillFromDraft() {
+    final draft = widget.trip.draftData;
+    if (draft == null || draft['stage'] != 2) return;
+    final d = draft['data'] as Map<String, dynamic>? ?? {};
+    _specsVerified    = d['specs_verified']              as bool?   ?? false;
+    _docsVerified     = d['docs_verified']               as bool?   ?? false;
+    _driverDocsValid  = d['driver_docs_valid']           as bool?   ?? false;
+    _entryPermission  = d['entry_permission']            as bool?   ?? false;
+    _dharamKantaLoc   = d['dharam_kanta_location']       as String?;
+    _s2WeightConfirmed = d['s2_weight_confirmed']        as bool?   ?? false;
+    _emptyWeightCtrl.text = d['empty_weight_before_loading'] as String? ?? '';
+    if (draft['saved_at'] != null) {
+      _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
+    }
+  }
+
+  void _onWeightTextChanged() {
+    if (_s2WeightConfirmed) setState(() => _s2WeightConfirmed = false);
+    _onFieldChanged();
+  }
+
+  void _onFieldChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 1500), _saveDraft);
+  }
+
+  void _onCheckChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 1500), _saveDraft);
+  }
+
+  Future<void> _saveDraft() async {
+    if (!mounted) return;
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
+        'stage': 2,
+        'data': {
+          'specs_verified':             _specsVerified,
+          'docs_verified':              _docsVerified,
+          'driver_docs_valid':          _driverDocsValid,
+          'entry_permission':           _entryPermission,
+          'dharam_kanta_location':      _dharamKantaLoc ?? '',
+          'empty_weight_before_loading': _emptyWeightCtrl.text.trim(),
+          's2_weight_confirmed':        _s2WeightConfirmed,
+        },
+      });
+      if (mounted) setState(() => _lastSaved = DateTime.now());
+    } catch (_) {}
+  }
 
   Future<void> _submit() async {
     if (!_entryPermission) {
@@ -487,11 +558,20 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
       );
       return;
     }
+    // Persist DK data into shared provider state before submit
+    if (_dharamKantaLoc == 'outside' && _emptyWeightCtrl.text.trim().isNotEmpty) {
+      ref.read(tripStagesProvider(widget.providerKey).notifier)
+          .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim());
+    }
+
     final ok = await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage2({
-      'specs_verified':    _specsVerified,
-      'docs_verified':     _docsVerified,
-      'driver_docs_valid': _driverDocsValid,
-      'entry_permission':  _entryPermission,
+      'specs_verified':          _specsVerified,
+      'docs_verified':           _docsVerified,
+      'driver_docs_valid':       _driverDocsValid,
+      'entry_permission':        _entryPermission,
+      'dharam_kanta_location':   _dharamKantaLoc ?? '',
+      if (_dharamKantaLoc == 'outside' && _emptyWeightCtrl.text.trim().isNotEmpty)
+        'empty_weight_before_loading': _emptyWeightCtrl.text.trim(),
     });
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -504,6 +584,42 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
         ),
       );
     }
+  }
+
+  Widget _dkButton(String label, IconData icon, String value) {
+    final selected = _dharamKantaLoc == value;
+    return GestureDetector(
+      onTap: () { setState(() => _dharamKantaLoc = value); _onCheckChanged(); },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: selected ? _primary.withValues(alpha: 0.10) : const Color(0xFFF5F5F5),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: selected ? _primary : const Color(0xFFDDE0E2),
+            width: selected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 16, color: selected ? _primary : _secondary),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                style: _inter(
+                  size: 12,
+                  weight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: selected ? _primary : _secondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -553,19 +669,136 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           _CheckItem(
             label: 'Truck specifications match requirement',
             value: _specsVerified,
-            onChanged: (v) => setState(() => _specsVerified = v),
+            onChanged: (v) { setState(() => _specsVerified = v); _onCheckChanged(); },
           ),
           _CheckItem(
             label: 'All documents uploaded',
             value: _docsVerified,
-            onChanged: (v) => setState(() => _docsVerified = v),
+            onChanged: (v) { setState(() => _docsVerified = v); _onCheckChanged(); },
           ),
           _CheckItem(
             label: 'Driver documents valid',
             value: _driverDocsValid,
-            onChanged: (v) => setState(() => _driverDocsValid = v),
+            onChanged: (v) { setState(() => _driverDocsValid = v); _onCheckChanged(); },
           ),
           const SizedBox(height: 20),
+
+          // ── Dharam Kanta (Weighbridge) location ──
+          Container(
+            decoration: BoxDecoration(
+              color: _surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border, width: 1.5),
+            ),
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.scale_outlined, color: _primary, size: 18),
+                  const SizedBox(width: 8),
+                  Text('Dharam Kanta (Weighbridge)',
+                      style: _manrope(size: 14, weight: FontWeight.w700)),
+                ]),
+                const SizedBox(height: 3),
+                Text('Is the weighbridge inside or outside the factory?',
+                    style: _inter(size: 12)),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(child: _dkButton('Inside Factory', Icons.factory_outlined, 'inside')),
+                  const SizedBox(width: 10),
+                  Expanded(child: _dkButton('Outside Factory', Icons.location_on_outlined, 'outside')),
+                ]),
+                const SizedBox(height: 14),
+                // Empty truck weight — enabled only when weighbridge is outside
+                Opacity(
+                  opacity: _dharamKantaLoc == 'outside' ? 1.0 : 0.38,
+                  child: AbsorbPointer(
+                    absorbing: _dharamKantaLoc != 'outside',
+                    child: TextField(
+                      controller: _emptyWeightCtrl,
+                      enabled: _dharamKantaLoc == 'outside',
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
+                        labelText: 'Empty Truck Weight Before Loading',
+                        hintText: 'e.g. 12.5 tons',
+                        prefixIcon: const Icon(Icons.monitor_weight_outlined,
+                            color: _secondary, size: 20),
+                        filled: true,
+                        fillColor: _dharamKantaLoc == 'outside'
+                            ? _bg
+                            : const Color(0xFFEEEEEE),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10)),
+                        enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: _border)),
+                        disabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: _border)),
+                        focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide:
+                                const BorderSide(color: _primary, width: 1.5)),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Enter button — confirms the weight into shared provider state
+                Opacity(
+                  opacity: _dharamKantaLoc == 'outside' ? 1.0 : 0.38,
+                  child: AbsorbPointer(
+                    absorbing: _dharamKantaLoc != 'outside',
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        child: ElevatedButton.icon(
+                          onPressed: _dharamKantaLoc == 'outside' &&
+                                  _emptyWeightCtrl.text.trim().isNotEmpty
+                              ? () {
+                                  ref
+                                      .read(tripStagesProvider(widget.providerKey).notifier)
+                                      .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim());
+                                  setState(() => _s2WeightConfirmed = true);
+                                  FocusScope.of(context).unfocus();
+                                  _saveDraft();
+                                }
+                              : null,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _s2WeightConfirmed
+                                ? _success
+                                : _primary,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: const Color(0xFFDDE0E2),
+                            disabledForegroundColor: _secondary,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            textStyle: GoogleFonts.manrope(
+                                fontSize: 13, fontWeight: FontWeight.w700),
+                          ),
+                          icon: Icon(
+                            _s2WeightConfirmed
+                                ? Icons.check_circle_rounded
+                                : Icons.input_rounded,
+                            size: 16,
+                          ),
+                          label: Text(_s2WeightConfirmed
+                              ? 'Weight Recorded'
+                              : 'Enter Weight'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
 
           // Entry permission — highlighted
           Container(
@@ -583,11 +816,24 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
               label: 'Truck Entry Permission Issued',
               sublabel: 'Factory logistics team receives truck number + driver details.',
               value: _entryPermission,
-              onChanged: (v) => setState(() => _entryPermission = v),
+              onChanged: (v) { setState(() => _entryPermission = v); _onCheckChanged(); },
               activeColor: _success,
             ),
           ),
           const SizedBox(height: 28),
+
+          if (_lastSaved != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
+                  const SizedBox(width: 4),
+                  Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                      style: _inter(size: 11, color: _success)),
+                ],
+              ),
+            ),
 
           SizedBox(
             width: double.infinity,
@@ -769,6 +1015,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   }
 
   Future<void> _completeStage() async {
+    final stagesState = ref.read(tripStagesProvider(widget.providerKey));
+    final s2Weight = stagesState.s2EmptyWeight ?? '';
+    final weightFromS2 =
+        stagesState.s2DharamKantaLoc == 'outside' && s2Weight.isNotEmpty;
+
     final fields = <String, dynamic>{
       'driver_parked':            _driverParked.toString(),
       'docs_submitted':           _docsSubmitted.toString(),
@@ -776,7 +1027,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       'driver_exited_cabin':      _driverExitedCabin.toString(),
       'wheel_stoppers':           _wheelStoppers.toString(),
       'safety_gear':              _safetyGear.toString(),
-      'empty_truck_weight_kg':    _emptyTruckWeight.text.trim(),
+      // Use Stage 2 weight if it was captured there, otherwise Stage 3 entry
+      'empty_truck_weight_kg':    weightFromS2 ? s2Weight : _emptyTruckWeight.text.trim(),
       'empty_truck_weight_unit':  _emptyWeightUnit.value,
       'loaded_truck_weight_kg':   _loadedTruckWeight.text.trim(),
       'loaded_truck_weight_unit': _loadedWeightUnit.value,
@@ -805,7 +1057,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
   @override
   Widget build(BuildContext context) {
-    final busy = ref.watch(tripStagesProvider(widget.providerKey)).isSubmitting;
+    final stagesState = ref.watch(tripStagesProvider(widget.providerKey));
+    final busy = stagesState.isSubmitting;
+    final s2Weight = stagesState.s2EmptyWeight ?? '';
+    final weightFromS2 =
+        stagesState.s2DharamKantaLoc == 'outside' && s2Weight.isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -871,14 +1127,43 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
           // Dharma Kanta — Empty Weight
           _SectionHeader(icon: Icons.scale_rounded, title: 'Dharma Kanta (Weigh Bridge)'),
-          _WeighField(
-            controller: _emptyTruckWeight,
-            label: 'Empty Truck Weight',
-            hint: 'e.g. 12.5',
-            note: 'Record the empty truck weight before loading.',
-            enabled: !_loadingComplete,
-            unitNotifier: _emptyWeightUnit,
-          ),
+          if (weightFromS2) ...[
+            // Weight already captured in Stage 2 — show read-only banner
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: _success.withValues(alpha: 0.07),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _success.withValues(alpha: 0.30)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, color: _success, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Empty weight recorded in Stage 2',
+                            style: _inter(size: 12, weight: FontWeight.w600, color: _success)),
+                        Text('$s2Weight tons (outside factory)',
+                            style: _manrope(size: 15, weight: FontWeight.w800, color: _success)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            _WeighField(
+              controller: _emptyTruckWeight,
+              label: 'Empty Truck Weight',
+              hint: 'e.g. 12.5',
+              note: 'Record the empty truck weight before loading.',
+              enabled: !_loadingComplete,
+              unitNotifier: _emptyWeightUnit,
+            ),
+          ],
           const SizedBox(height: 20),
 
           // Phase 1 button — "Loading Complete"

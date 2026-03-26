@@ -16,6 +16,7 @@ import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // ─── Typography ───────────────────────────────────────────────────────────────
 TextStyle _manrope({
@@ -1008,7 +1009,7 @@ class _AvailableLoadCard extends ConsumerWidget {
             ),
           ),
 
-          // Divider + action button
+          // Divider + action buttons
           Divider(
               height: 1,
               color: _surfaceContainer.withValues(alpha: 0.7),
@@ -1016,95 +1017,233 @@ class _AvailableLoadCard extends ConsumerWidget {
               endIndent: 16),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-            child: load.status == 'assigned'
-                ? SizedBox(
-                    width: double.infinity,
-                    child: GestureDetector(
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => TruckTrackingScreen(
-                            trip: TripModel(
-                              id: load.id,
-                              tripNumber: load.refId,
-                              origin: load.pickupLocation ?? '',
-                              destination: load.unloadLocation ?? '',
-                              loadItem: load.materialType ?? 'Cargo',
-                              status: 'ongoing',
-                              organizationId: load.companyId,
+            child: Column(
+              children: [
+                // ── Copy & WhatsApp share row ──────────────────────────────
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => _copyDetails(context, load),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF001E40).withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: const Color(0xFF001E40)
+                                    .withValues(alpha: 0.18)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.copy_rounded,
+                                  size: 14, color: Color(0xFF001E40)),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Copy Details',
+                                style: _manrope(
+                                    size: 12,
+                                    weight: FontWeight.w700,
+                                    color: const Color(0xFF001E40)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => _shareOnWhatsApp(context, load),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF25D366).withValues(alpha: 0.10),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                                color: const Color(0xFF25D366)
+                                    .withValues(alpha: 0.40)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 16,
+                                height: 16,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF25D366),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.chat_rounded,
+                                    size: 9, color: Colors.white),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'WhatsApp',
+                                style: _manrope(
+                                    size: 12,
+                                    weight: FontWeight.w700,
+                                    color: const Color(0xFF128C7E)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // ── Primary action (Track / Fulfill) ──────────────────────
+                load.status == 'assigned'
+                    ? SizedBox(
+                        width: double.infinity,
+                        child: GestureDetector(
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => TruckTrackingScreen(
+                                trip: TripModel(
+                                  id: load.id,
+                                  tripNumber: load.refId,
+                                  origin: load.pickupLocation ?? '',
+                                  destination: load.unloadLocation ?? '',
+                                  loadItem: load.materialType ?? 'Cargo',
+                                  status: 'ongoing',
+                                  organizationId: load.companyId,
+                                ),
+                              ),
+                            ),
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0D47A1)
+                                  .withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: const Color(0xFF0D47A1)
+                                      .withValues(alpha: 0.25)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.local_shipping_rounded,
+                                    color: Color(0xFF0D47A1), size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Track Truck',
+                                  style: _manrope(
+                                      size: 14,
+                                      weight: FontWeight.w700,
+                                      color: const Color(0xFF0D47A1)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                    : SizedBox(
+                        width: double.infinity,
+                        child: GestureDetector(
+                          onTap: isFulfilling
+                              ? null
+                              : () => _showFulfillSheet(context, ref, load),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFFFF6B00), Color(0xFFE55C00)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                    color: _primary.withValues(alpha: 0.30),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3))
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.check_circle_outline_rounded,
+                                    color: Colors.white, size: 16),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Fulfill This Load',
+                                  style: _manrope(
+                                      size: 14,
+                                      weight: FontWeight.w700,
+                                      color: Colors.white),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0D47A1).withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                              color: const Color(0xFF0D47A1).withValues(alpha: 0.25)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.local_shipping_rounded,
-                                color: Color(0xFF0D47A1), size: 16),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Track Truck',
-                              style: _manrope(
-                                  size: 14,
-                                  weight: FontWeight.w700,
-                                  color: const Color(0xFF0D47A1)),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                : SizedBox(
-                    width: double.infinity,
-                    child: GestureDetector(
-                      onTap: isFulfilling
-                          ? null
-                          : () => _showFulfillSheet(context, ref, load),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFFF6B00), Color(0xFFE55C00)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                                color: _primary.withValues(alpha: 0.30),
-                                blurRadius: 8,
-                                offset: const Offset(0, 3))
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.check_circle_outline_rounded,
-                                color: Colors.white, size: 16),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Fulfill This Load',
-                              style: _manrope(
-                                  size: 14,
-                                  weight: FontWeight.w700,
-                                  color: Colors.white),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+
+  // ── Message builder ──────────────────────────────────────────────────────────
+
+  String _buildMessage(LoadRequirementModel load) {
+    final lines = <String>[
+      '🚛 *Load Requirements*',
+      '📋 Ref: ${load.refId}',
+      if (load.pickupLocation != null) '📍 Pickup: ${load.pickupLocation}',
+      if (load.unloadLocation != null) '🏁 Drop: ${load.unloadLocation}',
+      if (load.entryDate != null) '📅 Date: ${load.entryDate}',
+      '🚚 Trucks Needed: ${load.truckCount}',
+      if (load.materialType != null) '📦 Material: ${load.materialType}',
+      if (load.capacity != null) '⚖️ Capacity: ${load.capacity}',
+      if (load.bodyType != null) '🚛 Body Type: ${load.bodyType}',
+      if (load.axelType != null) '🔧 Axel Type: ${load.axelType}',
+      if (load.floorType != null) '🪵 Floor Type: ${load.floorType}',
+      if (load.companyName != null) '🏢 Company: ${load.companyName}',
+      if (load.companyCity != null || load.companyState != null)
+        '📌 Location: ${[
+          if (load.companyCity != null) load.companyCity!,
+          if (load.companyState != null) load.companyState!,
+        ].join(', ')}',
+      if (load.companyPhone != null) '📞 Contact: ${load.companyPhone}',
+    ];
+    return lines.join('\n');
+  }
+
+  void _copyDetails(BuildContext context, LoadRequirementModel load) {
+    Clipboard.setData(ClipboardData(text: _buildMessage(load)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Load details copied to clipboard'),
+        duration: Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _shareOnWhatsApp(
+      BuildContext context, LoadRequirementModel load) async {
+    final encoded = Uri.encodeComponent(_buildMessage(load));
+    final url = Uri.parse('https://wa.me/?text=$encoded');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not open WhatsApp'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   void _showFulfillSheet(

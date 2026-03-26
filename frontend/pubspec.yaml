@@ -42,6 +42,7 @@ dependencies:
   # Utilities
   equatable: ^2.0.5
   intl: ^0.18.1
+  url_launcher: ^6.2.6
 
   # GPS Tracking & Maps
   flutter_map: ^6.0.0
