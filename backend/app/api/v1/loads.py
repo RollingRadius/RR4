@@ -151,8 +151,8 @@ def _record_to_response(record: LoadRequirement) -> dict:
         "axel_type":           record.axel_type,
         "body_type":           record.body_type,
         "floor_type":          record.floor_type,
-        "fulfilling_org_id":   str(record.fulfilling_org_id) if record.fulfilling_org_id else None,
-        "target_org_ids":      record.target_org_ids or [],
+        "fulfilling_org_id":   str(record.fulfilling_org_id) if getattr(record, 'fulfilling_org_id', None) else None,
+        "target_org_ids":      getattr(record, 'target_org_ids', None) or [],
         "status":              record.status,
         "created_at":          record.created_at.isoformat(),
     }
@@ -177,7 +177,7 @@ def create_load_requirement(
 
     target_org_ids = payload.target_org_ids if payload.target_org_ids else None
 
-    record = LoadRequirement(
+    record_kwargs = dict(
         id=uuid.uuid4(),
         company_id=company.id,
         created_by=current_user.id,
@@ -191,9 +191,12 @@ def create_load_requirement(
         axel_type=specs.axel_type,
         body_type=specs.body,
         floor_type=specs.floor,
-        target_org_ids=target_org_ids,
         status='pending',
     )
+    if hasattr(LoadRequirement, 'target_org_ids'):
+        record_kwargs['target_org_ids'] = target_org_ids
+
+    record = LoadRequirement(**record_kwargs)
 
     db.add(record)
     db.commit()
@@ -330,29 +333,42 @@ def list_available_loads(
     fleet_org = _get_fleet_management_company(current_user, db)
     org_id_str = str(fleet_org.id)
 
-    from sqlalchemy import cast as sa_cast, text
-    query = db.query(LoadRequirement, Organization).join(
-        Organization, Organization.id == LoadRequirement.company_id
-    ).filter(
+    base_filter = [
         LoadRequirement.status == 'pending',
-        # Show load if: no target set, empty target list, or current org is in target list
-        or_(
-            LoadRequirement.target_org_ids == None,
-            func.jsonb_array_length(LoadRequirement.target_org_ids) == 0,
-            LoadRequirement.target_org_ids.contains(
-                sa_cast(json.dumps([org_id_str]), JSONB)
-            ),
-        )
-    )
-
+    ]
     if pickup:
-        query = query.filter(LoadRequirement.pickup_location.ilike(f'%{pickup}%'))
+        base_filter.append(LoadRequirement.pickup_location.ilike(f'%{pickup}%'))
     if drop:
-        query = query.filter(LoadRequirement.unload_location.ilike(f'%{drop}%'))
+        base_filter.append(LoadRequirement.unload_location.ilike(f'%{drop}%'))
     if material:
-        query = query.filter(LoadRequirement.material_type.ilike(f'%{material}%'))
+        base_filter.append(LoadRequirement.material_type.ilike(f'%{material}%'))
 
-    rows = query.order_by(LoadRequirement.created_at.desc()).all()
+    try:
+        # Use the `?` JSONB operator to check if org_id is an element of the array
+        rows = (
+            db.query(LoadRequirement, Organization)
+            .join(Organization, Organization.id == LoadRequirement.company_id)
+            .filter(
+                *base_filter,
+                or_(
+                    LoadRequirement.target_org_ids.is_(None),
+                    func.jsonb_array_length(LoadRequirement.target_org_ids) == 0,
+                    LoadRequirement.target_org_ids.op('?')(org_id_str),
+                ),
+            )
+            .order_by(LoadRequirement.created_at.desc())
+            .all()
+        )
+    except Exception:
+        # target_org_ids column not yet migrated — show all pending loads
+        db.rollback()
+        rows = (
+            db.query(LoadRequirement, Organization)
+            .join(Organization, Organization.id == LoadRequirement.company_id)
+            .filter(*base_filter)
+            .order_by(LoadRequirement.created_at.desc())
+            .all()
+        )
 
     loads = []
     for record, company in rows:
