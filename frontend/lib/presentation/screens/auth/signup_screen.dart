@@ -647,16 +647,12 @@ class _SignupTextField extends StatelessWidget {
             const TextStyle(fontSize: 14, color: AppTheme.textTertiary),
         prefixIcon: Icon(prefixIcon,
             color: AppTheme.textSecondary, size: 20),
-        prefix: fixedPrefix != null
-            ? Text(
-                fixedPrefix!,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: AppTheme.textPrimary,
-                  fontWeight: FontWeight.w500,
-                ),
-              )
-            : null,
+        prefixText: fixedPrefix,
+        prefixStyle: const TextStyle(
+          fontSize: 15,
+          color: AppTheme.textPrimary,
+          fontWeight: FontWeight.w500,
+        ),
         suffixIcon: suffixIcon,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
