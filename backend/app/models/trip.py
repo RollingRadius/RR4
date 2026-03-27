@@ -83,6 +83,7 @@ class Trip(Base):
     s2_driver_docs_valid = Column(Boolean, nullable=True)
     s2_entry_permission  = Column(Boolean, nullable=True)
     s2_verified_at       = Column(TIMESTAMP(timezone=True), nullable=True)
+    s2_loading_slip_url  = Column(Text, nullable=True)
 
     # Stage 3 — Truck Arrival at Factory
     s3_driver_parked            = Column(Boolean,      nullable=True)
@@ -162,6 +163,7 @@ class Trip(Base):
             "s2_driver_docs_valid": self.s2_driver_docs_valid,
             "s2_entry_permission": self.s2_entry_permission,
             "s2_verified_at": self.s2_verified_at.isoformat() if self.s2_verified_at else None,
+            "s2_loading_slip_url": self.s2_loading_slip_url,
             # Stage 3
             "s3_driver_parked": self.s3_driver_parked,
             "s3_docs_submitted": self.s3_docs_submitted,

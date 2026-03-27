@@ -446,6 +446,37 @@ def submit_stage2(
     return {"success": True, "message": "Entry permission issued. Coordinate truck arrival.", "trip": _enrich(trip, db)}
 
 
+@router.post("/trips/{trip_id}/loading-slip", status_code=200)
+async def upload_loading_slip(
+    trip_id: str,
+    slip: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload loading slip after Stage 2 compliance check, before Stage 3."""
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('fleet_management', 'super_admin'):
+        raise HTTPException(status_code=403, detail="Fleet managers only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.current_stage < 2:
+        raise HTTPException(status_code=409, detail="Complete Stage 2 first")
+
+    upload_dir = Path(f"uploads/trips/{trip_id}")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(slip.filename).suffix if slip.filename else '.jpg'
+    filename = f"loading_slip_{_uuid_module.uuid4().hex}{ext}"
+    file_path = upload_dir / filename
+    content = await slip.read()
+    file_path.write_bytes(content)
+
+    trip.s2_loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "message": "Loading slip uploaded.", "trip": _enrich(trip, db)}
+
+
 @router.post("/trips/{trip_id}/stage/3", status_code=200)
 async def submit_stage3(
     trip_id: str,

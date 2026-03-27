@@ -168,11 +168,22 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                                     providerKey: _providerKey,
                                     trip: _trip,
                                   )
-                                : _Stage3Form(
-                                    key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
-                                    providerKey: _providerKey,
-                                    trip: _trip,
-                                  ),
+                                : _trip.s2LoadingSlipUrl == null
+                                    ? _LoadingSlipMini(
+                                        key: ValueKey('slip_${_trip.id}'),
+                                        trip: _trip,
+                                        onUploaded: (updated) {
+                                          setState(() {
+                                            _trip = updated;
+                                            ref.read(tripProvider.notifier).patchTrip(updated);
+                                          });
+                                        },
+                                      )
+                                    : _Stage3Form(
+                                        key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
+                                        providerKey: _providerKey,
+                                        trip: _trip,
+                                      ),
           ),
         ],
       ),
@@ -755,7 +766,9 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   }
 
   void _onWeightTextChanged() {
-    if (_s2WeightConfirmed) setState(() => _s2WeightConfirmed = false);
+    setState(() {
+      if (_s2WeightConfirmed) _s2WeightConfirmed = false;
+    });
     _onFieldChanged();
   }
 
@@ -791,6 +804,21 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   }
 
   Future<void> _submit() async {
+    // If Outside Factory is selected, weight must be entered and confirmed first
+    if (_dharamKantaLoc == 'outside' &&
+        (_emptyWeightCtrl.text.trim().isEmpty || !_s2WeightConfirmed)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please enter and confirm the empty truck weight before proceeding.',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
     if (!_entryPermission) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -937,7 +965,13 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                   label: 'Outside Factory',
                   value: _dharamKantaLoc == 'outside',
                   onChanged: (v) {
-                    setState(() => _dharamKantaLoc = v ? 'outside' : null);
+                    setState(() {
+                      _dharamKantaLoc = v ? 'outside' : null;
+                      if (v) {
+                        _emptyWeightCtrl.clear();
+                        _s2WeightConfirmed = false;
+                      }
+                    });
                     _onCheckChanged();
                   },
                 ),
@@ -1038,6 +1072,274 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                   ? const SizedBox(width: 20, height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Text('Issue Entry Permission →'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Loading Slip Mini-Stage (between Stage 2 and Stage 3) ───────────────────
+
+class _LoadingSlipMini extends ConsumerStatefulWidget {
+  final TripModel trip;
+  final void Function(TripModel updated) onUploaded;
+  const _LoadingSlipMini({super.key, required this.trip, required this.onUploaded});
+
+  @override
+  ConsumerState<_LoadingSlipMini> createState() => _LoadingSlipMiniState();
+}
+
+class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
+  ({Uint8List bytes, String name})? _slipFile;
+  bool _uploading = false;
+  String? _errorMsg;
+
+  final _picker = ImagePicker();
+
+  Future<void> _pick(ImageSource source) async {
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    setState(() {
+      _slipFile = (bytes: bytes, name: picked.name);
+      _errorMsg = null;
+    });
+  }
+
+  void _showPickerSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Upload Loading Slip', style: _manrope(size: 16, weight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('Choose how to add the slip image', style: _inter(size: 12, color: _secondary)),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: _PickerOption(
+                      icon: Icons.camera_alt_rounded,
+                      label: 'Camera',
+                      color: _primary,
+                      onTap: () { Navigator.pop(context); _pick(ImageSource.camera); },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _PickerOption(
+                      icon: Icons.photo_library_rounded,
+                      label: 'Gallery',
+                      color: _secondary,
+                      onTap: () { Navigator.pop(context); _pick(ImageSource.gallery); },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _upload() async {
+    if (_slipFile == null) return;
+    setState(() { _uploading = true; _errorMsg = null; });
+    try {
+      final dio = ref.read(dioProvider);
+      final formData = FormData.fromMap({
+        'slip': MultipartFile.fromBytes(_slipFile!.bytes, filename: _slipFile!.name),
+      });
+      final resp = await dio.post(
+        '/api/trips/${widget.trip.id}/loading-slip',
+        data: formData,
+      );
+      final updated = TripModel.fromJson(
+        (resp.data as Map<String, dynamic>)['trip'] as Map<String, dynamic>,
+      );
+      if (mounted) widget.onUploaded(updated);
+    } catch (e) {
+      final msg = e is DioException
+          ? (e.response?.data?['detail'] as String? ?? 'Upload failed')
+          : e.toString();
+      setState(() { _uploading = false; _errorMsg = msg; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: _primary.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _primary.withValues(alpha: 0.20)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.receipt_long_rounded, color: _primary, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Loading Slip Required',
+                          style: _manrope(size: 15, weight: FontWeight.w800)),
+                      const SizedBox(height: 3),
+                      Text('Upload the loading slip before the truck can proceed to the factory.',
+                          style: _inter(size: 12, color: _secondary)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          _SectionHeader(icon: Icons.upload_file_rounded, title: 'Loading Slip'),
+
+          // Upload tile / preview
+          GestureDetector(
+            onTap: _showPickerSheet,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _slipFile != null ? _success.withValues(alpha: 0.50) : _border,
+                  width: _slipFile != null ? 1.5 : 1,
+                ),
+              ),
+              child: _slipFile != null
+                  ? Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(13),
+                          child: Image.memory(
+                            _slipFile!.bytes,
+                            height: 200,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        Positioned(
+                          top: 8, right: 8,
+                          child: GestureDetector(
+                            onTap: () => setState(() => _slipFile = null),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.close_rounded, size: 16, color: _error),
+                            ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 8, right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _success,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+                                const SizedBox(width: 4),
+                                Text('Slip Ready', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 36),
+                      child: Column(
+                        children: [
+                          Icon(Icons.add_photo_alternate_rounded,
+                              size: 40, color: _secondary.withValues(alpha: 0.5)),
+                          const SizedBox(height: 10),
+                          Text('Tap to upload loading slip',
+                              style: _inter(size: 13, weight: FontWeight.w600, color: _secondary)),
+                          const SizedBox(height: 4),
+                          Text('Camera or Gallery',
+                              style: _inter(size: 11, color: _secondary.withValues(alpha: 0.7))),
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+
+          if (_errorMsg != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFDAD6),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.error_outline_rounded, color: _error, size: 15),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(_errorMsg!, style: _inter(size: 12, color: _error))),
+                ],
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 28),
+
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: (_slipFile != null && !_uploading) ? _upload : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFFDDE0E2),
+                disabledForegroundColor: _secondary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+              icon: _uploading
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.upload_rounded, size: 20),
+              label: Text(_uploading ? 'Uploading...' : 'Submit Loading Slip'),
             ),
           ),
         ],
@@ -1373,36 +1675,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           ),
           const SizedBox(height: 20),
 
-          // Dharma Kanta — Empty Weight
-          _SectionHeader(icon: Icons.scale_rounded, title: 'Dharma Kanta (Weigh Bridge)'),
-          if (weightFromS2) ...[
-            // Weight already captured in Stage 2 — show read-only banner
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: _success.withValues(alpha: 0.07),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _success.withValues(alpha: 0.30)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle_rounded, color: _success, size: 18),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Empty weight recorded in Stage 2',
-                            style: _inter(size: 12, weight: FontWeight.w600, color: _success)),
-                        Text('$s2Weight ${stagesState.s2EmptyWeightUnit ?? _s2EmptyWeightUnit ?? 'tons'} (outside factory)',
-                            style: _manrope(size: 15, weight: FontWeight.w800, color: _success)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ] else ...[
+          // Dharma Kanta — Empty Weight (hidden when already captured in Stage 2)
+          if (!weightFromS2) ...[
+            _SectionHeader(icon: Icons.scale_rounded, title: 'Dharma Kanta (Weigh Bridge)'),
             _WeighField(
               controller: _emptyTruckWeight,
               label: 'Empty Truck Weight',
@@ -1411,8 +1686,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               enabled: !_loadingComplete,
               unitNotifier: _emptyWeightUnit,
             ),
+            const SizedBox(height: 20),
           ],
-          const SizedBox(height: 20),
 
           // Phase 1 button — "Loading Complete"
           if (!_loadingComplete) ...[
@@ -1916,6 +2191,7 @@ class _WeighFieldState extends State<_WeighField> {
               controller: widget.controller,
               enabled: widget.enabled,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
               style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
               decoration: InputDecoration(
                 labelText: widget.label,
