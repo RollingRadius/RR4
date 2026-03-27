@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import or_, func
+from sqlalchemy import or_, func, cast
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import get_db
@@ -350,7 +350,7 @@ def list_available_loads(
             LoadRequirement.target_org_ids.is_(None),
             func.jsonb_array_length(LoadRequirement.target_org_ids) == 0,
             LoadRequirement.target_org_ids.op('@>')(
-                func.cast(json.dumps([org_id_str]), JSONB)
+                cast(json.dumps([org_id_str]), JSONB)
             ),
         )
         rows = (
