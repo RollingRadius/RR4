@@ -105,7 +105,7 @@ class OngoingTripCard extends ConsumerWidget {
           // ── Stage progress strip ───────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 4, 18, 10),
-            child: _StageStrip(currentStage: trip.currentStage),
+            child: _StageStrip(trip: trip),
           ),
 
           // ── Divider ───────────────────────────────────────────────────
@@ -182,7 +182,7 @@ class OngoingTripCard extends ConsumerWidget {
                               color: Colors.white, size: 16),
                           const SizedBox(width: 6),
                           Text(
-                            'Go to Stage ${trip.currentStage + 1}  ·  ${_stageName(trip.currentStage)}',
+                            'Go to Stage ${_visualStageNumber(trip)}  ·  ${_stageName(trip)}',
                             style: _inter(
                                 size: 12,
                                 weight: FontWeight.w700,
@@ -487,8 +487,20 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-String _stageName(int currentStage) {
-  return switch (currentStage) {
+/// Maps a trip to a 1-based visual stage number (accounts for loading slip mini-stage).
+int _visualStageNumber(TripModel trip) {
+  if (trip.currentStage < 2) return trip.currentStage + 1;
+  if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 3; // Loading Slip
+  if (trip.currentStage == 2) return 4; // Arrival
+  return trip.currentStage + 2; // 3→5 (Exit)
+}
+
+/// 0-based visual stage index used for the strip indicator.
+int _visualStageIndex(TripModel trip) => _visualStageNumber(trip) - 1;
+
+String _stageName(TripModel trip) {
+  if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 'Loading Slip';
+  return switch (trip.currentStage) {
     0 => 'Truck Registration',
     1 => 'Compliance Check',
     2 => 'Factory Arrival',
@@ -499,17 +511,18 @@ String _stageName(int currentStage) {
 // ─── Mini stage progress strip ────────────────────────────────────────────────
 
 class _StageStrip extends StatelessWidget {
-  final int currentStage; // 0-4
-  const _StageStrip({required this.currentStage});
+  final TripModel trip;
+  const _StageStrip({required this.trip});
 
-  static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit'];
+  static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit'];
 
   @override
   Widget build(BuildContext context) {
+    final visualIdx = _visualStageIndex(trip);
     return Row(
-      children: List.generate(4, (i) {
-        final isDone = currentStage > i;
-        final isActive = currentStage == i;
+      children: List.generate(5, (i) {
+        final isDone = visualIdx > i;
+        final isActive = visualIdx == i;
         final dotColor = isDone
             ? const Color(0xFF2E7D32)
             : isActive
@@ -527,8 +540,8 @@ class _StageStrip extends StatelessWidget {
               Column(
                 children: [
                   Container(
-                    width: 20,
-                    height: 20,
+                    width: 18,
+                    height: 18,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: isDone
@@ -540,21 +553,21 @@ class _StageStrip extends StatelessWidget {
                     ),
                     child: Center(
                       child: isDone
-                          ? const Icon(Icons.check_rounded, size: 11, color: Color(0xFF2E7D32))
+                          ? const Icon(Icons.check_rounded, size: 10, color: Color(0xFF2E7D32))
                           : Text(
                               '${i + 1}',
-                              style: _inter(size: 9, weight: FontWeight.w700, color: textColor),
+                              style: _inter(size: 8, weight: FontWeight.w700, color: textColor),
                             ),
                     ),
                   ),
                   const SizedBox(height: 3),
                   Text(
                     _labels[i],
-                    style: _inter(size: 8, weight: FontWeight.w500, color: textColor),
+                    style: _inter(size: 7, weight: FontWeight.w500, color: textColor),
                   ),
                 ],
               ),
-              if (i < 3)
+              if (i < 4)
                 Expanded(
                   child: Container(
                     height: 1.5,

@@ -5,7 +5,7 @@ Endpoints for managing trips — accessible by both fleet_manager and load_owner
 
 import random
 import string
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import date
 
 import json
@@ -372,10 +372,12 @@ async def submit_stage1(
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
-    if trip.current_stage >= 1:
-        raise HTTPException(status_code=409, detail="Stage 1 already submitted")
+    # Block edits once the truck has already arrived (stage 3+)
+    if trip.current_stage >= 3:
+        raise HTTPException(status_code=409, detail="Trip is too far along to edit Stage 1")
 
-    # Helper: save an uploaded file and return its URL path
+    # Helper: save an uploaded file and return its URL path.
+    # Returns None (leave existing) if no new file was uploaded.
     async def _save_doc(upload: Optional[UploadFile], prefix: str) -> Optional[str]:
         if upload is None or not upload.filename:
             return None
@@ -387,26 +389,43 @@ async def submit_stage1(
             f.write(await upload.read())
         return f"/uploads/trips/{trip_id}/{filename}"
 
-    trip.s1_driver_name         = driver_name
-    trip.s1_driver_phone        = driver_phone
-    trip.s1_driving_license     = driving_license
-    trip.s1_aadhaar             = aadhaar
-    trip.s1_driving_license_url = await _save_doc(driving_license_doc,  "dl")
-    trip.s1_aadhaar_url         = await _save_doc(aadhaar_doc,          "aadhaar")
-    trip.s1_rc                  = await _save_doc(rc_doc,               "rc")
-    trip.s1_insurance           = await _save_doc(insurance_doc,        "insurance")
-    trip.s1_pollution           = await _save_doc(pollution_doc,        "pollution")
-    trip.s1_fitness             = await _save_doc(fitness_doc,          "fitness")
-    trip.s1_pan                 = await _save_doc(pan_doc,              "pan")
-    trip.s1_tax_declaration     = await _save_doc(tax_declaration_doc,  "tax_decl")
-    trip.s1_cancelled_cheque    = await _save_doc(cancelled_cheque_doc, "cheque")
-    trip.s1_submitted_at        = datetime.now(timezone.utc)
-    trip.current_stage          = 1
-    trip.draft_data             = None  # clear draft on submit
+    trip.s1_driver_name     = driver_name
+    trip.s1_driver_phone    = driver_phone
+    trip.s1_driving_license = driving_license
+    trip.s1_aadhaar         = aadhaar
+
+    # For file fields: only overwrite if a new file was uploaded, otherwise keep existing URL
+    new_dl      = await _save_doc(driving_license_doc,  "dl")
+    new_aadhaar = await _save_doc(aadhaar_doc,          "aadhaar")
+    new_rc      = await _save_doc(rc_doc,               "rc")
+    new_ins     = await _save_doc(insurance_doc,        "insurance")
+    new_pol     = await _save_doc(pollution_doc,        "pollution")
+    new_fit     = await _save_doc(fitness_doc,          "fitness")
+    new_pan     = await _save_doc(pan_doc,              "pan")
+    new_tax     = await _save_doc(tax_declaration_doc,  "tax_decl")
+    new_chq     = await _save_doc(cancelled_cheque_doc, "cheque")
+
+    if new_dl      is not None: trip.s1_driving_license_url = new_dl
+    if new_aadhaar is not None: trip.s1_aadhaar_url         = new_aadhaar
+    if new_rc      is not None: trip.s1_rc                  = new_rc
+    if new_ins     is not None: trip.s1_insurance           = new_ins
+    if new_pol     is not None: trip.s1_pollution           = new_pol
+    if new_fit     is not None: trip.s1_fitness             = new_fit
+    if new_pan     is not None: trip.s1_pan                 = new_pan
+    if new_tax     is not None: trip.s1_tax_declaration     = new_tax
+    if new_chq     is not None: trip.s1_cancelled_cheque    = new_chq
+
+    was_already_submitted = trip.current_stage >= 1
+    trip.s1_submitted_at = datetime.now(timezone.utc)
+    # Advance to stage 1 if not already past it; never regress
+    if trip.current_stage < 1:
+        trip.current_stage = 1
+    trip.draft_data = None  # clear draft on submit
 
     db.commit()
     db.refresh(trip)
-    return {"success": True, "message": "Stage 1 saved. Proceed to compliance check.", "trip": _enrich(trip, db)}
+    msg = "Stage 1 updated." if was_already_submitted else "Stage 1 saved. Proceed to compliance check."
+    return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
 
 @router.post("/trips/{trip_id}/stage/2", status_code=200)
@@ -472,6 +491,7 @@ async def upload_loading_slip(
     file_path.write_bytes(content)
 
     trip.s2_loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
+    trip.draft_data = None   # clear loading slip draft on successful upload
     db.commit()
     db.refresh(trip)
     return {"success": True, "message": "Loading slip uploaded.", "trip": _enrich(trip, db)}
@@ -603,7 +623,7 @@ def submit_stage4(
 
 
 class DraftPayload(BaseModel):
-    stage: int
+    stage: Union[int, str]   # int for stages 1-3, 'loading_slip' for the mini-stage
     data: dict
     saved_at: Optional[str] = None
 

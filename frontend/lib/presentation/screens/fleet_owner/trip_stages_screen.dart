@@ -46,6 +46,8 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
   bool _fetchingFresh = false;
   bool _showStage4 = false;
   bool _stage4Done = false;
+  /// True when the user taps "Edit Stage 1" from Stage 2 — shows Stage 1 form over Stage 2.
+  bool _editingStage1 = false;
 
   @override
   void initState() {
@@ -118,7 +120,27 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
               backgroundColor: Colors.transparent,
               color: _primary,
             ),
-          _StepIndicator(currentStage: _stage4Done ? 4 : stage),
+          _StepIndicator(trip: _trip, stage4Done: _stage4Done),
+          // ── Edit Stage 1 banner — visible when on Stage 2 ─────────────────
+          if (stage == 1 && !_editingStage1 && !_stage4Done)
+            InkWell(
+              onTap: () => setState(() => _editingStage1 = true),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: const Color(0xFFFFF8F0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.edit_outlined, size: 14, color: _primary),
+                    const SizedBox(width: 6),
+                    Text('Edit Stage 1 details',
+                        style: _inter(size: 12, weight: FontWeight.w600, color: _primary)),
+                    const Spacer(),
+                    const Icon(Icons.chevron_right_rounded, size: 16, color: _primary),
+                  ],
+                ),
+              ),
+            ),
           if (state.error != null)
             Container(
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -156,11 +178,17 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                             onDone: () => Navigator.of(context).pop(),
                             onNextStage: () => setState(() => _showStage4 = true),
                           )
-                        : stage == 0
+                        : (stage == 0 || _editingStage1)
                             ? _Stage1Form(
                                 key: ValueKey('s1_${_trip.id}_$_tripFreshness'),
                                 providerKey: _providerKey,
                                 trip: _trip,
+                                onEditDone: _editingStage1
+                                    ? () {
+                                        setState(() => _editingStage1 = false);
+                                        _fetchFreshTrip(); // refresh _trip so next edit shows updated files
+                                      }
+                                    : null,
                               )
                             : stage == 1
                                 ? _Stage2Form(
@@ -194,21 +222,35 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
 // ─── Step Indicator ───────────────────────────────────────────────────────────
 
 class _StepIndicator extends StatelessWidget {
-  final int currentStage;
-  const _StepIndicator({required this.currentStage});
+  final TripModel trip;
+  final bool stage4Done;
+  const _StepIndicator({required this.trip, required this.stage4Done});
 
-  static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit'];
+  static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit'];
+
+  /// Returns 0-based visual index for the step indicator.
+  /// 0=Details, 1=Compliance, 2=Slip, 3=Arrival, 4=Exit
+  int get _visualIndex {
+    if (stage4Done) return 5; // all done
+    final s = trip.currentStage;
+    if (s == 0) return 0;
+    if (s == 1) return 1;
+    if (s == 2 && trip.s2LoadingSlipUrl == null) return 2; // slip pending
+    if (s == 2) return 3; // arrival
+    return 4; // exit (stage 3)
+  }
 
   @override
   Widget build(BuildContext context) {
+    final visualIdx = _visualIndex;
     return Container(
       color: _surface,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Row(
-        children: List.generate(4, (i) {
+        children: List.generate(5, (i) {
           final stepNum = i + 1;
-          final isDone = currentStage > i;
-          final isActive = currentStage == i;
+          final isDone = visualIdx > i;
+          final isActive = visualIdx == i;
           final color = isDone ? _success : isActive ? _primary : _secondary;
           final bgColor = isDone
               ? _success.withValues(alpha: 0.10)
@@ -222,8 +264,8 @@ class _StepIndicator extends StatelessWidget {
                 Column(
                   children: [
                     Container(
-                      width: 32,
-                      height: 32,
+                      width: 28,
+                      height: 28,
                       decoration: BoxDecoration(
                         color: bgColor,
                         shape: BoxShape.circle,
@@ -231,10 +273,10 @@ class _StepIndicator extends StatelessWidget {
                       ),
                       child: Center(
                         child: isDone
-                            ? Icon(Icons.check_rounded, color: _success, size: 16)
+                            ? Icon(Icons.check_rounded, color: _success, size: 14)
                             : Text(
                                 '$stepNum',
-                                style: _manrope(size: 12, weight: FontWeight.w800, color: color),
+                                style: _manrope(size: 11, weight: FontWeight.w800, color: color),
                               ),
                       ),
                     ),
@@ -242,14 +284,14 @@ class _StepIndicator extends StatelessWidget {
                     Text(
                       _labels[i],
                       style: _inter(
-                          size: 9,
+                          size: 8,
                           weight: isActive ? FontWeight.w700 : FontWeight.w400,
                           color: color),
                       textAlign: TextAlign.center,
                     ),
                   ],
                 ),
-                if (i < 3)
+                if (i < 4)
                   Expanded(
                     child: Container(
                       height: 2,
@@ -271,7 +313,9 @@ class _StepIndicator extends StatelessWidget {
 class _Stage1Form extends ConsumerStatefulWidget {
   final (String, int) providerKey;
   final TripModel trip;
-  const _Stage1Form({super.key, required this.providerKey, required this.trip});
+  /// Called after a successful update-submit when the user was editing stage 1 from stage 2.
+  final VoidCallback? onEditDone;
+  const _Stage1Form({super.key, required this.providerKey, required this.trip, this.onEditDone});
 
   @override
   ConsumerState<_Stage1Form> createState() => _Stage1FormState();
@@ -287,7 +331,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   final _drivingLicense = TextEditingController();
   final _aadhaar        = TextEditingController();
 
-  // ── File uploads (bytes + filename) ─────────────────────────────────────────
+  // ── File uploads (bytes + filename, for newly picked files) ─────────────────
   ({Uint8List bytes, String name})? _dlDoc;
   ({Uint8List bytes, String name})? _aadhaarDoc;
   ({Uint8List bytes, String name})? _rcDoc;
@@ -313,25 +357,40 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   // ── Draft restore ────────────────────────────────────────────────────────────
 
   void _prefillFromDraft() {
-    final draft = widget.trip.draftData;
-    if (draft == null || draft['stage'] != 1) return;
-    final d = draft['data'] as Map<String, dynamic>? ?? {};
-    _driverName.text     = d['driver_name']     as String? ?? '';
-    final rawPhone       = d['driver_phone'] as String? ?? '';
-    _driverPhone.text    = rawPhone.startsWith('+91') ? rawPhone.substring(3) : rawPhone;
-    _drivingLicense.text = d['driving_license']  as String? ?? '';
-    _aadhaar.text        = d['aadhaar']          as String? ?? '';
-    _dlDoc            = _restoreFile(d, 'dl_doc');
-    _aadhaarDoc       = _restoreFile(d, 'aadhaar_doc');
-    _rcDoc            = _restoreFile(d, 'rc_doc');
-    _insuranceDoc     = _restoreFile(d, 'insurance_doc');
-    _pollutionDoc     = _restoreFile(d, 'pollution_doc');
-    _fitnessDoc       = _restoreFile(d, 'fitness_doc');
-    _panDoc           = _restoreFile(d, 'pan_doc');
-    _taxDeclDoc       = _restoreFile(d, 'tax_decl_doc');
-    _cancelledChequeDoc = _restoreFile(d, 'cancelled_cheque_doc');
-    if (draft['saved_at'] != null) {
-      _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
+    final trip = widget.trip;
+    final draft = trip.draftData;
+
+    // Prefer draft data over committed trip fields (draft = in-progress edits)
+    if (draft != null && draft['stage'] == 1) {
+      final d = draft['data'] as Map<String, dynamic>? ?? {};
+      _driverName.text     = d['driver_name']    as String? ?? '';
+      final rawPhone       = d['driver_phone']   as String? ?? '';
+      _driverPhone.text    = rawPhone.startsWith('+91') ? rawPhone.substring(3) : rawPhone;
+      _drivingLicense.text = d['driving_license'] as String? ?? '';
+      _aadhaar.text        = d['aadhaar']         as String? ?? '';
+      _dlDoc              = _restoreFile(d, 'dl_doc');
+      _aadhaarDoc         = _restoreFile(d, 'aadhaar_doc');
+      _rcDoc              = _restoreFile(d, 'rc_doc');
+      _insuranceDoc       = _restoreFile(d, 'insurance_doc');
+      _pollutionDoc       = _restoreFile(d, 'pollution_doc');
+      _fitnessDoc         = _restoreFile(d, 'fitness_doc');
+      _panDoc             = _restoreFile(d, 'pan_doc');
+      _taxDeclDoc         = _restoreFile(d, 'tax_decl_doc');
+      _cancelledChequeDoc = _restoreFile(d, 'cancelled_cheque_doc');
+      if (draft['saved_at'] != null) {
+        _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
+      }
+      return;
+    }
+
+    // Fall back to committed trip fields (stage 1 already submitted)
+    if (trip.currentStage >= 1) {
+      _driverName.text = trip.s1DriverName ?? '';
+      final rawPhone   = trip.s1DriverPhone ?? '';
+      _driverPhone.text = rawPhone.startsWith('+91') ? rawPhone.substring(3) : rawPhone;
+      _drivingLicense.text = trip.s1DrivingLicense ?? '';
+      _aadhaar.text        = trip.s1Aadhaar ?? '';
+      // File URLs are shown via _serverUrl fields — no bytes to restore
     }
   }
 
@@ -467,20 +526,22 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     _addFile('tax_declaration_doc',  _taxDeclDoc);
     _addFile('cancelled_cheque_doc', _cancelledChequeDoc);
 
+    final isEdit = widget.trip.currentStage >= 1;
     final ok = await ref
         .read(tripStagesProvider(widget.providerKey).notifier)
         .submitStage1(FormData.fromMap(fields));
 
     if (ok && mounted) {
+      final msg = isEdit ? 'Stage 1 updated successfully.' : 'Stage 1 saved. Proceed to compliance check.';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Stage 1 saved. Proceed to compliance check.',
-              style: _inter(size: 13, color: Colors.white)),
+          content: Text(msg, style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _success,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
+      widget.onEditDone?.call();
     }
   }
 
@@ -509,8 +570,9 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     String subtitle,
     ({Uint8List bytes, String name})? file,
     void Function(({Uint8List bytes, String name}) f) onPicked,
-    VoidCallback onRemove,
-  ) =>
+    VoidCallback onRemove, {
+    String? existingUrl,
+  }) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: _DocUploadTile(
@@ -518,6 +580,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
           subtitle: subtitle,
           bytes: file?.bytes,
           fileName: file?.name,
+          existingUrl: file == null ? existingUrl : null,
           onPickSource: (src) => _pickFile(src, onPicked),
           onRemove: onRemove,
         ),
@@ -618,6 +681,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               _dlDoc,
               (f) => _dlDoc = f,
               () { setState(() => _dlDoc = null); _onUploadChanged(); },
+              existingUrl: widget.trip.s1DrivingLicenseUrl,
             ),
 
             // Aadhaar card photo upload (optional)
@@ -627,6 +691,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               _aadhaarDoc,
               (f) => _aadhaarDoc = f,
               () { setState(() => _aadhaarDoc = null); _onUploadChanged(); },
+              existingUrl: widget.trip.s1AadhaarUrl,
             ),
             const SizedBox(height: 8),
 
@@ -634,33 +699,40 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
             _SectionHeader(icon: Icons.directions_car_outlined, title: 'Vehicle Documents'),
             _uploadTile('RC (Registration Certificate)', 'Upload vehicle RC',
               _rcDoc, (f) => _rcDoc = f,
-              () { setState(() => _rcDoc = null); _onUploadChanged(); }),
+              () { setState(() => _rcDoc = null); _onUploadChanged(); },
+              existingUrl: widget.trip.s1Rc),
             _uploadTile('Insurance', 'Upload insurance document',
               _insuranceDoc, (f) => _insuranceDoc = f,
-              () { setState(() => _insuranceDoc = null); _onUploadChanged(); }),
+              () { setState(() => _insuranceDoc = null); _onUploadChanged(); },
+              existingUrl: widget.trip.s1Insurance),
             _uploadTile('Pollution Certificate', 'Upload pollution certificate',
               _pollutionDoc, (f) => _pollutionDoc = f,
-              () { setState(() => _pollutionDoc = null); _onUploadChanged(); }),
+              () { setState(() => _pollutionDoc = null); _onUploadChanged(); },
+              existingUrl: widget.trip.s1Pollution),
             _uploadTile('Fitness Certificate', 'Upload fitness certificate',
               _fitnessDoc, (f) => _fitnessDoc = f,
-              () { setState(() => _fitnessDoc = null); _onUploadChanged(); }),
+              () { setState(() => _fitnessDoc = null); _onUploadChanged(); },
+              existingUrl: widget.trip.s1Fitness),
             const SizedBox(height: 8),
 
             // ── Owner Documents ────────────────────────────────────────────────
             _SectionHeader(icon: Icons.business_outlined, title: 'Owner Documents'),
             _uploadTile('PAN', 'Upload PAN card',
               _panDoc, (f) => _panDoc = f,
-              () { setState(() => _panDoc = null); _onUploadChanged(); }),
+              () { setState(() => _panDoc = null); _onUploadChanged(); },
+              existingUrl: widget.trip.s1Pan),
             _uploadTile('Tax Declaration', 'Upload tax declaration document',
               _taxDeclDoc, (f) => _taxDeclDoc = f,
-              () { setState(() => _taxDeclDoc = null); _onUploadChanged(); }),
+              () { setState(() => _taxDeclDoc = null); _onUploadChanged(); },
+              existingUrl: widget.trip.s1TaxDeclaration),
             const SizedBox(height: 8),
 
             // ── Truck Owner Payment Details ────────────────────────────────────
             _SectionHeader(icon: Icons.account_balance_outlined, title: 'Truck Owner Payment Details'),
             _uploadTile('Cancelled Cheque (Owner / Transporter)', 'Upload a cancelled cheque',
               _cancelledChequeDoc, (f) => _cancelledChequeDoc = f,
-              () { setState(() => _cancelledChequeDoc = null); _onUploadChanged(); }),
+              () { setState(() => _cancelledChequeDoc = null); _onUploadChanged(); },
+              existingUrl: widget.trip.s1CancelledCheque),
             const SizedBox(height: 8),
 
             if (_lastSaved != null)
@@ -1098,6 +1170,42 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
 
   final _picker = ImagePicker();
 
+  @override
+  void initState() {
+    super.initState();
+    _prefillFromDraft();
+  }
+
+  void _prefillFromDraft() {
+    final draft = widget.trip.draftData;
+    if (draft == null) return;
+    if (draft['stage'] != 'loading_slip') return;
+    final data = draft['data'] as Map<String, dynamic>?;
+    if (data == null) return;
+    final b64 = data['slip_bytes'] as String?;
+    final name = data['slip_name'] as String? ?? 'loading_slip.jpg';
+    if (b64 != null && b64.isNotEmpty) {
+      try {
+        final bytes = base64Decode(b64);
+        setState(() => _slipFile = (bytes: bytes, name: name));
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _saveDraft() async {
+    if (!mounted) return;
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
+        'stage': 'loading_slip',
+        'data': {
+          if (_slipFile != null) 'slip_bytes': base64Encode(_slipFile!.bytes),
+          if (_slipFile != null) 'slip_name': _slipFile!.name,
+        },
+      });
+    } catch (_) {}
+  }
+
   Future<void> _pick(ImageSource source) async {
     final picked = await _picker.pickImage(source: source, imageQuality: 85);
     if (picked == null || !mounted) return;
@@ -1106,6 +1214,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
       _slipFile = (bytes: bytes, name: picked.name);
       _errorMsg = null;
     });
+    _saveDraft();
   }
 
   void _showPickerSheet() {
@@ -1251,7 +1360,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                         Positioned(
                           top: 8, right: 8,
                           child: GestureDetector(
-                            onTap: () => setState(() => _slipFile = null),
+                            onTap: () { setState(() => _slipFile = null); _saveDraft(); },
                             child: Container(
                               padding: const EdgeInsets.all(4),
                               decoration: const BoxDecoration(
@@ -2411,6 +2520,8 @@ class _DocUploadTile extends StatelessWidget {
   final String subtitle;
   final Uint8List? bytes;
   final String? fileName;
+  /// Server URL of an already-uploaded file. Shown when [bytes] is null.
+  final String? existingUrl;
   final Future<void> Function(ImageSource) onPickSource;
   final VoidCallback onRemove;
 
@@ -2419,6 +2530,7 @@ class _DocUploadTile extends StatelessWidget {
     required this.subtitle,
     required this.bytes,
     this.fileName,
+    this.existingUrl,
     required this.onPickSource,
     required this.onRemove,
   });
@@ -2430,6 +2542,7 @@ class _DocUploadTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Newly picked local file — show preview
     if (bytes != null) {
       return Container(
         decoration: BoxDecoration(
@@ -2486,6 +2599,46 @@ class _DocUploadTile extends StatelessWidget {
                     constraints: const BoxConstraints(),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // File saved on server (returning to edit) — show compact "saved" row
+    if (existingUrl != null) {
+      final docName = existingUrl!.split('/').last;
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+        decoration: BoxDecoration(
+          color: _success.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _success.withValues(alpha: 0.30)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_done_rounded, size: 20, color: _success),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: _success)),
+                  const SizedBox(height: 2),
+                  Text(docName,
+                      style: GoogleFonts.inter(fontSize: 11, color: _secondary),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            GestureDetector(
+              onTap: () => _pick(context),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Text('Replace',
+                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
               ),
             ),
           ],

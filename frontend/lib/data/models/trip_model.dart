@@ -30,12 +30,16 @@ class TripModel {
   final String? s1DriverName;
   final String? s1DriverPhone;
   final String? s1DrivingLicense;
+  final String? s1DrivingLicenseUrl;
   final String? s1Aadhaar;
+  final String? s1AadhaarUrl;
   final String? s1Rc;
   final String? s1Insurance;
   final String? s1Pollution;
   final String? s1Fitness;
   final String? s1Pan;
+  final String? s1TaxDeclaration;
+  final String? s1CancelledCheque;
 
   // ── Stage 2 fields ───────────────────────────────────────────────────────────
   final bool? s2SpecsVerified;
@@ -92,12 +96,16 @@ class TripModel {
     this.s1DriverName,
     this.s1DriverPhone,
     this.s1DrivingLicense,
+    this.s1DrivingLicenseUrl,
     this.s1Aadhaar,
+    this.s1AadhaarUrl,
     this.s1Rc,
     this.s1Insurance,
     this.s1Pollution,
     this.s1Fitness,
     this.s1Pan,
+    this.s1TaxDeclaration,
+    this.s1CancelledCheque,
     this.s2SpecsVerified,
     this.s2DocsVerified,
     this.s2DriverDocsValid,
@@ -154,12 +162,16 @@ class TripModel {
       s1DriverName: json['s1_driver_name'] as String?,
       s1DriverPhone: json['s1_driver_phone'] as String?,
       s1DrivingLicense: json['s1_driving_license'] as String?,
+      s1DrivingLicenseUrl: json['s1_driving_license_url'] as String?,
       s1Aadhaar: json['s1_aadhaar'] as String?,
+      s1AadhaarUrl: json['s1_aadhaar_url'] as String?,
       s1Rc: json['s1_rc'] as String?,
       s1Insurance: json['s1_insurance'] as String?,
       s1Pollution: json['s1_pollution'] as String?,
       s1Fitness: json['s1_fitness'] as String?,
       s1Pan: json['s1_pan'] as String?,
+      s1TaxDeclaration: json['s1_tax_declaration'] as String?,
+      s1CancelledCheque: json['s1_cancelled_cheque'] as String?,
       s2SpecsVerified: json['s2_specs_verified'] as bool?,
       s2DocsVerified: json['s2_docs_verified'] as bool?,
       s2DriverDocsValid: json['s2_driver_docs_valid'] as bool?,
