@@ -307,18 +307,7 @@ def get_trip_vehicle_location(
 
 # ─── Stage Schemas ────────────────────────────────────────────────────────────
 
-class Stage1Payload(BaseModel):
-    driver_name:       str
-    driver_phone:      str
-    driving_license:   str
-    aadhaar:           str
-    rc:                str
-    insurance:         str
-    pollution:         str
-    fitness:           str
-    pan:               str
-    tax_declaration:   Optional[str] = None
-    cancelled_cheque:  Optional[str] = None
+# Stage1Payload replaced by Form + File params in the endpoint below.
 
 
 class Stage2Payload(BaseModel):
@@ -353,14 +342,30 @@ def _get_fleet_trip(trip_id: str, user_org, db: Session) -> Trip:
 
 
 @router.post("/trips/{trip_id}/stage/1", status_code=200)
-def submit_stage1(
+async def submit_stage1(
     trip_id: str,
-    body: Stage1Payload,
+    # Required text fields
+    driver_name:          str           = Form(...),
+    driver_phone:         str           = Form(...),
+    driving_license:      str           = Form(...),
+    aadhaar:              str           = Form(...),
+    # Optional document uploads
+    driving_license_doc:  Optional[UploadFile] = File(None),
+    aadhaar_doc:          Optional[UploadFile] = File(None),
+    rc_doc:               Optional[UploadFile] = File(None),
+    insurance_doc:        Optional[UploadFile] = File(None),
+    pollution_doc:        Optional[UploadFile] = File(None),
+    fitness_doc:          Optional[UploadFile] = File(None),
+    pan_doc:              Optional[UploadFile] = File(None),
+    tax_declaration_doc:  Optional[UploadFile] = File(None),
+    cancelled_cheque_doc: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Stage 1 — Truck Detail Registration."""
+    """Stage 1 — Truck Detail Registration. Accepts multipart/form-data."""
     from datetime import datetime, timezone
+    from app.config import settings
+
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
     if role_key not in ('fleet_management', 'super_admin'):
@@ -370,20 +375,34 @@ def submit_stage1(
     if trip.current_stage >= 1:
         raise HTTPException(status_code=409, detail="Stage 1 already submitted")
 
-    trip.s1_driver_name      = body.driver_name
-    trip.s1_driver_phone     = body.driver_phone
-    trip.s1_driving_license  = body.driving_license
-    trip.s1_aadhaar          = body.aadhaar
-    trip.s1_rc               = body.rc
-    trip.s1_insurance        = body.insurance
-    trip.s1_pollution        = body.pollution
-    trip.s1_fitness          = body.fitness
-    trip.s1_pan              = body.pan
-    trip.s1_tax_declaration  = body.tax_declaration
-    trip.s1_cancelled_cheque = body.cancelled_cheque
-    trip.s1_submitted_at     = datetime.now(timezone.utc)
-    trip.current_stage       = 1
-    trip.draft_data          = None  # clear draft on submit
+    # Helper: save an uploaded file and return its URL path
+    async def _save_doc(upload: Optional[UploadFile], prefix: str) -> Optional[str]:
+        if upload is None or not upload.filename:
+            return None
+        ext = Path(upload.filename).suffix or '.jpg'
+        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+        trip_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{prefix}_{_uuid_module.uuid4().hex}{ext}"
+        with open(trip_dir / filename, "wb") as f:
+            f.write(await upload.read())
+        return f"/uploads/trips/{trip_id}/{filename}"
+
+    trip.s1_driver_name         = driver_name
+    trip.s1_driver_phone        = driver_phone
+    trip.s1_driving_license     = driving_license
+    trip.s1_aadhaar             = aadhaar
+    trip.s1_driving_license_url = await _save_doc(driving_license_doc,  "dl")
+    trip.s1_aadhaar_url         = await _save_doc(aadhaar_doc,          "aadhaar")
+    trip.s1_rc                  = await _save_doc(rc_doc,               "rc")
+    trip.s1_insurance           = await _save_doc(insurance_doc,        "insurance")
+    trip.s1_pollution           = await _save_doc(pollution_doc,        "pollution")
+    trip.s1_fitness             = await _save_doc(fitness_doc,          "fitness")
+    trip.s1_pan                 = await _save_doc(pan_doc,              "pan")
+    trip.s1_tax_declaration     = await _save_doc(tax_declaration_doc,  "tax_decl")
+    trip.s1_cancelled_cheque    = await _save_doc(cancelled_cheque_doc, "cheque")
+    trip.s1_submitted_at        = datetime.now(timezone.utc)
+    trip.current_stage          = 1
+    trip.draft_data             = None  # clear draft on submit
 
     db.commit()
     db.refresh(trip)

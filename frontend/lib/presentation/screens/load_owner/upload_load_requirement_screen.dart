@@ -50,7 +50,7 @@ class _UploadLoadRequirementScreenState
   String? _selectedFloorType = 'Plain Floor';
 
   // ── Partner targeting ──────────────────────────────────────────────────────
-  final List<PartnerResult> _selectedPartners = [];
+  PartnerResult? _selectedPartner;
   List<PartnerResult> _partnerResults = [];
   bool _partnerSearchLoading = false;
   final _partnerController = TextEditingController();
@@ -1091,13 +1091,13 @@ class _UploadLoadRequirementScreenState
                         ),
                         child: Column(
                           children: _partnerResults.map((p) {
-                            final already = _selectedPartners.any((s) => s.orgId == p.orgId);
+                            final already = _selectedPartner?.orgId == p.orgId;
                             return InkWell(
                               onTap: already
                                   ? null
                                   : () {
                                       setState(() {
-                                        _selectedPartners.add(p);
+                                        _selectedPartner = p;
                                         _partnerController.clear();
                                         _partnerResults = [];
                                         _showPartnerDropdown = false;
@@ -1176,13 +1176,13 @@ class _UploadLoadRequirementScreenState
                 child: const SizedBox.shrink(),
               ),
 
-              // ── Selected chips ──────────────────────────────────────
-              if (_selectedPartners.isNotEmpty) ...[
+              // ── Selected chip ──────────────────────────────────────
+              if (_selectedPartner != null) ...[
                 const SizedBox(height: 14),
                 const Divider(height: 1, color: Color(0xFFC3C6D1)),
                 const SizedBox(height: 12),
                 Text(
-                  'SELECTED (${_selectedPartners.length})',
+                  'SELECTED',
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -1191,41 +1191,35 @@ class _UploadLoadRequirementScreenState
                   ),
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _selectedPartners.map((p) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: _primary.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _primary.withOpacity(0.2)),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _primary.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _selectedPartner!.displayLabel,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF001e40),
+                        ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            p.displayLabel,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF001e40),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          GestureDetector(
-                            onTap: () => setState(() => _selectedPartners.remove(p)),
-                            child: const Icon(
-                              Icons.close,
-                              size: 14,
-                              color: Color(0xFF001e40),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedPartner = null),
+                        child: const Icon(
+                          Icons.close,
+                          size: 14,
+                          color: Color(0xFF001e40),
+                        ),
                       ),
-                    );
-                  }).toList(),
+                    ],
+                  ),
                 ),
               ],
             ],
@@ -1464,14 +1458,14 @@ class _UploadLoadRequirementScreenState
         '${_entryDate!.month.toString().padLeft(2, '0')}-'
         '${_entryDate!.day.toString().padLeft(2, '0')}';
 
-    final targetOrgIds = _selectedPartners.map((p) => p.orgId).toList();
+    final targetOrgIds = _selectedPartner != null ? [_selectedPartner!.orgId] : null;
     final load = await ref.read(loadProvider.notifier).createLoad(
           pickupLocation: pickup,
           unloadLocation: drop,
           materialType: _materialType ?? 'Steel Coils',
           entryDate: dateStr,
           truckCount: _truckCount,
-          targetOrgIds: targetOrgIds.isEmpty ? null : targetOrgIds,
+          targetOrgIds: targetOrgIds,
         );
 
     if (!mounted) return;
@@ -1506,7 +1500,7 @@ class _UploadLoadRequirementScreenState
       _selectedFloorType = 'Plain Floor';
       _entryDate = null;
       _materialType = 'Steel Coils';
-      _selectedPartners.clear();
+      _selectedPartner = null;
       _partnerResults.clear();
       _showPartnerDropdown = false;
       _isSubmitting = false;

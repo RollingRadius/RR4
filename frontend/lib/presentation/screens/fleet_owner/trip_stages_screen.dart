@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
+import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -266,18 +268,24 @@ class _Stage1Form extends ConsumerStatefulWidget {
 
 class _Stage1FormState extends ConsumerState<_Stage1Form> {
   final _formKey = GlobalKey<FormState>();
+  final _picker  = ImagePicker();
 
-  final _driverName      = TextEditingController();
-  final _driverPhone     = TextEditingController();
-  final _drivingLicense  = TextEditingController();
-  final _aadhaar         = TextEditingController();
-  final _rc              = TextEditingController();
-  final _insurance       = TextEditingController();
-  final _pollution       = TextEditingController();
-  final _fitness         = TextEditingController();
-  final _pan             = TextEditingController();
-  final _taxDeclaration  = TextEditingController();
-  final _cancelledCheque = TextEditingController();
+  // ── Text fields ─────────────────────────────────────────────────────────────
+  final _driverName     = TextEditingController();
+  final _driverPhone    = TextEditingController();
+  final _drivingLicense = TextEditingController();
+  final _aadhaar        = TextEditingController();
+
+  // ── File uploads (bytes + filename) ─────────────────────────────────────────
+  ({Uint8List bytes, String name})? _dlDoc;
+  ({Uint8List bytes, String name})? _aadhaarDoc;
+  ({Uint8List bytes, String name})? _rcDoc;
+  ({Uint8List bytes, String name})? _insuranceDoc;
+  ({Uint8List bytes, String name})? _pollutionDoc;
+  ({Uint8List bytes, String name})? _fitnessDoc;
+  ({Uint8List bytes, String name})? _panDoc;
+  ({Uint8List bytes, String name})? _taxDeclDoc;
+  ({Uint8List bytes, String name})? _cancelledChequeDoc;
 
   Timer? _debounce;
   DateTime? _lastSaved;
@@ -285,36 +293,59 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   @override
   void initState() {
     super.initState();
+    _driverPhone.text = '+91';
     _prefillFromDraft();
-    for (final c in [_driverName, _driverPhone, _drivingLicense, _aadhaar,
-        _rc, _insurance, _pollution, _fitness, _pan, _taxDeclaration, _cancelledCheque]) {
+    for (final c in [_driverName, _driverPhone, _drivingLicense, _aadhaar]) {
       c.addListener(_onFieldChanged);
     }
   }
+
+  // ── Draft restore ────────────────────────────────────────────────────────────
 
   void _prefillFromDraft() {
     final draft = widget.trip.draftData;
     if (draft == null || draft['stage'] != 1) return;
     final d = draft['data'] as Map<String, dynamic>? ?? {};
-    _driverName.text      = d['driver_name']      as String? ?? '';
-    _driverPhone.text     = d['driver_phone']      as String? ?? '';
-    _drivingLicense.text  = d['driving_license']   as String? ?? '';
-    _aadhaar.text         = d['aadhaar']           as String? ?? '';
-    _rc.text              = d['rc']                as String? ?? '';
-    _insurance.text       = d['insurance']         as String? ?? '';
-    _pollution.text       = d['pollution']         as String? ?? '';
-    _fitness.text         = d['fitness']           as String? ?? '';
-    _pan.text             = d['pan']               as String? ?? '';
-    _taxDeclaration.text  = d['tax_declaration']   as String? ?? '';
-    _cancelledCheque.text = d['cancelled_cheque']  as String? ?? '';
+    _driverName.text     = d['driver_name']     as String? ?? '';
+    _driverPhone.text    = d['driver_phone']     as String? ?? '+91';
+    _drivingLicense.text = d['driving_license']  as String? ?? '';
+    _aadhaar.text        = d['aadhaar']          as String? ?? '';
+    _dlDoc            = _restoreFile(d, 'dl_doc');
+    _aadhaarDoc       = _restoreFile(d, 'aadhaar_doc');
+    _rcDoc            = _restoreFile(d, 'rc_doc');
+    _insuranceDoc     = _restoreFile(d, 'insurance_doc');
+    _pollutionDoc     = _restoreFile(d, 'pollution_doc');
+    _fitnessDoc       = _restoreFile(d, 'fitness_doc');
+    _panDoc           = _restoreFile(d, 'pan_doc');
+    _taxDeclDoc       = _restoreFile(d, 'tax_decl_doc');
+    _cancelledChequeDoc = _restoreFile(d, 'cancelled_cheque_doc');
     if (draft['saved_at'] != null) {
       _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
     }
   }
 
+  ({Uint8List bytes, String name})? _restoreFile(Map<String, dynamic> d, String key) {
+    final b64  = d['${key}_b64']  as String?;
+    final name = d['${key}_name'] as String?;
+    if (b64 == null || name == null) return null;
+    try { return (bytes: base64Decode(b64), name: name); } catch (_) { return null; }
+  }
+
+  // ── Draft save ───────────────────────────────────────────────────────────────
+
   void _onFieldChanged() {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 1500), _saveDraft);
+  }
+
+  void _onUploadChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 600), _saveDraft);
+  }
+
+  Map<String, dynamic> _fileDraftEntry(({Uint8List bytes, String name})? f, String key) {
+    if (f == null) return {};
+    return {'${key}_b64': base64Encode(f.bytes), '${key}_name': f.name};
   }
 
   Future<void> _saveDraft() async {
@@ -324,17 +355,19 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
         'stage': 1,
         'data': {
-          'driver_name':      _driverName.text.trim(),
-          'driver_phone':     _driverPhone.text.trim(),
-          'driving_license':  _drivingLicense.text.trim(),
-          'aadhaar':          _aadhaar.text.trim(),
-          'rc':               _rc.text.trim(),
-          'insurance':        _insurance.text.trim(),
-          'pollution':        _pollution.text.trim(),
-          'fitness':          _fitness.text.trim(),
-          'pan':              _pan.text.trim(),
-          'tax_declaration':  _taxDeclaration.text.trim(),
-          'cancelled_cheque': _cancelledCheque.text.trim(),
+          'driver_name':     _driverName.text.trim(),
+          'driver_phone':    _driverPhone.text.trim(),
+          'driving_license': _drivingLicense.text.trim(),
+          'aadhaar':         _aadhaar.text.trim(),
+          ..._fileDraftEntry(_dlDoc,              'dl_doc'),
+          ..._fileDraftEntry(_aadhaarDoc,         'aadhaar_doc'),
+          ..._fileDraftEntry(_rcDoc,              'rc_doc'),
+          ..._fileDraftEntry(_insuranceDoc,       'insurance_doc'),
+          ..._fileDraftEntry(_pollutionDoc,       'pollution_doc'),
+          ..._fileDraftEntry(_fitnessDoc,         'fitness_doc'),
+          ..._fileDraftEntry(_panDoc,             'pan_doc'),
+          ..._fileDraftEntry(_taxDeclDoc,         'tax_decl_doc'),
+          ..._fileDraftEntry(_cancelledChequeDoc, 'cancelled_cheque_doc'),
         },
       });
       if (mounted) setState(() => _lastSaved = DateTime.now());
@@ -344,28 +377,92 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   @override
   void dispose() {
     _debounce?.cancel();
-    for (final c in [_driverName, _driverPhone, _drivingLicense, _aadhaar,
-        _rc, _insurance, _pollution, _fitness, _pan, _taxDeclaration, _cancelledCheque]) {
+    for (final c in [_driverName, _driverPhone, _drivingLicense, _aadhaar]) {
       c.dispose();
     }
     super.dispose();
   }
 
+  // ── Validators ───────────────────────────────────────────────────────────────
+
+  String? _validateDriverName(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Driver Name is required';
+    if (!RegExp(r'^[a-zA-Z ]+$').hasMatch(v.trim())) return 'Only alphabets allowed';
+    if (v.trim().length > 25) return 'Maximum 25 characters';
+    return null;
+  }
+
+  String? _validatePhone(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Driver Phone is required';
+    final val = v.trim();
+    if (!val.startsWith('+91')) return 'Must start with +91';
+    final digits = val.substring(3);
+    if (!RegExp(r'^\d{10}$').hasMatch(digits)) return 'Enter exactly 10 digits after +91';
+    return null;
+  }
+
+  String? _validateAadhaar(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Aadhaar is required';
+    final cleaned = v.trim().replaceAll(' ', '');
+    if (!RegExp(r'^\d{12}$').hasMatch(cleaned)) return 'Aadhaar must be exactly 12 digits';
+    return null;
+  }
+
+  String? _validateDrivingLicense(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Driving License is required';
+    final cleaned = v.trim().replaceAll(RegExp(r'[\s/\-]'), '').toUpperCase();
+    if (!RegExp(r'^[A-Z0-9]{10,18}$').hasMatch(cleaned)) {
+      return 'Invalid format — 10–18 alphanumeric chars (e.g. RJ1420230012345)';
+    }
+    return null;
+  }
+
+  // ── File picker ──────────────────────────────────────────────────────────────
+
+  Future<void> _pickFile(
+    ImageSource source,
+    void Function(({Uint8List bytes, String name}) f) onPicked,
+  ) async {
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    onPicked((bytes: bytes, name: picked.name));
+    setState(() {});
+    _onUploadChanged();
+  }
+
+  // ── Submit ───────────────────────────────────────────────────────────────────
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    final ok = await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage1({
-      'driver_name':      _driverName.text.trim(),
-      'driver_phone':     _driverPhone.text.trim(),
-      'driving_license':  _drivingLicense.text.trim(),
-      'aadhaar':          _aadhaar.text.trim(),
-      'rc':               _rc.text.trim(),
-      'insurance':        _insurance.text.trim(),
-      'pollution':        _pollution.text.trim(),
-      'fitness':          _fitness.text.trim(),
-      'pan':              _pan.text.trim(),
-      'tax_declaration':  _taxDeclaration.text.trim(),
-      'cancelled_cheque': _cancelledCheque.text.trim(),
-    });
+
+    final dlCleaned = _drivingLicense.text.trim()
+        .replaceAll(RegExp(r'[\s/\-]'), '').toUpperCase();
+
+    final fields = <String, dynamic>{
+      'driver_name':     _driverName.text.trim(),
+      'driver_phone':    _driverPhone.text.trim(),
+      'driving_license': dlCleaned,
+      'aadhaar':         _aadhaar.text.trim().replaceAll(' ', ''),
+    };
+
+    void _addFile(String key, ({Uint8List bytes, String name})? f) {
+      if (f != null) fields[key] = MultipartFile.fromBytes(f.bytes, filename: f.name);
+    }
+    _addFile('driving_license_doc',  _dlDoc);
+    _addFile('aadhaar_doc',          _aadhaarDoc);
+    _addFile('rc_doc',               _rcDoc);
+    _addFile('insurance_doc',        _insuranceDoc);
+    _addFile('pollution_doc',        _pollutionDoc);
+    _addFile('fitness_doc',          _fitnessDoc);
+    _addFile('pan_doc',              _panDoc);
+    _addFile('tax_declaration_doc',  _taxDeclDoc);
+    _addFile('cancelled_cheque_doc', _cancelledChequeDoc);
+
+    final ok = await ref
+        .read(tripStagesProvider(widget.providerKey).notifier)
+        .submitStage1(FormData.fromMap(fields));
+
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -379,6 +476,45 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     }
   }
 
+  // ── Build ────────────────────────────────────────────────────────────────────
+
+  InputDecoration _dec(String label) => InputDecoration(
+    labelText: label,
+    labelStyle: _inter(size: 12, color: _secondary),
+    filled: true,
+    fillColor: _surface,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _border)),
+    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _border)),
+    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _primary, width: 1.5)),
+    errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _error)),
+    focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _error, width: 1.5)),
+  );
+
+  Widget _uploadTile(
+    String label,
+    String subtitle,
+    ({Uint8List bytes, String name})? file,
+    void Function(({Uint8List bytes, String name}) f) onPicked,
+    VoidCallback onRemove,
+  ) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: _DocUploadTile(
+          label: label,
+          subtitle: subtitle,
+          bytes: file?.bytes,
+          fileName: file?.name,
+          onPickSource: (src) => _pickFile(src, onPicked),
+          onRemove: onRemove,
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final busy = ref.watch(tripStagesProvider(widget.providerKey)).isSubmitting;
@@ -390,28 +526,128 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Driver Details ─────────────────────────────────────────────────
             _SectionHeader(icon: Icons.person_outline_rounded, title: 'Driver Details'),
-            _FormField(controller: _driverName,     label: 'Driver Name',     required: true),
-            _FormField(controller: _driverPhone,    label: 'Driver Phone',    required: true, keyboardType: TextInputType.phone),
-            _FormField(controller: _drivingLicense, label: 'Driving License', required: true),
-            _FormField(controller: _aadhaar,        label: 'Aadhaar Card',    required: true, keyboardType: TextInputType.number),
+
+            // Driver Name — alphabets only, max 25
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TextFormField(
+                controller: _driverName,
+                style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+                validator: _validateDriverName,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]')),
+                  LengthLimitingTextInputFormatter(25),
+                ],
+                decoration: _dec('Driver Name'),
+              ),
+            ),
+
+            // Driver Phone — +91 prefix + 10 digits
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TextFormField(
+                controller: _driverPhone,
+                keyboardType: TextInputType.phone,
+                style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+                validator: _validatePhone,
+                inputFormatters: [_PhoneFormatter()],
+                decoration: _dec('Driver Phone (+91 XXXXXXXXXX)'),
+              ),
+            ),
+
+            // Driving License — alphanumeric, 10-18 chars
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: TextFormField(
+                controller: _drivingLicense,
+                style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+                validator: _validateDrivingLicense,
+                textCapitalization: TextCapitalization.characters,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]')),
+                  LengthLimitingTextInputFormatter(20),
+                ],
+                decoration: _dec('Driving License No.'),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12, top: 4),
+              child: Text(
+                'New: RJ1420230012345   Old: RJ14/1234/2009',
+                style: _inter(size: 11, color: _secondary),
+              ),
+            ),
+
+            // Aadhaar — exactly 12 digits
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: TextFormField(
+                controller: _aadhaar,
+                keyboardType: TextInputType.number,
+                style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+                validator: _validateAadhaar,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(12),
+                ],
+                decoration: _dec('Aadhaar Number (12 digits)'),
+              ),
+            ),
+
+            // Driving License photo upload (optional)
+            _uploadTile(
+              'Driving License (Photo)',
+              'Photo of the driving license',
+              _dlDoc,
+              (f) => _dlDoc = f,
+              () { setState(() => _dlDoc = null); _onUploadChanged(); },
+            ),
+
+            // Aadhaar card photo upload (optional)
+            _uploadTile(
+              'Aadhaar Card (Photo)',
+              'Photo of the Aadhaar card',
+              _aadhaarDoc,
+              (f) => _aadhaarDoc = f,
+              () { setState(() => _aadhaarDoc = null); _onUploadChanged(); },
+            ),
             const SizedBox(height: 8),
 
+            // ── Vehicle Documents ──────────────────────────────────────────────
             _SectionHeader(icon: Icons.directions_car_outlined, title: 'Vehicle Documents'),
-            _FormField(controller: _rc,        label: 'RC (Registration Certificate)', required: true),
-            _FormField(controller: _insurance, label: 'Insurance',                     required: true),
-            _FormField(controller: _pollution, label: 'Pollution Certificate',          required: true),
-            _FormField(controller: _fitness,   label: 'Fitness Certificate',            required: true),
+            _uploadTile('RC (Registration Certificate)', 'Upload vehicle RC',
+              _rcDoc, (f) => _rcDoc = f,
+              () { setState(() => _rcDoc = null); _onUploadChanged(); }),
+            _uploadTile('Insurance', 'Upload insurance document',
+              _insuranceDoc, (f) => _insuranceDoc = f,
+              () { setState(() => _insuranceDoc = null); _onUploadChanged(); }),
+            _uploadTile('Pollution Certificate', 'Upload pollution certificate',
+              _pollutionDoc, (f) => _pollutionDoc = f,
+              () { setState(() => _pollutionDoc = null); _onUploadChanged(); }),
+            _uploadTile('Fitness Certificate', 'Upload fitness certificate',
+              _fitnessDoc, (f) => _fitnessDoc = f,
+              () { setState(() => _fitnessDoc = null); _onUploadChanged(); }),
             const SizedBox(height: 8),
 
+            // ── Owner Documents ────────────────────────────────────────────────
             _SectionHeader(icon: Icons.business_outlined, title: 'Owner Documents'),
-            _FormField(controller: _pan,             label: 'PAN',              required: true),
-            _FormField(controller: _taxDeclaration,  label: 'Tax Declaration',  required: false),
+            _uploadTile('PAN', 'Upload PAN card',
+              _panDoc, (f) => _panDoc = f,
+              () { setState(() => _panDoc = null); _onUploadChanged(); }),
+            _uploadTile('Tax Declaration', 'Upload tax declaration document',
+              _taxDeclDoc, (f) => _taxDeclDoc = f,
+              () { setState(() => _taxDeclDoc = null); _onUploadChanged(); }),
             const SizedBox(height: 8),
 
+            // ── Truck Owner Payment Details ────────────────────────────────────
             _SectionHeader(icon: Icons.account_balance_outlined, title: 'Truck Owner Payment Details'),
-            _FormField(controller: _cancelledCheque, label: 'Cancelled Cheque (Owner / Transporter)', required: false),
-            const SizedBox(height: 16),
+            _uploadTile('Cancelled Cheque (Owner / Transporter)', 'Upload a cancelled cheque',
+              _cancelledChequeDoc, (f) => _cancelledChequeDoc = f,
+              () { setState(() => _cancelledChequeDoc = null); _onUploadChanged(); }),
+            const SizedBox(height: 8),
+
             if (_lastSaved != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -446,6 +682,31 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Phone input formatter — enforces +91 prefix + 10 digits ─────────────────
+
+class _PhoneFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    const prefix = '+91';
+    String text = newValue.text;
+    if (!text.startsWith(prefix)) {
+      final digits = text.replaceAll(RegExp(r'\D'), '');
+      text = prefix + (digits.length > 10 ? digits.substring(0, 10) : digits);
+    } else {
+      final afterPrefix = text.substring(prefix.length);
+      final digits = afterPrefix.replaceAll(RegExp(r'\D'), '');
+      text = prefix + (digits.length > 10 ? digits.substring(0, 10) : digits);
+    }
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
     );
   }
 }

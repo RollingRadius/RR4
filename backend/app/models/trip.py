@@ -61,18 +61,21 @@ class Trip(Base):
     current_stage = Column(Integer, nullable=False, default=0)
 
     # Stage 1 — Truck Detail Registration
-    s1_driver_name      = Column(String(100), nullable=True)
-    s1_driver_phone     = Column(String(20),  nullable=True)
-    s1_driving_license  = Column(String(50),  nullable=True)
-    s1_aadhaar          = Column(String(20),  nullable=True)
-    s1_rc               = Column(String(50),  nullable=True)
-    s1_insurance        = Column(String(50),  nullable=True)
-    s1_pollution        = Column(String(50),  nullable=True)
-    s1_fitness          = Column(String(50),  nullable=True)
-    s1_pan              = Column(String(20),  nullable=True)
-    s1_tax_declaration  = Column(String(100), nullable=True)
-    s1_cancelled_cheque = Column(String(100), nullable=True)
-    s1_submitted_at     = Column(TIMESTAMP(timezone=True), nullable=True)
+    s1_driver_name          = Column(String(100), nullable=True)
+    s1_driver_phone         = Column(String(20),  nullable=True)
+    s1_driving_license      = Column(String(50),  nullable=True)
+    s1_aadhaar              = Column(String(20),  nullable=True)
+    # Document upload URL paths (stored after file upload)
+    s1_driving_license_url  = Column(Text, nullable=True)
+    s1_aadhaar_url          = Column(Text, nullable=True)
+    s1_rc                   = Column(Text, nullable=True)
+    s1_insurance            = Column(Text, nullable=True)
+    s1_pollution            = Column(Text, nullable=True)
+    s1_fitness              = Column(Text, nullable=True)
+    s1_pan                  = Column(Text, nullable=True)
+    s1_tax_declaration      = Column(Text, nullable=True)
+    s1_cancelled_cheque     = Column(Text, nullable=True)
+    s1_submitted_at         = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Stage 2 — Pre-Arrival Compliance Check
     s2_specs_verified    = Column(Boolean, nullable=True)
@@ -143,6 +146,8 @@ class Trip(Base):
             "s1_driver_phone": self.s1_driver_phone,
             "s1_driving_license": self.s1_driving_license,
             "s1_aadhaar": self.s1_aadhaar,
+            "s1_driving_license_url": self.s1_driving_license_url,
+            "s1_aadhaar_url": self.s1_aadhaar_url,
             "s1_rc": self.s1_rc,
             "s1_insurance": self.s1_insurance,
             "s1_pollution": self.s1_pollution,

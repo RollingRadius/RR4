@@ -77,11 +77,11 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
     state = state.copyWith(s2DharamKantaLoc: loc, s2EmptyWeight: weight);
   }
 
-  Future<bool> submitStage1(Map<String, dynamic> data) async {
+  Future<bool> submitStage1(FormData formData) async {
     state = state.copyWith(isSubmitting: true, clearError: true);
     try {
       final api = _ref.read(apiServiceProvider);
-      final resp = await api.dio.post('/api/trips/$tripId/stage/1', data: data);
+      final resp = await api.dio.post('/api/trips/$tripId/stage/1', data: formData);
       _patchTripFromResponse(resp.data);
       state = state.copyWith(isSubmitting: false, currentStage: 1);
       return true;
