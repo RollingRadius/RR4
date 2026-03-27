@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File,
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import or_, func, cast
+from sqlalchemy import or_, func, cast, text
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.database import get_db
@@ -343,36 +343,30 @@ def list_available_loads(
     if material:
         base_filter.append(LoadRequirement.material_type.ilike(f'%{material}%'))
 
-    try:
-        # Use the JSONB @> (contains) operator to check if org_id is in the array.
-        # This is more reliable than `?` which conflicts with psycopg2 parameter binding.
-        target_filter = or_(
-            LoadRequirement.target_org_ids.is_(None),
-            func.jsonb_array_length(LoadRequirement.target_org_ids) == 0,
-            LoadRequirement.target_org_ids.op('@>')(
-                cast(json.dumps([org_id_str]), JSONB)
-            ),
-        )
-        rows = (
-            db.query(LoadRequirement, Organization)
-            .join(Organization, Organization.id == LoadRequirement.company_id)
-            .filter(*base_filter, target_filter)
-            .order_by(LoadRequirement.created_at.desc())
-            .all()
-        )
-    except SQLAlchemyError:
-        # target_org_ids column not yet migrated — show all pending loads
-        db.rollback()
-        rows = (
-            db.query(LoadRequirement, Organization)
-            .join(Organization, Organization.id == LoadRequirement.company_id)
-            .filter(*base_filter)
-            .order_by(LoadRequirement.created_at.desc())
-            .all()
-        )
+    # Raw SQL for JSONB containment check — avoids psycopg2 `?` binding conflicts
+    # and SQLAlchemy operator translation issues with @> on JSONB columns.
+    target_filter = text(
+        "(load_requirements.target_org_ids IS NULL"
+        " OR jsonb_array_length(load_requirements.target_org_ids) = 0"
+        " OR load_requirements.target_org_ids @> CAST(:org_array AS JSONB))"
+    ).bindparams(org_array=json.dumps([org_id_str]))
+
+    rows = (
+        db.query(LoadRequirement, Organization)
+        .join(Organization, Organization.id == LoadRequirement.company_id)
+        .filter(*base_filter, target_filter)
+        .order_by(LoadRequirement.created_at.desc())
+        .all()
+    )
 
     loads = []
     for record, company in rows:
+        # Python-level guard: double-check targeting in case the SQL filter
+        # is bypassed (e.g. during DB migrations or operator edge cases).
+        targets = record.target_org_ids
+        if targets is not None and len(targets) > 0 and org_id_str not in targets:
+            continue
+
         item = _record_to_response(record)
         item['company_name'] = company.company_name
         item['company_city'] = company.city
