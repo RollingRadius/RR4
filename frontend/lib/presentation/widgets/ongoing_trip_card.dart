@@ -182,7 +182,7 @@ class OngoingTripCard extends ConsumerWidget {
                               color: Colors.white, size: 16),
                           const SizedBox(width: 6),
                           Text(
-                            'Go to Stage ${_visualStageNumber(trip)}  ·  ${_stageName(trip)}',
+                            'Go to Stage ${_visualStageLabel(trip)}  ·  ${_stageName(trip)}',
                             style: _inter(
                                 size: 12,
                                 weight: FontWeight.w700,
@@ -487,16 +487,23 @@ class _StatusBadge extends StatelessWidget {
   }
 }
 
-/// Maps a trip to a 1-based visual stage number (accounts for loading slip mini-stage).
-int _visualStageNumber(TripModel trip) {
-  if (trip.currentStage < 2) return trip.currentStage + 1;
-  if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 3; // Loading Slip
-  if (trip.currentStage == 2) return 4; // Arrival
-  return trip.currentStage + 2; // 3→5 (Exit)
+/// Maps a trip to a display label for the current stage (1, 2, LS, 3, 4).
+String _visualStageLabel(TripModel trip) {
+  if (trip.currentStage == 0) return '1';
+  if (trip.currentStage == 1) return '2';
+  if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 'LS';
+  if (trip.currentStage == 2) return '3';
+  return '4'; // stage 3 → Exit
 }
 
 /// 0-based visual stage index used for the strip indicator.
-int _visualStageIndex(TripModel trip) => _visualStageNumber(trip) - 1;
+int _visualStageIndex(TripModel trip) {
+  if (trip.currentStage == 0) return 0;
+  if (trip.currentStage == 1) return 1;
+  if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 2;
+  if (trip.currentStage == 2) return 3;
+  return 4;
+}
 
 String _stageName(TripModel trip) {
   if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 'Loading Slip';
@@ -510,73 +517,130 @@ String _stageName(TripModel trip) {
 
 // ─── Mini stage progress strip ────────────────────────────────────────────────
 
-class _StageStrip extends StatelessWidget {
+class _StageStrip extends StatefulWidget {
   final TripModel trip;
   const _StageStrip({required this.trip});
 
   static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit'];
+  static const _green  = Color(0xFF2E7D32);
+
+  @override
+  State<_StageStrip> createState() => _StageStripState();
+}
+
+class _StageStripState extends State<_StageStrip>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1400))
+      ..repeat(reverse: true);
+    _pulseAnim = CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final visualIdx = _visualStageIndex(trip);
+    final visualIdx = _visualStageIndex(widget.trip);
+    const green = _StageStrip._green;
+
     return Row(
       children: List.generate(5, (i) {
-        final isDone = visualIdx > i;
+        final isDone   = visualIdx > i;
         final isActive = visualIdx == i;
-        final dotColor = isDone
-            ? const Color(0xFF2E7D32)
-            : isActive
-                ? _primary
-                : _outlineVariant;
-        final textColor = isDone
-            ? const Color(0xFF2E7D32)
-            : isActive
-                ? _primary
-                : _outline;
+        final dotColor  = isDone ? green : isActive ? _primary : _outlineVariant;
+        final textColor = isDone ? green : isActive ? _primary : _outline;
 
-        return Expanded(
-          child: Row(
-            children: [
-              Column(
-                children: [
-                  Container(
+        final dot = Column(
+          children: [
+            isActive
+                ? AnimatedBuilder(
+                    animation: _pulseAnim,
+                    builder: (_, __) => Container(
+                      width: 18,
+                      height: 18,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _primary.withValues(alpha: 0.12),
+                        border: Border.all(color: _primary, width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _primary.withValues(alpha: 0.25 + _pulseAnim.value * 0.30),
+                            blurRadius: 5 + _pulseAnim.value * 6,
+                            spreadRadius: _pulseAnim.value * 1,
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: Text(
+                          i < 2 ? '${i + 1}' : i == 2 ? 'LS' : '$i',
+                          style: _inter(size: i == 2 ? 6 : 8, weight: FontWeight.w700, color: _primary),
+                        ),
+                      ),
+                    ),
+                  )
+                : Container(
                     width: 18,
                     height: 18,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: isDone
-                          ? const Color(0xFF2E7D32).withValues(alpha: 0.12)
-                          : isActive
-                              ? _primary.withValues(alpha: 0.12)
-                              : _outlineVariant.withValues(alpha: 0.5),
-                      border: Border.all(color: dotColor, width: isDone || isActive ? 1.5 : 1),
+                          ? green.withValues(alpha: 0.12)
+                          : _outlineVariant.withValues(alpha: 0.5),
+                      border: Border.all(color: dotColor, width: isDone ? 1.5 : 1),
+                      boxShadow: isDone
+                          ? [BoxShadow(color: green.withValues(alpha: 0.40), blurRadius: 6, spreadRadius: 1)]
+                          : [],
                     ),
                     child: Center(
                       child: isDone
-                          ? const Icon(Icons.check_rounded, size: 10, color: Color(0xFF2E7D32))
+                          ? const Icon(Icons.check_rounded, size: 10, color: _StageStrip._green)
                           : Text(
-                              '${i + 1}',
-                              style: _inter(size: 8, weight: FontWeight.w700, color: textColor),
+                              i < 2 ? '${i + 1}' : i == 2 ? 'LS' : '$i',
+                              style: _inter(size: i == 2 ? 6 : 8, weight: FontWeight.w700, color: textColor),
                             ),
                     ),
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    _labels[i],
-                    style: _inter(size: 7, weight: FontWeight.w500, color: textColor),
-                  ),
-                ],
-              ),
-              if (i < 4)
-                Expanded(
-                  child: Container(
-                    height: 1.5,
-                    margin: const EdgeInsets.only(bottom: 14),
-                    color: isDone
-                        ? const Color(0xFF2E7D32).withValues(alpha: 0.4)
-                        : _outlineVariant.withValues(alpha: 0.5),
+            const SizedBox(height: 3),
+            Text(
+              _StageStrip._labels[i],
+              style: _inter(size: 7, weight: FontWeight.w500, color: textColor),
+            ),
+          ],
+        );
+
+        if (i == 4) return dot;
+
+        return Expanded(
+          child: Row(
+            children: [
+              dot,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.easeOut,
+                    height: isDone ? 2 : 1.5,
+                    decoration: BoxDecoration(
+                      color: isDone ? green : _outlineVariant.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(1),
+                      boxShadow: isDone
+                          ? [BoxShadow(color: green.withValues(alpha: 0.35), blurRadius: 4)]
+                          : [],
+                    ),
                   ),
                 ),
+              ),
             ],
           ),
         );

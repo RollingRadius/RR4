@@ -221,84 +221,155 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
 
 // ─── Step Indicator ───────────────────────────────────────────────────────────
 
-class _StepIndicator extends StatelessWidget {
+class _StepIndicator extends StatefulWidget {
   final TripModel trip;
   final bool stage4Done;
   const _StepIndicator({required this.trip, required this.stage4Done});
 
   static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit'];
 
-  /// Returns 0-based visual index for the step indicator.
-  /// 0=Details, 1=Compliance, 2=Slip, 3=Arrival, 4=Exit
-  int get _visualIndex {
-    if (stage4Done) return 5; // all done
+  int visualIndex() {
+    if (stage4Done) return 5;
     final s = trip.currentStage;
     if (s == 0) return 0;
     if (s == 1) return 1;
-    if (s == 2 && trip.s2LoadingSlipUrl == null) return 2; // slip pending
-    if (s == 2) return 3; // arrival
-    return 4; // exit (stage 3)
+    if (s == 2 && trip.s2LoadingSlipUrl == null) return 2;
+    if (s == 2) return 3;
+    return 4;
+  }
+
+  @override
+  State<_StepIndicator> createState() => _StepIndicatorState();
+}
+
+class _StepIndicatorState extends State<_StepIndicator>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseCtrl;
+  late Animation<double> _pulseAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1400))
+      ..repeat(reverse: true);
+    _pulseAnim = CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut);
+  }
+
+  @override
+  void dispose() {
+    _pulseCtrl.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final visualIdx = _visualIndex;
+    final visualIdx = widget.visualIndex();
+
     return Container(
       color: _surface,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Row(
         children: List.generate(5, (i) {
-          final stepNum = i + 1;
-          final isDone = visualIdx > i;
+          final stepLabel = i < 2 ? '${i + 1}' : i == 2 ? 'LS' : '$i';
+          final isDone   = visualIdx > i;
           final isActive = visualIdx == i;
-          final color = isDone ? _success : isActive ? _primary : _secondary;
+          final color   = isDone ? _success : isActive ? _primary : _secondary;
           final bgColor = isDone
-              ? _success.withValues(alpha: 0.10)
+              ? _success.withValues(alpha: 0.12)
               : isActive
                   ? _primary.withValues(alpha: 0.10)
                   : _border;
 
-          return Expanded(
-            child: Row(
-              children: [
-                Column(
-                  children: [
-                    Container(
+          // Static green glow for done; animated orange glow for active
+          final circleShadow = isDone
+              ? [BoxShadow(color: _success.withValues(alpha: 0.45), blurRadius: 8, spreadRadius: 1)]
+              : <BoxShadow>[];
+
+          final dot = Column(
+            children: [
+              isActive
+                  // Only the active circle rebuilds on every frame
+                  ? AnimatedBuilder(
+                      animation: _pulseAnim,
+                      builder: (_, __) => Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: bgColor,
+                          border: Border.all(color: _primary, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _primary.withValues(alpha: 0.28 + _pulseAnim.value * 0.30),
+                              blurRadius: 8 + _pulseAnim.value * 8,
+                              spreadRadius: 1 + _pulseAnim.value * 1.5,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(stepLabel,
+                              style: _manrope(
+                                  size: i == 2 ? 9 : 11,
+                                  weight: FontWeight.w800,
+                                  color: _primary)),
+                        ),
+                      ),
+                    )
+                  : Container(
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: bgColor,
                         shape: BoxShape.circle,
-                        border: Border.all(color: color, width: isDone || isActive ? 2 : 1),
+                        color: bgColor,
+                        border: Border.all(color: color, width: isDone ? 2 : 1),
+                        boxShadow: circleShadow,
                       ),
                       child: Center(
                         child: isDone
                             ? Icon(Icons.check_rounded, color: _success, size: 14)
-                            : Text(
-                                '$stepNum',
-                                style: _manrope(size: 11, weight: FontWeight.w800, color: color),
-                              ),
+                            : Text(stepLabel,
+                                style: _manrope(
+                                    size: i == 2 ? 9 : 11,
+                                    weight: FontWeight.w800,
+                                    color: color)),
                       ),
                     ),
-                    const SizedBox(height: 5),
-                    Text(
-                      _labels[i],
-                      style: _inter(
-                          size: 8,
-                          weight: isActive ? FontWeight.w700 : FontWeight.w400,
-                          color: color),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-                if (i < 4)
-                  Expanded(
-                    child: Container(
-                      height: 2,
-                      margin: const EdgeInsets.only(bottom: 22),
-                      color: isDone ? _success.withValues(alpha: 0.4) : _border,
+              const SizedBox(height: 5),
+              Text(
+                _StepIndicator._labels[i],
+                style: _inter(
+                    size: 8,
+                    weight: isActive ? FontWeight.w700 : FontWeight.w400,
+                    color: color),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          );
+
+          if (i == 4) return dot;
+
+          return Expanded(
+            child: Row(
+              children: [
+                dot,
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 22),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 500),
+                      curve: Curves.easeOut,
+                      height: isDone ? 3 : 2,
+                      decoration: BoxDecoration(
+                        color: isDone ? _success : _border,
+                        borderRadius: BorderRadius.circular(2),
+                        boxShadow: isDone
+                            ? [BoxShadow(color: _success.withValues(alpha: 0.40), blurRadius: 6)]
+                            : [],
+                      ),
                     ),
                   ),
+                ),
               ],
             ),
           );

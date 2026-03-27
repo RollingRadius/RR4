@@ -344,22 +344,23 @@ def list_available_loads(
         base_filter.append(LoadRequirement.material_type.ilike(f'%{material}%'))
 
     try:
-        # Use the `?` JSONB operator to check if org_id is an element of the array
+        # Use the JSONB @> (contains) operator to check if org_id is in the array.
+        # This is more reliable than `?` which conflicts with psycopg2 parameter binding.
+        target_filter = or_(
+            LoadRequirement.target_org_ids.is_(None),
+            func.jsonb_array_length(LoadRequirement.target_org_ids) == 0,
+            LoadRequirement.target_org_ids.op('@>')(
+                func.cast(json.dumps([org_id_str]), JSONB)
+            ),
+        )
         rows = (
             db.query(LoadRequirement, Organization)
             .join(Organization, Organization.id == LoadRequirement.company_id)
-            .filter(
-                *base_filter,
-                or_(
-                    LoadRequirement.target_org_ids.is_(None),
-                    func.jsonb_array_length(LoadRequirement.target_org_ids) == 0,
-                    LoadRequirement.target_org_ids.op('?')(org_id_str),
-                ),
-            )
+            .filter(*base_filter, target_filter)
             .order_by(LoadRequirement.created_at.desc())
             .all()
         )
-    except Exception:
+    except SQLAlchemyError:
         # target_org_ids column not yet migrated — show all pending loads
         db.rollback()
         rows = (
