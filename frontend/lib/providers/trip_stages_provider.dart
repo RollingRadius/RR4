@@ -13,8 +13,9 @@ class TripStagesState {
   final String? loadedWeightKg;
   final String? loadedWeightUnit;
   // Stage 2 Dharam Kanta — shared with Stage 3
-  final String? s2DharamKantaLoc; // 'inside' | 'outside'
-  final String? s2EmptyWeight;    // confirmed empty weight from Stage 2
+  final String? s2DharamKantaLoc;   // 'inside' | 'outside'
+  final String? s2EmptyWeight;      // confirmed empty weight from Stage 2
+  final String? s2EmptyWeightUnit;  // 'tons' | 'kg'
 
   const TripStagesState({
     this.isSubmitting = false,
@@ -26,6 +27,7 @@ class TripStagesState {
     this.loadedWeightUnit,
     this.s2DharamKantaLoc,
     this.s2EmptyWeight,
+    this.s2EmptyWeightUnit,
   });
 
   TripStagesState copyWith({
@@ -38,6 +40,7 @@ class TripStagesState {
     String? loadedWeightUnit,
     String? s2DharamKantaLoc,
     String? s2EmptyWeight,
+    String? s2EmptyWeightUnit,
     bool clearError = false,
   }) =>
       TripStagesState(
@@ -50,6 +53,7 @@ class TripStagesState {
         loadedWeightUnit: loadedWeightUnit ?? this.loadedWeightUnit,
         s2DharamKantaLoc: s2DharamKantaLoc ?? this.s2DharamKantaLoc,
         s2EmptyWeight: s2EmptyWeight ?? this.s2EmptyWeight,
+        s2EmptyWeightUnit: s2EmptyWeightUnit ?? this.s2EmptyWeightUnit,
       );
 }
 
@@ -73,8 +77,8 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
   }
 
   /// Called when the user confirms empty weight via the "Enter" button in Stage 2.
-  void setS2DharamKanta(String loc, String weight) {
-    state = state.copyWith(s2DharamKantaLoc: loc, s2EmptyWeight: weight);
+  void setS2DharamKanta(String loc, String weight, String unit) {
+    state = state.copyWith(s2DharamKantaLoc: loc, s2EmptyWeight: weight, s2EmptyWeightUnit: unit);
   }
 
   Future<bool> submitStage1(FormData formData) async {

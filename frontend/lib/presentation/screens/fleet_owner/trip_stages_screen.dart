@@ -293,7 +293,6 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   @override
   void initState() {
     super.initState();
-    _driverPhone.text = '+91';
     _prefillFromDraft();
     for (final c in [_driverName, _driverPhone, _drivingLicense, _aadhaar]) {
       c.addListener(_onFieldChanged);
@@ -307,7 +306,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     if (draft == null || draft['stage'] != 1) return;
     final d = draft['data'] as Map<String, dynamic>? ?? {};
     _driverName.text     = d['driver_name']     as String? ?? '';
-    _driverPhone.text    = d['driver_phone']     as String? ?? '+91';
+    final rawPhone       = d['driver_phone'] as String? ?? '';
+    _driverPhone.text    = rawPhone.startsWith('+91') ? rawPhone.substring(3) : rawPhone;
     _drivingLicense.text = d['driving_license']  as String? ?? '';
     _aadhaar.text        = d['aadhaar']          as String? ?? '';
     _dlDoc            = _restoreFile(d, 'dl_doc');
@@ -356,7 +356,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
         'stage': 1,
         'data': {
           'driver_name':     _driverName.text.trim(),
-          'driver_phone':    _driverPhone.text.trim(),
+          'driver_phone':    '+91${_driverPhone.text.trim()}',
           'driving_license': _drivingLicense.text.trim(),
           'aadhaar':         _aadhaar.text.trim(),
           ..._fileDraftEntry(_dlDoc,              'dl_doc'),
@@ -393,11 +393,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   }
 
   String? _validatePhone(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Driver Phone is required';
-    final val = v.trim();
-    if (!val.startsWith('+91')) return 'Must start with +91';
-    final digits = val.substring(3);
-    if (!RegExp(r'^\d{10}$').hasMatch(digits)) return 'Enter exactly 10 digits after +91';
+    if (v == null || v.trim().isEmpty) return 'Phone number is required';
+    if (!RegExp(r'^\d{10}$').hasMatch(v.trim())) return 'Enter exactly 10 digits';
     return null;
   }
 
@@ -441,7 +438,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
 
     final fields = <String, dynamic>{
       'driver_name':     _driverName.text.trim(),
-      'driver_phone':    _driverPhone.text.trim(),
+      'driver_phone':    '+91${_driverPhone.text.trim()}',
       'driving_license': dlCleaned,
       'aadhaar':         _aadhaar.text.trim().replaceAll(' ', ''),
     };
@@ -544,16 +541,23 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               ),
             ),
 
-            // Driver Phone — +91 prefix + 10 digits
+            // Driver Phone — +91 shown as static prefix, user enters 10 digits
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: TextFormField(
                 controller: _driverPhone,
-                keyboardType: TextInputType.phone,
+                keyboardType: TextInputType.number,
                 style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
                 validator: _validatePhone,
-                inputFormatters: [_PhoneFormatter()],
-                decoration: _dec('Driver Phone (+91 XXXXXXXXXX)'),
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(10),
+                ],
+                decoration: _dec('Phone Number').copyWith(
+                  prefixText: '+91 ',
+                  prefixStyle: _inter(size: 13, color: _onSurface, weight: FontWeight.w600),
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                ),
               ),
             ),
 
@@ -686,30 +690,6 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   }
 }
 
-// ─── Phone input formatter — enforces +91 prefix + 10 digits ─────────────────
-
-class _PhoneFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    const prefix = '+91';
-    String text = newValue.text;
-    if (!text.startsWith(prefix)) {
-      final digits = text.replaceAll(RegExp(r'\D'), '');
-      text = prefix + (digits.length > 10 ? digits.substring(0, 10) : digits);
-    } else {
-      final afterPrefix = text.substring(prefix.length);
-      final digits = afterPrefix.replaceAll(RegExp(r'\D'), '');
-      text = prefix + (digits.length > 10 ? digits.substring(0, 10) : digits);
-    }
-    return TextEditingValue(
-      text: text,
-      selection: TextSelection.collapsed(offset: text.length),
-    );
-  }
-}
 
 String _formatSaved(DateTime dt) {
   final diff = DateTime.now().difference(dt);
@@ -737,6 +717,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   String? _dharamKantaLoc;  // 'inside' | 'outside'
   bool _s2WeightConfirmed   = false;
   final _emptyWeightCtrl    = TextEditingController();
+  final _emptyWeightUnit    = ValueNotifier<String>('tons');
 
   Timer? _debounce;
   DateTime? _lastSaved;
@@ -752,6 +733,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   void dispose() {
     _debounce?.cancel();
     _emptyWeightCtrl.dispose();
+    _emptyWeightUnit.dispose();
     super.dispose();
   }
 
@@ -766,6 +748,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
     _dharamKantaLoc   = d['dharam_kanta_location']       as String?;
     _s2WeightConfirmed = d['s2_weight_confirmed']        as bool?   ?? false;
     _emptyWeightCtrl.text = d['empty_weight_before_loading'] as String? ?? '';
+    _emptyWeightUnit.value = d['empty_weight_unit']      as String? ?? 'tons';
     if (draft['saved_at'] != null) {
       _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
     }
@@ -799,6 +782,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           'entry_permission':           _entryPermission,
           'dharam_kanta_location':      _dharamKantaLoc ?? '',
           'empty_weight_before_loading': _emptyWeightCtrl.text.trim(),
+          'empty_weight_unit':          _emptyWeightUnit.value,
           's2_weight_confirmed':        _s2WeightConfirmed,
         },
       });
@@ -822,7 +806,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
     // Persist DK data into shared provider state before submit
     if (_dharamKantaLoc == 'outside' && _emptyWeightCtrl.text.trim().isNotEmpty) {
       ref.read(tripStagesProvider(widget.providerKey).notifier)
-          .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim());
+          .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim(), _emptyWeightUnit.value);
     }
 
     final ok = await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage2({
@@ -831,8 +815,10 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
       'driver_docs_valid':       _driverDocsValid,
       'entry_permission':        _entryPermission,
       'dharam_kanta_location':   _dharamKantaLoc ?? '',
-      if (_dharamKantaLoc == 'outside' && _emptyWeightCtrl.text.trim().isNotEmpty)
+      if (_dharamKantaLoc == 'outside' && _emptyWeightCtrl.text.trim().isNotEmpty) ...{
         'empty_weight_before_loading': _emptyWeightCtrl.text.trim(),
+        'empty_weight_unit':           _emptyWeightUnit.value,
+      },
     });
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -845,42 +831,6 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
         ),
       );
     }
-  }
-
-  Widget _dkButton(String label, IconData icon, String value) {
-    final selected = _dharamKantaLoc == value;
-    return GestureDetector(
-      onTap: () { setState(() => _dharamKantaLoc = value); _onCheckChanged(); },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-        decoration: BoxDecoration(
-          color: selected ? _primary.withValues(alpha: 0.10) : const Color(0xFFF5F5F5),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: selected ? _primary : const Color(0xFFDDE0E2),
-            width: selected ? 1.5 : 1.0,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 16, color: selected ? _primary : _secondary),
-            const SizedBox(width: 6),
-            Flexible(
-              child: Text(
-                label,
-                style: _inter(
-                  size: 12,
-                  weight: selected ? FontWeight.w600 : FontWeight.w400,
-                  color: selected ? _primary : _secondary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   @override
@@ -965,97 +915,74 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                 Text('Is the weighbridge inside or outside the factory?',
                     style: _inter(size: 12)),
                 const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(child: _dkButton('Inside Factory', Icons.factory_outlined, 'inside')),
-                  const SizedBox(width: 10),
-                  Expanded(child: _dkButton('Outside Factory', Icons.location_on_outlined, 'outside')),
-                ]),
-                const SizedBox(height: 14),
-                // Empty truck weight — enabled only when weighbridge is outside
-                Opacity(
-                  opacity: _dharamKantaLoc == 'outside' ? 1.0 : 0.38,
-                  child: AbsorbPointer(
-                    absorbing: _dharamKantaLoc != 'outside',
-                    child: TextField(
-                      controller: _emptyWeightCtrl,
-                      enabled: _dharamKantaLoc == 'outside',
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: InputDecoration(
-                        labelText: 'Empty Truck Weight Before Loading',
-                        hintText: 'e.g. 12.5 tons',
-                        prefixIcon: const Icon(Icons.monitor_weight_outlined,
-                            color: _secondary, size: 20),
-                        filled: true,
-                        fillColor: _dharamKantaLoc == 'outside'
-                            ? _bg
-                            : const Color(0xFFEEEEEE),
-                        border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: _border)),
-                        disabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: _border)),
-                        focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: _primary, width: 1.5)),
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
+
+                // Inside Factory checkbox
+                _CheckItem(
+                  label: 'Inside Factory',
+                  value: _dharamKantaLoc == 'inside',
+                  onChanged: (v) {
+                    setState(() {
+                      _dharamKantaLoc = v ? 'inside' : null;
+                      if (v) {
+                        _emptyWeightCtrl.clear();
+                        _s2WeightConfirmed = false;
+                      }
+                    });
+                    _onCheckChanged();
+                  },
+                ),
+
+                // Outside Factory checkbox
+                _CheckItem(
+                  label: 'Outside Factory',
+                  value: _dharamKantaLoc == 'outside',
+                  onChanged: (v) {
+                    setState(() => _dharamKantaLoc = v ? 'outside' : null);
+                    _onCheckChanged();
+                  },
+                ),
+
+                // Weight input — only shown when Outside Factory is selected
+                if (_dharamKantaLoc == 'outside') ...[
+                  const SizedBox(height: 14),
+                  _WeighField(
+                    controller: _emptyWeightCtrl,
+                    label: 'Empty Truck Weight Before Loading',
+                    hint: 'e.g. 12.5',
+                    note: 'Weight recorded outside factory (before loading).',
+                    unitNotifier: _emptyWeightUnit,
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _emptyWeightCtrl.text.trim().isNotEmpty
+                          ? () {
+                              ref
+                                  .read(tripStagesProvider(widget.providerKey).notifier)
+                                  .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim(), _emptyWeightUnit.value);
+                              setState(() => _s2WeightConfirmed = true);
+                              FocusScope.of(context).unfocus();
+                              _saveDraft();
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _s2WeightConfirmed ? _success : _primary,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: const Color(0xFFDDE0E2),
+                        disabledForegroundColor: _secondary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        textStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700),
                       ),
+                      icon: Icon(
+                        _s2WeightConfirmed ? Icons.check_circle_rounded : Icons.input_rounded,
+                        size: 16,
+                      ),
+                      label: Text(_s2WeightConfirmed ? 'Weight Recorded' : 'Enter Weight'),
                     ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                // Enter button — confirms the weight into shared provider state
-                Opacity(
-                  opacity: _dharamKantaLoc == 'outside' ? 1.0 : 0.38,
-                  child: AbsorbPointer(
-                    absorbing: _dharamKantaLoc != 'outside',
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        child: ElevatedButton.icon(
-                          onPressed: _dharamKantaLoc == 'outside' &&
-                                  _emptyWeightCtrl.text.trim().isNotEmpty
-                              ? () {
-                                  ref
-                                      .read(tripStagesProvider(widget.providerKey).notifier)
-                                      .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim());
-                                  setState(() => _s2WeightConfirmed = true);
-                                  FocusScope.of(context).unfocus();
-                                  _saveDraft();
-                                }
-                              : null,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _s2WeightConfirmed
-                                ? _success
-                                : _primary,
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: const Color(0xFFDDE0E2),
-                            disabledForegroundColor: _secondary,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                            textStyle: GoogleFonts.manrope(
-                                fontSize: 13, fontWeight: FontWeight.w700),
-                          ),
-                          icon: Icon(
-                            _s2WeightConfirmed
-                                ? Icons.check_circle_rounded
-                                : Icons.input_rounded,
-                            size: 16,
-                          ),
-                          label: Text(_s2WeightConfirmed
-                              ? 'Weight Recorded'
-                              : 'Enter Weight'),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                ],
               ],
             ),
           ),
@@ -1146,6 +1073,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   // Two-phase: first "Loading Complete", then "Complete Stage"
   bool _loadingComplete = false;
 
+  // Stage 2 Dharam Kanta data — persisted in draft for cross-session restore
+  String? _s2DharamKantaLoc;
+  String? _s2EmptyWeight;
+  String? _s2EmptyWeightUnit;
+
   // Document uploads — stored as (bytes, filename) tuples for web compatibility
   ({Uint8List bytes, String name})? _biltyData;
   List<({Uint8List bytes, String name})> _materialDocs = [];
@@ -1161,6 +1093,14 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _loadedTruckWeight.addListener(_onFieldChanged);
     _emptyWeightUnit.addListener(_onFieldChanged);
     _loadedWeightUnit.addListener(_onFieldChanged);
+    // Restore S2 Dharam Kanta into provider after first frame (ref available)
+    if (_s2DharamKantaLoc == 'outside' && (_s2EmptyWeight?.isNotEmpty ?? false)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref.read(tripStagesProvider(widget.providerKey).notifier)
+            .setS2DharamKanta('outside', _s2EmptyWeight!, _s2EmptyWeightUnit ?? 'tons');
+      });
+    }
   }
 
   void _prefillFromDraft() {
@@ -1178,6 +1118,25 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _loadedTruckWeight.text = d['loaded_truck_weight']    as String? ?? '';
     _emptyWeightUnit.value = d['empty_truck_weight_unit'] as String? ?? 'tons';
     _loadedWeightUnit.value = d['loaded_truck_weight_unit'] as String? ?? 'tons';
+    // Restore Stage 2 Dharam Kanta data (if weight was recorded outside factory)
+    _s2DharamKantaLoc   = d['s2_dharam_kanta_loc']    as String?;
+    _s2EmptyWeight      = d['s2_empty_weight']         as String?;
+    _s2EmptyWeightUnit  = d['s2_empty_weight_unit_s2'] as String?;
+    // Restore bilty upload
+    final biltyB64 = d['bilty_b64'] as String?;
+    final biltyName = d['bilty_name'] as String?;
+    if (biltyB64 != null && biltyName != null) {
+      _biltyData = (bytes: base64Decode(biltyB64), name: biltyName);
+    }
+    // Restore material doc uploads
+    final matList = d['material_docs'] as List<dynamic>?;
+    if (matList != null) {
+      _materialDocs = matList
+          .whereType<Map<String, dynamic>>()
+          .where((m) => m['b64'] != null && m['name'] != null)
+          .map((m) => (bytes: base64Decode(m['b64'] as String), name: m['name'] as String))
+          .toList();
+    }
     if (draft['saved_at'] != null) {
       _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
     }
@@ -1196,6 +1155,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   Future<void> _saveDraft() async {
     if (!mounted) return;
     try {
+      // Snapshot S2 Dharam Kanta from provider (same-session) or local vars (cross-session restore)
+      final stagesState = ref.read(tripStagesProvider(widget.providerKey));
+      final s2Loc    = stagesState.s2DharamKantaLoc  ?? _s2DharamKantaLoc;
+      final s2Weight = stagesState.s2EmptyWeight      ?? _s2EmptyWeight;
+      final s2Unit   = stagesState.s2EmptyWeightUnit  ?? _s2EmptyWeightUnit;
+
       final dio = ref.read(dioProvider);
       await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
         'stage': 3,
@@ -1211,6 +1176,21 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           'empty_truck_weight_unit': _emptyWeightUnit.value,
           'loaded_truck_weight':     _loadedTruckWeight.text.trim(),
           'loaded_truck_weight_unit': _loadedWeightUnit.value,
+          // Persist S2 Dharam Kanta so it survives re-entry
+          if (s2Loc != null) ...{
+            's2_dharam_kanta_loc':    s2Loc,
+            's2_empty_weight':        s2Weight ?? '',
+            's2_empty_weight_unit_s2': s2Unit ?? 'tons',
+          },
+          // Bilty upload
+          if (_biltyData != null) ...{
+            'bilty_b64':  base64Encode(_biltyData!.bytes),
+            'bilty_name': _biltyData!.name,
+          },
+          // Material doc uploads
+          'material_docs': _materialDocs
+              .map((f) => {'b64': base64Encode(f.bytes), 'name': f.name})
+              .toList(),
         },
       });
       if (mounted) setState(() => _lastSaved = DateTime.now());
@@ -1234,6 +1214,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     if (picked == null || !mounted) return;
     final bytes = await picked.readAsBytes();
     setState(() => _biltyData = (bytes: bytes, name: picked.name));
+    _saveDraft();
   }
 
   Future<void> _pickMaterialDocs(ImageSource source) async {
@@ -1250,9 +1231,13 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       );
       setState(() => _materialDocs = [..._materialDocs, ...items]);
     }
+    _saveDraft();
   }
 
-  void _removeMaterialDoc(int index) => setState(() => _materialDocs.removeAt(index));
+  void _removeMaterialDoc(int index) {
+    setState(() => _materialDocs.removeAt(index));
+    _saveDraft();
+  }
 
   bool get _allChecked =>
       _driverParked && _docsSubmitted && _securityVerified &&
@@ -1277,9 +1262,10 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
   Future<void> _completeStage() async {
     final stagesState = ref.read(tripStagesProvider(widget.providerKey));
-    final s2Weight = stagesState.s2EmptyWeight ?? '';
+    final s2Weight = stagesState.s2EmptyWeight ?? _s2EmptyWeight ?? '';
     final weightFromS2 =
-        stagesState.s2DharamKantaLoc == 'outside' && s2Weight.isNotEmpty;
+        (stagesState.s2DharamKantaLoc == 'outside' || _s2DharamKantaLoc == 'outside') &&
+        s2Weight.isNotEmpty;
 
     final fields = <String, dynamic>{
       'driver_parked':            _driverParked.toString(),
@@ -1290,7 +1276,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       'safety_gear':              _safetyGear.toString(),
       // Use Stage 2 weight if it was captured there, otherwise Stage 3 entry
       'empty_truck_weight_kg':    weightFromS2 ? s2Weight : _emptyTruckWeight.text.trim(),
-      'empty_truck_weight_unit':  _emptyWeightUnit.value,
+      'empty_truck_weight_unit':  weightFromS2 ? (stagesState.s2EmptyWeightUnit ?? _s2EmptyWeightUnit ?? 'tons') : _emptyWeightUnit.value,
       'loaded_truck_weight_kg':   _loadedTruckWeight.text.trim(),
       'loaded_truck_weight_unit': _loadedWeightUnit.value,
     };
@@ -1320,9 +1306,10 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   Widget build(BuildContext context) {
     final stagesState = ref.watch(tripStagesProvider(widget.providerKey));
     final busy = stagesState.isSubmitting;
-    final s2Weight = stagesState.s2EmptyWeight ?? '';
+    final s2Weight = stagesState.s2EmptyWeight ?? _s2EmptyWeight ?? '';
     final weightFromS2 =
-        stagesState.s2DharamKantaLoc == 'outside' && s2Weight.isNotEmpty;
+        (stagesState.s2DharamKantaLoc == 'outside' || _s2DharamKantaLoc == 'outside') &&
+        s2Weight.isNotEmpty;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -1407,7 +1394,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                       children: [
                         Text('Empty weight recorded in Stage 2',
                             style: _inter(size: 12, weight: FontWeight.w600, color: _success)),
-                        Text('$s2Weight tons (outside factory)',
+                        Text('$s2Weight ${stagesState.s2EmptyWeightUnit ?? _s2EmptyWeightUnit ?? 'tons'} (outside factory)',
                             style: _manrope(size: 15, weight: FontWeight.w800, color: _success)),
                       ],
                     ),

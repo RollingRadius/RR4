@@ -80,6 +80,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final UserApi _userApi;
 
   AuthNotifier(this._authApi, this._storage, this._apiService, this._userApi) : super(AuthState()) {
+    _apiService.setAuthCallbacks(onRefresh: refreshToken, onLogout: logout);
     _loadStoredAuth();
   }
 

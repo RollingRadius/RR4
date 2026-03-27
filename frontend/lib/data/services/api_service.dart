@@ -6,6 +6,18 @@ import 'package:fleet_management/core/config/app_config.dart';
 class ApiService {
   late final Dio _dio;
 
+  Future<bool> Function()? _onRefresh;
+  Future<void> Function()? _onLogout;
+
+  /// Wire up auth callbacks so the 401 interceptor can refresh / force-logout.
+  void setAuthCallbacks({
+    required Future<bool> Function() onRefresh,
+    required Future<void> Function() onLogout,
+  }) {
+    _onRefresh = onRefresh;
+    _onLogout  = onLogout;
+  }
+
   ApiService() {
     _dio = Dio(BaseOptions(
       baseUrl: AppConfig.apiBaseUrl,
@@ -46,6 +58,30 @@ class ApiService {
           }
         }
         handler.next(response);
+      },
+      onError: (DioException error, ErrorInterceptorHandler handler) async {
+        // Auto-handle 401: try refresh once, then force logout
+        if (error.response?.statusCode == 401 && _onRefresh != null) {
+          // Don't retry the refresh-token endpoint itself (avoids loops)
+          final isRefreshCall = error.requestOptions.path.contains('/refresh-token');
+          if (!isRefreshCall) {
+            final refreshed = await _onRefresh!();
+            if (refreshed) {
+              // Retry original request with the updated token
+              try {
+                final opts = error.requestOptions;
+                opts.headers['Authorization'] = _dio.options.headers['Authorization'];
+                final retryResponse = await _dio.fetch(opts);
+                handler.resolve(retryResponse);
+                return;
+              } catch (_) {
+                // retry also failed — fall through to logout
+              }
+            }
+            await _onLogout?.call();
+          }
+        }
+        handler.next(error);
       },
     ));
 
