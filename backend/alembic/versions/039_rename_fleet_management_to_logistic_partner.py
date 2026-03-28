@@ -1,10 +1,12 @@
 """Rename fleet_management role and business_type to logistic_partner
 
 Changes:
-  - roles: role_key 'fleet_management' → 'logistic_partner'
-  - roles: role_name → 'Logistic Partner'
-  - organizations: business_type 'fleet_management' → 'logistic_partner'
+  - roles: role_key 'fleet_management' -> 'logistic_partner'
+  - roles: role_name -> 'Logistic Partner'
+  - organizations: business_type 'fleet_management' -> 'logistic_partner'
   - organizations: CHECK constraint updated to use 'logistic_partner'
+
+Note: user_organizations.role_id is a FK to roles.id — no update needed there.
 
 Revision ID: 039
 Revises: 038
@@ -28,39 +30,38 @@ VALID_BUSINESS_TYPES = (
 def upgrade() -> None:
     valid_list = ", ".join(f"'{t}'" for t in VALID_BUSINESS_TYPES)
 
-    # ── 1. Drop old CHECK constraint safely (IF EXISTS avoids transaction abort) ──
+    # ── 1. Drop old CHECK constraint safely ───────────────────────────────────
     op.execute(sa.text(
         "ALTER TABLE organizations DROP CONSTRAINT IF EXISTS check_business_type"
     ))
 
-    # ── 2. Update organizations business_type ────────────────────────────────────
+    # ── 2. Update organizations.business_type ────────────────────────────────
     op.execute(sa.text(
         "UPDATE organizations "
         "SET business_type = 'logistic_partner' "
         "WHERE business_type = 'fleet_management'"
     ))
 
-    # ── 3. Normalise any other stale values to 'other' ───────────────────────────
+    # ── 3. Normalise any stale business_type values to 'other' ───────────────
     op.execute(sa.text(
         f"UPDATE organizations "
         f"SET business_type = 'other' "
         f"WHERE business_type NOT IN ({valid_list})"
     ))
 
-    # ── 4. Re-add CHECK constraint with logistic_partner ─────────────────────────
+    # ── 4. Re-add CHECK constraint with logistic_partner ─────────────────────
     op.create_check_constraint(
         'check_business_type',
         'organizations',
         f"business_type IN ({valid_list})"
     )
 
-    # ── 5. Remove any conflicting logistic_partner row before rename ──────────────
+    # ── 5. Remove any conflicting logistic_partner role row ───────────────────
     op.execute(sa.text(
-        "DELETE FROM roles "
-        "WHERE role_key = 'logistic_partner'"
+        "DELETE FROM roles WHERE role_key = 'logistic_partner'"
     ))
 
-    # ── 6. Rename the role ────────────────────────────────────────────────────────
+    # ── 6. Rename fleet_management role ──────────────────────────────────────
     op.execute(sa.text(
         "UPDATE roles "
         "SET role_key = 'logistic_partner', "
@@ -69,17 +70,7 @@ def upgrade() -> None:
         "Searches and fulfills load requirements posted by load owners.' "
         "WHERE role_key = 'fleet_management'"
     ))
-
-    # ── 7. Update user_organizations if role_key stored as text column ───────────
-    op.execute(sa.text(
-        "UPDATE user_organizations "
-        "SET role_key = 'logistic_partner' "
-        "WHERE role_key = 'fleet_management'"
-        " AND EXISTS ("
-        "  SELECT 1 FROM information_schema.columns "
-        "  WHERE table_name='user_organizations' AND column_name='role_key'"
-        ")"
-    ))
+    # user_organizations.role_id is a FK to roles.id — no update needed.
 
 
 def downgrade() -> None:
@@ -121,14 +112,4 @@ def downgrade() -> None:
         "    role_name = 'Fleet Manager', "
         "    description = 'Fleet company manager with full access to fleet management resources.' "
         "WHERE role_key = 'logistic_partner'"
-    ))
-
-    op.execute(sa.text(
-        "UPDATE user_organizations "
-        "SET role_key = 'fleet_management' "
-        "WHERE role_key = 'logistic_partner'"
-        " AND EXISTS ("
-        "  SELECT 1 FROM information_schema.columns "
-        "  WHERE table_name='user_organizations' AND column_name='role_key'"
-        ")"
     ))
