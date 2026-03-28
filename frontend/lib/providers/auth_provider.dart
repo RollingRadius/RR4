@@ -138,7 +138,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       _apiService.setToken(token);
 
       // Set state with login-response user FIRST so role-based routing
-      // (isLoadOwner, isFleetManager) is always correct before navigation.
+      // (isLoadOwner, isLogisticPartner) is always correct before navigation.
       state = state.copyWith(
         isAuthenticated: true,
         isLoading: false,

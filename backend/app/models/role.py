@@ -26,7 +26,7 @@ class Role(Base):
 
     # Role Information
     role_name = Column(String(100), unique=True, nullable=False)
-    role_key = Column(String(50), unique=True, nullable=False)  # 'fleet_management', 'load_owner', 'pending_user', etc.
+    role_key = Column(String(50), unique=True, nullable=False)  # 'logistic_partner', 'load_owner', 'pending_user', etc.
     description = Column(Text, nullable=True)
 
     # System Role Flag
@@ -57,12 +57,12 @@ class Role(Base):
         return f"<Role(id={self.id}, name='{self.role_name}', key='{self.role_key}')>"
 
     def is_owner(self) -> bool:
-        """Check if this is any owner role (fleet or load owner)"""
-        return self.role_key in ('fleet_management', 'load_owner')
+        """Check if this is any owner role (logistic partner or load owner)"""
+        return self.role_key in ('logistic_partner', 'load_owner')
 
-    def is_fleet_manager(self) -> bool:
-        """Check if this is the Fleet Manager role"""
-        return self.role_key == 'fleet_management'
+    def is_logistic_partner(self) -> bool:
+        """Check if this is the Logistic Partner role"""
+        return self.role_key == 'logistic_partner'
 
     def is_load_owner(self) -> bool:
         """Check if this is the Load Owner role"""

@@ -71,8 +71,8 @@ SECURITY_QUESTIONS = [
 # Default Roles for Signup
 DEFAULT_ROLES = [
     {
-        "role_name": "Fleet Management",
-        "role_key": "fleet_management",
+        "role_name": "Logistic Partner",
+        "role_key": "logistic_partner",
         "description": "Fleet management company with full access to fleet resources. Searches and fulfills load requirements posted by load owners.",
         "is_system_role": True
     },
@@ -172,9 +172,9 @@ BUSINESS_TYPES = [
     "delivery",
     "taxi",
     "rental",
-    "fleet_management",
+    "logistic_partner",
     "load_owner",
-    # 'owner' removed — fleet_management is the default for all non-load-owner business types
+    # 'owner' removed — logistic_partner is the default for all non-load-owner business types
     "other"
 ]
 

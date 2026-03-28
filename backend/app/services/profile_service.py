@@ -261,7 +261,7 @@ class ProfileService:
             if business_type == 'load_owner':
                 role = self._get_role_by_key('load_owner')
             else:
-                role = self._get_role_by_key('fleet_management')
+                role = self._get_role_by_key('logistic_partner')
             user_org = UserOrganization(
                 user_id=user.id,
                 organization_id=company.id,
@@ -555,7 +555,7 @@ class ProfileService:
             if business_type == 'load_owner':
                 role = self._get_role_by_key('load_owner')
             else:
-                role = self._get_role_by_key('fleet_management')
+                role = self._get_role_by_key('logistic_partner')
             user_org.organization_id = company.id
             user_org.role_id = role.id
             user_org.status = 'active'

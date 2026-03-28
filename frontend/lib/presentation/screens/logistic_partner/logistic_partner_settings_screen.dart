@@ -4,16 +4,16 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 
-class FleetManagerSettingsScreen extends ConsumerStatefulWidget {
-  const FleetManagerSettingsScreen({super.key});
+class LogisticPartnerSettingsScreen extends ConsumerStatefulWidget {
+  const LogisticPartnerSettingsScreen({super.key});
 
   @override
-  ConsumerState<FleetManagerSettingsScreen> createState() =>
-      _FleetManagerSettingsScreenState();
+  ConsumerState<LogisticPartnerSettingsScreen> createState() =>
+      _LogisticPartnerSettingsScreenState();
 }
 
-class _FleetManagerSettingsScreenState
-    extends ConsumerState<FleetManagerSettingsScreen> {
+class _LogisticPartnerSettingsScreenState
+    extends ConsumerState<LogisticPartnerSettingsScreen> {
   static const _primary = Color(0xFFFF6B00);
   static const _dark = Color(0xFF001e40);
   static const _background = Color(0xFFF8F9FB);

@@ -799,8 +799,8 @@ class _Stage4Card extends StatelessWidget {
                 const SizedBox(width: 8),
                 Text(
                   notified
-                      ? 'You were notified by the fleet manager'
-                      : 'Fleet manager has not sent a notification yet',
+                      ? 'You were notified by the logistic partner'
+                      : 'Logistic partner has not sent a notification yet',
                   style: GoogleFonts.inter(
                       fontSize: 11,
                       color: notified ? const Color(0xFF006B5E) : _secondary),

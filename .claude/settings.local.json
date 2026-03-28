@@ -99,7 +99,9 @@
       "Bash(claude mcp add:*)",
       "Bash(claude mcp:*)",
       "mcp__stitch__get_screen",
-      "Bash(scp:*)"
+      "Bash(scp:*)",
+      "Bash(\"/tmp/grep_results.txt\")",
+      "Read(//tmp/**)"
     ]
   }
 }

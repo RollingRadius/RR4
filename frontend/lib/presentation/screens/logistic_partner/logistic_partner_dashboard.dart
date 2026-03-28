@@ -49,16 +49,16 @@ const _secondaryContainer = Color(0xFFD7E4EC);
 
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
-class FleetManagerDashboard extends ConsumerStatefulWidget {
-  const FleetManagerDashboard({super.key});
+class LogisticPartnerDashboard extends ConsumerStatefulWidget {
+  const LogisticPartnerDashboard({super.key});
 
   @override
-  ConsumerState<FleetManagerDashboard> createState() =>
-      _FleetManagerDashboardState();
+  ConsumerState<LogisticPartnerDashboard> createState() =>
+      _LogisticPartnerDashboardState();
 }
 
-class _FleetManagerDashboardState
-    extends ConsumerState<FleetManagerDashboard> {
+class _LogisticPartnerDashboardState
+    extends ConsumerState<LogisticPartnerDashboard> {
   int _navIndex = 0;
   Timer? _pollTimer;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -118,7 +118,7 @@ class _FleetManagerDashboardState
       backgroundColor: _background,
       drawer: _AppDrawer(
         user: user,
-        role: 'Fleet Manager',
+        role: 'Logistic Partner',
         navIndex: _navIndex,
         onNavTap: (i) {
           _scaffoldKey.currentState?.closeDrawer();
@@ -319,7 +319,7 @@ class _DashboardTab extends ConsumerWidget {
     final tripState = ref.watch(tripProvider);
     final loadsState = ref.watch(availableLoadsProvider);
     final user = ref.watch(authProvider).user;
-    final firstName = user?.fullName.split(' ').first ?? 'Fleet Manager';
+    final firstName = user?.fullName.split(' ').first ?? 'Logistic Partner';
 
     final ongoingTrips = tripState.activeTrips;
     final pendingLoads = loadsState.loads;
@@ -342,7 +342,7 @@ class _DashboardTab extends ConsumerWidget {
             style: _manrope(size: 22, weight: FontWeight.w800),
           ),
           const SizedBox(height: 2),
-          Text('Fleet Management Panel',
+          Text('Logistic Partner Panel',
               style: _inter(size: 13, color: _secondary)),
           const SizedBox(height: 16),
 
@@ -1786,7 +1786,7 @@ class _AppDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final name    = user?.fullName ?? 'Fleet Manager';
+    final name    = user?.fullName ?? 'Logistic Partner';
     final company = user?.companyName ?? '';
     final username = user?.username ?? '';
 
@@ -2106,7 +2106,7 @@ class _ProfileTab extends ConsumerWidget {
               color: _primary.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text('Fleet Management',
+            child: Text('Logistic Partner',
                 style: _inter(
                     size: 12,
                     weight: FontWeight.w700,

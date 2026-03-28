@@ -25,7 +25,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
 
   // Company fields
   final _companyNameController = TextEditingController();
-  String? _selectedCompanyType; // 'fleet_management' or 'load_owner'
+  String? _selectedCompanyType; // 'logistic_partner' or 'load_owner'
   final _businessEmailController = TextEditingController();
   final _businessPhoneController = TextEditingController();
   final _addressController = TextEditingController();
@@ -318,7 +318,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                       _buildRoleOption(
                         'create_company',
                         'Create Company',
-                        'Register your company and become the Fleet Manager',
+                        'Register your company and become the Logistic Partner',
                         Icons.add_business_outlined,
                       ),
 
@@ -642,9 +642,9 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
 
         // Logistics / Fleet Company card
         _buildCompanyTypeCard(
-          value: 'fleet_management',
-          title: 'Fleet Manager Company',
-          description: 'You manage a fleet of vehicles for transportation — your role: Fleet Manager',
+          value: 'logistic_partner',
+          title: 'Logistic Partner Company',
+          description: 'You manage a fleet of vehicles for transportation — your role: Logistic Partner',
           icon: Icons.local_shipping_outlined,
           color: Colors.blue,
         ),

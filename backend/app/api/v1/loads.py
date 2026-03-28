@@ -73,9 +73,9 @@ class LoadRequirementResponse(BaseModel):
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
-def _get_fleet_management_company(current_user: User, db: Session) -> Organization:
+def _get_logistic_partner_company(current_user: User, db: Session) -> Organization:
     """
-    Verify the current user has a fleet_management (or super_admin) role.
+    Verify the current user has a logistic_partner (or super_admin) role.
     Returns the Organization on success, raises 403 otherwise.
     """
     user_org = db.query(UserOrganization).filter(
@@ -91,10 +91,10 @@ def _get_fleet_management_company(current_user: User, db: Session) -> Organizati
 
     role = db.query(Role).filter(Role.id == user_org.role_id).first()
     role_key = role.role_key if role else ''
-    if role_key not in ('fleet_management', 'super_admin'):
+    if role_key not in ('logistic_partner', 'super_admin'):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only Fleet Management users can access this resource."
+            detail="Only Logistic Partner users can access this resource."
         )
 
     return user_org.organization
@@ -103,7 +103,7 @@ def _get_fleet_management_company(current_user: User, db: Session) -> Organizati
 def _get_fleet_member_org(current_user: User, db: Session) -> Organization:
     """
     Verify the current user belongs to a fleet org (admin or worker).
-    Allows fleet_management, fleet_worker, and super_admin.
+    Allows logistic_partner, fleet_worker, and super_admin.
     Used for read-only fleet endpoints such as browsing available loads.
     """
     user_org = db.query(UserOrganization).filter(
@@ -119,10 +119,10 @@ def _get_fleet_member_org(current_user: User, db: Session) -> Organization:
 
     role = db.query(Role).filter(Role.id == user_org.role_id).first()
     role_key = role.role_key if role else ''
-    if role_key not in ('fleet_management', 'fleet_worker', 'super_admin'):
+    if role_key not in ('logistic_partner', 'fleet_worker', 'super_admin'):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only Fleet Management users can access this resource."
+            detail="Only Logistic Partner users can access this resource."
         )
 
     return user_org.organization
@@ -342,7 +342,7 @@ class FulfillPayload(BaseModel):
     notes:       Optional[str]   = None
 
 
-# ── Fleet Management Endpoints ───────────────────────────────────────────────
+# ── Logistic Partner Endpoints ───────────────────────────────────────────────
 
 @router.get("/available", status_code=status.HTTP_200_OK)
 def list_available_loads(
@@ -356,7 +356,7 @@ def list_available_loads(
     Browse pending load requirements posted by load owner companies.
     Loads with target_org_ids set are only visible to those specific fleet-management orgs.
 
-    **Requires:** JWT · company business_type == 'fleet_management'
+    **Requires:** JWT · company business_type == 'logistic_partner'
     """
     fleet_org = _get_fleet_member_org(current_user, db)
     org_id_str = str(fleet_org.id)
@@ -437,7 +437,7 @@ def search_fleet_partners(
     """
     _get_load_owner_company(current_user, db)
 
-    target_roles = ('fleet_management', 'logistic_partner')
+    target_roles = ('logistic_partner',)
 
     rows = (
         db.query(
@@ -489,9 +489,9 @@ def fulfill_load_requirement(
     """
     Fleet management accepts a load requirement and creates a trip to fulfill it.
 
-    **Requires:** JWT · company business_type == 'fleet_management'
+    **Requires:** JWT · company business_type == 'logistic_partner'
     """
-    fleet_company = _get_fleet_management_company(current_user, db)
+    fleet_company = _get_logistic_partner_company(current_user, db)
 
     # Fetch load requirement
     try:

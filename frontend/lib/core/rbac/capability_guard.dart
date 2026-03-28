@@ -9,7 +9,7 @@
 ///   )
 ///
 ///   // Role-level guard (cheaper — no API call needed)
-///   FleetManagerGuard(child: VehicleManagementScreen())
+///   LogisticPartnerGuard(child: VehicleManagementScreen())
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,8 +21,8 @@ import 'package:fleet_management/providers/capability_provider.dart';
 /// Shows [child] only when the current user has [capability] at [requiredLevel].
 /// Shows [fallback] (defaults to nothing) otherwise.
 ///
-/// For fleet-manager-only capabilities (vehicle.*, driver.*, etc.) prefer
-/// [FleetManagerGuard] — it avoids the async capability fetch.
+/// For logistic-partner-only capabilities (vehicle.*, driver.*, etc.) prefer
+/// [LogisticPartnerGuard] — it avoids the async capability fetch.
 class CapabilityGuard extends ConsumerWidget {
   final String capability;
   final String requiredLevel;
@@ -61,13 +61,13 @@ class CapabilityGuard extends ConsumerWidget {
 
 // ─── Role-level guards ────────────────────────────────────────────────────────
 
-/// Shows [child] only for users with role_key == 'fleet_management'.
+/// Shows [child] only for users with role_key == 'logistic_partner'.
 /// Cheaper than [CapabilityGuard] — reads from already-loaded auth state.
-class FleetManagerGuard extends ConsumerWidget {
+class LogisticPartnerGuard extends ConsumerWidget {
   final Widget child;
   final Widget fallback;
 
-  const FleetManagerGuard({
+  const LogisticPartnerGuard({
     super.key,
     required this.child,
     this.fallback = const SizedBox.shrink(),
@@ -76,7 +76,7 @@ class FleetManagerGuard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
-    return (user?.isFleetManager == true) ? child : fallback;
+    return (user?.isLogisticPartner == true) ? child : fallback;
   }
 }
 
@@ -108,7 +108,7 @@ class CanViewVehicles extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
-      FleetManagerGuard(child: child, fallback: fallback).build(context, ref);
+      LogisticPartnerGuard(child: child, fallback: fallback).build(context, ref);
 }
 
 class CanCreateVehicles extends ConsumerWidget {
@@ -119,7 +119,7 @@ class CanCreateVehicles extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
-      FleetManagerGuard(child: child, fallback: fallback).build(context, ref);
+      LogisticPartnerGuard(child: child, fallback: fallback).build(context, ref);
 }
 
 class CanEditVehicles extends ConsumerWidget {
@@ -130,7 +130,7 @@ class CanEditVehicles extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
-      FleetManagerGuard(child: child, fallback: fallback).build(context, ref);
+      LogisticPartnerGuard(child: child, fallback: fallback).build(context, ref);
 }
 
 class CanDeleteVehicles extends ConsumerWidget {
@@ -141,7 +141,7 @@ class CanDeleteVehicles extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
-      FleetManagerGuard(child: child, fallback: fallback).build(context, ref);
+      LogisticPartnerGuard(child: child, fallback: fallback).build(context, ref);
 }
 
 class CanAssignVehicles extends ConsumerWidget {
@@ -152,7 +152,7 @@ class CanAssignVehicles extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
-      FleetManagerGuard(child: child, fallback: fallback).build(context, ref);
+      LogisticPartnerGuard(child: child, fallback: fallback).build(context, ref);
 }
 
 class CanManageVehicleDocs extends ConsumerWidget {
@@ -163,7 +163,7 @@ class CanManageVehicleDocs extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
-      FleetManagerGuard(child: child, fallback: fallback).build(context, ref);
+      LogisticPartnerGuard(child: child, fallback: fallback).build(context, ref);
 }
 
 // ─── Utility: programmatic capability check ───────────────────────────────────
@@ -173,8 +173,8 @@ bool userHasRole(dynamic user, String roleKey) =>
     (user?.roleKey as String?) == roleKey;
 
 /// Quick check — use in initState or redirect logic.
-bool isFleetManagerUser(dynamic user) =>
-    user?.isFleetManager == true;
+bool isLogisticPartnerUser(dynamic user) =>
+    user?.isLogisticPartner == true;
 
 bool isLoadOwnerUser(dynamic user) =>
     user?.isLoadOwner == true;

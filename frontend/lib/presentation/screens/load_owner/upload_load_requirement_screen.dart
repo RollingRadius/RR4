@@ -999,10 +999,10 @@ class _UploadLoadRequirementScreenState
               ),
               const SizedBox(height: 16),
 
-              // ── Fleet Management search ──────────────────────────────
+              // ── Logistic Partner search ──────────────────────────────
               _partnerTypeRow(
                 icon: Icons.local_shipping_outlined,
-                label: 'Fleet Management',
+                label: 'Logistic Partner',
                 comingSoon: false,
                 child: Column(
                   children: [
@@ -1742,9 +1742,56 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
         child: SingleChildScrollView(
           child: Column(
             children: [
+              // ── Back button ───────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.of(context).pop();
+                      context.go(AppConstants.routeLoadOwnerHome);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _surfaceLowest,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                            color: _outlineVariant.withOpacity(0.6)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: _primary.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.arrow_back_ios_new_rounded,
+                              size: 15, color: _primary),
+                          SizedBox(width: 6),
+                          Text(
+                            'Back to Dashboard',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
               // ── Centered success content ──────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 56, 24, 32),
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
                 child: Column(
                   children: [
                     // Animated icon

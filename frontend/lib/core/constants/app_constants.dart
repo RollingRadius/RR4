@@ -17,7 +17,7 @@ class AppConstants {
     {'value': 'delivery', 'label': 'Delivery'},
     {'value': 'taxi', 'label': 'Taxi'},
     {'value': 'rental', 'label': 'Rental'},
-    {'value': 'fleet_management', 'label': 'Fleet Management'},
+    {'value': 'logistic_partner', 'label': 'Logistic Partner'},
     {'value': 'load_owner', 'label': 'Load Owner'},
     {'value': 'other', 'label': 'Other'},
   ];

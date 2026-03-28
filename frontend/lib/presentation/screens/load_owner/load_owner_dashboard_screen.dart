@@ -2753,7 +2753,7 @@ class _TrackingTab extends ConsumerWidget {
                     fontWeight: FontWeight.w700,
                     color: _onSurface)),
             const SizedBox(height: 8),
-            Text('Active trips will appear here once a fleet\nfulfills your load requirement.',
+            Text('Active trips will appear here once a logistic partner\nfulfills your load requirement.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: _secondary)),
           ],

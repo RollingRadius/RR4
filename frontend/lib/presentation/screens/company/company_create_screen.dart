@@ -22,7 +22,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
 
   // Company Info
   final _companyNameController = TextEditingController();
-  bool _isFleetManager = false;
+  bool _isLogisticPartner = false;
   bool _isLoadOwner = false;
   bool _businessTypeError = false;
   final _businessEmailController = TextEditingController();
@@ -126,7 +126,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
       return;
     }
 
-    if (!_isFleetManager && !_isLoadOwner) {
+    if (!_isLogisticPartner && !_isLoadOwner) {
       setState(() {
         _businessTypeError = true;
       });
@@ -138,10 +138,10 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
       _businessTypeError = false;
     });
 
-    final businessType = _isFleetManager && _isLoadOwner
-        ? 'fleet_management'
-        : _isFleetManager
-            ? 'fleet_management'
+    final businessType = _isLogisticPartner && _isLoadOwner
+        ? 'logistic_partner'
+        : _isLogisticPartner
+            ? 'logistic_partner'
             : 'load_owner';
 
     // Prepare company data
@@ -293,12 +293,12 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                     ),
                     const SizedBox(height: 8),
                     CheckboxListTile(
-                      title: const Text('Fleet Management'),
+                      title: const Text('Logistic Partner'),
                       subtitle: const Text('Manages a fleet and fulfills load requirements'),
-                      value: _isFleetManager,
+                      value: _isLogisticPartner,
                       onChanged: (val) {
                         setState(() {
-                          _isFleetManager = val ?? false;
+                          _isLogisticPartner = val ?? false;
                           _businessTypeError = false;
                         });
                       },

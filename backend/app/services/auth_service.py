@@ -509,12 +509,12 @@ class AuthService:
         self.db.flush()
 
         # Assign role based on business type:
-        # load_owner → load_owner role, all others (including fleet_management) → fleet_manager role
+        # load_owner → load_owner role, all others (including logistic_partner) → logistic_partner role
         business_type = company_details.get('business_type')
         if business_type == 'load_owner':
             role = self._get_role_by_key('load_owner')
         else:
-            role = self._get_role_by_key('fleet_management')
+            role = self._get_role_by_key('logistic_partner')
 
         # Create user-organization relationship with Owner role
         user_org = UserOrganization(

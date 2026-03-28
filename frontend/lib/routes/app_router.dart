@@ -52,10 +52,10 @@ import 'package:fleet_management/presentation/screens/driver/driver_home_screen.
 import 'package:fleet_management/presentation/screens/driver/driver_dashboard_screen.dart' show DriverHomeDashboardScreen;
 import 'package:fleet_management/presentation/screens/load_owner/upload_load_requirement_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/load_owner_dashboard_screen.dart';
-import 'package:fleet_management/presentation/screens/fleet_manager/fleet_manager_dashboard.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_dashboard.dart';
 import 'package:fleet_management/presentation/screens/load_owner/my_trips_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/load_owner_settings_screen.dart';
-import 'package:fleet_management/presentation/screens/fleet_manager/fleet_manager_settings_screen.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_settings_screen.dart';
 import 'package:fleet_management/presentation/screens/driver/driver_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_work_orders_screen.dart';
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_inventory_screen.dart';
@@ -68,11 +68,11 @@ import 'package:fleet_management/providers/auth_provider.dart';
 
 /// App Router Provider
 final routerProvider = Provider<GoRouter>((ref) {
-  /// Redirect non-fleet-managers away from fleet-only routes.
-  String? fleetManagerOnly(BuildContext context, GoRouterState state) {
+  /// Redirect non-logistic-partners away from logistic-partner-only routes.
+  String? logisticPartnerOnly(BuildContext context, GoRouterState state) {
     final user = ref.read(authProvider).user;
     if (user == null) return AppConstants.routeLogin;
-    if (user.isFleetManager) return null; // allow
+    if (user.isLogisticPartner) return null; // allow
     if (user.isLoadOwner) return AppConstants.routeLoadOwnerHome;
     return AppConstants.routeLogin;
   }
@@ -205,21 +205,21 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
 
-      // Fleet Manager Dashboard (standalone — has its own bottom nav)
+      // Logistic Partner Dashboard (standalone — has its own bottom nav)
       GoRoute(
         path: AppConstants.routeDashboard,
         name: 'fleet-manager-home',
         pageBuilder: (context, state) => const NoTransitionPage(
-          child: FleetManagerDashboard(),
+          child: LogisticPartnerDashboard(),
         ),
       ),
 
-      // Available Loads for fleet manager (placeholder — full screen later)
+      // Available Loads for logistic partner (placeholder — full screen later)
       GoRoute(
         path: '/fleet-manager/available-loads',
         name: 'fleet-manager-available-loads',
         pageBuilder: (context, state) => const NoTransitionPage(
-          child: FleetManagerDashboard(),
+          child: LogisticPartnerDashboard(),
         ),
       ),
 
@@ -266,7 +266,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'fleet-manager-settings',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: const FleetManagerSettingsScreen(),
+          child: const LogisticPartnerSettingsScreen(),
         ),
       ),
 
@@ -312,17 +312,17 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/fleet-hub',
             name: 'fleet-hub',
             redirect: (context, state) =>
-                fleetManagerOnly(context, state),
+                logisticPartnerOnly(context, state),
             pageBuilder: (context, state) => const NoTransitionPage(
               child: FleetHubScreen(),
             ),
           ),
-          // ── Vehicle routes (fleet_manager only) ──────────────────────────
+          // ── Vehicle routes (logistic_partner only) ───────────────────────
           GoRoute(
             path: '/vehicles',
             name: 'vehicles',
             redirect: (context, state) =>
-                fleetManagerOnly(context, state),
+                logisticPartnerOnly(context, state),
             pageBuilder: (context, state) => const NoTransitionPage(
               child: VehiclesListScreen(),
             ),
@@ -331,7 +331,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/vehicles/add',
             name: 'add-vehicle',
             redirect: (context, state) =>
-                fleetManagerOnly(context, state),
+                logisticPartnerOnly(context, state),
             pageBuilder: (context, state) => MaterialPage(
               key: state.pageKey,
               child: const AddVehicleScreen(),
@@ -341,7 +341,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/vehicles/:id',
             name: 'vehicle-details',
             redirect: (context, state) {
-              final guard = fleetManagerOnly(context, state);
+              final guard = logisticPartnerOnly(context, state);
               if (guard != null) return guard;
               final vehicleId = state.pathParameters['id']!;
               return '/vehicles/$vehicleId/analytics';
@@ -351,7 +351,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/vehicles/:id/analytics',
             name: 'vehicle-analytics',
             redirect: (context, state) =>
-                fleetManagerOnly(context, state),
+                logisticPartnerOnly(context, state),
             pageBuilder: (context, state) {
               final vehicleId = state.pathParameters['id']!;
               final extra = state.extra as Map<String, dynamic>?;
@@ -364,12 +364,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               );
             },
           ),
-          // ── Driver routes (fleet_manager only) ───────────────────────────
+          // ── Driver routes (logistic_partner only) ────────────────────────
           GoRoute(
             path: '/drivers',
             name: 'drivers',
             redirect: (context, state) =>
-                fleetManagerOnly(context, state),
+                logisticPartnerOnly(context, state),
             pageBuilder: (context, state) => const NoTransitionPage(
               child: DriverManagementScreen(),
             ),
@@ -378,7 +378,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/drivers/:id/view',
             name: 'driver-dashboard',
             redirect: (context, state) =>
-                fleetManagerOnly(context, state),
+                logisticPartnerOnly(context, state),
             pageBuilder: (context, state) {
               final driverId = state.pathParameters['id']!;
               return MaterialPage(
@@ -391,7 +391,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/drivers/add',
             name: 'add-driver',
             redirect: (context, state) =>
-                fleetManagerOnly(context, state),
+                logisticPartnerOnly(context, state),
             pageBuilder: (context, state) => MaterialPage(
               key: state.pageKey,
               child: const AddDriverScreen(),
