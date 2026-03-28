@@ -1373,7 +1373,7 @@ class _ShipmentStatusWithTrips extends StatelessWidget {
           ...trips.map(
             (t) => Padding(
               padding: const EdgeInsets.only(bottom: 14),
-              child: OngoingTripCard(trip: t),
+              child: OngoingTripCard(trip: t, readOnly: true),
             ),
           ),
 

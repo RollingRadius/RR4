@@ -543,7 +543,7 @@ class _TripCard extends ConsumerWidget {
           // ── Main content (tap → detail) ───────────────────────────────
           GestureDetector(
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => TripDetailScreen(trip: trip))),
+                builder: (_) => TripDetailScreen(trip: trip, readOnly: true))),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
               child: Column(
@@ -603,7 +603,7 @@ class _TripCard extends ConsumerWidget {
                   child: GestureDetector(
                     onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
-                            builder: (_) => TripDetailScreen(trip: trip))),
+                            builder: (_) => TripDetailScreen(trip: trip, readOnly: true))),
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(

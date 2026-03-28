@@ -37,7 +37,9 @@ TextStyle _inter({
 
 class OngoingTripCard extends ConsumerWidget {
   final TripModel trip;
-  const OngoingTripCard({super.key, required this.trip});
+  /// When true, hides the "Go to Stage" action button (load owner view).
+  final bool readOnly;
+  const OngoingTripCard({super.key, required this.trip, this.readOnly = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -58,7 +60,7 @@ class OngoingTripCard extends ConsumerWidget {
           // ── Tappable body → TripDetailScreen ──────────────────────────
           GestureDetector(
             onTap: () => Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => TripDetailScreen(trip: trip))),
+                builder: (_) => TripDetailScreen(trip: trip, readOnly: readOnly))),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
               child: Column(
@@ -127,7 +129,7 @@ class OngoingTripCard extends ConsumerWidget {
                       child: GestureDetector(
                         onTap: () => Navigator.of(context).push(
                             MaterialPageRoute(
-                                builder: (_) => TripDetailScreen(trip: trip))),
+                                builder: (_) => TripDetailScreen(trip: trip, readOnly: readOnly))),
                         child: _ActionChip(
                           icon: Icons.receipt_long_outlined,
                           label: 'View Details',
@@ -152,8 +154,8 @@ class OngoingTripCard extends ConsumerWidget {
                   ],
                 ),
 
-                // Go to Present Stage — only when trip has a pending stage
-                if (trip.currentStage < 4) ...[
+                // Go to Present Stage — fleet management only (hidden for load owners)
+                if (!readOnly && trip.currentStage < 4) ...[
                   const SizedBox(height: 8),
                   GestureDetector(
                     onTap: () => Navigator.of(context)

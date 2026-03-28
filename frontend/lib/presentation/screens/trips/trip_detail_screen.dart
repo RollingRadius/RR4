@@ -33,7 +33,8 @@ TextStyle _inter({
 
 class TripDetailScreen extends ConsumerWidget {
   final TripModel trip;
-  const TripDetailScreen({super.key, required this.trip});
+  final bool readOnly;
+  const TripDetailScreen({super.key, required this.trip, this.readOnly = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -72,8 +73,8 @@ class TripDetailScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Go to Present Stage button ───────────────────────────
-                  if (trip.currentStage < 4) ...[
+                  // ── Go to Present Stage button — fleet management only ───
+                  if (!readOnly && trip.currentStage < 4) ...[
                     _GoToStageButton(trip: trip),
                     const SizedBox(height: 14),
                   ],
