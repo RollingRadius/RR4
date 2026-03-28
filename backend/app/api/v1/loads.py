@@ -373,25 +373,37 @@ def list_available_loads(
 
     # Raw SQL for JSONB containment check — avoids psycopg2 `?` binding conflicts
     # and SQLAlchemy operator translation issues with @> on JSONB columns.
-    target_filter = text(
-        "(load_requirements.target_org_ids IS NULL"
-        " OR jsonb_array_length(load_requirements.target_org_ids) = 0"
-        " OR load_requirements.target_org_ids @> CAST(:org_array AS JSONB))"
-    ).bindparams(org_array=json.dumps([org_id_str]))
+    # Falls back to showing all pending loads when the target_org_ids column
+    # does not yet exist (migration 036 not applied on this server).
+    try:
+        target_filter = text(
+            "(load_requirements.target_org_ids IS NULL"
+            " OR jsonb_array_length(load_requirements.target_org_ids) = 0"
+            " OR load_requirements.target_org_ids @> CAST(:org_array AS JSONB))"
+        ).bindparams(org_array=json.dumps([org_id_str]))
 
-    rows = (
-        db.query(LoadRequirement, Organization)
-        .join(Organization, Organization.id == LoadRequirement.company_id)
-        .filter(*base_filter, target_filter)
-        .order_by(LoadRequirement.created_at.desc())
-        .all()
-    )
+        rows = (
+            db.query(LoadRequirement, Organization)
+            .join(Organization, Organization.id == LoadRequirement.company_id)
+            .filter(*base_filter, target_filter)
+            .order_by(LoadRequirement.created_at.desc())
+            .all()
+        )
+    except Exception:
+        # Column missing — show all pending loads without targeting filter
+        db.rollback()
+        rows = (
+            db.query(LoadRequirement, Organization)
+            .join(Organization, Organization.id == LoadRequirement.company_id)
+            .filter(*base_filter)
+            .order_by(LoadRequirement.created_at.desc())
+            .all()
+        )
 
     loads = []
     for record, company in rows:
-        # Python-level guard: double-check targeting in case the SQL filter
-        # is bypassed (e.g. during DB migrations or operator edge cases).
-        targets = record.target_org_ids
+        # Python-level guard: double-check targeting (getattr is safe if column missing)
+        targets = getattr(record, 'target_org_ids', None)
         if targets is not None and len(targets) > 0 and org_id_str not in targets:
             continue
 

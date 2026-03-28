@@ -367,6 +367,13 @@ class _DashboardTab extends ConsumerWidget {
           const SizedBox(height: 12),
           if (tripState.isLoading && ongoingTrips.isEmpty)
             _TripLoadingShimmer()
+          else if (tripState.error != null && ongoingTrips.isEmpty)
+            _TripsError(
+              message: tripState.error!,
+              onRetry: () => ref
+                  .read(tripProvider.notifier)
+                  .loadTrips(statusFilter: 'ongoing,pending'),
+            )
           else if (ongoingTrips.isEmpty)
             _EmptyTrips()
           else
@@ -603,6 +610,55 @@ class _EmptyTrips extends StatelessWidget {
                 style: _inter(size: 12)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Trips error state ────────────────────────────────────────────────────────
+
+class _TripsError extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _TripsError({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      decoration: BoxDecoration(
+        color: _errorContainer,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _error.withValues(alpha: 0.3), width: 1.5),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.error_outline_rounded, color: _error, size: 36),
+          const SizedBox(height: 8),
+          Text('Could not load fleet status',
+              style: _inter(size: 13, weight: FontWeight.w600, color: _error)),
+          const SizedBox(height: 4),
+          Text(message,
+              textAlign: TextAlign.center,
+              style: _inter(size: 12, color: _secondary)),
+          const SizedBox(height: 12),
+          GestureDetector(
+            onTap: onRetry,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+              decoration: BoxDecoration(
+                color: _error,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text('Retry',
+                  style: _inter(
+                      size: 13,
+                      weight: FontWeight.w600,
+                      color: Colors.white)),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1661,12 +1717,12 @@ class _LoadsEmpty extends StatelessWidget {
   }
 }
 
-class _LoadsError extends StatelessWidget {
+class _LoadsError extends ConsumerWidget {
   final String message;
   const _LoadsError({required this.message});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -1681,6 +1737,25 @@ class _LoadsError extends StatelessWidget {
             Text(message,
                 textAlign: TextAlign.center,
                 style: _inter(size: 13, color: _secondary)),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => ref
+                  .read(availableLoadsProvider.notifier)
+                  .loadAvailableLoads(),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                decoration: BoxDecoration(
+                  color: _primary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('Retry',
+                    style: _inter(
+                        size: 14,
+                        weight: FontWeight.w700,
+                        color: Colors.white)),
+              ),
+            ),
           ],
         ),
       ),
