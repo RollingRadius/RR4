@@ -765,7 +765,7 @@ def _enrich(trip: Trip, db: Session) -> dict:
         try:
             from app.models.vehicle import Vehicle
             v = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
-            data["vehicle_plate"] = v.plate_number if v else None
+            data["vehicle_plate"] = v.vehicle_number if v else None
             data["vehicle_model"] = v.model if v else None
         except Exception:
             data["vehicle_plate"] = None

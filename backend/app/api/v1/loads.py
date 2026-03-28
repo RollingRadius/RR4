@@ -100,6 +100,34 @@ def _get_fleet_management_company(current_user: User, db: Session) -> Organizati
     return user_org.organization
 
 
+def _get_fleet_member_org(current_user: User, db: Session) -> Organization:
+    """
+    Verify the current user belongs to a fleet org (admin or worker).
+    Allows fleet_management, fleet_worker, and super_admin.
+    Used for read-only fleet endpoints such as browsing available loads.
+    """
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == 'active'
+    ).first()
+
+    if not user_org or not user_org.organization:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must belong to a company to access this resource."
+        )
+
+    role = db.query(Role).filter(Role.id == user_org.role_id).first()
+    role_key = role.role_key if role else ''
+    if role_key not in ('fleet_management', 'fleet_worker', 'super_admin'):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only Fleet Management users can access this resource."
+        )
+
+    return user_org.organization
+
+
 def _generate_trip_number(db: Session) -> str:
     for _ in range(10):
         suffix = ''.join(random.choices(string.digits, k=5))
@@ -330,7 +358,7 @@ def list_available_loads(
 
     **Requires:** JWT · company business_type == 'fleet_management'
     """
-    fleet_org = _get_fleet_management_company(current_user, db)
+    fleet_org = _get_fleet_member_org(current_user, db)
     org_id_str = str(fleet_org.id)
 
     base_filter = [
