@@ -55,6 +55,7 @@ import 'package:fleet_management/presentation/screens/load_owner/load_owner_dash
 import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_dashboard.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_worker_dashboard.dart';
 import 'package:fleet_management/presentation/screens/load_owner/load_owner_worker_dashboard.dart';
+import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/my_trips_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/load_owner_settings_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_settings_screen.dart';
@@ -240,6 +241,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'lo-worker-home',
         pageBuilder: (context, state) => const NoTransitionPage(
           child: LoadOwnerWorkerDashboard(),
+        ),
+      ),
+
+      // Worker Requests Screen (accessible by LP and LO owners)
+      GoRoute(
+        path: AppConstants.routeWorkerRequests,
+        name: 'worker-requests',
+        pageBuilder: (context, state) => const MaterialPage(
+          child: WorkerRequestsScreen(),
         ),
       ),
 

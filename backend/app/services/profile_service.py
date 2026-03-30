@@ -16,6 +16,7 @@ from app.models.user_organization import UserOrganization
 from app.models.company import Organization
 from app.models.driver import Driver
 from app.models.audit_log import AuditLog
+from app.models.notification import Notification
 from app.utils.constants import *
 
 
@@ -217,6 +218,17 @@ class ProfileService:
                 status='pending'
             )
             self.db.add(user_org)
+
+            # Notify company owner about the new worker request
+            req_role_name = requested_role_key or 'Worker'
+            phone_display = user.phone or 'N/A'
+            notif = Notification(
+                recipient_org_id=company.id,
+                type='worker_request',
+                title='New Worker Request',
+                body=f'{user.full_name} ({phone_display}) has requested to join as {req_role_name}',
+            )
+            self.db.add(notif)
 
         elif role_type == 'create_company':
             # Create new company

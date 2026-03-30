@@ -42,6 +42,7 @@ class AppConstants {
   static const String routeLoadOwnerTrips = '/load-owner/trips';
   static const String routeLogisticPartnerWorkerHome = '/lp-worker/home';
   static const String routeLoadOwnerWorkerHome = '/lo-worker/home';
+  static const String routeWorkerRequests = '/worker-requests';
 
   // Error Messages
   static const String errorNetwork = 'Network error. Please check your connection.';

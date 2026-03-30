@@ -15,6 +15,8 @@ import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/shipment_details_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/upload_load_requirement_screen.dart';
+import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
+import 'package:fleet_management/core/constants/app_constants.dart';
 
 // ─── Typography helpers (Stitch: Manrope headline, Inter body) ────────────────
 TextStyle _manrope(
@@ -804,6 +806,7 @@ class _AppDrawer extends ConsumerWidget {
                     onTap: () => onNavTap(index),
                   );
                 }),
+                _DrawerRequestsTile(ref: ref),
                 _DrawerNavTile(
                   icon: Icons.person_outline_rounded,
                   label: 'Profile',
@@ -894,6 +897,79 @@ class _AppDrawer extends ConsumerWidget {
           ),
           SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Requests Drawer Tile (with badge) ────────────────────────────────────────
+
+class _DrawerRequestsTile extends StatelessWidget {
+  final WidgetRef ref;
+  const _DrawerRequestsTile({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final countAsync = ref.watch(pendingWorkerCountProvider);
+    final count = countAsync.valueOrNull ?? 0;
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        context.push(AppConstants.routeWorkerRequests);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+        child: Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(Icons.group_add_rounded, size: 20, color: _secondary),
+                if (count > 0)
+                  Positioned(
+                    top: -6,
+                    right: -8,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: const BoxDecoration(
+                        color: _primary,
+                        shape: BoxShape.circle,
+                      ),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      child: Text(
+                        count > 99 ? '99+' : '$count',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(width: 14),
+            Text('Requests',
+                style: GoogleFonts.inter(
+                    fontSize: 14, fontWeight: FontWeight.w400, color: _onSurface)),
+            if (count > 0) ...[
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _primary.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count pending',
+                  style: GoogleFonts.inter(
+                      fontSize: 11, fontWeight: FontWeight.w600, color: _primary),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
