@@ -21,6 +21,23 @@ const _silver    = Color(0xFF9B9B9B);
 const _bronze    = Color(0xFFCD7F32);
 
 // ─── Data models ──────────────────────────────────────────────────────────────
+
+class _WorkerInfo {
+  final String userId, fullName, username, phone, roleKey, roleLabel;
+  const _WorkerInfo({
+    required this.userId, required this.fullName, required this.username,
+    required this.phone,  required this.roleKey,  required this.roleLabel,
+  });
+  factory _WorkerInfo.fromJson(Map<String, dynamic> j) => _WorkerInfo(
+    userId:    j['user_id']    as String,
+    fullName:  j['full_name']  as String,
+    username:  j['username']   as String,
+    phone:     j['phone']      as String? ?? '—',
+    roleKey:   j['role_key']   as String,
+    roleLabel: j['role_label'] as String,
+  );
+}
+
 class _WorkerEntry {
   final int rank;
   final String userId, fullName, username, phone, roleKey, roleLabel;
@@ -68,11 +85,10 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
   DateTime _selectedDate = DateTime.now();
   String _period = 'daily';
 
-  // Record tab state (always daily leaderboard data)
+  // Record tab state — simple worker roster
   bool _recLoading = true;
   String? _recError;
-  List<_WorkerEntry> _dailySummaries = [];
-  String _recDateLabel = '';
+  List<_WorkerInfo> _workers = [];
 
   // Leaderboard tab state
   bool _lbLoading = true;
@@ -128,13 +144,11 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
         _selectedDate = DateTime(y, m);
       }
     });
-    _fetchRecords();
     _fetchLeaderboard();
   }
 
   void _onPeriodChanged(String p) {
     setState(() { _period = p; _selectedDate = DateTime.now(); });
-    _fetchRecords();
     _fetchLeaderboard();
   }
 
@@ -145,19 +159,14 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
     setState(() { _recLoading = true; _recError = null; });
     try {
       final api = ref.read(apiServiceProvider);
-      final resp = await api.dio.get(
-        '/api/workers/leaderboard',
-        queryParameters: {'period': 'daily', 'date': _dailyParam},
-      );
+      final resp = await api.dio.get('/api/workers');
       final data = resp.data as Map<String, dynamic>;
       if (!mounted) return;
       setState(() {
-        _recDateLabel = data['date_label'] as String? ?? _dailyParam;
-        _dailySummaries = (data['leaderboard'] as List<dynamic>)
-            .map((e) => _WorkerEntry.fromJson(e as Map<String, dynamic>))
-            .toList()
-          // Sort by name for record tab (not rank)
-          ..sort((a, b) => a.fullName.compareTo(b.fullName));
+        _workers = (data['workers'] as List<dynamic>)
+            .map((e) => _WorkerInfo.fromJson(e as Map<String, dynamic>))
+            .where((w) => w.roleKey == 'logistic_partner_worker')
+            .toList();
         _recLoading = false;
       });
     } catch (e) {
@@ -220,14 +229,10 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
         controller: _tabCtrl,
         children: [
           _RecordTab(
-            loading:       _recLoading,
-            error:         _recError,
-            summaries:     _dailySummaries,
-            dateLabel:     _recDateLabel.isEmpty ? _dailyParam : _recDateLabel,
-            canGoNext:     _canGoNext,
-            onPrev:        () => _shiftDate(-1),
-            onNext:        () => _shiftDate(1),
-            onRefresh:     _fetchRecords,
+            loading:   _recLoading,
+            error:     _recError,
+            workers:   _workers,
+            onRefresh: _fetchRecords,
           ),
           _LeaderboardTab(
             loading:      _lbLoading,
@@ -252,76 +257,55 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
 class _RecordTab extends StatelessWidget {
   final bool loading;
   final String? error;
-  final List<_WorkerEntry> summaries;
-  final String dateLabel;
-  final bool canGoNext;
-  final VoidCallback onPrev, onNext, onRefresh;
+  final List<_WorkerInfo> workers;
+  final VoidCallback onRefresh;
 
   const _RecordTab({
-    required this.loading,    required this.error,
-    required this.summaries,  required this.dateLabel,
-    required this.canGoNext,  required this.onPrev,
-    required this.onNext,     required this.onRefresh,
+    required this.loading,   required this.error,
+    required this.workers,   required this.onRefresh,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        _DateNavBar(
-          dateLabel: dateLabel,
-          canGoNext: canGoNext,
-          onPrev: onPrev,
-          onNext: onNext,
-        ),
-        if (loading)
-          const Expanded(child: Center(child: CircularProgressIndicator(color: _primary)))
-        else if (error != null)
-          Expanded(child: _ErrorView(error: error!, onRetry: onRefresh))
-        else if (summaries.isEmpty)
-          Expanded(child: _EmptyView(
-            icon: Icons.people_outline_rounded,
-            title: 'No workers found',
-            subtitle: 'Active workers in your organisation will appear here.',
-          ))
-        else
-          Expanded(
-            child: RefreshIndicator(
-              color: _primary,
-              onRefresh: () async => onRefresh(),
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                itemCount: summaries.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (_, i) => _WorkerDailyCard(entry: summaries[i]),
-              ),
-            ),
-          ),
-      ],
+    if (loading) {
+      return const Center(child: CircularProgressIndicator(color: _primary));
+    }
+    if (error != null) {
+      return _ErrorView(error: error!, onRetry: onRefresh);
+    }
+    if (workers.isEmpty) {
+      return _EmptyView(
+        icon: Icons.people_outline_rounded,
+        title: 'No workers found',
+        subtitle: 'Active workers in your organisation will appear here.',
+      );
+    }
+    return RefreshIndicator(
+      color: _primary,
+      onRefresh: () async => onRefresh(),
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        itemCount: workers.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (_, i) => _WorkerInfoCard(worker: workers[i]),
+      ),
     );
   }
 }
 
-// ─── Worker Daily Record Card ─────────────────────────────────────────────────
+// ─── Worker Info Card ─────────────────────────────────────────────────────────
 
-class _WorkerDailyCard extends StatelessWidget {
-  final _WorkerEntry entry;
-  const _WorkerDailyCard({required this.entry});
-
-  static const _stageColors = [
-    Color(0xFF1565C0), // S1 blue
-    Color(0xFF6A1B9A), // S2 purple
-    Color(0xFF2E7D32), // S3 green
-    _primary,          // S4 orange
-  ];
-  static const _stageLabels = ['Truck Details', 'Compliance', 'Arrival', 'Exit'];
+class _WorkerInfoCard extends StatelessWidget {
+  final _WorkerInfo worker;
+  const _WorkerInfoCard({required this.worker});
 
   @override
   Widget build(BuildContext context) {
-    final initials = entry.fullName.trim().split(RegExp(r'\s+')).take(2)
+    final isOwner = worker.roleKey == 'logistic_partner';
+    final accent  = isOwner ? _primary : _success;
+    final initials = worker.fullName.trim().split(RegExp(r'\s+')).take(2)
         .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
         .join();
-    final isOwner = entry.roleKey == 'logistic_partner';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -331,137 +315,61 @@ class _WorkerDailyCard extends StatelessWidget {
         border: Border.all(color: _border),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2))],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          // ── Header row ──────────────────────────────────────────────────
-          Row(
-            children: [
-              // Avatar
-              Container(
-                width: 44, height: 44,
-                decoration: BoxDecoration(
-                  color: (isOwner ? _primary : _success).withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: (isOwner ? _primary : _success).withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Center(
-                  child: Text(initials,
-                      style: _m(s: 14, w: FontWeight.w800,
-                          c: isOwner ? _primary : _success)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              // Name + phone
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          // Avatar
+          Container(
+            width: 48, height: 48,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+              border: Border.all(color: accent.withValues(alpha: 0.3)),
+            ),
+            child: Center(
+              child: Text(initials, style: _m(s: 15, w: FontWeight.w800, c: accent)),
+            ),
+          ),
+          const SizedBox(width: 14),
+          // Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(worker.fullName,
+                    style: _m(s: 14, w: FontWeight.w700),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Row(
                   children: [
-                    Text(entry.fullName,
-                        style: _m(s: 14, w: FontWeight.w700),
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        const Icon(Icons.phone_outlined, size: 12, color: _secondary),
-                        const SizedBox(width: 4),
-                        Text(entry.phone,
-                            style: _i(s: 12, c: _secondary)),
-                      ],
-                    ),
+                    const Icon(Icons.alternate_email_rounded, size: 12, color: _secondary),
+                    const SizedBox(width: 4),
+                    Text(worker.username, style: _i(s: 12)),
                   ],
                 ),
-              ),
-              // Role badge + total
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: (isOwner ? _primary : _success).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(entry.roleLabel,
-                        style: _i(s: 10, w: FontWeight.w700,
-                            c: isOwner ? _primary : _success)),
-                  ),
-                  const SizedBox(height: 6),
-                  Text('${entry.totalStages} stages',
-                      style: _m(s: 13, w: FontWeight.w800, c: _primary)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          // ── Stage breakdown ─────────────────────────────────────────────
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-            decoration: BoxDecoration(
-              color: _bg,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _border),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                for (int i = 0; i < 4; i++)
-                  _StagePill(
-                    label: 'S${i + 1}',
-                    sublabel: _stageLabels[i],
-                    count: [entry.s1, entry.s2, entry.s3, entry.s4][i],
-                    color: _stageColors[i],
-                  ),
-              ],
-            ),
-          ),
-          if (entry.tripsCompleted > 0) ...[
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                const Icon(Icons.check_circle_rounded, size: 14, color: _success),
-                const SizedBox(width: 5),
-                Text(
-                  '${entry.tripsCompleted} trip${entry.tripsCompleted > 1 ? 's' : ''} fully completed today',
-                  style: _i(s: 12, w: FontWeight.w600, c: _success),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    const Icon(Icons.phone_outlined, size: 12, color: _secondary),
+                    const SizedBox(width: 4),
+                    Text(worker.phone, style: _i(s: 12)),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
+          // Role badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: accent.withValues(alpha: 0.25)),
+            ),
+            child: Text(worker.roleLabel,
+                style: _i(s: 11, w: FontWeight.w700, c: accent)),
+          ),
         ],
       ),
-    );
-  }
-}
-
-class _StagePill extends StatelessWidget {
-  final String label, sublabel;
-  final int count;
-  final Color color;
-  const _StagePill({required this.label, required this.sublabel,
-                    required this.count,  required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: count > 0 ? 0.12 : 0.04),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: count > 0 ? 0.35 : 0.15)),
-          ),
-          child: Text('$count',
-              style: _m(s: 15, w: FontWeight.w800,
-                  c: count > 0 ? color : _secondary.withValues(alpha: 0.4))),
-        ),
-        const SizedBox(height: 4),
-        Text(label, style: _m(s: 10, w: FontWeight.w700, c: count > 0 ? color : _secondary)),
-        Text(sublabel, style: _i(s: 9, c: _secondary), maxLines: 1, overflow: TextOverflow.ellipsis),
-      ],
     );
   }
 }
