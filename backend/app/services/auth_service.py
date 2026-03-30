@@ -279,6 +279,13 @@ class AuthService:
             UserOrganization.user_id == user.id
         ).first()
 
+        # Block workers whose company acceptance is still pending
+        if user.profile_completed and user_org and user_org.status == 'pending':
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="WORKER_PENDING_APPROVAL"
+            )
+
         company = None
         role = None
 

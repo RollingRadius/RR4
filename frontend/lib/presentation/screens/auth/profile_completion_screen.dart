@@ -35,25 +35,11 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
 
   String? _pincodeError;
 
-  // Join company
+  // Join company (worker)
   String? _selectedCompanyId;
   String? _selectedCompanyName;
-  String? _selectedRoleKey;
+  String? _selectedWorkerType; // 'logistic_partner_worker' | 'load_owner_worker'
   final _companySearchController = TextEditingController();
-
-  // Predefined roles available when joining a company
-  static const List<Map<String, String>> _predefinedRoles = [
-    {'key': 'fleet_manager', 'label': 'Fleet Manager'},
-    {'key': 'dispatcher', 'label': 'Dispatcher'},
-    {'key': 'driver', 'label': 'Driver'},
-    {'key': 'accountant', 'label': 'Accountant'},
-    {'key': 'maintenance_manager', 'label': 'Maintenance Manager'},
-    {'key': 'compliance_officer', 'label': 'Compliance Officer'},
-    {'key': 'operations_manager', 'label': 'Operations Manager'},
-    {'key': 'maintenance_technician', 'label': 'Maintenance Technician'},
-    {'key': 'customer_service', 'label': 'Customer Service'},
-    {'key': 'viewer_analyst', 'label': 'Viewer / Analyst'},
-  ];
 
   @override
   void dispose() {
@@ -69,6 +55,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
     _companySearchController.dispose();
     super.dispose();
   }
+
 
   Future<void> _submitProfile() async {
     if (_selectedRoleType == null) {
@@ -103,14 +90,16 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
       profileData['license_number'] = _licenseNumberController.text.trim();
       profileData['license_expiry'] = _licenseExpiryController.text.trim();
     } else if (_selectedRoleType == 'join_company') {
+      if (_selectedWorkerType == null) {
+        _showError('Please select your worker type');
+        return;
+      }
       if (_selectedCompanyId == null) {
         _showError('Please select a company to join');
         return;
       }
       profileData['company_id'] = _selectedCompanyId;
-      if (_selectedRoleKey != null) {
-        profileData['requested_role_key'] = _selectedRoleKey;
-      }
+      profileData['requested_role_key'] = _selectedWorkerType;
     } else if (_selectedRoleType == 'create_company') {
       if (_selectedCompanyType == null) {
         _showError('Please select a company type (Fleet or Load Provider)');
@@ -141,35 +130,64 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
 
     if (mounted) {
       if (success) {
-        // Refresh token so the new JWT carries the updated role/company context,
-        // and authState.user reflects the owner role instead of independent.
-        await ref.read(authProvider.notifier).refreshToken();
+        if (_selectedRoleType == 'join_company') {
+          // Worker join: logout and return to login with a waiting message
+          await ref.read(authProvider.notifier).logout();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.hourglass_top_rounded, color: Colors.white),
+                    SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Request sent! Wait for acceptance by the company owner.',
+                      ),
+                    ),
+                  ],
+                ),
+                backgroundColor: const Color(0xFFFF6B00),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                duration: const Duration(seconds: 5),
+              ),
+            );
+            context.go(AppConstants.routeLogin);
+          }
+        } else {
+          // Refresh token so the new JWT carries the updated role/company context,
+          // and authState.user reflects the owner role instead of independent.
+          await ref.read(authProvider.notifier).refreshToken();
 
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.check_circle, color: Colors.white),
-                  SizedBox(width: 12),
-                  Text('Profile completed successfully!'),
-                ],
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 12),
+                    Text('Profile completed successfully!'),
+                  ],
+                ),
+                backgroundColor: AppTheme.successColor,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              backgroundColor: AppTheme.successColor,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-          );
-          // Navigate based on role
-          final updatedUser = ref.read(authProvider).user;
-          if (updatedUser?.isLoadOwner == true) {
-            context.go(AppConstants.routeLoadOwnerHome);
-          } else if (updatedUser?.isDriver == true) {
-            context.go('/driver/home');
-          } else {
-            context.go(AppConstants.routeDashboard);
+            );
+            // Navigate based on role
+            final updatedUser = ref.read(authProvider).user;
+            if (updatedUser?.isLoadOwner == true) {
+              context.go(AppConstants.routeLoadOwnerHome);
+            } else if (updatedUser?.isDriver == true) {
+              context.go('/driver/home');
+            } else {
+              context.go(AppConstants.routeDashboard);
+            }
           }
         }
       } else {
@@ -309,10 +327,9 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                       const SizedBox(height: 12),
                       _buildRoleOption(
                         'join_company',
-                        'Join Company',
-                        'Join an existing company (requires approval)',
-                        Icons.business_outlined,
-                        comingSoon: true,
+                        'Join as Worker',
+                        'Join an existing company as a worker (requires owner approval)',
+                        Icons.badge_outlined,
                       ),
                       const SizedBox(height: 12),
                       _buildRoleOption(
@@ -512,115 +529,187 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
       children: [
         const Divider(height: 32),
         const Text(
-          'Select Company',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          'Select Worker Type',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Choose the type of company you want to work for',
+          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
         ),
         const SizedBox(height: 16),
-        TextField(
-          controller: _companySearchController,
-          decoration: InputDecoration(
-            labelText: 'Search Company',
-            hintText: 'Enter at least 3 characters',
-            prefixIcon: const Icon(Icons.search),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          onChanged: (value) {
-            if (value.trim().length >= 3) {
-              _searchCompanies(value.trim());
-            } else if (value.trim().length < 3) {
-              // Clear results when query is too short
-              ref.read(companyProvider.notifier).clearSearchResults();
-            }
-          },
-        ),
-        const SizedBox(height: 16),
-        if (companyState.searchResults.isNotEmpty)
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey[300]!),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: companyState.searchResults.length,
-              itemBuilder: (context, index) {
-                final company = companyState.searchResults[index];
-                final isSelected = _selectedCompanyId == company.id;
 
-                return ListTile(
-                  selected: isSelected,
-                  leading: const Icon(Icons.business),
-                  title: Text(company.companyName),
-                  subtitle: Text('${company.city}, ${company.state}'),
-                  trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.green) : null,
-                  onTap: () {
-                    setState(() {
-                      _selectedCompanyId = company.id;
-                      _selectedCompanyName = company.companyName;
-                    });
-                  },
-                );
-              },
-            ),
+        // Worker type selection
+        _buildWorkerTypeCard(
+          value: 'logistic_partner_worker',
+          title: 'Logistic Partner Worker',
+          description: 'Work at a fleet/logistics company — manage trip stages and fleet status',
+          icon: Icons.local_shipping_outlined,
+          color: const Color(0xFFFF6B00),
+        ),
+        const SizedBox(height: 10),
+        _buildWorkerTypeCard(
+          value: 'load_owner_worker',
+          title: 'Load Owner Worker',
+          description: 'Work at a cargo/load company',
+          icon: Icons.inventory_2_outlined,
+          color: Colors.blue,
+        ),
+
+        if (_selectedWorkerType != null) ...[
+          const SizedBox(height: 24),
+          const Divider(height: 1),
+          const SizedBox(height: 20),
+          const Text(
+            'Search Company',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-        if (_selectedCompanyName != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green[50],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green[200]!),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _companySearchController,
+            decoration: InputDecoration(
+              labelText: 'Search Company',
+              hintText: 'Enter at least 3 characters',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.green),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Selected: $_selectedCompanyName',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            onChanged: (value) {
+              if (value.trim().length >= 3) {
+                _searchCompanies(value.trim());
+              } else if (value.trim().length < 3) {
+                ref.read(companyProvider.notifier).clearSearchResults();
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          if (companyState.searchResults.isNotEmpty)
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey[300]!),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: companyState.searchResults.length,
+                itemBuilder: (context, index) {
+                  final company = companyState.searchResults[index];
+                  final isSelected = _selectedCompanyId == company.id;
+                  return ListTile(
+                    selected: isSelected,
+                    leading: const Icon(Icons.business),
+                    title: Text(company.companyName),
+                    subtitle: Text('${company.city}, ${company.state}'),
+                    trailing: isSelected
+                        ? const Icon(Icons.check_circle, color: Colors.green)
+                        : null,
+                    onTap: () {
+                      setState(() {
+                        _selectedCompanyId = company.id;
+                        _selectedCompanyName = company.companyName;
+                      });
+                    },
+                  );
+                },
+              ),
+            ),
+          if (_selectedCompanyName != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green[200]!),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.green),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Selected: $_selectedCompanyName',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                     ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildWorkerTypeCard({
+    required String value,
+    required String title,
+    required String description,
+    required IconData icon,
+    required Color color,
+  }) {
+    final isSelected = _selectedWorkerType == value;
+    return InkWell(
+      onTap: () => setState(() {
+        _selectedWorkerType = value;
+        // Reset company when type changes
+        _selectedCompanyId = null;
+        _selectedCompanyName = null;
+        _companySearchController.clear();
+        ref.read(companyProvider.notifier).clearSearchResults();
+      }),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.08) : Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? color : Colors.grey[300]!,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isSelected ? color : Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon,
+                  color: isSelected ? Colors.white : Colors.grey[600],
+                  size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? color : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    description,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                   ),
                 ],
               ),
             ),
-          ),
-        const SizedBox(height: 16),
-        const Text(
-          'Requested Role (Optional)',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        DropdownButton<String>(
-          value: _selectedRoleKey,
-          isExpanded: true,
-          hint: const Text('No preference'),
-          underline: Container(height: 1, color: Colors.grey.shade400),
-          items: [
-            const DropdownMenuItem<String>(
-              value: null,
-              child: Text('No preference'),
-            ),
-            ..._predefinedRoles.map((role) => DropdownMenuItem<String>(
-              value: role['key'],
-              child: Text(role['label']!),
-            )),
+            if (isSelected)
+              Icon(Icons.check_circle, color: color, size: 20),
           ],
-          onChanged: (value) {
-            setState(() {
-              _selectedRoleKey = value;
-            });
-          },
         ),
-      ],
+      ),
     );
   }
 

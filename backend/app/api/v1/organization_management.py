@@ -393,3 +393,149 @@ def get_organization_statistics(
             "role_distribution": role_stats
         }
     }
+
+
+# ── Worker Request Endpoints ───────────────────────────────────────────────────
+
+@router.get("/worker-requests", response_model=dict)
+def get_worker_requests(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all pending worker join requests for the owner's organization.
+
+    **Requirements:**
+    - User must be an owner (logistic_partner or load_owner)
+
+    **Returns:**
+    - List of pending workers with their requested role
+    """
+    owner_org = verify_owner(current_user, db)
+
+    pending = db.query(UserOrganization).filter(
+        UserOrganization.organization_id == owner_org.organization_id,
+        UserOrganization.status == 'pending'
+    ).all()
+
+    requests = []
+    for emp_org in pending:
+        worker = emp_org.user
+        info = {
+            "user_organization_id": str(emp_org.id),
+            "user_id": str(worker.id),
+            "full_name": worker.full_name,
+            "username": worker.username,
+            "phone": worker.phone,
+            "joined_at": emp_org.joined_at.isoformat(),
+            "requested_role": None,
+        }
+        if emp_org.requested_role:
+            info["requested_role"] = {
+                "id": str(emp_org.requested_role.id),
+                "name": emp_org.requested_role.role_name,
+                "key": emp_org.requested_role.role_key,
+            }
+        requests.append(info)
+
+    return {"success": True, "requests": requests, "count": len(requests)}
+
+
+@router.post("/worker-requests/{user_org_id}/accept", response_model=dict)
+def accept_worker_request(
+    user_org_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Accept a pending worker join request.
+
+    Assigns the worker their requested role (logistic_partner_worker or
+    load_owner_worker). Falls back to the matching worker role based on the
+    organization's business_type if no requested_role is set.
+    """
+    owner_org = verify_owner(current_user, db)
+
+    emp_org = db.query(UserOrganization).filter(
+        UserOrganization.id == user_org_id,
+        UserOrganization.organization_id == owner_org.organization_id,
+        UserOrganization.status == 'pending'
+    ).first()
+
+    if not emp_org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pending request not found in your organization"
+        )
+
+    # Determine the role to assign
+    if emp_org.requested_role_id:
+        new_role = db.query(Role).filter(Role.id == emp_org.requested_role_id).first()
+    else:
+        # Default: pick worker role based on org business type
+        org = owner_org.organization
+        default_key = (
+            'load_owner_worker'
+            if org and org.business_type == 'load_owner'
+            else 'logistic_partner_worker'
+        )
+        new_role = db.query(Role).filter(Role.role_key == default_key).first()
+
+    if not new_role:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Worker role not found. Run database migration 040."
+        )
+
+    emp_org.role_id = new_role.id
+    emp_org.status = 'active'
+    emp_org.approved_at = datetime.utcnow()
+    emp_org.approved_by = current_user.id
+
+    db.commit()
+    db.refresh(emp_org)
+
+    return {
+        "success": True,
+        "message": f"{emp_org.user.full_name} has been accepted as {new_role.role_name}",
+        "user_id": str(emp_org.user_id),
+        "role_assigned": new_role.role_key,
+    }
+
+
+@router.post("/worker-requests/{user_org_id}/reject", response_model=dict)
+def reject_worker_request(
+    user_org_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Reject a pending worker join request.
+
+    Sets the worker's status to 'inactive'. They can retry by contacting
+    the owner or re-registering.
+    """
+    owner_org = verify_owner(current_user, db)
+
+    emp_org = db.query(UserOrganization).filter(
+        UserOrganization.id == user_org_id,
+        UserOrganization.organization_id == owner_org.organization_id,
+        UserOrganization.status == 'pending'
+    ).first()
+
+    if not emp_org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pending request not found in your organization"
+        )
+
+    worker_name = emp_org.user.full_name
+    emp_org.status = 'inactive'
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Request from {worker_name} has been rejected",
+        "user_id": str(emp_org.user_id),
+    }

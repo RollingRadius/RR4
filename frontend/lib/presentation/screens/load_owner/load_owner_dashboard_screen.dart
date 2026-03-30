@@ -1172,6 +1172,8 @@ class _DashboardTab extends ConsumerWidget {
                     ),
                   ),
                 ),
+              const SizedBox(height: 24),
+              const _WorkerRequestsSection(),
             ],
           ),
         );
@@ -3071,6 +3073,271 @@ class _DocsTab extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Worker Requests Section ──────────────────────────────────────────────────
+
+class _WorkerRequestsSection extends ConsumerStatefulWidget {
+  const _WorkerRequestsSection();
+
+  @override
+  ConsumerState<_WorkerRequestsSection> createState() =>
+      _WorkerRequestsSectionState();
+}
+
+class _WorkerRequestsSectionState
+    extends ConsumerState<_WorkerRequestsSection> {
+  List<Map<String, dynamic>> _requests = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRequests();
+  }
+
+  Future<void> _fetchRequests() async {
+    if (!mounted) return;
+    setState(() => _loading = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get('/api/organization/worker-requests');
+      final data = response.data as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _requests = List<Map<String, dynamic>>.from(data['requests'] ?? []);
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _accept(String userOrgId) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/organization/worker-requests/$userOrgId/accept');
+      _fetchRequests();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Worker accepted successfully'),
+          backgroundColor: Color(0xFF006B5E),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: _error,
+        ));
+      }
+    }
+  }
+
+  Future<void> _reject(String userOrgId) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/organization/worker-requests/$userOrgId/reject');
+      _fetchRequests();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Request rejected'),
+          backgroundColor: Color(0xFF546067),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: _error,
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading || _requests.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 20,
+              decoration: BoxDecoration(
+                color: _primary,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Worker Requests',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                color: _onSurface,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: _primary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${_requests.length}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ..._requests.map((req) {
+          final userOrgId = req['user_organization_id'] as String;
+          final name = req['full_name'] as String? ?? 'Unknown';
+          final username = req['username'] as String? ?? '';
+          final phone = req['phone'] as String? ?? '';
+          final requestedRole =
+              req['requested_role'] as Map<String, dynamic>?;
+          final roleName = requestedRole?['name'] as String? ?? 'Worker';
+          final initials = name
+              .trim()
+              .split(' ')
+              .take(2)
+              .map((p) => p[0])
+              .join()
+              .toUpperCase();
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: _surfaceLowest,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                  color: _primary.withOpacity(0.3), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: _primary.withOpacity(0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      initials,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: _primary,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: _onSurface)),
+                      Text('@$username',
+                          style: const TextStyle(
+                              fontSize: 12, color: _secondary)),
+                      if (phone.isNotEmpty)
+                        Text(phone,
+                            style: const TextStyle(
+                                fontSize: 12, color: _secondary)),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _primary.withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          roleName,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  children: [
+                    SizedBox(
+                      width: 72,
+                      child: ElevatedButton(
+                        onPressed: () => _accept(userOrgId),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF006B5E),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text('Accept',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    SizedBox(
+                      width: 72,
+                      child: OutlinedButton(
+                        onPressed: () => _reject(userOrgId),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _error,
+                          side: const BorderSide(color: _error, width: 1),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                        child: const Text('Reject',
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
     );
   }
 }

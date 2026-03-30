@@ -40,6 +40,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           context.go('/profile-complete');
           _showSnackBar('Please complete your profile to continue',
               AppTheme.statusWarning, Icons.info_outline);
+        } else if (user?.isLogisticPartnerWorker == true) {
+          context.go(AppConstants.routeLogisticPartnerWorkerHome);
+          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
+              Icons.check_circle);
+        } else if (user?.isLoadOwnerWorker == true) {
+          context.go(AppConstants.routeLoadOwnerWorkerHome);
+          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
+              Icons.check_circle);
         } else if (user?.isLoadOwner == true) {
           context.go(AppConstants.routeLoadOwnerHome);
           _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
@@ -55,8 +63,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         }
       } else {
         final error = ref.read(authProvider).error;
-        _showSnackBar(error ?? AppConstants.errorUnknown, AppTheme.statusError,
-            Icons.error_outline);
+        if (error == 'WORKER_PENDING_APPROVAL') {
+          _showPendingApprovalDialog();
+        } else {
+          _showSnackBar(error ?? AppConstants.errorUnknown,
+              AppTheme.statusError, Icons.error_outline);
+        }
       }
     }
   }
@@ -74,6 +86,54 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.all(16),
         duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showPendingApprovalDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        icon: Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFF3E0),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.hourglass_top_rounded,
+            color: Color(0xFFFF6B00),
+            size: 36,
+          ),
+        ),
+        title: const Text(
+          'Pending Approval',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+        ),
+        content: const Text(
+          'Wait for acceptance by company owner.\n\nOnce the company owner accepts your request, you will be able to log in.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 14, height: 1.5),
+        ),
+        actionsAlignment: MainAxisAlignment.center,
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFF6B00),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+            ),
+            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
@@ -171,7 +231,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           const SizedBox(height: 20),
                           const Text(
-                            'Welcome back, Driver',
+                            'Welcome back to RR',
                             style: TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.bold,

@@ -385,6 +385,9 @@ class _DashboardTab extends ConsumerWidget {
             ),
           const SizedBox(height: 24),
 
+          _WorkerRequestsSection(),
+          const SizedBox(height: 24),
+
           _RecentActivity(),
         ],
       ),
@@ -2135,6 +2138,290 @@ class _ProfileTab extends ConsumerWidget {
               await ref.read(authProvider.notifier).logout();
               if (context.mounted) context.go('/login');
             },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Worker Requests Section ──────────────────────────────────────────────────
+
+class _WorkerRequestsSection extends ConsumerStatefulWidget {
+  const _WorkerRequestsSection();
+
+  @override
+  ConsumerState<_WorkerRequestsSection> createState() =>
+      _WorkerRequestsSectionState();
+}
+
+class _WorkerRequestsSectionState
+    extends ConsumerState<_WorkerRequestsSection> {
+  List<Map<String, dynamic>> _requests = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchRequests();
+  }
+
+  Future<void> _fetchRequests() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final dio = ref.read(dioProvider);
+      final response =
+          await dio.get('/api/organization/worker-requests');
+      final data = response.data as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _requests = List<Map<String, dynamic>>.from(data['requests'] ?? []);
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          // 403 = not an owner, silently hide the section
+          _error = e.toString().contains('403') ? null : e.toString();
+        });
+      }
+    }
+  }
+
+  Future<void> _accept(String userOrgId) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/organization/worker-requests/$userOrgId/accept');
+      _fetchRequests();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Worker accepted successfully'),
+          backgroundColor: Color(0xFF006B5E),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: const Color(0xFFBA1A1A),
+        ));
+      }
+    }
+  }
+
+  Future<void> _reject(String userOrgId) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/organization/worker-requests/$userOrgId/reject');
+      _fetchRequests();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Request rejected'),
+          backgroundColor: Color(0xFF546067),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: const Color(0xFFBA1A1A),
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Don't show anything while loading, on error, or if no pending requests
+    if (_loading || _error != null || _requests.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 4,
+              height: 20,
+              decoration: BoxDecoration(
+                color: _primary,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text('Worker Requests',
+                style: _manrope(
+                    size: 16,
+                    weight: FontWeight.w800,
+                    color: _onSurface)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: _primary,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${_requests.length}',
+                style: _inter(
+                    size: 11,
+                    weight: FontWeight.w700,
+                    color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ..._requests.map((req) => _WorkerRequestCard(
+              request: req,
+              onAccept: () => _accept(req['user_organization_id'] as String),
+              onReject: () => _reject(req['user_organization_id'] as String),
+            )),
+      ],
+    );
+  }
+}
+
+class _WorkerRequestCard extends StatelessWidget {
+  final Map<String, dynamic> request;
+  final VoidCallback onAccept;
+  final VoidCallback onReject;
+  const _WorkerRequestCard({
+    required this.request,
+    required this.onAccept,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final name = request['full_name'] as String? ?? 'Unknown';
+    final username = request['username'] as String? ?? '';
+    final phone = request['phone'] as String? ?? '';
+    final requestedRole =
+        request['requested_role'] as Map<String, dynamic>?;
+    final roleName = requestedRole?['name'] as String? ?? 'Worker';
+    final initials = name.trim().split(' ').take(2).map((p) => p[0]).join().toUpperCase();
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _surfaceLowest,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _primary.withValues(alpha: 0.3), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Avatar
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _primary.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(initials,
+                  style: _manrope(
+                      size: 15,
+                      weight: FontWeight.w700,
+                      color: _primary)),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    style: _manrope(
+                        size: 14,
+                        weight: FontWeight.w700,
+                        color: _onSurface)),
+                const SizedBox(height: 2),
+                Text('@$username',
+                    style: _inter(size: 12, color: _secondary)),
+                if (phone.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(phone, style: _inter(size: 12, color: _secondary)),
+                ],
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _primary.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(roleName,
+                      style: _inter(
+                          size: 11,
+                          weight: FontWeight.w700,
+                          color: _primary)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Actions
+          Column(
+            children: [
+              SizedBox(
+                width: 72,
+                child: ElevatedButton(
+                  onPressed: onAccept,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _tertiary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    textStyle: _inter(
+                        size: 12,
+                        weight: FontWeight.w700,
+                        color: Colors.white),
+                  ),
+                  child: const Text('Accept'),
+                ),
+              ),
+              const SizedBox(height: 6),
+              SizedBox(
+                width: 72,
+                child: OutlinedButton(
+                  onPressed: onReject,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _error,
+                    side: const BorderSide(color: _error, width: 1),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    textStyle: _inter(
+                        size: 12,
+                        weight: FontWeight.w700,
+                        color: _error),
+                  ),
+                  child: const Text('Reject'),
+                ),
+              ),
+            ],
           ),
         ],
       ),

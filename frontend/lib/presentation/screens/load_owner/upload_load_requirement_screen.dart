@@ -25,6 +25,7 @@ class _UploadLoadRequirementScreenState
     extends ConsumerState<UploadLoadRequirementScreen> {
   // Colours matching the Stitch design
   static const Color _primary = Color(0xFF001e40);
+  static const Color _accent = Color(0xFFFF6B00);
   static const Color _background = Color(0xFFF7F9FB);
   static const Color _surfaceContainer = Color(0xFFECEEF0);
   static const Color _surfaceContainerLow = Color(0xFFF2F4F6);
@@ -259,7 +260,7 @@ class _UploadLoadRequirementScreenState
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 14),
           decoration: BoxDecoration(
-            color: isActive ? _primary : _surfaceContainer,
+            color: isActive ? _accent : _surfaceContainer,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -403,7 +404,7 @@ class _UploadLoadRequirementScreenState
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide:
-                  const BorderSide(color: Color(0xFF001e40), width: 2),
+                  BorderSide(color: _accent, width: 2),
             ),
           ),
         ),
@@ -1286,10 +1287,10 @@ class _UploadLoadRequirementScreenState
       child: ElevatedButton.icon(
         onPressed: _isSubmitting ? null : _handleSubmit,
         style: ElevatedButton.styleFrom(
-          backgroundColor: _primary,
+          backgroundColor: _accent,
           foregroundColor: Colors.white,
           elevation: 8,
-          shadowColor: _primary.withOpacity(0.4),
+          shadowColor: _accent.withOpacity(0.4),
           shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(14)),
           textStyle: const TextStyle(
@@ -1632,7 +1633,7 @@ class _GlassAppBar extends StatelessWidget implements PreferredSizeWidget {
                   height: 38,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Color(0xFF003366),
+                    color: Color(0xFFFF6B00),
                   ),
                   child: Center(
                     child: Text(
@@ -1708,6 +1709,7 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
   late final Animation<double> _contentFade;
 
   static const _primary = Color(0xFF001e40);
+  static const _accent = Color(0xFFFF6B00);
   static const _bg = Color(0xFFF7F9FB);
   static const _surfaceLowest = Color(0xFFFFFFFF);
   static const _surfaceContainerLow = Color(0xFFF2F4F6);
@@ -1742,56 +1744,9 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
         child: SingleChildScrollView(
           child: Column(
             children: [
-              // ── Back button ───────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: GestureDetector(
-                    onTap: () {
-                      Navigator.of(context).pop();
-                      context.go(AppConstants.routeLoadOwnerHome);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _surfaceLowest,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: _outlineVariant.withOpacity(0.6)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: _primary.withOpacity(0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.arrow_back_ios_new_rounded,
-                              size: 15, color: _primary),
-                          SizedBox(width: 6),
-                          Text(
-                            'Back to Dashboard',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                              color: _primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
               // ── Centered success content ──────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+                padding: const EdgeInsets.fromLTRB(24, 56, 24, 32),
                 child: Column(
                   children: [
                     // Animated icon
@@ -1806,7 +1761,7 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                             height: 120,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFFD5E3FF).withOpacity(0.35),
+                              color: const Color(0xFFFFE0CC).withOpacity(0.35),
                             ),
                           ),
                           // Icon card
@@ -1827,7 +1782,7 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                             child: const Icon(
                               Icons.check_circle_rounded,
                               size: 52,
-                              color: Color(0xFF1F477B),
+                              color: _accent,
                             ),
                           ),
                         ],
@@ -1912,10 +1867,10 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                                 context.push(AppConstants.routeLoadOwnerTrips);
                               },
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: _primary,
+                                backgroundColor: _accent,
                                 foregroundColor: Colors.white,
                                 elevation: 4,
-                                shadowColor: _primary.withOpacity(0.3),
+                                shadowColor: _accent.withOpacity(0.3),
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14)),
                                 textStyle: const TextStyle(
@@ -1931,7 +1886,7 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                             child: OutlinedButton(
                               onPressed: () => Navigator.of(context).pop(),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: _primary,
+                                foregroundColor: _accent,
                                 side: BorderSide(
                                     color: _outlineVariant, width: 1.5),
                                 shape: RoundedRectangleBorder(

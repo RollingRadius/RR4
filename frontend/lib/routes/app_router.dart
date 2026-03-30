@@ -53,6 +53,8 @@ import 'package:fleet_management/presentation/screens/driver/driver_dashboard_sc
 import 'package:fleet_management/presentation/screens/load_owner/upload_load_requirement_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/load_owner_dashboard_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_dashboard.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_worker_dashboard.dart';
+import 'package:fleet_management/presentation/screens/load_owner/load_owner_worker_dashboard.dart';
 import 'package:fleet_management/presentation/screens/load_owner/my_trips_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/load_owner_settings_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_settings_screen.dart';
@@ -220,6 +222,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'fleet-manager-available-loads',
         pageBuilder: (context, state) => const NoTransitionPage(
           child: LogisticPartnerDashboard(),
+        ),
+      ),
+
+      // Logistic Partner Worker Dashboard
+      GoRoute(
+        path: AppConstants.routeLogisticPartnerWorkerHome,
+        name: 'lp-worker-home',
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: LogisticPartnerWorkerDashboard(),
+        ),
+      ),
+
+      // Load Owner Worker Dashboard (Coming Soon)
+      GoRoute(
+        path: AppConstants.routeLoadOwnerWorkerHome,
+        name: 'lo-worker-home',
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: LoadOwnerWorkerDashboard(),
         ),
       ),
 

@@ -83,6 +83,18 @@ DEFAULT_ROLES = [
         "is_system_role": True
     },
     {
+        "role_name": "Logistic Partner Worker",
+        "role_key": "logistic_partner_worker",
+        "description": "Worker at a logistic partner company. Can manage trip stages and view fleet status. Cannot search or fulfill loads independently.",
+        "is_system_role": True
+    },
+    {
+        "role_name": "Load Owner Worker",
+        "role_key": "load_owner_worker",
+        "description": "Worker at a load owner company.",
+        "is_system_role": True
+    },
+    {
         "role_name": "Pending User",
         "role_key": "pending_user",
         "description": "User awaiting role assignment by admin. Assigned when joining existing company.",
