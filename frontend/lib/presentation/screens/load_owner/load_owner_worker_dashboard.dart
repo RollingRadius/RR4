@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/core/constants/app_constants.dart';
 
 /// Load Owner Worker Dashboard — Coming Soon
 class LoadOwnerWorkerDashboard extends ConsumerWidget {
@@ -28,9 +30,35 @@ class LoadOwnerWorkerDashboard extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout, color: Color(0xFF546067)),
-            onPressed: () => ref.read(authProvider.notifier).logout(),
+            onPressed: () async {
+                await ref.read(authProvider.notifier).logout();
+                if (context.mounted) context.go(AppConstants.routeLogin);
+              },
           ),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+          child: SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () async {
+                await ref.read(authProvider.notifier).logout();
+                if (context.mounted) context.go(AppConstants.routeLogin);
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('Logout'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6B00),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+        ),
       ),
       body: Center(
         child: Padding(

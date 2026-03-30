@@ -10,6 +10,6 @@ class LogisticPartnerWorkerDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const LogisticPartnerDashboard();
+    return const LogisticPartnerDashboard(hideLoads: true);
   }
 }

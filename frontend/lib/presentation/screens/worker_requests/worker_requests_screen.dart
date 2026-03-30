@@ -61,7 +61,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
   List<Map<String, dynamic>> _pending = [];
   List<Map<String, dynamic>> _accepted = [];
   bool _loading = true;
-  String? _error;
+  String? _errorMsg;
 
   @override
   void initState() {
@@ -80,7 +80,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
     if (!mounted) return;
     setState(() {
       _loading = true;
-      _error = null;
+      _errorMsg = null;
     });
     try {
       final dio = ref.read(dioProvider);
@@ -115,7 +115,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = e.toString();
+          _errorMsg = e.toString();
         });
       }
     }
@@ -299,8 +299,8 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(color: _primary))
-          : _error != null
-              ? _ErrorView(error: _error!, onRetry: _fetchAll)
+          : _errorMsg != null
+              ? _ErrorView(error: _errorMsg!, onRetry: _fetchAll)
               : TabBarView(
                   controller: _tabs,
                   children: [

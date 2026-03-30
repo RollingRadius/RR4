@@ -18,6 +18,8 @@ import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_sc
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/providers/notification_provider.dart';
+import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 // ─── Typography ───────────────────────────────────────────────────────────────
@@ -52,7 +54,8 @@ const _secondaryContainer = Color(0xFFD7E4EC);
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 class LogisticPartnerDashboard extends ConsumerStatefulWidget {
-  const LogisticPartnerDashboard({super.key});
+  final bool hideLoads;
+  const LogisticPartnerDashboard({super.key, this.hideLoads = false});
 
   @override
   ConsumerState<LogisticPartnerDashboard> createState() =>
@@ -72,7 +75,9 @@ class _LogisticPartnerDashboardState
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
         ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
-        ref.read(availableLoadsProvider.notifier).silentRefresh();
+        if (!widget.hideLoads) {
+          ref.read(availableLoadsProvider.notifier).silentRefresh();
+        }
       }
     });
     // Initial data load — runs after first frame so ref/auth are ready
@@ -83,9 +88,11 @@ class _LogisticPartnerDashboardState
   /// comes into focus (e.g. switching back from Loads tab).
   void _loadAllData() {
     if (!mounted) return;
-    ref.read(vehicleProvider.notifier).loadVehicles();
     ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
-    ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
+    if (!widget.hideLoads) {
+      ref.read(vehicleProvider.notifier).loadVehicles();
+      ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
+    }
   }
 
   /// Switch tabs — refreshes fleet data whenever user navigates to Dashboard.
@@ -107,10 +114,11 @@ class _LogisticPartnerDashboardState
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final user = authState.user;
-    final pendingLoadsCount = ref.watch(availableLoadsProvider).loads.length;
+    final hideLoads = widget.hideLoads;
+    final pendingLoadsCount = hideLoads ? 0 : ref.watch(availableLoadsProvider).loads.length;
 
     final pages = [
-      _DashboardTab(onViewLoads: () => _switchNav(1)),
+      _DashboardTab(onViewLoads: () => _switchNav(1), workerMode: hideLoads),
       const _AvailableLoadsTab(),
       const _ProfileTab(),
     ];
@@ -126,6 +134,7 @@ class _LogisticPartnerDashboardState
           _scaffoldKey.currentState?.closeDrawer();
           _switchNav(i);
         },
+        hideLoads: hideLoads,
       ),
       body: Column(
         children: [
@@ -139,6 +148,7 @@ class _LogisticPartnerDashboardState
         selectedIndex: _navIndex,
         onTap: _switchNav,
         pendingLoadsCount: pendingLoadsCount,
+        hideLoads: hideLoads,
       ),
     );
   }
@@ -152,12 +162,15 @@ String _initials(String name) {
 
 // ─── Top Bar ──────────────────────────────────────────────────────────────────
 
-class _TopBar extends StatelessWidget {
+class _TopBar extends ConsumerWidget {
   final VoidCallback onMenuTap;
   const _TopBar({required this.onMenuTap});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifState = ref.watch(notificationsProvider);
+    final unread = notifState.unreadCount;
+
     return SafeArea(
       bottom: false,
       child: Container(
@@ -180,12 +193,241 @@ class _TopBar extends StatelessWidget {
                 ).copyWith(letterSpacing: 1.0),
               ),
             ),
-            const Icon(Icons.notifications_outlined,
-                color: _secondary, size: 24),
+            GestureDetector(
+              onTap: () => _showNotificationsSheet(context, ref, notifState.items),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.notifications_outlined,
+                      color: _secondary, size: 24),
+                  if (unread > 0)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: _primary,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints:
+                            const BoxConstraints(minWidth: 16, minHeight: 16),
+                        child: Text(
+                          unread > 99 ? '99+' : '$unread',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  void _showNotificationsSheet(
+      BuildContext context, WidgetRef ref, List<NotificationModel> items) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _NotificationsSheet(items: items, ref: ref),
+    );
+  }
+}
+
+// ─── Notifications Bottom Sheet ───────────────────────────────────────────────
+
+class _NotificationsSheet extends StatelessWidget {
+  final List<NotificationModel> items;
+  final WidgetRef ref;
+  const _NotificationsSheet({required this.items, required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final workerNotifs = items
+        .where((n) => n.type == 'worker_request')
+        .toList();
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.55,
+      minChildSize: 0.35,
+      maxChildSize: 0.85,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _surfaceContainer,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              child: Row(
+                children: [
+                  Text('Notifications',
+                      style: _manrope(size: 17, weight: FontWeight.w700)),
+                  const Spacer(),
+                  if (items.any((n) => !n.isRead))
+                    GestureDetector(
+                      onTap: () {
+                        ref
+                            .read(notificationsProvider.notifier)
+                            .markAllRead();
+                        Navigator.pop(context);
+                      },
+                      child: Text('Mark all read',
+                          style: _inter(
+                              size: 13,
+                              weight: FontWeight.w600,
+                              color: _primary)),
+                    ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Color(0xFFECEEF0)),
+            Expanded(
+              child: workerNotifs.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.notifications_none_rounded,
+                              size: 48, color: _secondary.withOpacity(0.4)),
+                          const SizedBox(height: 12),
+                          Text('No notifications',
+                              style: _inter(size: 14, color: _secondary)),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: controller,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: workerNotifs.length,
+                      separatorBuilder: (_, __) => const Divider(
+                          height: 1,
+                          indent: 20,
+                          endIndent: 20,
+                          color: Color(0xFFECEEF0)),
+                      itemBuilder: (ctx, i) {
+                        final n = workerNotifs[i];
+                        return _NotifTile(
+                          notif: n,
+                          onTap: () {
+                            ref
+                                .read(notificationsProvider.notifier)
+                                .markRead(n.id);
+                            Navigator.pop(context);
+                            context.push(AppConstants.routeWorkerRequests);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotifTile extends StatelessWidget {
+  final NotificationModel notif;
+  final VoidCallback onTap;
+  const _NotifTile({required this.notif, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        color: notif.isRead ? Colors.transparent : _primary.withOpacity(0.04),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: _primary.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.group_add_rounded,
+                  color: _primary, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(notif.title,
+                            style: _manrope(
+                                size: 13,
+                                weight: notif.isRead
+                                    ? FontWeight.w600
+                                    : FontWeight.w700)),
+                      ),
+                      if (!notif.isRead)
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: _primary,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(notif.body,
+                      style: _inter(size: 13, color: _secondary),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
+                  if (notif.createdAt != null) ...[
+                    const SizedBox(height: 4),
+                    Text(_formatTime(notif.createdAt!),
+                        style: _inter(size: 11, color: _secondary)),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatTime(String iso) {
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 1) return 'Just now';
+      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+      if (diff.inHours < 24) return '${diff.inHours}h ago';
+      return '${diff.inDays}d ago';
+    } catch (_) {
+      return '';
+    }
   }
 }
 
@@ -195,16 +437,19 @@ class _BottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
   final int pendingLoadsCount;
+  final bool hideLoads;
   const _BottomNav({
     required this.selectedIndex,
     required this.onTap,
     this.pendingLoadsCount = 0,
+    this.hideLoads = false,
   });
 
-  static const _items = [
-    (Icons.dashboard_rounded, 'DASHBOARD'),
-    (Icons.search_rounded, 'LOADS'),
-    (Icons.person_outline, 'PROFILE'),
+  // (icon, label, navIndex)
+  static const _allItems = [
+    (Icons.dashboard_rounded, 'DASHBOARD', 0),
+    (Icons.search_rounded,    'LOADS',     1),
+    (Icons.person_outline,    'PROFILE',   2),
   ];
 
   @override
@@ -237,11 +482,13 @@ class _BottomNav extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: List.generate(_items.length, (i) {
-                  final (icon, label) = _items[i];
-                  final active = i == selectedIndex;
+                children: _allItems
+                    .where((item) => !(hideLoads && item.$2 == 'LOADS'))
+                    .map((item) {
+                  final (icon, label, navIdx) = item;
+                  final active = navIdx == selectedIndex;
                   return GestureDetector(
-                    onTap: () => onTap(i),
+                    onTap: () => onTap(navIdx),
                     behavior: HitTestBehavior.opaque,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 160),
@@ -262,8 +509,8 @@ class _BottomNav extends StatelessWidget {
                               Icon(icon,
                                   color: active ? Colors.white : _secondary,
                                   size: 22),
-                              // Badge on LOADS tab (index 1)
-                              if (i == 1 && pendingLoadsCount > 0)
+                              // Badge on LOADS tab
+                              if (navIdx == 1 && pendingLoadsCount > 0)
                                 Positioned(
                                   right: -6,
                                   top: -4,
@@ -300,7 +547,7 @@ class _BottomNav extends StatelessWidget {
                       ),
                     ),
                   );
-                }),
+                }).toList(),
               ),
             ),
           ),
@@ -314,17 +561,18 @@ class _BottomNav extends StatelessWidget {
 
 class _DashboardTab extends ConsumerWidget {
   final VoidCallback onViewLoads;
-  const _DashboardTab({required this.onViewLoads});
+  final bool workerMode;
+  const _DashboardTab({required this.onViewLoads, this.workerMode = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tripState = ref.watch(tripProvider);
-    final loadsState = ref.watch(availableLoadsProvider);
+    final loadsState = workerMode ? null : ref.watch(availableLoadsProvider);
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Logistic Partner';
 
     final ongoingTrips = tripState.activeTrips;
-    final pendingLoads = loadsState.loads;
+    final pendingLoads = loadsState?.loads ?? [];
 
     return RefreshIndicator(
       color: _primary,
@@ -344,22 +592,22 @@ class _DashboardTab extends ConsumerWidget {
             style: _manrope(size: 22, weight: FontWeight.w800),
           ),
           const SizedBox(height: 2),
-          Text('Logistic Partner Panel',
+          Text(workerMode ? 'Logistic Partner Worker' : 'Logistic Partner Panel',
               style: _inter(size: 13, color: _secondary)),
           const SizedBox(height: 16),
 
-          // ── Pending loads alert banner ───────────────────────────────
-          if (pendingLoads.isNotEmpty)
+          // ── Pending loads alert banner (owners only) ─────────────────
+          if (!workerMode && pendingLoads.isNotEmpty)
             _PendingLoadsBanner(
               count: pendingLoads.length,
               loads: pendingLoads.take(2).toList(),
               onViewAll: onViewLoads,
             ),
-          if (pendingLoads.isNotEmpty) const SizedBox(height: 16),
+          if (!workerMode && pendingLoads.isNotEmpty) const SizedBox(height: 16),
 
-          // Search New Loads — primary CTA
-          _SearchLoadsButton(onTap: onViewLoads),
-          const SizedBox(height: 24),
+          // Search New Loads — owners only
+          if (!workerMode) _SearchLoadsButton(onTap: onViewLoads),
+          if (!workerMode) const SizedBox(height: 24),
 
           // ── Fleet Status — ongoing trips with Locate button ──────────
           _FleetStatusHeader(
@@ -1775,12 +2023,14 @@ class _AppDrawer extends ConsumerWidget {
   final String role;
   final int navIndex;
   final ValueChanged<int> onNavTap;
+  final bool hideLoads;
 
   const _AppDrawer({
     required this.user,
     required this.role,
     required this.navIndex,
     required this.onNavTap,
+    this.hideLoads = false,
   });
 
   static const _navItems = [
@@ -1890,7 +2140,9 @@ class _AppDrawer extends ConsumerWidget {
                           weight: FontWeight.w700,
                           color: _secondary)),
                 ),
-                ..._navItems.map((item) {
+                ..._navItems
+                    .where((item) => !(hideLoads && item.$3 == 1))
+                    .map((item) {
                   final (icon, label, index) = item;
                   final isActive = navIndex == index;
                   return _DrawerNavTile(

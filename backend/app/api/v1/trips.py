@@ -111,12 +111,11 @@ def list_trips(
 
     query = db.query(Trip)
 
-    if role_key in ('logistic_partner', 'super_admin'):
+    if role_key in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
         query = query.filter(Trip.organization_id == user_org.organization_id)
     elif role_key == 'load_owner':
         query = query.filter(Trip.load_owner_org_id == user_org.organization_id)
     else:
-        # Custom roles within a fleet org can see their org's trips
         query = query.filter(Trip.organization_id == user_org.organization_id)
 
     if status_filter:
@@ -150,7 +149,7 @@ def get_trip(
         raise HTTPException(status_code=404, detail="Trip not found")
 
     # Access check
-    if role_key in ('logistic_partner', 'super_admin'):
+    if role_key in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
         if str(trip.organization_id) != str(user_org.organization_id):
             raise HTTPException(status_code=403, detail="Access denied")
     elif role_key == 'load_owner':
@@ -368,7 +367,7 @@ async def submit_stage1(
 
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
@@ -439,7 +438,7 @@ def submit_stage2(
     from datetime import datetime, timezone
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
@@ -475,7 +474,7 @@ async def upload_loading_slip(
     """Upload loading slip after Stage 2 compliance check, before Stage 3."""
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
@@ -522,7 +521,7 @@ async def submit_stage3(
 
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
@@ -599,7 +598,7 @@ def submit_stage4(
 
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
@@ -662,7 +661,7 @@ async def notify_stage4(
 
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
