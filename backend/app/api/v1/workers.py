@@ -144,6 +144,7 @@ def get_leaderboard(
             "user_id":         str(user.id),
             "full_name":       user.full_name,
             "username":        user.username,
+            "phone":           user.phone,
             "role_key":        role.role_key,
             "role_label":      "Owner" if role.role_key == 'logistic_partner' else "Worker",
             "s1_count":        s1,
@@ -172,6 +173,79 @@ def get_leaderboard(
         "date_label": label,
         "count":      len(leaderboard),
         "leaderboard": leaderboard,
+    }
+
+
+@router.get("/workers/records")
+def get_records(
+    date: Optional[str] = Query(None, description="YYYY-MM-DD (defaults to today)"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Chronological log of every stage submission made by any org member on a given day.
+    Only the logistic_partner owner can call this.
+    """
+    owner_org = _verify_lp_owner(current_user, db)
+    org_id = owner_org.organization_id
+
+    try:
+        start, end, label = _date_range('daily', date)
+    except (ValueError, IndexError):
+        raise HTTPException(status_code=400, detail="Invalid date format")
+
+    # Build a user-id → name map for org members
+    members = (
+        db.query(User)
+        .join(UserOrganization, User.id == UserOrganization.user_id)
+        .join(Role, UserOrganization.role_id == Role.id)
+        .filter(
+            UserOrganization.organization_id == org_id,
+            Role.role_key.in_(['logistic_partner', 'logistic_partner_worker']),
+            UserOrganization.status == 'active',
+        )
+        .all()
+    )
+    user_map = {str(u.id): u.full_name for u in members}
+
+    # Fetch all trips in org
+    trips = db.query(Trip).filter(Trip.organization_id == org_id).all()
+
+    _STAGE_LABELS = {1: 'Truck Details', 2: 'Compliance Check', 3: 'Truck Arrival', 4: 'Truck Exit'}
+
+    records = []
+    for trip in trips:
+        submissions = [
+            (1, trip.s1_submitted_by, trip.s1_submitted_at),
+            (2, trip.s2_submitted_by, trip.s2_verified_at),
+            (3, trip.s3_submitted_by, trip.s3_completed_at),
+            (4, trip.s4_submitted_by, trip.s4_completed_at),
+        ]
+        for stage_num, submitted_by, submitted_at in submissions:
+            if not submitted_by or not submitted_at:
+                continue
+            if not (start <= submitted_at.replace(tzinfo=submitted_at.tzinfo or timezone.utc) <= end):
+                continue
+            records.append({
+                "trip_number":  trip.trip_number,
+                "trip_id":      str(trip.id),
+                "origin":       trip.origin,
+                "destination":  trip.destination,
+                "stage":        stage_num,
+                "stage_label":  _STAGE_LABELS[stage_num],
+                "worker_id":    str(submitted_by),
+                "worker_name":  user_map.get(str(submitted_by), 'Unknown'),
+                "submitted_at": submitted_at.isoformat(),
+            })
+
+    # Sort chronologically (latest first)
+    records.sort(key=lambda r: r["submitted_at"], reverse=True)
+
+    return {
+        "success":    True,
+        "date_label": label,
+        "count":      len(records),
+        "records":    records,
     }
 
 

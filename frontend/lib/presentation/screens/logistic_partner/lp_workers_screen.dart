@@ -20,50 +20,38 @@ const _gold      = Color(0xFFF5A623);
 const _silver    = Color(0xFF9B9B9B);
 const _bronze    = Color(0xFFCD7F32);
 
-// ─── Data model ───────────────────────────────────────────────────────────────
+// ─── Data models ──────────────────────────────────────────────────────────────
 class _WorkerEntry {
   final int rank;
-  final String userId;
-  final String fullName;
-  final String username;
-  final String roleKey;
-  final String roleLabel;
-  final int s1, s2, s3, s4;
-  final int totalStages;
-  final int tripsCompleted;
+  final String userId, fullName, username, phone, roleKey, roleLabel;
+  final int s1, s2, s3, s4, totalStages, tripsCompleted;
 
   const _WorkerEntry({
-    required this.rank,
-    required this.userId,
-    required this.fullName,
-    required this.username,
-    required this.roleKey,
-    required this.roleLabel,
-    required this.s1,
-    required this.s2,
-    required this.s3,
-    required this.s4,
-    required this.totalStages,
+    required this.rank,      required this.userId,    required this.fullName,
+    required this.username,  required this.phone,     required this.roleKey,
+    required this.roleLabel, required this.s1,        required this.s2,
+    required this.s3,        required this.s4,        required this.totalStages,
     required this.tripsCompleted,
   });
 
   factory _WorkerEntry.fromJson(Map<String, dynamic> j) => _WorkerEntry(
-        rank:           j['rank']           as int,
-        userId:         j['user_id']        as String,
-        fullName:       j['full_name']      as String,
-        username:       j['username']       as String,
-        roleKey:        j['role_key']       as String,
-        roleLabel:      j['role_label']     as String,
-        s1:             j['s1_count']       as int,
-        s2:             j['s2_count']       as int,
-        s3:             j['s3_count']       as int,
-        s4:             j['s4_count']       as int,
-        totalStages:    j['total_stages']   as int,
-        tripsCompleted: j['trips_completed'] as int,
-      );
+    rank:           j['rank']            as int,
+    userId:         j['user_id']         as String,
+    fullName:       j['full_name']       as String,
+    username:       j['username']        as String,
+    phone:          j['phone']           as String? ?? '—',
+    roleKey:        j['role_key']        as String,
+    roleLabel:      j['role_label']      as String,
+    s1:             j['s1_count']        as int,
+    s2:             j['s2_count']        as int,
+    s3:             j['s3_count']        as int,
+    s4:             j['s4_count']        as int,
+    totalStages:    j['total_stages']    as int,
+    tripsCompleted: j['trips_completed'] as int,
+  );
 }
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 
 class LpWorkersScreen extends ConsumerStatefulWidget {
   const LpWorkersScreen({super.key});
@@ -72,52 +60,60 @@ class LpWorkersScreen extends ConsumerStatefulWidget {
   ConsumerState<LpWorkersScreen> createState() => _LpWorkersScreenState();
 }
 
-class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen> {
-  String _period = 'daily';
-  DateTime _selectedDate = DateTime.now();
+class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabCtrl;
 
-  bool _loading = true;
-  String? _error;
+  // Shared date state
+  DateTime _selectedDate = DateTime.now();
+  String _period = 'daily';
+
+  // Record tab state (always daily leaderboard data)
+  bool _recLoading = true;
+  String? _recError;
+  List<_WorkerEntry> _dailySummaries = [];
+  String _recDateLabel = '';
+
+  // Leaderboard tab state
+  bool _lbLoading = true;
+  String? _lbError;
   List<_WorkerEntry> _leaderboard = [];
-  String _dateLabel = '';
+  String _lbDateLabel = '';
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fetch());
+    _tabCtrl = TabController(length: 2, vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchRecords();
+      _fetchLeaderboard();
+    });
   }
 
-  String get _dateParam {
+  @override
+  void dispose() {
+    _tabCtrl.dispose();
+    super.dispose();
+  }
+
+  // ── date helpers ──────────────────────────────────────────────────────────
+
+  String get _dailyParam =>
+      '${_selectedDate.year}-'
+      '${_selectedDate.month.toString().padLeft(2, '0')}-'
+      '${_selectedDate.day.toString().padLeft(2, '0')}';
+
+  String get _periodParam =>
+      _period == 'daily'
+          ? _dailyParam
+          : '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}';
+
+  bool get _canGoNext {
+    final now = DateTime.now();
     if (_period == 'daily') {
-      return '${_selectedDate.year}-'
-          '${_selectedDate.month.toString().padLeft(2, '0')}-'
-          '${_selectedDate.day.toString().padLeft(2, '0')}';
+      return _selectedDate.isBefore(DateTime(now.year, now.month, now.day));
     } else {
-      return '${_selectedDate.year}-'
-          '${_selectedDate.month.toString().padLeft(2, '0')}';
-    }
-  }
-
-  Future<void> _fetch() async {
-    if (!mounted) return;
-    setState(() { _loading = true; _error = null; });
-    try {
-      final api = ref.read(apiServiceProvider);
-      final resp = await api.dio.get(
-        '/api/workers/leaderboard',
-        queryParameters: {'period': _period, 'date': _dateParam},
-      );
-      final data = resp.data as Map<String, dynamic>;
-      if (!mounted) return;
-      setState(() {
-        _dateLabel   = data['date_label'] as String? ?? _dateParam;
-        _leaderboard = (data['leaderboard'] as List<dynamic>)
-            .map((e) => _WorkerEntry.fromJson(e as Map<String, dynamic>))
-            .toList();
-        _loading = false;
-      });
-    } catch (e) {
-      if (mounted) setState(() { _loading = false; _error = e.toString(); });
+      return !(_selectedDate.year == now.year && _selectedDate.month == now.month);
     }
   }
 
@@ -126,14 +122,73 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen> {
       if (_period == 'daily') {
         _selectedDate = _selectedDate.add(Duration(days: delta));
       } else {
-        final m = _selectedDate.month + delta;
-        final y = _selectedDate.year + (m < 1 ? -1 : m > 12 ? 1 : 0);
-        final nm = ((m - 1) % 12) + 1;
-        _selectedDate = DateTime(y, nm);
+        int m = _selectedDate.month + delta;
+        int y = _selectedDate.year + (m < 1 ? -1 : m > 12 ? 1 : 0);
+        m = ((m - 1) % 12) + 1;
+        _selectedDate = DateTime(y, m);
       }
     });
-    _fetch();
+    _fetchRecords();
+    _fetchLeaderboard();
   }
+
+  void _onPeriodChanged(String p) {
+    setState(() { _period = p; _selectedDate = DateTime.now(); });
+    _fetchRecords();
+    _fetchLeaderboard();
+  }
+
+  // ── fetchers ─────────────────────────────────────────────────────────────
+
+  Future<void> _fetchRecords() async {
+    if (!mounted) return;
+    setState(() { _recLoading = true; _recError = null; });
+    try {
+      final api = ref.read(apiServiceProvider);
+      final resp = await api.dio.get(
+        '/api/workers/leaderboard',
+        queryParameters: {'period': 'daily', 'date': _dailyParam},
+      );
+      final data = resp.data as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _recDateLabel = data['date_label'] as String? ?? _dailyParam;
+        _dailySummaries = (data['leaderboard'] as List<dynamic>)
+            .map((e) => _WorkerEntry.fromJson(e as Map<String, dynamic>))
+            .toList()
+          // Sort by name for record tab (not rank)
+          ..sort((a, b) => a.fullName.compareTo(b.fullName));
+        _recLoading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() { _recLoading = false; _recError = e.toString(); });
+    }
+  }
+
+  Future<void> _fetchLeaderboard() async {
+    if (!mounted) return;
+    setState(() { _lbLoading = true; _lbError = null; });
+    try {
+      final api = ref.read(apiServiceProvider);
+      final resp = await api.dio.get(
+        '/api/workers/leaderboard',
+        queryParameters: {'period': _period, 'date': _periodParam},
+      );
+      final data = resp.data as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _lbDateLabel  = data['date_label'] as String? ?? _periodParam;
+        _leaderboard  = (data['leaderboard'] as List<dynamic>)
+            .map((e) => _WorkerEntry.fromJson(e as Map<String, dynamic>))
+            .toList();
+        _lbLoading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() { _lbLoading = false; _lbError = e.toString(); });
+    }
+  }
+
+  // ── build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -147,95 +202,392 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text('Workers', style: _m(s: 17, w: FontWeight.w800)),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(1),
-          child: Container(height: 1, color: _border),
+        bottom: TabBar(
+          controller: _tabCtrl,
+          labelStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700),
+          unselectedLabelStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w500),
+          labelColor: _primary,
+          unselectedLabelColor: _secondary,
+          indicatorColor: _primary,
+          indicatorWeight: 3,
+          tabs: const [
+            Tab(text: 'Record'),
+            Tab(text: 'Leaderboard'),
+          ],
         ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabCtrl,
         children: [
-          _PeriodAndDateBar(
-            period: _period,
-            dateLabel: _dateLabel.isEmpty ? _dateParam : _dateLabel,
-            onPeriodChanged: (p) {
-              setState(() { _period = p; _selectedDate = DateTime.now(); });
-              _fetch();
-            },
-            onPrev: () => _shiftDate(-1),
-            onNext: () => _shiftDate(1),
-            canGoNext: _period == 'monthly'
-                ? !(_selectedDate.year == DateTime.now().year &&
-                    _selectedDate.month == DateTime.now().month)
-                : _selectedDate.isBefore(DateTime.now().subtract(const Duration(days: 1))) ||
-                  (_selectedDate.day != DateTime.now().day ||
-                   _selectedDate.month != DateTime.now().month ||
-                   _selectedDate.year != DateTime.now().year)
-                  ? true
-                  : false,
+          _RecordTab(
+            loading:       _recLoading,
+            error:         _recError,
+            summaries:     _dailySummaries,
+            dateLabel:     _recDateLabel.isEmpty ? _dailyParam : _recDateLabel,
+            canGoNext:     _canGoNext,
+            onPrev:        () => _shiftDate(-1),
+            onNext:        () => _shiftDate(1),
+            onRefresh:     _fetchRecords,
           ),
-          if (_loading)
-            const Expanded(child: Center(child: CircularProgressIndicator(color: _primary)))
-          else if (_error != null)
-            Expanded(child: _ErrorView(error: _error!, onRetry: _fetch))
-          else if (_leaderboard.isEmpty)
-            const Expanded(child: _EmptyView())
-          else
-            Expanded(
-              child: RefreshIndicator(
-                color: _primary,
-                onRefresh: _fetch,
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-                  children: [
-                    // Podium for top 3
-                    if (_leaderboard.length >= 2) ...[
-                      _Podium(entries: _leaderboard.take(3).toList()),
-                      const SizedBox(height: 20),
-                    ],
-                    // Rest of the list
-                    ..._leaderboard.skip(_leaderboard.length >= 2 ? 3 : 0).map(
-                      (e) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _WorkerCard(entry: e),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          _LeaderboardTab(
+            loading:      _lbLoading,
+            error:        _lbError,
+            leaderboard:  _leaderboard,
+            period:       _period,
+            dateLabel:    _lbDateLabel.isEmpty ? _periodParam : _lbDateLabel,
+            canGoNext:    _canGoNext,
+            onPeriodChanged: _onPeriodChanged,
+            onPrev:       () => _shiftDate(-1),
+            onNext:       () => _shiftDate(1),
+            onRefresh:    _fetchLeaderboard,
+          ),
         ],
       ),
     );
   }
 }
 
-// ─── Period & Date Bar ────────────────────────────────────────────────────────
+// ─── Record Tab ───────────────────────────────────────────────────────────────
+
+class _RecordTab extends StatelessWidget {
+  final bool loading;
+  final String? error;
+  final List<_WorkerEntry> summaries;
+  final String dateLabel;
+  final bool canGoNext;
+  final VoidCallback onPrev, onNext, onRefresh;
+
+  const _RecordTab({
+    required this.loading,    required this.error,
+    required this.summaries,  required this.dateLabel,
+    required this.canGoNext,  required this.onPrev,
+    required this.onNext,     required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _DateNavBar(
+          dateLabel: dateLabel,
+          canGoNext: canGoNext,
+          onPrev: onPrev,
+          onNext: onNext,
+        ),
+        if (loading)
+          const Expanded(child: Center(child: CircularProgressIndicator(color: _primary)))
+        else if (error != null)
+          Expanded(child: _ErrorView(error: error!, onRetry: onRefresh))
+        else if (summaries.isEmpty)
+          Expanded(child: _EmptyView(
+            icon: Icons.people_outline_rounded,
+            title: 'No workers found',
+            subtitle: 'Active workers in your organisation will appear here.',
+          ))
+        else
+          Expanded(
+            child: RefreshIndicator(
+              color: _primary,
+              onRefresh: () async => onRefresh(),
+              child: ListView.separated(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                itemCount: summaries.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, i) => _WorkerDailyCard(entry: summaries[i]),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Worker Daily Record Card ─────────────────────────────────────────────────
+
+class _WorkerDailyCard extends StatelessWidget {
+  final _WorkerEntry entry;
+  const _WorkerDailyCard({required this.entry});
+
+  static const _stageColors = [
+    Color(0xFF1565C0), // S1 blue
+    Color(0xFF6A1B9A), // S2 purple
+    Color(0xFF2E7D32), // S3 green
+    _primary,          // S4 orange
+  ];
+  static const _stageLabels = ['Truck Details', 'Compliance', 'Arrival', 'Exit'];
+
+  @override
+  Widget build(BuildContext context) {
+    final initials = entry.fullName.trim().split(RegExp(r'\s+')).take(2)
+        .map((w) => w.isNotEmpty ? w[0].toUpperCase() : '')
+        .join();
+    final isOwner = entry.roleKey == 'logistic_partner';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Header row ──────────────────────────────────────────────────
+          Row(
+            children: [
+              // Avatar
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(
+                  color: (isOwner ? _primary : _success).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: (isOwner ? _primary : _success).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Center(
+                  child: Text(initials,
+                      style: _m(s: 14, w: FontWeight.w800,
+                          c: isOwner ? _primary : _success)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Name + phone
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(entry.fullName,
+                        style: _m(s: 14, w: FontWeight.w700),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(Icons.phone_outlined, size: 12, color: _secondary),
+                        const SizedBox(width: 4),
+                        Text(entry.phone,
+                            style: _i(s: 12, c: _secondary)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Role badge + total
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: (isOwner ? _primary : _success).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(entry.roleLabel,
+                        style: _i(s: 10, w: FontWeight.w700,
+                            c: isOwner ? _primary : _success)),
+                  ),
+                  const SizedBox(height: 6),
+                  Text('${entry.totalStages} stages',
+                      style: _m(s: 13, w: FontWeight.w800, c: _primary)),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // ── Stage breakdown ─────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+            decoration: BoxDecoration(
+              color: _bg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _border),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                for (int i = 0; i < 4; i++)
+                  _StagePill(
+                    label: 'S${i + 1}',
+                    sublabel: _stageLabels[i],
+                    count: [entry.s1, entry.s2, entry.s3, entry.s4][i],
+                    color: _stageColors[i],
+                  ),
+              ],
+            ),
+          ),
+          if (entry.tripsCompleted > 0) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, size: 14, color: _success),
+                const SizedBox(width: 5),
+                Text(
+                  '${entry.tripsCompleted} trip${entry.tripsCompleted > 1 ? 's' : ''} fully completed today',
+                  style: _i(s: 12, w: FontWeight.w600, c: _success),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StagePill extends StatelessWidget {
+  final String label, sublabel;
+  final int count;
+  final Color color;
+  const _StagePill({required this.label, required this.sublabel,
+                    required this.count,  required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: count > 0 ? 0.12 : 0.04),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: count > 0 ? 0.35 : 0.15)),
+          ),
+          child: Text('$count',
+              style: _m(s: 15, w: FontWeight.w800,
+                  c: count > 0 ? color : _secondary.withValues(alpha: 0.4))),
+        ),
+        const SizedBox(height: 4),
+        Text(label, style: _m(s: 10, w: FontWeight.w700, c: count > 0 ? color : _secondary)),
+        Text(sublabel, style: _i(s: 9, c: _secondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+      ],
+    );
+  }
+}
+
+// ─── Leaderboard Tab ──────────────────────────────────────────────────────────
+
+class _LeaderboardTab extends StatelessWidget {
+  final bool loading;
+  final String? error;
+  final List<_WorkerEntry> leaderboard;
+  final String period, dateLabel;
+  final bool canGoNext;
+  final ValueChanged<String> onPeriodChanged;
+  final VoidCallback onPrev, onNext, onRefresh;
+
+  const _LeaderboardTab({
+    required this.loading,    required this.error,
+    required this.leaderboard, required this.period,
+    required this.dateLabel,  required this.canGoNext,
+    required this.onPeriodChanged, required this.onPrev,
+    required this.onNext,     required this.onRefresh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _PeriodAndDateBar(
+          period: period,
+          dateLabel: dateLabel,
+          onPeriodChanged: onPeriodChanged,
+          onPrev: onPrev,
+          onNext: onNext,
+          canGoNext: canGoNext,
+        ),
+        if (loading)
+          const Expanded(child: Center(child: CircularProgressIndicator(color: _primary)))
+        else if (error != null)
+          Expanded(child: _ErrorView(error: error!, onRetry: onRefresh))
+        else if (leaderboard.isEmpty)
+          Expanded(child: _EmptyView(
+            icon: Icons.leaderboard_outlined,
+            title: 'No activity yet',
+            subtitle: 'No stage submissions recorded for this period.',
+          ))
+        else
+          Expanded(
+            child: RefreshIndicator(
+              color: _primary,
+              onRefresh: () async => onRefresh(),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                children: [
+                  if (leaderboard.length >= 2) ...[
+                    _Podium(entries: leaderboard.take(3).toList()),
+                    const SizedBox(height: 20),
+                  ],
+                  ...leaderboard.skip(leaderboard.length >= 2 ? 3 : 0).map(
+                    (e) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _WorkerCard(entry: e),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─── Shared widgets ───────────────────────────────────────────────────────────
+
+class _DateNavBar extends StatelessWidget {
+  final String dateLabel;
+  final bool canGoNext;
+  final VoidCallback onPrev, onNext;
+  const _DateNavBar({required this.dateLabel, required this.canGoNext,
+                     required this.onPrev, required this.onNext});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: _surface,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.chevron_left_rounded, color: _onSurface),
+            onPressed: onPrev,
+            visualDensity: VisualDensity.compact,
+          ),
+          Text(dateLabel, style: _m(s: 14, w: FontWeight.w700)),
+          IconButton(
+            icon: Icon(Icons.chevron_right_rounded,
+                color: canGoNext ? _onSurface : _border),
+            onPressed: canGoNext ? onNext : null,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _PeriodAndDateBar extends StatelessWidget {
-  final String period;
-  final String dateLabel;
-  final ValueChanged<String> onPeriodChanged;
-  final VoidCallback onPrev;
-  final VoidCallback onNext;
+  final String period, dateLabel;
   final bool canGoNext;
+  final ValueChanged<String> onPeriodChanged;
+  final VoidCallback onPrev, onNext;
 
   const _PeriodAndDateBar({
-    required this.period,
-    required this.dateLabel,
-    required this.onPeriodChanged,
-    required this.onPrev,
-    required this.onNext,
-    required this.canGoNext,
+    required this.period,      required this.dateLabel,
+    required this.canGoNext,   required this.onPeriodChanged,
+    required this.onPrev,      required this.onNext,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: _surface,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Column(
         children: [
-          // Period toggle
           Container(
             decoration: BoxDecoration(
               color: _bg,
@@ -258,11 +610,8 @@ class _PeriodAndDateBar extends StatelessWidget {
                       child: Text(
                         p[0].toUpperCase() + p.substring(1),
                         textAlign: TextAlign.center,
-                        style: _m(
-                          s: 13,
-                          w: FontWeight.w700,
-                          c: active ? Colors.white : _secondary,
-                        ),
+                        style: _m(s: 13, w: FontWeight.w700,
+                            c: active ? Colors.white : _secondary),
                       ),
                     ),
                   ),
@@ -270,8 +619,7 @@ class _PeriodAndDateBar extends StatelessWidget {
               }).toList(),
             ),
           ),
-          const SizedBox(height: 10),
-          // Date navigation
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -295,7 +643,7 @@ class _PeriodAndDateBar extends StatelessWidget {
   }
 }
 
-// ─── Podium (top 3) ───────────────────────────────────────────────────────────
+// ─── Podium ───────────────────────────────────────────────────────────────────
 
 class _Podium extends StatelessWidget {
   final List<_WorkerEntry> entries;
@@ -306,7 +654,6 @@ class _Podium extends StatelessWidget {
     final first  = entries.isNotEmpty ? entries[0] : null;
     final second = entries.length > 1  ? entries[1] : null;
     final third  = entries.length > 2  ? entries[2] : null;
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -322,23 +669,17 @@ class _Podium extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // 2nd
               if (second != null)
                 Expanded(child: _PodiumSlot(entry: second, color: _silver, height: 80))
-              else
-                const Expanded(child: SizedBox()),
+              else const Expanded(child: SizedBox()),
               const SizedBox(width: 8),
-              // 1st (tallest)
               if (first != null)
                 Expanded(child: _PodiumSlot(entry: first, color: _gold, height: 100))
-              else
-                const Expanded(child: SizedBox()),
+              else const Expanded(child: SizedBox()),
               const SizedBox(width: 8),
-              // 3rd
               if (third != null)
                 Expanded(child: _PodiumSlot(entry: third, color: _bronze, height: 64))
-              else
-                const Expanded(child: SizedBox()),
+              else const Expanded(child: SizedBox()),
             ],
           ),
         ],
@@ -351,7 +692,6 @@ class _PodiumSlot extends StatelessWidget {
   final _WorkerEntry entry;
   final Color color;
   final double height;
-
   const _PodiumSlot({required this.entry, required this.color, required this.height});
 
   String get _medal => entry.rank == 1 ? '🥇' : entry.rank == 2 ? '🥈' : '🥉';
@@ -362,43 +702,30 @@ class _PodiumSlot extends StatelessWidget {
       children: [
         Text(_medal, style: const TextStyle(fontSize: 22)),
         const SizedBox(height: 4),
-        Text(
-          entry.fullName.split(' ').first,
-          style: _m(s: 11, w: FontWeight.w700),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-        ),
+        Text(entry.fullName.split(' ').first,
+            style: _m(s: 11, w: FontWeight.w700),
+            maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
         const SizedBox(height: 2),
-        Text(
-          '${entry.totalStages} pts',
-          style: _m(s: 12, w: FontWeight.w800, c: color),
-          textAlign: TextAlign.center,
-        ),
+        Text('${entry.totalStages} pts',
+            style: _m(s: 12, w: FontWeight.w800, c: color), textAlign: TextAlign.center),
         const SizedBox(height: 6),
         Container(
           height: height,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.15),
             borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(8),
-              topRight: Radius.circular(8),
-            ),
+                topLeft: Radius.circular(8), topRight: Radius.circular(8)),
             border: Border.all(color: color.withValues(alpha: 0.4)),
           ),
-          child: Center(
-            child: Text(
-              '#${entry.rank}',
-              style: _m(s: 18, w: FontWeight.w900, c: color),
-            ),
-          ),
+          child: Center(child: Text('#${entry.rank}',
+              style: _m(s: 18, w: FontWeight.w900, c: color))),
         ),
       ],
     );
   }
 }
 
-// ─── Worker Card (rank 4+) ────────────────────────────────────────────────────
+// ─── Worker card (rank 4+) ────────────────────────────────────────────────────
 
 class _WorkerCard extends StatelessWidget {
   final _WorkerEntry entry;
@@ -409,32 +736,27 @@ class _WorkerCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.circular(14),
+        color: _surface, borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _border),
       ),
       child: Row(
         children: [
-          // Rank badge
           Container(
-            width: 36,
-            height: 36,
+            width: 36, height: 36,
             decoration: BoxDecoration(
-              color: _bg,
-              shape: BoxShape.circle,
+              color: _bg, shape: BoxShape.circle,
               border: Border.all(color: _border),
             ),
-            child: Center(
-              child: Text('#${entry.rank}', style: _m(s: 11, w: FontWeight.w800, c: _secondary)),
-            ),
+            child: Center(child: Text('#${entry.rank}',
+                style: _m(s: 11, w: FontWeight.w800, c: _secondary))),
           ),
           const SizedBox(width: 12),
-          // Name + role
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(entry.fullName, style: _m(s: 13, w: FontWeight.w700), maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(entry.fullName, style: _m(s: 13, w: FontWeight.w700),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 2),
                 Row(
                   children: [
@@ -446,14 +768,8 @@ class _WorkerCard extends StatelessWidget {
                             : _success.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(
-                        entry.roleLabel,
-                        style: _i(
-                          s: 10,
-                          w: FontWeight.w600,
-                          c: entry.roleKey == 'logistic_partner' ? _primary : _success,
-                        ),
-                      ),
+                      child: Text(entry.roleLabel, style: _i(s: 10, w: FontWeight.w600,
+                          c: entry.roleKey == 'logistic_partner' ? _primary : _success)),
                     ),
                     const SizedBox(width: 6),
                     Text('@${entry.username}', style: _i(s: 11)),
@@ -463,11 +779,11 @@ class _WorkerCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          // Stats
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('${entry.totalStages} pts', style: _m(s: 15, w: FontWeight.w800, c: _primary)),
+              Text('${entry.totalStages} pts',
+                  style: _m(s: 15, w: FontWeight.w800, c: _primary)),
               const SizedBox(height: 3),
               Text('${entry.tripsCompleted} trips', style: _i(s: 11, c: _secondary)),
             ],
@@ -478,10 +794,12 @@ class _WorkerCard extends StatelessWidget {
   }
 }
 
-// ─── Empty & Error views ─────────────────────────────────────────────────────
+// ─── Empty & Error ────────────────────────────────────────────────────────────
 
 class _EmptyView extends StatelessWidget {
-  const _EmptyView();
+  final IconData icon;
+  final String title, subtitle;
+  const _EmptyView({required this.icon, required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -494,19 +812,13 @@ class _EmptyView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: _primary.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.people_outline_rounded, size: 48, color: _primary),
+                color: _primary.withValues(alpha: 0.08), shape: BoxShape.circle),
+              child: Icon(icon, size: 48, color: _primary),
             ),
             const SizedBox(height: 20),
-            Text('No activity yet', style: _m(s: 18, w: FontWeight.w800)),
+            Text(title, style: _m(s: 18, w: FontWeight.w800)),
             const SizedBox(height: 8),
-            Text(
-              'No stage submissions recorded for this period.',
-              style: _i(s: 13),
-              textAlign: TextAlign.center,
-            ),
+            Text(subtitle, style: _i(s: 13), textAlign: TextAlign.center),
           ],
         ),
       ),
@@ -538,8 +850,7 @@ class _ErrorView extends StatelessWidget {
               icon: const Icon(Icons.refresh_rounded, size: 16),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _primary,
-                foregroundColor: Colors.white,
+                backgroundColor: _primary, foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
             ),
