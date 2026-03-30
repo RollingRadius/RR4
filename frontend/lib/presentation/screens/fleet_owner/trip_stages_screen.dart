@@ -46,8 +46,8 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
   bool _fetchingFresh = false;
   bool _showStage4 = false;
   bool _stage4Done = false;
-  /// True when the user taps "Edit Stage 1" from Stage 2 — shows Stage 1 form over Stage 2.
-  bool _editingStage1 = false;
+  /// Non-null when re-editing a completed stage (visual dot index 0-4).
+  int? _editingStage;
 
   @override
   void initState() {
@@ -87,6 +87,55 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
     }
   }
 
+  void _exitEditMode() {
+    setState(() => _editingStage = null);
+    _fetchFreshTrip();
+  }
+
+  Widget _buildEditForm(int visualStage) {
+    switch (visualStage) {
+      case 0:
+        return _Stage1Form(
+          key: ValueKey('edit_s1_${_trip.id}_$_tripFreshness'),
+          providerKey: _providerKey,
+          trip: _trip,
+          onEditDone: _exitEditMode,
+        );
+      case 1:
+        return _Stage2Form(
+          key: ValueKey('edit_s2_${_trip.id}_$_tripFreshness'),
+          providerKey: _providerKey,
+          trip: _trip,
+          onEditDone: _exitEditMode,
+        );
+      case 2:
+        return _LoadingSlipMini(
+          key: ValueKey('edit_slip_${_trip.id}'),
+          trip: _trip,
+          onUploaded: (updated) {
+            setState(() {
+              _trip = updated;
+              ref.read(tripProvider.notifier).patchTrip(updated);
+            });
+            _exitEditMode();
+          },
+        );
+      case 3:
+        return _Stage3Form(
+          key: ValueKey('edit_s3_${_trip.id}_$_tripFreshness'),
+          providerKey: _providerKey,
+          trip: _trip,
+          onEditDone: _exitEditMode,
+        );
+      case 4:
+      default:
+        return _Stage4Form(
+          trip: _trip,
+          onComplete: _exitEditMode,
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(tripStagesProvider(_providerKey));
@@ -120,27 +169,11 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
               backgroundColor: Colors.transparent,
               color: _primary,
             ),
-          _StepIndicator(trip: _trip, stage4Done: _stage4Done),
-          // ── Edit Stage 1 banner — visible when on Stage 2 ─────────────────
-          if (stage == 1 && !_editingStage1 && !_stage4Done)
-            InkWell(
-              onTap: () => setState(() => _editingStage1 = true),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                color: const Color(0xFFFFF8F0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.edit_outlined, size: 14, color: _primary),
-                    const SizedBox(width: 6),
-                    Text('Edit Stage 1 details',
-                        style: _inter(size: 12, weight: FontWeight.w600, color: _primary)),
-                    const Spacer(),
-                    const Icon(Icons.chevron_right_rounded, size: 16, color: _primary),
-                  ],
-                ),
-              ),
-            ),
+          _StepIndicator(
+            trip: _trip,
+            stage4Done: _stage4Done,
+            onStepTap: (i) => setState(() => _editingStage = i),
+          ),
           if (state.error != null)
             Container(
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -158,60 +191,57 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
               ),
             ),
           Expanded(
-            child: _stage4Done
-                ? _Stage4CompleteView(
-                    trip: _trip,
-                    onDone: () => Navigator.of(context).pop(),
-                  )
-                : _showStage4
-                    ? _Stage4Form(
+            child: _editingStage != null
+                ? _buildEditForm(_editingStage!)
+                : _stage4Done
+                    ? _Stage4CompleteView(
                         trip: _trip,
-                        onComplete: () => setState(() => _stage4Done = true),
+                        onDone: () => Navigator.of(context).pop(),
                       )
-                    : stage == 3
-                        ? _CompletionView(
+                    : _showStage4
+                        ? _Stage4Form(
                             trip: _trip,
-                            emptyWeightKg: state.emptyWeightKg,
-                            emptyWeightUnit: state.emptyWeightUnit ?? 'tons',
-                            loadedWeightKg: state.loadedWeightKg,
-                            loadedWeightUnit: state.loadedWeightUnit ?? 'tons',
-                            onDone: () => Navigator.of(context).pop(),
-                            onNextStage: () => setState(() => _showStage4 = true),
+                            onComplete: () => setState(() => _stage4Done = true),
                           )
-                        : (stage == 0 || _editingStage1)
-                            ? _Stage1Form(
-                                key: ValueKey('s1_${_trip.id}_$_tripFreshness'),
-                                providerKey: _providerKey,
+                        : stage == 3
+                            ? _CompletionView(
                                 trip: _trip,
-                                onEditDone: _editingStage1
-                                    ? () {
-                                        setState(() => _editingStage1 = false);
-                                        _fetchFreshTrip(); // refresh _trip so next edit shows updated files
-                                      }
-                                    : null,
+                                emptyWeightKg: state.emptyWeightKg,
+                                emptyWeightUnit: state.emptyWeightUnit ?? 'tons',
+                                loadedWeightKg: state.loadedWeightKg,
+                                loadedWeightUnit: state.loadedWeightUnit ?? 'tons',
+                                onDone: () => Navigator.of(context).pop(),
+                                onNextStage: () => setState(() => _showStage4 = true),
                               )
-                            : stage == 1
-                                ? _Stage2Form(
-                                    key: ValueKey('s2_${_trip.id}_$_tripFreshness'),
+                            : stage == 0
+                                ? _Stage1Form(
+                                    key: ValueKey('s1_${_trip.id}_$_tripFreshness'),
                                     providerKey: _providerKey,
                                     trip: _trip,
+                                    onEditDone: null,
                                   )
-                                : _trip.s2LoadingSlipUrl == null
-                                    ? _LoadingSlipMini(
-                                        key: ValueKey('slip_${_trip.id}'),
-                                        trip: _trip,
-                                        onUploaded: (updated) {
-                                          setState(() {
-                                            _trip = updated;
-                                            ref.read(tripProvider.notifier).patchTrip(updated);
-                                          });
-                                        },
-                                      )
-                                    : _Stage3Form(
-                                        key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
+                                : stage == 1
+                                    ? _Stage2Form(
+                                        key: ValueKey('s2_${_trip.id}_$_tripFreshness'),
                                         providerKey: _providerKey,
                                         trip: _trip,
-                                      ),
+                                      )
+                                    : _trip.s2LoadingSlipUrl == null
+                                        ? _LoadingSlipMini(
+                                            key: ValueKey('slip_${_trip.id}'),
+                                            trip: _trip,
+                                            onUploaded: (updated) {
+                                              setState(() {
+                                                _trip = updated;
+                                                ref.read(tripProvider.notifier).patchTrip(updated);
+                                              });
+                                            },
+                                          )
+                                        : _Stage3Form(
+                                            key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
+                                            providerKey: _providerKey,
+                                            trip: _trip,
+                                          ),
           ),
         ],
       ),
@@ -224,7 +254,8 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
 class _StepIndicator extends StatefulWidget {
   final TripModel trip;
   final bool stage4Done;
-  const _StepIndicator({required this.trip, required this.stage4Done});
+  final Function(int)? onStepTap;
+  const _StepIndicator({required this.trip, required this.stage4Done, this.onStepTap});
 
   static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit'];
 
@@ -347,12 +378,19 @@ class _StepIndicatorState extends State<_StepIndicator>
             ],
           );
 
-          if (i == 4) return dot;
+          final Widget dotWidget = isDone && widget.onStepTap != null
+              ? GestureDetector(
+                  onTap: () => widget.onStepTap!(i),
+                  child: dot,
+                )
+              : dot;
+
+          if (i == 4) return dotWidget;
 
           return Expanded(
             child: Row(
               children: [
-                dot,
+                dotWidget,
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 22),
@@ -857,7 +895,8 @@ String _formatSaved(DateTime dt) {
 class _Stage2Form extends ConsumerStatefulWidget {
   final (String, int) providerKey;
   final TripModel trip;
-  const _Stage2Form({super.key, required this.providerKey, required this.trip});
+  final VoidCallback? onEditDone;
+  const _Stage2Form({super.key, required this.providerKey, required this.trip, this.onEditDone});
 
   @override
   ConsumerState<_Stage2Form> createState() => _Stage2FormState();
@@ -892,19 +931,29 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   }
 
   void _prefillFromDraft() {
-    final draft = widget.trip.draftData;
-    if (draft == null || draft['stage'] != 2) return;
-    final d = draft['data'] as Map<String, dynamic>? ?? {};
-    _specsVerified    = d['specs_verified']              as bool?   ?? false;
-    _docsVerified     = d['docs_verified']               as bool?   ?? false;
-    _driverDocsValid  = d['driver_docs_valid']           as bool?   ?? false;
-    _entryPermission  = d['entry_permission']            as bool?   ?? false;
-    _dharamKantaLoc   = d['dharam_kanta_location']       as String?;
-    _s2WeightConfirmed = d['s2_weight_confirmed']        as bool?   ?? false;
-    _emptyWeightCtrl.text = d['empty_weight_before_loading'] as String? ?? '';
-    _emptyWeightUnit.value = d['empty_weight_unit']      as String? ?? 'tons';
-    if (draft['saved_at'] != null) {
-      _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
+    final trip = widget.trip;
+    final draft = trip.draftData;
+    if (draft != null && draft['stage'] == 2) {
+      final d = draft['data'] as Map<String, dynamic>? ?? {};
+      _specsVerified    = d['specs_verified']              as bool?   ?? false;
+      _docsVerified     = d['docs_verified']               as bool?   ?? false;
+      _driverDocsValid  = d['driver_docs_valid']           as bool?   ?? false;
+      _entryPermission  = d['entry_permission']            as bool?   ?? false;
+      _dharamKantaLoc   = d['dharam_kanta_location']       as String?;
+      _s2WeightConfirmed = d['s2_weight_confirmed']        as bool?   ?? false;
+      _emptyWeightCtrl.text = d['empty_weight_before_loading'] as String? ?? '';
+      _emptyWeightUnit.value = d['empty_weight_unit']      as String? ?? 'tons';
+      if (draft['saved_at'] != null) {
+        _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
+      }
+      return;
+    }
+    // Fall back to committed stage 2 data when re-editing
+    if (trip.currentStage >= 2) {
+      _specsVerified   = trip.s2SpecsVerified    ?? false;
+      _docsVerified    = trip.s2DocsVerified     ?? false;
+      _driverDocsValid = trip.s2DriverDocsValid  ?? false;
+      _entryPermission = trip.s2EntryPermission  ?? false;
     }
   }
 
@@ -1001,6 +1050,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
+      widget.onEditDone?.call();
     }
   }
 
@@ -1533,7 +1583,8 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
 class _Stage3Form extends ConsumerStatefulWidget {
   final (String, int) providerKey;
   final TripModel trip;
-  const _Stage3Form({super.key, required this.providerKey, required this.trip});
+  final VoidCallback? onEditDone;
+  const _Stage3Form({super.key, required this.providerKey, required this.trip, this.onEditDone});
 
   @override
   ConsumerState<_Stage3Form> createState() => _Stage3FormState();
@@ -1586,8 +1637,18 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   }
 
   void _prefillFromDraft() {
-    final draft = widget.trip.draftData;
-    if (draft == null || draft['stage'] != 3) return;
+    final trip = widget.trip;
+    final draft = trip.draftData;
+    if (draft == null || draft['stage'] != 3) {
+      // No draft — prefill weights from committed trip data when re-editing
+      if (trip.currentStage >= 3) {
+        _emptyTruckWeight.text  = trip.s3EmptyTruckWeightKg  ?? '';
+        _loadedTruckWeight.text = trip.s3LoadedTruckWeightKg ?? '';
+        _emptyWeightUnit.value  = trip.s3EmptyTruckWeightUnit ?? 'tons';
+        _loadedWeightUnit.value = trip.s3LoadedTruckWeightUnit ?? 'tons';
+      }
+      return;
+    }
     final d = draft['data'] as Map<String, dynamic>? ?? {};
     _driverParked       = d['driver_parked']       as bool? ?? false;
     _docsSubmitted      = d['docs_submitted']       as bool? ?? false;
@@ -1781,7 +1842,10 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     }
 
     final formData = FormData.fromMap(fields);
-    await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage3(formData);
+    final ok = await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage3(formData);
+    if (ok && mounted) {
+      widget.onEditDone?.call();
+    }
   }
 
   @override
@@ -3002,8 +3066,19 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   }
 
   void _prefillFromDraft() {
-    final draft = widget.trip.draftData;
-    if (draft == null || draft['stage'] != 4) return;
+    final trip = widget.trip;
+    final draft = trip.draftData;
+    if (draft == null || draft['stage'] != 4) {
+      // No draft — prefill from committed trip data when re-editing
+      if (trip.currentStage >= 4) {
+        _truckMoved      = trip.s4TruckMoved       ?? false;
+        _securityCheck   = trip.s4SecurityVerified  ?? false;
+        _biltyChecked    = trip.s4BiltyChecked      ?? false;
+        _weightChecked   = trip.s4WeightChecked     ?? false;
+        _materialChecked = trip.s4MaterialChecked   ?? false;
+      }
+      return;
+    }
     final d = draft['data'] as Map<String, dynamic>? ?? {};
     _truckMoved     = d['truck_moved']      as bool? ?? false;
     _securityCheck  = d['security_check']   as bool? ?? false;

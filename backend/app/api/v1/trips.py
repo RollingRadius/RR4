@@ -371,9 +371,6 @@ async def submit_stage1(
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
-    # Block edits once the truck has already arrived (stage 3+)
-    if trip.current_stage >= 3:
-        raise HTTPException(status_code=409, detail="Trip is too far along to edit Stage 1")
 
     # Helper: save an uploaded file and return its URL path.
     # Returns None (leave existing) if no new file was uploaded.
@@ -444,8 +441,7 @@ def submit_stage2(
     trip = _get_fleet_trip(trip_id, user_org, db)
     if trip.current_stage < 1:
         raise HTTPException(status_code=409, detail="Complete Stage 1 first")
-    if trip.current_stage >= 2:
-        raise HTTPException(status_code=409, detail="Stage 2 already submitted")
+    was_already_submitted = trip.current_stage >= 2
     if not body.entry_permission:
         raise HTTPException(
             status_code=400,
@@ -457,11 +453,13 @@ def submit_stage2(
     trip.s2_driver_docs_valid = body.driver_docs_valid
     trip.s2_entry_permission  = body.entry_permission
     trip.s2_verified_at       = datetime.now(timezone.utc)
-    trip.current_stage        = 2
+    if trip.current_stage < 2:
+        trip.current_stage = 2
 
     db.commit()
     db.refresh(trip)
-    return {"success": True, "message": "Entry permission issued. Coordinate truck arrival.", "trip": _enrich(trip, db)}
+    msg = "Stage 2 updated." if was_already_submitted else "Entry permission issued. Coordinate truck arrival."
+    return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
 
 @router.post("/trips/{trip_id}/loading-slip", status_code=200)
@@ -527,8 +525,7 @@ async def submit_stage3(
     trip = _get_fleet_trip(trip_id, user_org, db)
     if trip.current_stage < 2:
         raise HTTPException(status_code=409, detail="Complete Stage 2 first")
-    if trip.current_stage >= 3:
-        raise HTTPException(status_code=409, detail="Stage 3 already completed")
+    was_already_submitted = trip.current_stage >= 3
 
     # Save bilty file
     bilty_url = None
@@ -569,13 +566,15 @@ async def submit_stage3(
     if material_urls:
         trip.s3_material_doc_urls = json.dumps(material_urls)
     trip.s3_completed_at             = datetime.now(timezone.utc)
-    trip.current_stage               = 3
+    if trip.current_stage < 3:
+        trip.current_stage = 3
     trip.status                      = 'ongoing'
     trip.draft_data                  = None  # clear draft on submit
 
     db.commit()
     db.refresh(trip)
-    return {"success": True, "message": "Truck intake complete. Trip is now active.", "trip": _enrich(trip, db)}
+    msg = "Stage 3 updated." if was_already_submitted else "Truck intake complete. Trip is now active."
+    return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
 
 class Stage4Payload(BaseModel):
@@ -604,8 +603,7 @@ def submit_stage4(
     trip = _get_fleet_trip(trip_id, user_org, db)
     if trip.current_stage < 3:
         raise HTTPException(status_code=409, detail="Complete Stage 3 first")
-    if trip.current_stage >= 4:
-        raise HTTPException(status_code=409, detail="Stage 4 already completed")
+    was_already_submitted = trip.current_stage >= 4
 
     trip.s4_truck_moved       = body.truck_moved
     trip.s4_security_verified = body.security_verified
@@ -613,12 +611,14 @@ def submit_stage4(
     trip.s4_weight_checked    = body.weight_checked
     trip.s4_material_checked  = body.material_checked
     trip.s4_completed_at      = datetime.now(timezone.utc)
-    trip.current_stage        = 4
+    if trip.current_stage < 4:
+        trip.current_stage = 4
     trip.draft_data           = None  # clear draft on submit
 
     db.commit()
     db.refresh(trip)
-    return {"success": True, "message": "Truck exit recorded. You can now notify the load owner.", "trip": _enrich(trip, db)}
+    msg = "Stage 4 updated." if was_already_submitted else "Truck exit recorded. You can now notify the load owner."
+    return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
 
 class DraftPayload(BaseModel):
