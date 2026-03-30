@@ -56,6 +56,7 @@ import 'package:fleet_management/presentation/screens/logistic_partner/logistic_
 import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_worker_dashboard.dart';
 import 'package:fleet_management/presentation/screens/load_owner/load_owner_worker_dashboard.dart';
 import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/lp_workers_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/my_trips_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/load_owner_settings_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_settings_screen.dart';
@@ -250,6 +251,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'worker-requests',
         pageBuilder: (context, state) => const MaterialPage(
           child: WorkerRequestsScreen(),
+        ),
+      ),
+
+      // LP Workers Leaderboard Screen
+      GoRoute(
+        path: AppConstants.routeLpWorkers,
+        name: 'lp-workers',
+        pageBuilder: (context, state) => const MaterialPage(
+          child: LpWorkersScreen(),
         ),
       ),
 

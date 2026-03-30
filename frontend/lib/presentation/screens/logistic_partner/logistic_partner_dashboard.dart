@@ -17,6 +17,7 @@ import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/lp_workers_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/data/models/notification_model.dart';
@@ -635,8 +636,8 @@ class _DashboardTab extends ConsumerWidget {
             ),
           const SizedBox(height: 24),
 
-          _WorkerRequestsSection(),
-          const SizedBox(height: 24),
+          if (!workerMode) _WorkerRequestsSection(),
+          if (!workerMode) const SizedBox(height: 24),
 
           _RecentActivity(),
         ],
@@ -2152,7 +2153,8 @@ class _AppDrawer extends ConsumerWidget {
                     onTap: () => onNavTap(index),
                   );
                 }),
-                _DrawerRequestsTile(ref: ref),
+                if (!hideLoads) _DrawerRequestsTile(ref: ref),
+                if (!hideLoads) _DrawerWorkersTile(),
 
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2754,3 +2756,38 @@ class _WorkerRequestCard extends StatelessWidget {
     );
   }
 }
+
+// ─── Workers Drawer Tile ──────────────────────────────────────────────────────
+
+class _DrawerWorkersTile extends StatelessWidget {
+  const _DrawerWorkersTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const LpWorkersScreen()),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+        child: Row(
+          children: [
+            Icon(Icons.leaderboard_rounded, size: 20, color: _secondary),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                'Workers',
+                style: _inter(size: 14, weight: FontWeight.w600, color: _onSurface),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 16, color: _secondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

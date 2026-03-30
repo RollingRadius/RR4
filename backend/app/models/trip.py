@@ -109,6 +109,12 @@ class Trip(Base):
     s4_completed_at     = Column(TIMESTAMP(timezone=True), nullable=True)
     s4_notified_at      = Column(TIMESTAMP(timezone=True), nullable=True)
 
+    # ── Stage Authorship (who submitted each stage) ──────────────────────────────
+    s1_submitted_by = Column(UUID(as_uuid=True), nullable=True)
+    s2_submitted_by = Column(UUID(as_uuid=True), nullable=True)
+    s3_submitted_by = Column(UUID(as_uuid=True), nullable=True)
+    s4_submitted_by = Column(UUID(as_uuid=True), nullable=True)
+
     # ── Draft (cross-device in-progress form data) ───────────────────────────────
     draft_data = Column(JSONB, nullable=True)
 
@@ -186,6 +192,11 @@ class Trip(Base):
             "s4_material_checked": self.s4_material_checked,
             "s4_completed_at": self.s4_completed_at.isoformat() if self.s4_completed_at else None,
             "s4_notified_at": self.s4_notified_at.isoformat() if self.s4_notified_at else None,
+            # Stage authorship
+            "s1_submitted_by": str(self.s1_submitted_by) if self.s1_submitted_by else None,
+            "s2_submitted_by": str(self.s2_submitted_by) if self.s2_submitted_by else None,
+            "s3_submitted_by": str(self.s3_submitted_by) if self.s3_submitted_by else None,
+            "s4_submitted_by": str(self.s4_submitted_by) if self.s4_submitted_by else None,
             "draft_data": self.draft_data,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

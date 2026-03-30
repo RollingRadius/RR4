@@ -412,6 +412,7 @@ async def submit_stage1(
     if new_chq     is not None: trip.s1_cancelled_cheque    = new_chq
 
     was_already_submitted = trip.current_stage >= 1
+    trip.s1_submitted_by = current_user.id
     trip.s1_submitted_at = datetime.now(timezone.utc)
     # Advance to stage 1 if not already past it; never regress
     if trip.current_stage < 1:
@@ -452,6 +453,7 @@ def submit_stage2(
     trip.s2_docs_verified     = body.docs_verified
     trip.s2_driver_docs_valid = body.driver_docs_valid
     trip.s2_entry_permission  = body.entry_permission
+    trip.s2_submitted_by      = current_user.id
     trip.s2_verified_at       = datetime.now(timezone.utc)
     if trip.current_stage < 2:
         trip.current_stage = 2
@@ -565,6 +567,7 @@ async def submit_stage3(
         trip.s3_bilty_url = bilty_url
     if material_urls:
         trip.s3_material_doc_urls = json.dumps(material_urls)
+    trip.s3_submitted_by             = current_user.id
     trip.s3_completed_at             = datetime.now(timezone.utc)
     if trip.current_stage < 3:
         trip.current_stage = 3
@@ -610,6 +613,7 @@ def submit_stage4(
     trip.s4_bilty_checked     = body.bilty_checked
     trip.s4_weight_checked    = body.weight_checked
     trip.s4_material_checked  = body.material_checked
+    trip.s4_submitted_by      = current_user.id
     trip.s4_completed_at      = datetime.now(timezone.utc)
     if trip.current_stage < 4:
         trip.current_stage = 4
