@@ -55,8 +55,7 @@ const _secondaryContainer = Color(0xFFD7E4EC);
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 class LogisticPartnerDashboard extends ConsumerStatefulWidget {
-  final bool hideLoads;
-  const LogisticPartnerDashboard({super.key, this.hideLoads = false});
+  const LogisticPartnerDashboard({super.key});
 
   @override
   ConsumerState<LogisticPartnerDashboard> createState() =>
@@ -76,9 +75,7 @@ class _LogisticPartnerDashboardState
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
         ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
-        if (!widget.hideLoads) {
-          ref.read(availableLoadsProvider.notifier).silentRefresh();
-        }
+        ref.read(availableLoadsProvider.notifier).silentRefresh();
       }
     });
     // Initial data load — runs after first frame so ref/auth are ready
@@ -90,10 +87,8 @@ class _LogisticPartnerDashboardState
   void _loadAllData() {
     if (!mounted) return;
     ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
-    if (!widget.hideLoads) {
-      ref.read(vehicleProvider.notifier).loadVehicles();
-      ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
-    }
+    ref.read(vehicleProvider.notifier).loadVehicles();
+    ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
   }
 
   /// Switch tabs — refreshes fleet data whenever user navigates to Dashboard.
@@ -113,13 +108,11 @@ class _LogisticPartnerDashboardState
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
-    final user = authState.user;
-    final hideLoads = widget.hideLoads;
-    final pendingLoadsCount = hideLoads ? 0 : ref.watch(availableLoadsProvider).loads.length;
+    final user = ref.watch(authProvider).user;
+    final pendingLoadsCount = ref.watch(availableLoadsProvider).loads.length;
 
     final pages = [
-      _DashboardTab(onViewLoads: () => _switchNav(1), workerMode: hideLoads),
+      _DashboardTab(onViewLoads: () => _switchNav(1)),
       const _AvailableLoadsTab(),
       const _ProfileTab(),
     ];
@@ -135,11 +128,10 @@ class _LogisticPartnerDashboardState
           _scaffoldKey.currentState?.closeDrawer();
           _switchNav(i);
         },
-        hideLoads: hideLoads,
       ),
       body: Column(
         children: [
-          _TopBar(onMenuTap: () => _scaffoldKey.currentState?.openDrawer(), workerMode: hideLoads),
+          _TopBar(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
           Expanded(
             child: IndexedStack(index: _navIndex, children: pages),
           ),
@@ -149,7 +141,6 @@ class _LogisticPartnerDashboardState
         selectedIndex: _navIndex,
         onTap: _switchNav,
         pendingLoadsCount: pendingLoadsCount,
-        hideLoads: hideLoads,
       ),
     );
   }
@@ -165,16 +156,14 @@ String _initials(String name) {
 
 class _TopBar extends ConsumerWidget {
   final VoidCallback onMenuTap;
-  final bool workerMode;
-  const _TopBar({required this.onMenuTap, this.workerMode = false});
+  const _TopBar({required this.onMenuTap});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifState = ref.watch(notificationsProvider);
-    // Owners see worker_request badge, workers see new_work badge
-    final unread = workerMode
-        ? notifState.items.where((n) => !n.isRead && n.type == 'new_work').length
-        : notifState.items.where((n) => !n.isRead && n.type == 'worker_request').length;
+    final unread = notifState.items
+        .where((n) => !n.isRead && n.type == 'worker_request')
+        .length;
 
     return SafeArea(
       bottom: false,
@@ -199,7 +188,7 @@ class _TopBar extends ConsumerWidget {
               ),
             ),
             GestureDetector(
-              onTap: () => _showNotificationsSheet(context, ref, notifState.items, workerMode: workerMode),
+              onTap: () => _showNotificationsSheet(context, ref, notifState.items),
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -238,12 +227,12 @@ class _TopBar extends ConsumerWidget {
   }
 
   void _showNotificationsSheet(
-      BuildContext context, WidgetRef ref, List<NotificationModel> items, {bool workerMode = false}) {
+      BuildContext context, WidgetRef ref, List<NotificationModel> items) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _NotificationsSheet(items: items, ref: ref, workerMode: workerMode),
+      builder: (_) => _NotificationsSheet(items: items, ref: ref),
     );
   }
 }
@@ -253,15 +242,12 @@ class _TopBar extends ConsumerWidget {
 class _NotificationsSheet extends StatelessWidget {
   final List<NotificationModel> items;
   final WidgetRef ref;
-  final bool workerMode;
-  const _NotificationsSheet({required this.items, required this.ref, this.workerMode = false});
+  const _NotificationsSheet({required this.items, required this.ref});
 
   @override
   Widget build(BuildContext context) {
-    // Owners see worker_request notifications; workers see new_work notifications
-    final workerNotifs = workerMode
-        ? items.where((n) => n.type == 'new_work').toList()
-        : items.where((n) => n.type == 'worker_request').toList();
+    final workerNotifs =
+        items.where((n) => n.type == 'worker_request').toList();
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
@@ -341,10 +327,7 @@ class _NotificationsSheet extends StatelessWidget {
                                 .read(notificationsProvider.notifier)
                                 .markRead(n.id);
                             Navigator.pop(context);
-                            // Owner → go to worker requests; worker → just mark read
-                            if (!workerMode) {
-                              context.push(AppConstants.routeWorkerRequests);
-                            }
+                            context.push(AppConstants.routeWorkerRequests);
                           },
                         );
                       },
@@ -447,12 +430,10 @@ class _BottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
   final int pendingLoadsCount;
-  final bool hideLoads;
   const _BottomNav({
     required this.selectedIndex,
     required this.onTap,
     this.pendingLoadsCount = 0,
-    this.hideLoads = false,
   });
 
   // (icon, label, navIndex)
@@ -492,9 +473,7 @@ class _BottomNav extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: _allItems
-                    .where((item) => !(hideLoads && item.$2 == 'LOADS'))
-                    .map((item) {
+                children: _allItems.map((item) {
                   final (icon, label, navIdx) = item;
                   final active = navIdx == selectedIndex;
                   return GestureDetector(
@@ -571,18 +550,17 @@ class _BottomNav extends StatelessWidget {
 
 class _DashboardTab extends ConsumerWidget {
   final VoidCallback onViewLoads;
-  final bool workerMode;
-  const _DashboardTab({required this.onViewLoads, this.workerMode = false});
+  const _DashboardTab({required this.onViewLoads});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tripState = ref.watch(tripProvider);
-    final loadsState = workerMode ? null : ref.watch(availableLoadsProvider);
+    final loadsState = ref.watch(availableLoadsProvider);
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Logistic Partner';
 
     final ongoingTrips = tripState.activeTrips;
-    final pendingLoads = loadsState?.loads ?? [];
+    final pendingLoads = loadsState.loads;
 
     return RefreshIndicator(
       color: _primary,
@@ -602,22 +580,22 @@ class _DashboardTab extends ConsumerWidget {
             style: _manrope(size: 22, weight: FontWeight.w800),
           ),
           const SizedBox(height: 2),
-          Text(workerMode ? 'Logistic Partner Worker' : 'Logistic Partner Panel',
+          Text('Logistic Partner Panel',
               style: _inter(size: 13, color: _secondary)),
           const SizedBox(height: 16),
 
-          // ── Pending loads alert banner (owners only) ─────────────────
-          if (!workerMode && pendingLoads.isNotEmpty)
+          // ── Pending loads alert banner ───────────────────────────────
+          if (pendingLoads.isNotEmpty)
             _PendingLoadsBanner(
               count: pendingLoads.length,
               loads: pendingLoads.take(2).toList(),
               onViewAll: onViewLoads,
             ),
-          if (!workerMode && pendingLoads.isNotEmpty) const SizedBox(height: 16),
+          if (pendingLoads.isNotEmpty) const SizedBox(height: 16),
 
-          // Search New Loads — owners only
-          if (!workerMode) _SearchLoadsButton(onTap: onViewLoads),
-          if (!workerMode) const SizedBox(height: 24),
+          // Search New Loads
+          _SearchLoadsButton(onTap: onViewLoads),
+          const SizedBox(height: 24),
 
           // ── Fleet Status — ongoing trips with Locate button ──────────
           _FleetStatusHeader(
@@ -2030,14 +2008,12 @@ class _AppDrawer extends ConsumerWidget {
   final String role;
   final int navIndex;
   final ValueChanged<int> onNavTap;
-  final bool hideLoads;
 
   const _AppDrawer({
     required this.user,
     required this.role,
     required this.navIndex,
     required this.onNavTap,
-    this.hideLoads = false,
   });
 
   static const _navItems = [
@@ -2147,9 +2123,7 @@ class _AppDrawer extends ConsumerWidget {
                           weight: FontWeight.w700,
                           color: _secondary)),
                 ),
-                ..._navItems
-                    .where((item) => !(hideLoads && item.$3 == 1))
-                    .map((item) {
+                ..._navItems.map((item) {
                   final (icon, label, index) = item;
                   final isActive = navIndex == index;
                   return _DrawerNavTile(
@@ -2159,8 +2133,8 @@ class _AppDrawer extends ConsumerWidget {
                     onTap: () => onNavTap(index),
                   );
                 }),
-                if (!hideLoads) _DrawerRequestsTile(ref: ref),
-                if (!hideLoads) _DrawerWorkersTile(),
+                _DrawerRequestsTile(ref: ref),
+                _DrawerWorkersTile(),
 
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2472,290 +2446,6 @@ class _ProfileTab extends ConsumerWidget {
               await ref.read(authProvider.notifier).logout();
               if (context.mounted) context.go('/login');
             },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Worker Requests Section ──────────────────────────────────────────────────
-
-class _WorkerRequestsSection extends ConsumerStatefulWidget {
-  const _WorkerRequestsSection();
-
-  @override
-  ConsumerState<_WorkerRequestsSection> createState() =>
-      _WorkerRequestsSectionState();
-}
-
-class _WorkerRequestsSectionState
-    extends ConsumerState<_WorkerRequestsSection> {
-  List<Map<String, dynamic>> _requests = [];
-  bool _loading = true;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchRequests();
-  }
-
-  Future<void> _fetchRequests() async {
-    if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final dio = ref.read(dioProvider);
-      final response =
-          await dio.get('/api/organization/worker-requests');
-      final data = response.data as Map<String, dynamic>;
-      if (mounted) {
-        setState(() {
-          _requests = List<Map<String, dynamic>>.from(data['requests'] ?? []);
-          _loading = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          // 403 = not an owner, silently hide the section
-          _error = e.toString().contains('403') ? null : e.toString();
-        });
-      }
-    }
-  }
-
-  Future<void> _accept(String userOrgId) async {
-    try {
-      final dio = ref.read(dioProvider);
-      await dio.post('/api/organization/worker-requests/$userOrgId/accept');
-      _fetchRequests();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Worker accepted successfully'),
-          backgroundColor: Color(0xFF006B5E),
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: const Color(0xFFBA1A1A),
-        ));
-      }
-    }
-  }
-
-  Future<void> _reject(String userOrgId) async {
-    try {
-      final dio = ref.read(dioProvider);
-      await dio.post('/api/organization/worker-requests/$userOrgId/reject');
-      _fetchRequests();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Request rejected'),
-          backgroundColor: Color(0xFF546067),
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: const Color(0xFFBA1A1A),
-        ));
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Don't show anything while loading, on error, or if no pending requests
-    if (_loading || _error != null || _requests.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Container(
-              width: 4,
-              height: 20,
-              decoration: BoxDecoration(
-                color: _primary,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Text('Worker Requests',
-                style: _manrope(
-                    size: 16,
-                    weight: FontWeight.w800,
-                    color: _onSurface)),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: _primary,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '${_requests.length}',
-                style: _inter(
-                    size: 11,
-                    weight: FontWeight.w700,
-                    color: Colors.white),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ..._requests.map((req) => _WorkerRequestCard(
-              request: req,
-              onAccept: () => _accept(req['user_organization_id'] as String),
-              onReject: () => _reject(req['user_organization_id'] as String),
-            )),
-      ],
-    );
-  }
-}
-
-class _WorkerRequestCard extends StatelessWidget {
-  final Map<String, dynamic> request;
-  final VoidCallback onAccept;
-  final VoidCallback onReject;
-  const _WorkerRequestCard({
-    required this.request,
-    required this.onAccept,
-    required this.onReject,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final name = request['full_name'] as String? ?? 'Unknown';
-    final username = request['username'] as String? ?? '';
-    final phone = request['phone'] as String? ?? '';
-    final requestedRole =
-        request['requested_role'] as Map<String, dynamic>?;
-    final roleName = requestedRole?['name'] as String? ?? 'Worker';
-    final initials = name.trim().split(' ').take(2).map((p) => p[0]).join().toUpperCase();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: _surfaceLowest,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _primary.withValues(alpha: 0.3), width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Avatar
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: _primary.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(initials,
-                  style: _manrope(
-                      size: 15,
-                      weight: FontWeight.w700,
-                      color: _primary)),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name,
-                    style: _manrope(
-                        size: 14,
-                        weight: FontWeight.w700,
-                        color: _onSurface)),
-                const SizedBox(height: 2),
-                Text('@$username',
-                    style: _inter(size: 12, color: _secondary)),
-                if (phone.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(phone, style: _inter(size: 12, color: _secondary)),
-                ],
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _primary.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(roleName,
-                      style: _inter(
-                          size: 11,
-                          weight: FontWeight.w700,
-                          color: _primary)),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Actions
-          Column(
-            children: [
-              SizedBox(
-                width: 72,
-                child: ElevatedButton(
-                  onPressed: onAccept,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _tertiary,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                    textStyle: _inter(
-                        size: 12,
-                        weight: FontWeight.w700,
-                        color: Colors.white),
-                  ),
-                  child: const Text('Accept'),
-                ),
-              ),
-              const SizedBox(height: 6),
-              SizedBox(
-                width: 72,
-                child: OutlinedButton(
-                  onPressed: onReject,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _error,
-                    side: const BorderSide(color: _error, width: 1),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                    textStyle: _inter(
-                        size: 12,
-                        weight: FontWeight.w700,
-                        color: _error),
-                  ),
-                  child: const Text('Reject'),
-                ),
-              ),
-            ],
           ),
         ],
       ),

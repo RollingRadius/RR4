@@ -88,41 +88,65 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
   }
 
   void _exitEditMode() {
+    final stage = _editingStage;
     setState(() => _editingStage = null);
+    // Always try to release the claim on exit.
+    // If stage was already submitted, the backend cleared the claim — release is a no-op.
+    if (stage != null) _releaseStage(stage);
     _fetchFreshTrip();
   }
 
-  /// Returns a tap handler for the step indicator.
-  /// Owners can always tap any stage.
-  /// Workers can only tap a stage if no other worker has claimed it.
-  Function(int)? _buildStepTapHandler() {
+  /// Claims a stage on the backend, then opens the form.
+  /// Workers are blocked if a different worker has already claimed or submitted the stage.
+  Future<void> _enterStage(int visualStage) async {
     final user = ref.read(authProvider).user;
-    if (user == null) return null;
+    if (user == null) return;
 
-    // Owners can re-edit any stage freely
-    if (user.isLogisticPartner) return (i) => setState(() => _editingStage = i);
+    // Owners skip the claim API — they can always edit
+    if (user.isLogisticPartner) {
+      setState(() => _editingStage = visualStage);
+      return;
+    }
 
-    // Workers: check if each stage is claimed by a different worker
-    final submittedBy = [
-      _trip.s1SubmittedBy,
-      _trip.s2SubmittedBy,
-      _trip.s3SubmittedBy,
-      _trip.s4SubmittedBy,
-    ];
-
-    return (int i) {
-      final stageOwner = submittedBy[i];
-      if (stageOwner != null && stageOwner != user.userId) {
+    // Workers must claim the stage first
+    final stageNumber = visualStage + 1; // visualStage is 0-based; API is 1-based
+    try {
+      final api = ref.read(apiServiceProvider);
+      await api.dio.post('/api/trips/${_trip.id}/claim-stage/$stageNumber');
+      setState(() => _editingStage = visualStage);
+    } on DioException catch (e) {
+      final msg = e.response?.data?['detail'] ?? 'Could not access this stage.';
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('This stage has been claimed by another worker.'),
-            duration: Duration(seconds: 2),
-          ),
+          SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
         );
-        return;
       }
-      setState(() => _editingStage = i);
-    };
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not access this stage.'), duration: Duration(seconds: 3)),
+        );
+      }
+    }
+  }
+
+  /// Releases a worker's stage claim when they exit without submitting.
+  Future<void> _releaseStage(int visualStage) async {
+    final user = ref.read(authProvider).user;
+    if (user == null || user.isLogisticPartner) return;
+
+    final stageNumber = visualStage + 1;
+    try {
+      final api = ref.read(apiServiceProvider);
+      await api.dio.delete('/api/trips/${_trip.id}/claim-stage/$stageNumber');
+    } catch (_) {
+      // Best-effort — ignore errors on release
+    }
+  }
+
+  /// Returns a tap handler for the step indicator.
+  Function(int)? _buildStepTapHandler() {
+    return (int i) => _enterStage(i);
   }
 
   Widget _buildEditForm(int visualStage) {

@@ -641,6 +641,7 @@ class _WorkerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = entry.roleKey == 'logistic_partner' ? _primary : _success;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -665,22 +666,32 @@ class _WorkerCard extends StatelessWidget {
               children: [
                 Text(entry.fullName, style: _m(s: 13, w: FontWeight.w700),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                       decoration: BoxDecoration(
-                        color: entry.roleKey == 'logistic_partner'
-                            ? _primary.withValues(alpha: 0.1)
-                            : _success.withValues(alpha: 0.1),
+                        color: accent.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(entry.roleLabel, style: _i(s: 10, w: FontWeight.w600,
-                          c: entry.roleKey == 'logistic_partner' ? _primary : _success)),
+                      child: Text(entry.roleLabel, style: _i(s: 10, w: FontWeight.w600, c: accent)),
                     ),
                     const SizedBox(width: 6),
                     Text('@${entry.username}', style: _i(s: 11)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                // Per-stage item points breakdown
+                Row(
+                  children: [
+                    _StagePip(label: 'S1', count: entry.s1, max: 13),
+                    const SizedBox(width: 5),
+                    _StagePip(label: 'S2', count: entry.s2, max: 5),
+                    const SizedBox(width: 5),
+                    _StagePip(label: 'S3', count: entry.s3, max: 10),
+                    const SizedBox(width: 5),
+                    _StagePip(label: 'S4', count: entry.s4, max: 5),
                   ],
                 ),
               ],
@@ -690,13 +701,41 @@ class _WorkerCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text('${entry.totalStages} pts',
-                  style: _m(s: 15, w: FontWeight.w800, c: _primary)),
-              const SizedBox(height: 3),
+              Text('${entry.totalStages}',
+                  style: _m(s: 18, w: FontWeight.w900, c: _primary)),
+              Text('pts', style: _i(s: 10, w: FontWeight.w600, c: _primary)),
+              const SizedBox(height: 2),
               Text('${entry.tripsCompleted} trips', style: _i(s: 11, c: _secondary)),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StagePip extends StatelessWidget {
+  final String label;
+  final int count;
+  final int max;
+  const _StagePip({required this.label, required this.count, required this.max});
+
+  @override
+  Widget build(BuildContext context) {
+    final active = count > 0;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: active ? _primary.withValues(alpha: 0.1) : _bg,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(
+          color: active ? _primary.withValues(alpha: 0.3) : _border,
+        ),
+      ),
+      child: Text(
+        '$label: $count/$max',
+        style: _i(s: 10, w: FontWeight.w700,
+            c: active ? _primary : _secondary),
       ),
     );
   }

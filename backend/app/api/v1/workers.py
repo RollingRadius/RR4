@@ -64,33 +64,105 @@ def _date_range(period: str, date_str: Optional[str]):
     return start, end, label
 
 
-def _count_stages(user_id, org_id, start, end, db: Session):
-    """Count stage submissions for a user in the given time window."""
-    s1 = db.query(func.count(Trip.id)).filter(
+def _count_points(user_id, org_id, start, end, db: Session):
+    """
+    Count individual item completions (1 pt per checkbox/field/upload) for a worker.
+
+    Stage 1  — 4 text fields + 9 document uploads          (max 13 pts)
+    Stage 2  — 4 checkboxes + loading slip upload           (max  5 pts)
+    Stage 3  — 6 checkboxes + 2 weight fields + bilty
+               + material docs                              (max 10 pts)
+    Stage 4  — 5 checkboxes                                 (max  5 pts)
+    ─────────────────────────────────────────────────────────────────────
+    Max per trip: 33 pts
+    """
+
+    # ── Stage 1 ──────────────────────────────────────────────────────────────────
+    s1_trips = db.query(Trip).filter(
         Trip.organization_id == org_id,
         Trip.s1_submitted_by == user_id,
         Trip.s1_submitted_at.isnot(None),
         Trip.s1_submitted_at >= start,
         Trip.s1_submitted_at <= end,
-    ).scalar() or 0
+    ).all()
 
-    s2 = db.query(func.count(Trip.id)).filter(
+    s1 = 0
+    for t in s1_trips:
+        # Text fields
+        for v in [t.s1_driver_name, t.s1_driver_phone, t.s1_driving_license, t.s1_aadhaar]:
+            if v:
+                s1 += 1
+        # Document uploads
+        for v in [t.s1_driving_license_url, t.s1_aadhaar_url, t.s1_rc,
+                  t.s1_insurance, t.s1_pollution, t.s1_fitness,
+                  t.s1_pan, t.s1_tax_declaration, t.s1_cancelled_cheque]:
+            if v:
+                s1 += 1
+
+    # ── Stage 2 ──────────────────────────────────────────────────────────────────
+    s2_trips = db.query(Trip).filter(
         Trip.organization_id == org_id,
         Trip.s2_submitted_by == user_id,
         Trip.s2_verified_at.isnot(None),
         Trip.s2_verified_at >= start,
         Trip.s2_verified_at <= end,
-    ).scalar() or 0
+    ).all()
 
-    s3 = db.query(func.count(Trip.id)).filter(
+    s2 = 0
+    for t in s2_trips:
+        # Checkboxes
+        for v in [t.s2_specs_verified, t.s2_docs_verified,
+                  t.s2_driver_docs_valid, t.s2_entry_permission]:
+            if v:
+                s2 += 1
+        # Loading slip upload
+        if t.s2_loading_slip_url:
+            s2 += 1
+
+    # ── Stage 3 ──────────────────────────────────────────────────────────────────
+    s3_trips = db.query(Trip).filter(
         Trip.organization_id == org_id,
         Trip.s3_submitted_by == user_id,
         Trip.s3_completed_at.isnot(None),
         Trip.s3_completed_at >= start,
         Trip.s3_completed_at <= end,
-    ).scalar() or 0
+    ).all()
 
-    s4 = db.query(func.count(Trip.id)).filter(
+    s3 = 0
+    for t in s3_trips:
+        # Checkboxes
+        for v in [t.s3_driver_parked, t.s3_docs_submitted, t.s3_security_verified,
+                  t.s3_driver_exited_cabin, t.s3_wheel_stoppers, t.s3_safety_gear]:
+            if v:
+                s3 += 1
+        # Weight entries
+        for v in [t.s3_empty_truck_weight_kg, t.s3_loaded_truck_weight_kg]:
+            if v:
+                s3 += 1
+        # Document uploads
+        if t.s3_bilty_url:
+            s3 += 1
+        if t.s3_material_doc_urls:
+            s3 += 1
+
+    # ── Stage 4 ──────────────────────────────────────────────────────────────────
+    s4_trips = db.query(Trip).filter(
+        Trip.organization_id == org_id,
+        Trip.s4_submitted_by == user_id,
+        Trip.s4_completed_at.isnot(None),
+        Trip.s4_completed_at >= start,
+        Trip.s4_completed_at <= end,
+    ).all()
+
+    s4 = 0
+    for t in s4_trips:
+        for v in [t.s4_truck_moved, t.s4_security_verified,
+                  t.s4_bilty_checked, t.s4_weight_checked, t.s4_material_checked]:
+            if v:
+                s4 += 1
+
+    # ── Trips completed (separate from points — actual trip count) ────────────────
+    trips_completed = db.query(func.count(Trip.id)).filter(
         Trip.organization_id == org_id,
         Trip.s4_submitted_by == user_id,
         Trip.s4_completed_at.isnot(None),
@@ -98,7 +170,7 @@ def _count_stages(user_id, org_id, start, end, db: Session):
         Trip.s4_completed_at <= end,
     ).scalar() or 0
 
-    return s1, s2, s3, s4
+    return s1, s2, s3, s4, trips_completed
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -138,7 +210,7 @@ def get_leaderboard(
 
     leaderboard = []
     for user, role in members:
-        s1, s2, s3, s4 = _count_stages(user.id, org_id, start, end, db)
+        s1, s2, s3, s4, trips_completed = _count_points(user.id, org_id, start, end, db)
         total = s1 + s2 + s3 + s4
         leaderboard.append({
             "user_id":         str(user.id),
@@ -152,7 +224,7 @@ def get_leaderboard(
             "s3_count":        s3,
             "s4_count":        s4,
             "total_stages":    total,
-            "trips_completed": s4,   # proxy: a completed trip = stage 4 done
+            "trips_completed": trips_completed,
         })
 
     # Sort: total stages desc → trips_completed desc → name asc
