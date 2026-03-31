@@ -725,14 +725,15 @@ class _AcceptedCard extends StatelessWidget {
                     ),
                     if (approvedDateStr.isNotEmpty) ...[
                       const SizedBox(width: 8),
-                      Text('Joined $approvedDateStr',
-                          style: _inter(size: 11)),
-                    ],
-                    if (approvedBy != null &&
-                        approvedBy.isNotEmpty) ...[
-                      const SizedBox(width: 4),
-                      Text('by $approvedBy',
-                          style: _inter(size: 11)),
+                      Flexible(
+                        child: Text(
+                          approvedBy != null && approvedBy.isNotEmpty
+                              ? 'Joined $approvedDateStr by $approvedBy'
+                              : 'Joined $approvedDateStr',
+                          style: _inter(size: 11),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ],
                 ),

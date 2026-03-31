@@ -3379,8 +3379,10 @@ class _Stage4CompleteView extends ConsumerStatefulWidget {
 }
 
 class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
-  bool _notifying = false;
-  bool _notified  = false;
+  bool _notifying   = false;
+  bool _notified    = false;
+  bool _notifyingLP = false;
+  bool _notifiedLP  = false;
 
   Future<void> _notify() async {
     if (_notifying || _notified) return;
@@ -3410,6 +3412,37 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
       }
     } finally {
       if (mounted) setState(() => _notifying = false);
+    }
+  }
+
+  Future<void> _notifyLP() async {
+    if (_notifyingLP || _notifiedLP) return;
+    setState(() => _notifyingLP = true);
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/trips/${widget.trip.id}/notify-lp');
+      if (mounted) {
+        setState(() { _notifiedLP = true; });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('LP team notified successfully!',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _success,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Notification failed: $e',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _notifyingLP = false);
     }
   }
 
@@ -3531,6 +3564,35 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
             ),
             const SizedBox(height: 12),
           ],
+
+          // ── Notify LP Team button (LP Worker only) ──
+          if (ref.watch(authProvider).user?.isLogisticPartnerWorker == true)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: (_notifyingLP || _notifiedLP) ? null : _notifyLP,
+              icon: _notifyingLP
+                  ? const SizedBox(width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Icon(_notifiedLP ? Icons.check_circle_rounded : Icons.group_rounded,
+                      size: 18),
+              label: Text(_notifiedLP
+                  ? 'LP Team Notified'
+                  : _notifyingLP
+                      ? 'Sending…'
+                      : 'Notify LP Team'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _notifiedLP ? _success : const Color(0xFF006B5E),
+                foregroundColor: Colors.white,
+                disabledBackgroundColor: _success.withValues(alpha: 0.7),
+                disabledForegroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
 
           // Back to Dashboard — secondary
           SizedBox(

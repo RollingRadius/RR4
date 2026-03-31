@@ -775,6 +775,67 @@ async def notify_stage4(
     }
 
 
+@router.post("/trips/{trip_id}/notify-lp", status_code=200)
+async def notify_lp(
+    trip_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Notify the LP company's own workers/owner that Stage 4 is complete."""
+    import uuid as _uuid_mod
+    from datetime import datetime, timezone
+
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
+        raise HTTPException(status_code=403, detail="Fleet managers only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.current_stage < 4:
+        raise HTTPException(status_code=409, detail="Complete Stage 4 first before notifying")
+
+    recipient_org_id = str(trip.organization_id)
+    title = "Trip Stage 4 Complete"
+    body = (
+        f"Trip {trip.trip_number} ({trip.origin} → {trip.destination}) "
+        "has completed all factory exit procedures. The truck is now on its way."
+    )
+
+    from app.models.notification import Notification
+    notif = Notification(
+        recipient_org_id=trip.organization_id,
+        trip_id=trip.id,
+        type="trip_complete",
+        title=title,
+        body=body,
+    )
+    db.add(notif)
+    db.commit()
+    db.refresh(notif)
+
+    from app.services.ws_manager import manager
+    message = {
+        "type":        "trip_complete",
+        "id":          str(notif.id),
+        "trip_id":     str(trip.id),
+        "trip_number": trip.trip_number,
+        "origin":      trip.origin,
+        "destination": trip.destination,
+        "title":       title,
+        "body":        body,
+        "is_read":     False,
+        "created_at":  notif.created_at.isoformat() if notif.created_at else None,
+    }
+    await manager.send_to_org(recipient_org_id, message)
+
+    return {
+        "success": True,
+        "message": "LP team notified.",
+        "realtime_clients": manager.connected_count(recipient_org_id),
+        "notification": notif.to_dict(),
+    }
+
+
 @router.patch("/trips/{trip_id}/cancel")
 def cancel_trip(
     trip_id: str,

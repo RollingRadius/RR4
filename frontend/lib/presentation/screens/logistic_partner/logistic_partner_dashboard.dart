@@ -162,7 +162,7 @@ class _TopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifState = ref.watch(notificationsProvider);
     final unread = notifState.items
-        .where((n) => !n.isRead && n.type == 'worker_request')
+        .where((n) => !n.isRead && (n.type == 'worker_request' || n.type == 'trip_complete'))
         .length;
 
     return SafeArea(
@@ -247,7 +247,7 @@ class _NotificationsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final workerNotifs =
-        items.where((n) => n.type == 'worker_request').toList();
+        items.where((n) => n.type == 'worker_request' || n.type == 'trip_complete').toList();
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
