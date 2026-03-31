@@ -691,59 +691,8 @@ def claim_stage(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Claim a stage for exclusive editing.
-    Workers: blocked if a different worker has an active (non-expired) claim or has already submitted.
-    Claims auto-expire after 30 min — handles app-close / logout / crash scenarios.
-    Owners: always bypass claim checks.
-    """
-    from datetime import datetime, timezone, timedelta
-
-    if stage not in (1, 2, 3, 4):
-        raise HTTPException(status_code=400, detail="Stage must be 1-4")
-
-    user_org = _get_user_org(current_user, db)
-    role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
-        raise HTTPException(status_code=403, detail="Fleet managers only")
-
-    trip = _get_fleet_trip(trip_id, user_org, db)
-
-    # Owners bypass all claim logic
-    if role_key != 'logistic_partner_worker':
-        return {"success": True, "message": "Owner access granted."}
-
-    claimed_by   = getattr(trip, f's{stage}_claimed_by')
-    claimed_at   = getattr(trip, f's{stage}_claimed_at')
-    submitted_by = getattr(trip, f's{stage}_submitted_by')
-
-    # Stage already submitted by a different worker — permanently blocked
-    if submitted_by is not None and str(submitted_by) != str(current_user.id):
-        raise HTTPException(
-            status_code=409,
-            detail=f"Stage {stage} has already been completed by another worker."
-        )
-
-    # Check if existing claim has expired (worker closed app, crashed, or logged out)
-    now = datetime.now(timezone.utc)
-    claim_expired = False
-    if claimed_at is not None:
-        claimed_at_utc = claimed_at if claimed_at.tzinfo else claimed_at.replace(tzinfo=timezone.utc)
-        claim_expired = (now - claimed_at_utc) > timedelta(minutes=30)
-
-    # Stage actively claimed by a different worker with a fresh claim — block
-    if (claimed_by is not None
-            and str(claimed_by) != str(current_user.id)
-            and not claim_expired):
-        raise HTTPException(
-            status_code=409,
-            detail=f"Stage {stage} is currently being worked on by another worker."
-        )
-
-    # Grant (or refresh) claim for this worker
-    setattr(trip, f's{stage}_claimed_by', current_user.id)
-    setattr(trip, f's{stage}_claimed_at', now)
-    db.commit()
-    return {"success": True, "message": f"Stage {stage} claimed."}
+    """Claim system disabled — any worker can access any stage freely."""
+    return {"success": True}
 
 
 @router.delete("/trips/{trip_id}/claim-stage/{stage}", status_code=200)
@@ -753,22 +702,7 @@ def release_stage_claim(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Release a stage claim when a worker exits without submitting.
-    The draft is preserved so any worker can pick up the remaining work.
-    """
-    if stage not in (1, 2, 3, 4):
-        raise HTTPException(status_code=400, detail="Stage must be 1-4")
-
-    user_org = _get_user_org(current_user, db)
-    trip = _get_fleet_trip(trip_id, user_org, db)
-
-    claimed_by = getattr(trip, f's{stage}_claimed_by')
-    # Only the claiming worker can release their own claim
-    if claimed_by is not None and str(claimed_by) == str(current_user.id):
-        setattr(trip, f's{stage}_claimed_by', None)
-        setattr(trip, f's{stage}_claimed_at', None)
-        db.commit()
-
+    """Claim system disabled — no-op."""
     return {"success": True}
 
 

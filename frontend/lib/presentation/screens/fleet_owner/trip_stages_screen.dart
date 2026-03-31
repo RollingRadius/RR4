@@ -96,53 +96,15 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
     _fetchFreshTrip();
   }
 
-  /// Claims a stage on the backend, then opens the form.
-  /// Workers are blocked if a different worker has already claimed or submitted the stage.
+  /// Opens a stage form. Both owners and workers can always open any stage freely.
   Future<void> _enterStage(int visualStage) async {
     final user = ref.read(authProvider).user;
     if (user == null) return;
-
-    // Owners skip the claim API — they can always edit
-    if (user.isLogisticPartner) {
-      setState(() => _editingStage = visualStage);
-      return;
-    }
-
-    // Workers must claim the stage first
-    final stageNumber = visualStage + 1; // visualStage is 0-based; API is 1-based
-    try {
-      final api = ref.read(apiServiceProvider);
-      await api.dio.post('/api/trips/${_trip.id}/claim-stage/$stageNumber');
-      setState(() => _editingStage = visualStage);
-    } on DioException catch (e) {
-      final msg = e.response?.data?['detail'] ?? 'Could not access this stage.';
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg), duration: const Duration(seconds: 3)),
-        );
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not access this stage.'), duration: Duration(seconds: 3)),
-        );
-      }
-    }
+    setState(() => _editingStage = visualStage);
   }
 
-  /// Releases a worker's stage claim when they exit without submitting.
-  Future<void> _releaseStage(int visualStage) async {
-    final user = ref.read(authProvider).user;
-    if (user == null || user.isLogisticPartner) return;
-
-    final stageNumber = visualStage + 1;
-    try {
-      final api = ref.read(apiServiceProvider);
-      await api.dio.delete('/api/trips/${_trip.id}/claim-stage/$stageNumber');
-    } catch (_) {
-      // Best-effort — ignore errors on release
-    }
-  }
+  /// No-op: claim blocking is disabled — nothing to release.
+  Future<void> _releaseStage(int visualStage) async {}
 
   /// Returns a tap handler for the step indicator.
   Function(int)? _buildStepTapHandler() {
