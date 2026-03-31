@@ -1248,8 +1248,6 @@ class _DashboardTab extends ConsumerWidget {
                     ),
                   ),
                 ),
-              const SizedBox(height: 24),
-              const _WorkerRequestsSection(),
             ],
           ),
         );

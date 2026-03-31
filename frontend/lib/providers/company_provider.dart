@@ -44,8 +44,8 @@ class CompanyNotifier extends StateNotifier<CompanyState> {
 
   CompanyNotifier(this._companyApi) : super(CompanyState());
 
-  /// Search companies
-  Future<void> searchCompanies(String query) async {
+  /// Search companies, optionally filtered by business type
+  Future<void> searchCompanies(String query, {String? businessType}) async {
     if (query.length < 3) {
       state = state.copyWith(searchResults: [], error: null);
       return;
@@ -54,7 +54,7 @@ class CompanyNotifier extends StateNotifier<CompanyState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final companies = await _companyApi.searchCompanies(query);
+      final companies = await _companyApi.searchCompanies(query, businessType: businessType);
 
       state = state.copyWith(
         searchResults: companies,

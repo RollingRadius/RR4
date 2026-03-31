@@ -27,6 +27,18 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
     super.dispose();
   }
 
+  /// Maps the selected role in signupData to the company business_type filter.
+  /// LP workers should only see logistic_partner companies, LO workers only load_owner.
+  String? get _businessTypeFilter {
+    final role = widget.signupData?['role'] as String?
+        ?? widget.signupData?['business_type'] as String?;
+    switch (role) {
+      case 'logistic_partner_worker': return 'logistic_partner';
+      case 'load_owner_worker':       return 'load_owner';
+      default:                        return null; // no filter — show all
+    }
+  }
+
   Future<void> _handleSearch(String query) async {
     if (query.length < 3) {
       ref.read(companyProvider.notifier).clearSearchResults();
@@ -37,7 +49,10 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
       _isSearching = true;
     });
 
-    await ref.read(companyProvider.notifier).searchCompanies(query);
+    await ref.read(companyProvider.notifier).searchCompanies(
+      query,
+      businessType: _businessTypeFilter,
+    );
 
     if (mounted) {
       setState(() {
@@ -174,7 +189,11 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
               child: TextField(
                 controller: _searchController,
                 decoration: InputDecoration(
-                  hintText: 'Search by company name (min 3 characters)',
+                  hintText: _businessTypeFilter == 'logistic_partner'
+                      ? 'Search logistic partner companies...'
+                      : _businessTypeFilter == 'load_owner'
+                          ? 'Search load owner companies...'
+                          : 'Search by company name (min 3 characters)',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(

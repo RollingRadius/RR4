@@ -636,9 +636,6 @@ class _DashboardTab extends ConsumerWidget {
             ),
           const SizedBox(height: 24),
 
-          if (!workerMode) _WorkerRequestsSection(),
-          if (!workerMode) const SizedBox(height: 24),
-
           _RecentActivity(),
         ],
       ),

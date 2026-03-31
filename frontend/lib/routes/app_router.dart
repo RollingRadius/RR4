@@ -245,10 +245,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // Worker Requests Screen (accessible by LP and LO owners)
+      // Worker Requests Screen (accessible by LP and LO owners only)
       GoRoute(
         path: AppConstants.routeWorkerRequests,
         name: 'worker-requests',
+        redirect: (context, state) {
+          final user = ref.read(authProvider).user;
+          if (user == null) return AppConstants.routeLogin;
+          if (!user.isLogisticPartner && !user.isLoadOwner) {
+            return AppConstants.routeDashboard;
+          }
+          return null;
+        },
         pageBuilder: (context, state) => const MaterialPage(
           child: WorkerRequestsScreen(),
         ),

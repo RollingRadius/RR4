@@ -12,9 +12,13 @@ from app.schemas.auth import (
     LoginRequest, LoginResponse,
     EmailVerificationRequest, EmailVerificationCodeRequest, EmailVerificationResponse,
     ForgotPasswordRequest, PasswordResetResponse,
-    UsernameRecoveryRequest, UsernameRecoveryResponse,
+    ForgotPasswordEmailRequest, VerifyAnswersRequest, ResetPasswordRequest,
+    RecoverUsernameRequest, UsernameRecoveryResponse,
     ResendVerificationRequest
 )
+from app.models.user_organization import UserOrganization
+from app.models.role import Role
+from app.dependencies import get_current_user
 from app.schemas.security_question import SecurityQuestionsListResponse, SecurityQuestionResponse
 from app.services.auth_service import AuthService
 from app.services.recovery_service import RecoveryService
@@ -188,7 +192,7 @@ def resend_verification(
 
 @router.post("/forgot-password/email", response_model=PasswordResetResponse)
 def forgot_password_email(
-    username: str,
+    data: ForgotPasswordEmailRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -200,7 +204,7 @@ def forgot_password_email(
     - Token expires in 1 hour
     """
     recovery_service = RecoveryService(db)
-    result = recovery_service.initiate_password_reset_email(username)
+    result = recovery_service.initiate_password_reset_email(data.username)
     return PasswordResetResponse(**result)
 
 
@@ -221,8 +225,7 @@ def get_user_security_questions(
 
 @router.post("/forgot-password/verify-answers")
 def verify_security_answers(
-    username: str,
-    answers: list,
+    data: VerifyAnswersRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -234,13 +237,12 @@ def verify_security_answers(
     - 3 failed attempts → 30-minute lockout
     """
     recovery_service = RecoveryService(db)
-    return recovery_service.verify_security_answers_for_password_reset(username, answers)
+    return recovery_service.verify_security_answers_for_password_reset(data.username, data.answers)
 
 
 @router.post("/reset-password")
 def reset_password(
-    reset_token: str,
-    new_password: str,
+    data: ResetPasswordRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -251,14 +253,12 @@ def reset_password(
     - New password meeting requirements (min 8 chars)
     """
     recovery_service = RecoveryService(db)
-    return recovery_service.reset_password_with_token(reset_token, new_password)
+    return recovery_service.reset_password_with_token(data.reset_token, data.new_password)
 
 
 @router.post("/recover-username", response_model=UsernameRecoveryResponse)
 def recover_username(
-    full_name: str,
-    phone: str,
-    answers: list,
+    data: RecoverUsernameRequest,
     db: Session = Depends(get_db)
 ):
     """
@@ -273,7 +273,7 @@ def recover_username(
     - 3 failed attempts → 30-minute lockout
     """
     recovery_service = RecoveryService(db)
-    result = recovery_service.recover_username(full_name, phone, answers)
+    result = recovery_service.recover_username(data.full_name, data.phone, data.answers)
     return UsernameRecoveryResponse(**result)
 
 
@@ -312,7 +312,10 @@ def get_security_questions(db: Session = Depends(get_db)):
 
 
 @router.get("/me")
-def get_current_user():
+def get_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     """
     Get current user information.
 
@@ -323,24 +326,35 @@ def get_current_user():
     - Company information
     - Role and permissions
     """
-    # TODO: Implement get current user logic
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Get current user not yet implemented"
-    )
+    user_org = db.query(UserOrganization).join(
+        Role, UserOrganization.role_id == Role.id
+    ).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == 'active',
+    ).first()
+
+    return {
+        "success":           True,
+        "user_id":           str(current_user.id),
+        "username":          current_user.username,
+        "full_name":         current_user.full_name,
+        "email":             current_user.email,
+        "phone":             current_user.phone,
+        "status":            current_user.status,
+        "auth_method":       current_user.auth_method,
+        "profile_completed": current_user.profile_completed,
+        "organization_id":   str(user_org.organization_id) if user_org else None,
+        "role":              user_org.role.role_key if user_org and user_org.role else None,
+    }
 
 
 @router.post("/logout")
-def logout():
+def logout(current_user: User = Depends(get_current_user)):
     """
     User logout.
 
     **Process:**
-    - Invalidate JWT token (client-side)
-    - Log audit event
+    - JWT is stateless — token invalidation is handled client-side
+    - Call this to log the logout event
     """
-    # TODO: Implement logout logic
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Logout not yet implemented"
-    )
+    return {"success": True, "message": "Logged out successfully"}

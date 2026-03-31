@@ -28,7 +28,7 @@ class CompanyService:
     def __init__(self, db: Session):
         self.db = db
 
-    def search_companies(self, query: str, limit: int = 3) -> dict:
+    def search_companies(self, query: str, limit: int = 3, business_type: str = None) -> dict:
         """
         Search companies by name.
 
@@ -57,10 +57,17 @@ class CompanyService:
         # Enforce max limit
         limit = min(limit, 3)
 
+        # Build base filter
+        base_filter = [
+            Organization.company_name.ilike(f"%{query}%"),
+            Organization.status == 'active',
+        ]
+        if business_type:
+            base_filter.append(Organization.business_type == business_type)
+
         # Search companies (case-insensitive partial match)
         companies = self.db.query(Organization).filter(
-            Organization.company_name.ilike(f"%{query}%"),
-            Organization.status == 'active'
+            *base_filter
         ).limit(limit).all()
 
         # Convert to search results
@@ -68,8 +75,7 @@ class CompanyService:
 
         # Check if there are more results
         total_count = self.db.query(func.count(Organization.id)).filter(
-            Organization.company_name.ilike(f"%{query}%"),
-            Organization.status == 'active'
+            *base_filter
         ).scalar()
 
         has_more = total_count > limit

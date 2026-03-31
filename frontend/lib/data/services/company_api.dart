@@ -7,14 +7,15 @@ class CompanyApi {
 
   CompanyApi(this._apiService);
 
-  /// Search companies
-  Future<List<CompanyModel>> searchCompanies(String query) async {
+  /// Search companies, optionally filtered by business type
+  Future<List<CompanyModel>> searchCompanies(String query, {String? businessType}) async {
     try {
       final response = await _apiService.dio.get(
         '/api/companies/search',
         queryParameters: {
           'q': query,
           'limit': 3,
+          if (businessType != null) 'business_type': businessType,
         },
       );
 

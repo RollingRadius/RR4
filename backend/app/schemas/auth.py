@@ -237,6 +237,31 @@ class UsernameRecoveryResponse(BaseModel):
     username: Optional[str] = None
 
 
+# Recovery request body models
+class ForgotPasswordEmailRequest(BaseModel):
+    """Request body for forgot-password via email"""
+    username: str = Field(..., min_length=3, max_length=50)
+
+
+class VerifyAnswersRequest(BaseModel):
+    """Request body for verifying security answers (password reset)"""
+    username: str = Field(..., min_length=3, max_length=50)
+    answers: List[str] = Field(..., min_length=3, max_length=3)
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request body for resetting password with token"""
+    reset_token: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class RecoverUsernameRequest(BaseModel):
+    """Request body for recovering a forgotten username"""
+    full_name: str = Field(..., min_length=2, max_length=255)
+    phone: str = Field(..., min_length=10, max_length=20)
+    answers: List[str] = Field(..., min_length=3, max_length=3)
+
+
 # Resend Verification Email
 class ResendVerificationRequest(BaseModel):
     """Resend verification email request"""

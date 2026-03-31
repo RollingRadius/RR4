@@ -5,6 +5,7 @@ Company search, validation, creation, and joining
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -24,10 +25,11 @@ router = APIRouter()
 def search_companies(
     q: str = Query(..., min_length=3, description="Search query (min 3 characters)"),
     limit: int = Query(3, ge=1, le=3, description="Max results (max 3)"),
+    business_type: Optional[str] = Query(None, description="Filter by business type (e.g. logistic_partner, load_owner)"),
     db: Session = Depends(get_db)
 ):
     """
-    Search companies by name.
+    Search companies by name, optionally filtered by business type.
 
     **Requirements:**
     - Minimum 3 characters in search query
@@ -36,21 +38,11 @@ def search_companies(
 
     **Use Cases:**
     - User searching for company to join during signup
-    - Autocomplete company selection
-
-    **Example:**
-    ```
-    GET /api/companies/search?q=ABC&limit=3
-    ```
-
-    **Returns:**
-    - List of matching companies (max 3)
-    - Company ID, name, city, state, business type
-    - Flag indicating if more results exist
+    - Autocomplete company selection (filtered by role)
     """
     company_service = CompanyService(db)
 
-    result = company_service.search_companies(query=q, limit=limit)
+    result = company_service.search_companies(query=q, limit=limit, business_type=business_type)
 
     return CompanySearchResponse(**result)
 
