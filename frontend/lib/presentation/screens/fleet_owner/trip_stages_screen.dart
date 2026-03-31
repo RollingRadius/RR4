@@ -3547,10 +3547,10 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                     : Icon(_notified ? Icons.check_circle_rounded : Icons.notifications_rounded,
                         size: 18),
                 label: Text(_notified
-                    ? 'Load Owner Notified'
+                    ? '${widget.trip.loadOwnerOrgName ?? 'Load Owner'} Notified'
                     : _notifying
                         ? 'Sending…'
-                        : 'Notify Load Owner'),
+                        : 'Notify ${widget.trip.loadOwnerOrgName ?? 'Load Owner'}'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _notified ? _success : _primary,
                   foregroundColor: Colors.white,
@@ -3577,10 +3577,10 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                   : Icon(_notifiedLP ? Icons.check_circle_rounded : Icons.group_rounded,
                       size: 18),
               label: Text(_notifiedLP
-                  ? 'LP Team Notified'
+                  ? '${widget.trip.lpOrgName ?? 'LP Team'} Notified'
                   : _notifyingLP
                       ? 'Sending…'
-                      : 'Notify LP Team'),
+                      : 'Notify ${widget.trip.lpOrgName ?? 'LP Team'}'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _notifiedLP ? _success : const Color(0xFF006B5E),
                 foregroundColor: Colors.white,

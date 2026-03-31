@@ -874,7 +874,9 @@ def cancel_trip(
 # ─── Internal enrichment ─────────────────────────────────────────────────────
 
 def _enrich(trip: Trip, db: Session) -> dict:
-    """Add vehicle plate and driver name to trip dict."""
+    """Add vehicle plate, driver name, and org names to trip dict."""
+    from app.models.company import Organization
+
     data = trip.to_dict()
 
     # Vehicle plate
@@ -896,5 +898,22 @@ def _enrich(trip: Trip, db: Session) -> dict:
             data["driver_name"] = d.full_name if d else None
         except Exception:
             data["driver_name"] = None
+
+    # LP org name (the trip's own organisation)
+    try:
+        lp_org = db.query(Organization).filter(Organization.id == trip.organization_id).first()
+        data["lp_org_name"] = lp_org.company_name if lp_org else None
+    except Exception:
+        data["lp_org_name"] = None
+
+    # Load owner org name
+    if trip.load_owner_org_id:
+        try:
+            lo_org = db.query(Organization).filter(Organization.id == trip.load_owner_org_id).first()
+            data["load_owner_org_name"] = lo_org.company_name if lo_org else None
+        except Exception:
+            data["load_owner_org_name"] = None
+    else:
+        data["load_owner_org_name"] = None
 
     return data

@@ -14,7 +14,9 @@ class TripModel {
   final String? invoiceNumber;
   final String status;
   final String organizationId;
+  final String? lpOrgName;
   final String? loadOwnerOrgId;
+  final String? loadOwnerOrgName;
   final String? vehicleId;
   final String? vehiclePlate;
   final String? vehicleModel;
@@ -94,7 +96,9 @@ class TripModel {
     this.invoiceNumber,
     required this.status,
     required this.organizationId,
+    this.lpOrgName,
     this.loadOwnerOrgId,
+    this.loadOwnerOrgName,
     this.vehicleId,
     this.vehiclePlate,
     this.vehicleModel,
@@ -168,7 +172,9 @@ class TripModel {
       invoiceNumber: json['invoice_number'] as String?,
       status: json['status'] as String? ?? 'ongoing',
       organizationId: json['organization_id'] as String,
+      lpOrgName: json['lp_org_name'] as String?,
       loadOwnerOrgId: json['load_owner_org_id'] as String?,
+      loadOwnerOrgName: json['load_owner_org_name'] as String?,
       vehicleId: json['vehicle_id'] as String?,
       vehiclePlate: json['vehicle_plate'] as String?,
       vehicleModel: json['vehicle_model'] as String?,
