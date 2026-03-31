@@ -92,6 +92,39 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
     _fetchFreshTrip();
   }
 
+  /// Returns a tap handler for the step indicator.
+  /// Owners can always tap any stage.
+  /// Workers can only tap a stage if no other worker has claimed it.
+  Function(int)? _buildStepTapHandler() {
+    final user = ref.read(authProvider).user;
+    if (user == null) return null;
+
+    // Owners can re-edit any stage freely
+    if (user.isLogisticPartner) return (i) => setState(() => _editingStage = i);
+
+    // Workers: check if each stage is claimed by a different worker
+    final submittedBy = [
+      _trip.s1SubmittedBy,
+      _trip.s2SubmittedBy,
+      _trip.s3SubmittedBy,
+      _trip.s4SubmittedBy,
+    ];
+
+    return (int i) {
+      final stageOwner = submittedBy[i];
+      if (stageOwner != null && stageOwner != user.userId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('This stage has been claimed by another worker.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+      setState(() => _editingStage = i);
+    };
+  }
+
   Widget _buildEditForm(int visualStage) {
     switch (visualStage) {
       case 0:
@@ -172,7 +205,7 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
           _StepIndicator(
             trip: _trip,
             stage4Done: _stage4Done,
-            onStepTap: (i) => setState(() => _editingStage = i),
+            onStepTap: _buildStepTapHandler(),
           ),
           if (state.error != null)
             Container(

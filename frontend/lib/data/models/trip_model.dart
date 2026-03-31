@@ -65,6 +65,12 @@ class TripModel {
   final String? s4CompletedAt;
   final String? s4NotifiedAt;
 
+  // ── Stage authorship (who submitted each stage) ───────────────────────────────
+  final String? s1SubmittedBy;
+  final String? s2SubmittedBy;
+  final String? s3SubmittedBy;
+  final String? s4SubmittedBy;
+
   // ── Draft (cross-device in-progress form data) ────────────────────────────────
   final Map<String, dynamic>? draftData;
 
@@ -124,6 +130,10 @@ class TripModel {
     this.s4MaterialChecked,
     this.s4CompletedAt,
     this.s4NotifiedAt,
+    this.s1SubmittedBy,
+    this.s2SubmittedBy,
+    this.s3SubmittedBy,
+    this.s4SubmittedBy,
     this.draftData,
   });
 
@@ -190,6 +200,10 @@ class TripModel {
       s4MaterialChecked:  json['s4_material_checked']   as bool?,
       s4CompletedAt:      json['s4_completed_at']       as String?,
       s4NotifiedAt:       json['s4_notified_at']        as String?,
+      s1SubmittedBy:      json['s1_submitted_by']       as String?,
+      s2SubmittedBy:      json['s2_submitted_by']       as String?,
+      s3SubmittedBy:      json['s3_submitted_by']       as String?,
+      s4SubmittedBy:      json['s4_submitted_by']       as String?,
       draftData:          json['draft_data'] as Map<String, dynamic>?,
     );
   }

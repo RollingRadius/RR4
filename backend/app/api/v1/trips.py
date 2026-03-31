@@ -372,6 +372,11 @@ async def submit_stage1(
 
     trip = _get_fleet_trip(trip_id, user_org, db)
 
+    # Stage lock: first worker to submit owns this stage; owners can always re-edit
+    if trip.s1_submitted_by is not None and role_key == 'logistic_partner_worker':
+        if str(trip.s1_submitted_by) != str(current_user.id):
+            raise HTTPException(status_code=409, detail="Stage 1 has already been completed by another worker.")
+
     # Helper: save an uploaded file and return its URL path.
     # Returns None (leave existing) if no new file was uploaded.
     async def _save_doc(upload: Optional[UploadFile], prefix: str) -> Optional[str]:
@@ -442,6 +447,12 @@ def submit_stage2(
     trip = _get_fleet_trip(trip_id, user_org, db)
     if trip.current_stage < 1:
         raise HTTPException(status_code=409, detail="Complete Stage 1 first")
+
+    # Stage lock: first worker to submit owns this stage; owners can always re-edit
+    if trip.s2_submitted_by is not None and role_key == 'logistic_partner_worker':
+        if str(trip.s2_submitted_by) != str(current_user.id):
+            raise HTTPException(status_code=409, detail="Stage 2 has already been completed by another worker.")
+
     was_already_submitted = trip.current_stage >= 2
     if not body.entry_permission:
         raise HTTPException(
@@ -527,6 +538,12 @@ async def submit_stage3(
     trip = _get_fleet_trip(trip_id, user_org, db)
     if trip.current_stage < 2:
         raise HTTPException(status_code=409, detail="Complete Stage 2 first")
+
+    # Stage lock: first worker to submit owns this stage; owners can always re-edit
+    if trip.s3_submitted_by is not None and role_key == 'logistic_partner_worker':
+        if str(trip.s3_submitted_by) != str(current_user.id):
+            raise HTTPException(status_code=409, detail="Stage 3 has already been completed by another worker.")
+
     was_already_submitted = trip.current_stage >= 3
 
     # Save bilty file
@@ -606,6 +623,12 @@ def submit_stage4(
     trip = _get_fleet_trip(trip_id, user_org, db)
     if trip.current_stage < 3:
         raise HTTPException(status_code=409, detail="Complete Stage 3 first")
+
+    # Stage lock: first worker to submit owns this stage; owners can always re-edit
+    if trip.s4_submitted_by is not None and role_key == 'logistic_partner_worker':
+        if str(trip.s4_submitted_by) != str(current_user.id):
+            raise HTTPException(status_code=409, detail="Stage 4 has already been completed by another worker.")
+
     was_already_submitted = trip.current_stage >= 4
 
     trip.s4_truck_moved       = body.truck_moved
