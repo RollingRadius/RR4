@@ -115,15 +115,7 @@ class Trip(Base):
     s3_submitted_by = Column(UUID(as_uuid=True), nullable=True)
     s4_submitted_by = Column(UUID(as_uuid=True), nullable=True)
 
-    # ── Stage Claims (who is currently working on each stage) ─────────────────────
-    s1_claimed_by = Column(UUID(as_uuid=True), nullable=True)
-    s2_claimed_by = Column(UUID(as_uuid=True), nullable=True)
-    s3_claimed_by = Column(UUID(as_uuid=True), nullable=True)
-    s4_claimed_by = Column(UUID(as_uuid=True), nullable=True)
-    s1_claimed_at = Column(TIMESTAMP(timezone=True), nullable=True)
-    s2_claimed_at = Column(TIMESTAMP(timezone=True), nullable=True)
-    s3_claimed_at = Column(TIMESTAMP(timezone=True), nullable=True)
-    s4_claimed_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    # Stage claim columns removed (claim system disabled)
 
     # ── Draft (cross-device in-progress form data) ───────────────────────────────
     draft_data = Column(JSONB, nullable=True)
