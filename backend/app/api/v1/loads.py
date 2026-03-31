@@ -480,7 +480,7 @@ def search_fleet_partners(
 
 
 @router.post("/{load_id}/fulfill", status_code=status.HTTP_201_CREATED)
-def fulfill_load_requirement(
+async def fulfill_load_requirement(
     load_id: str,
     payload: FulfillPayload,
     current_user: User = Depends(get_current_user),
@@ -567,6 +567,44 @@ def fulfill_load_requirement(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Unexpected error while creating trip: {str(exc)}"
         )
+
+    # ── Notify LP workers about new work ──────────────────────────────────────
+    try:
+        from app.models.notification import Notification
+        from app.services.ws_manager import manager
+
+        title = "New Trip Assigned"
+        body  = (
+            f"Trip {trip.trip_number} has been created: "
+            f"{trip.origin} → {trip.destination}. "
+            "Please check and begin stage processing."
+        )
+        notif = Notification(
+            recipient_org_id=fleet_company.id,
+            trip_id=trip.id,
+            type="new_work",
+            title=title,
+            body=body,
+        )
+        db.add(notif)
+        db.commit()
+        db.refresh(notif)
+
+        message = {
+            "type":        "new_work",
+            "id":          str(notif.id),
+            "trip_id":     str(trip.id),
+            "trip_number": trip.trip_number,
+            "origin":      trip.origin,
+            "destination": trip.destination,
+            "title":       title,
+            "body":        body,
+            "is_read":     False,
+            "created_at":  notif.created_at.isoformat() if notif.created_at else None,
+        }
+        await manager.send_to_org(str(fleet_company.id), message)
+    except Exception:
+        pass  # notification failure must never block the trip creation response
 
     return {
         "success": True,

@@ -139,7 +139,7 @@ class _LogisticPartnerDashboardState
       ),
       body: Column(
         children: [
-          _TopBar(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
+          _TopBar(onMenuTap: () => _scaffoldKey.currentState?.openDrawer(), workerMode: hideLoads),
           Expanded(
             child: IndexedStack(index: _navIndex, children: pages),
           ),
@@ -165,12 +165,16 @@ String _initials(String name) {
 
 class _TopBar extends ConsumerWidget {
   final VoidCallback onMenuTap;
-  const _TopBar({required this.onMenuTap});
+  final bool workerMode;
+  const _TopBar({required this.onMenuTap, this.workerMode = false});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifState = ref.watch(notificationsProvider);
-    final unread = notifState.unreadCount;
+    // Owners see worker_request badge, workers see new_work badge
+    final unread = workerMode
+        ? notifState.items.where((n) => !n.isRead && n.type == 'new_work').length
+        : notifState.items.where((n) => !n.isRead && n.type == 'worker_request').length;
 
     return SafeArea(
       bottom: false,
@@ -195,7 +199,7 @@ class _TopBar extends ConsumerWidget {
               ),
             ),
             GestureDetector(
-              onTap: () => _showNotificationsSheet(context, ref, notifState.items),
+              onTap: () => _showNotificationsSheet(context, ref, notifState.items, workerMode: workerMode),
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -234,12 +238,12 @@ class _TopBar extends ConsumerWidget {
   }
 
   void _showNotificationsSheet(
-      BuildContext context, WidgetRef ref, List<NotificationModel> items) {
+      BuildContext context, WidgetRef ref, List<NotificationModel> items, {bool workerMode = false}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _NotificationsSheet(items: items, ref: ref),
+      builder: (_) => _NotificationsSheet(items: items, ref: ref, workerMode: workerMode),
     );
   }
 }
@@ -249,13 +253,15 @@ class _TopBar extends ConsumerWidget {
 class _NotificationsSheet extends StatelessWidget {
   final List<NotificationModel> items;
   final WidgetRef ref;
-  const _NotificationsSheet({required this.items, required this.ref});
+  final bool workerMode;
+  const _NotificationsSheet({required this.items, required this.ref, this.workerMode = false});
 
   @override
   Widget build(BuildContext context) {
-    final workerNotifs = items
-        .where((n) => n.type == 'worker_request')
-        .toList();
+    // Owners see worker_request notifications; workers see new_work notifications
+    final workerNotifs = workerMode
+        ? items.where((n) => n.type == 'new_work').toList()
+        : items.where((n) => n.type == 'worker_request').toList();
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
@@ -335,7 +341,10 @@ class _NotificationsSheet extends StatelessWidget {
                                 .read(notificationsProvider.notifier)
                                 .markRead(n.id);
                             Navigator.pop(context);
-                            context.push(AppConstants.routeWorkerRequests);
+                            // Owner → go to worker requests; worker → just mark read
+                            if (!workerMode) {
+                              context.push(AppConstants.routeWorkerRequests);
+                            }
                           },
                         );
                       },

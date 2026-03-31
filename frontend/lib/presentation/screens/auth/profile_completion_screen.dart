@@ -220,7 +220,13 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
     if (query.isEmpty) return;
 
     try {
-      await ref.read(companyProvider.notifier).searchCompanies(query);
+      // Map selected worker type to the company business_type filter so only
+      // matching companies appear (LP workers → logistic_partner companies, etc.)
+      String? businessType;
+      if (_selectedWorkerType == 'logistic_partner_worker') businessType = 'logistic_partner';
+      if (_selectedWorkerType == 'load_owner_worker')       businessType = 'load_owner';
+
+      await ref.read(companyProvider.notifier).searchCompanies(query, businessType: businessType);
     } catch (e) {
       _showError('Failed to search companies: $e');
     }
