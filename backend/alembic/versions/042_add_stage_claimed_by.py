@@ -16,13 +16,22 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column('trips', sa.Column('s1_claimed_by', UUID(as_uuid=True), nullable=True))
-    op.add_column('trips', sa.Column('s2_claimed_by', UUID(as_uuid=True), nullable=True))
-    op.add_column('trips', sa.Column('s3_claimed_by', UUID(as_uuid=True), nullable=True))
-    op.add_column('trips', sa.Column('s4_claimed_by', UUID(as_uuid=True), nullable=True))
+    # Use IF NOT EXISTS so this is safe even if columns were added via direct SQL
+    op.execute(sa.text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS s1_claimed_by UUID"))
+    op.execute(sa.text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS s2_claimed_by UUID"))
+    op.execute(sa.text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS s3_claimed_by UUID"))
+    op.execute(sa.text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS s4_claimed_by UUID"))
+    op.execute(sa.text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS s1_claimed_at TIMESTAMP WITH TIME ZONE"))
+    op.execute(sa.text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS s2_claimed_at TIMESTAMP WITH TIME ZONE"))
+    op.execute(sa.text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS s3_claimed_at TIMESTAMP WITH TIME ZONE"))
+    op.execute(sa.text("ALTER TABLE trips ADD COLUMN IF NOT EXISTS s4_claimed_at TIMESTAMP WITH TIME ZONE"))
 
 
 def downgrade() -> None:
+    op.drop_column('trips', 's4_claimed_at')
+    op.drop_column('trips', 's3_claimed_at')
+    op.drop_column('trips', 's2_claimed_at')
+    op.drop_column('trips', 's1_claimed_at')
     op.drop_column('trips', 's4_claimed_by')
     op.drop_column('trips', 's3_claimed_by')
     op.drop_column('trips', 's2_claimed_by')
