@@ -69,6 +69,7 @@ import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_maintenance_history_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/presentation/screens/splash/splash_screen.dart';
 
 /// App Router Provider
 final routerProvider = Provider<GoRouter>((ref) {
@@ -82,9 +83,18 @@ final routerProvider = Provider<GoRouter>((ref) {
   }
 
   return GoRouter(
-    initialLocation: AppConstants.routeLogin,
+    initialLocation: '/splash',
     debugLogDiagnostics: true,
     routes: [
+      // Splash Screen
+      GoRoute(
+        path: '/splash',
+        name: 'splash',
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: SplashScreen(),
+        ),
+      ),
+
       // Authentication Routes
       GoRoute(
         path: AppConstants.routeLogin,

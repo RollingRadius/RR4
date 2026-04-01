@@ -463,8 +463,12 @@ class _PendingCard extends StatelessWidget {
                           const Icon(Icons.alternate_email_rounded,
                               size: 13, color: _secondary),
                           const SizedBox(width: 4),
-                          Text(username,
-                              style: _inter(size: 12)),
+                          Flexible(
+                            child: Text(username,
+                                style: _inter(size: 12),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
                         ],
                       ),
                       if (phone.isNotEmpty) ...[
@@ -474,7 +478,12 @@ class _PendingCard extends StatelessWidget {
                             const Icon(Icons.phone_rounded,
                                 size: 13, color: _secondary),
                             const SizedBox(width: 4),
-                            Text(phone, style: _inter(size: 12)),
+                            Flexible(
+                              child: Text(phone,
+                                  style: _inter(size: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
                           ],
                         ),
                       ],
@@ -494,7 +503,9 @@ class _PendingCard extends StatelessWidget {
                             style: _inter(
                                 size: 12,
                                 weight: FontWeight.w700,
-                                color: _primary)),
+                                color: _primary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
                       ),
                       if (dateStr.isNotEmpty) ...[
                         const SizedBox(height: 8),
@@ -503,8 +514,12 @@ class _PendingCard extends StatelessWidget {
                             const Icon(Icons.schedule_rounded,
                                 size: 12, color: _secondary),
                             const SizedBox(width: 4),
-                            Text('Requested: $dateStr',
-                                style: _inter(size: 11)),
+                            Flexible(
+                              child: Text('Requested: $dateStr',
+                                  style: _inter(size: 11),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
                           ],
                         ),
                       ],
@@ -696,7 +711,12 @@ class _AcceptedCard extends StatelessWidget {
                   const Icon(Icons.alternate_email_rounded,
                       size: 12, color: _secondary),
                   const SizedBox(width: 3),
-                  Text(username, style: _inter(size: 12)),
+                  Flexible(
+                    child: Text(username,
+                        style: _inter(size: 12),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ),
                 ]),
                 if (phone.isNotEmpty) ...[
                   const SizedBox(height: 2),
@@ -704,13 +724,19 @@ class _AcceptedCard extends StatelessWidget {
                     const Icon(Icons.phone_rounded,
                         size: 12, color: _secondary),
                     const SizedBox(width: 3),
-                    Text(phone, style: _inter(size: 12)),
+                    Flexible(
+                      child: Text(phone,
+                          style: _inter(size: 12),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
                   ]),
                 ],
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Container(
+                    Flexible(
+                      child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -721,8 +747,10 @@ class _AcceptedCard extends StatelessWidget {
                           style: _inter(
                               size: 11,
                               weight: FontWeight.w700,
-                              color: _success)),
-                    ),
+                              color: _success),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),),
                     if (approvedDateStr.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Flexible(

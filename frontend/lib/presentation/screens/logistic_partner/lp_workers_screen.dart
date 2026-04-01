@@ -678,19 +678,21 @@ class _WorkerCard extends StatelessWidget {
                       child: Text(entry.roleLabel, style: _i(s: 10, w: FontWeight.w600, c: accent)),
                     ),
                     const SizedBox(width: 6),
-                    Text('@${entry.username}', style: _i(s: 11)),
+                    Flexible(
+                      child: Text('@${entry.username}', style: _i(s: 11),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 // Per-stage item points breakdown
-                Row(
+                Wrap(
+                  spacing: 5,
+                  runSpacing: 4,
                   children: [
                     _StagePip(label: 'S1', count: entry.s1, max: 13),
-                    const SizedBox(width: 5),
                     _StagePip(label: 'S2', count: entry.s2, max: 5),
-                    const SizedBox(width: 5),
                     _StagePip(label: 'S3', count: entry.s3, max: 10),
-                    const SizedBox(width: 5),
                     _StagePip(label: 'S4', count: entry.s4, max: 5),
                   ],
                 ),
