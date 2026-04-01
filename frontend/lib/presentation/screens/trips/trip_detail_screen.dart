@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -31,13 +32,39 @@ TextStyle _inter({
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-class TripDetailScreen extends ConsumerWidget {
+class TripDetailScreen extends ConsumerStatefulWidget {
   final TripModel trip;
   final bool readOnly;
   const TripDetailScreen({super.key, required this.trip, this.readOnly = false});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TripDetailScreen> createState() => _TripDetailScreenState();
+}
+
+class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) ref.read(tripProvider.notifier).fetchSingleTrip(widget.trip.id);
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final trip = ref.watch(tripProvider).trips
+            .where((t) => t.id == widget.trip.id)
+            .firstOrNull ??
+        widget.trip;
+
     return Scaffold(
       backgroundColor: _bg,
       body: CustomScrollView(
@@ -74,7 +101,7 @@ class TripDetailScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ── Go to Present Stage button — fleet management only ───
-                  if (!readOnly && trip.currentStage < 4) ...[
+                  if (!widget.readOnly && trip.currentStage < 4) ...[
                     _GoToStageButton(trip: trip),
                     const SizedBox(height: 14),
                   ],

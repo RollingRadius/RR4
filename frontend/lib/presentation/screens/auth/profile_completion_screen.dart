@@ -560,6 +560,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
           description: 'Work at a cargo/load company',
           icon: Icons.inventory_2_outlined,
           color: Colors.blue,
+          comingSoon: true,
         ),
 
         if (_selectedWorkerType != null) ...[
@@ -656,17 +657,45 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
     required String description,
     required IconData icon,
     required Color color,
+    bool comingSoon = false,
   }) {
     final isSelected = _selectedWorkerType == value;
+    return Opacity(
+      opacity: comingSoon ? 0.5 : 1.0,
+      child: _WorkerTypeCardInner(
+        value: value, title: title, description: description,
+        icon: icon, color: color, comingSoon: comingSoon,
+        isSelected: isSelected,
+        onTap: comingSoon ? null : () => setState(() {
+          _selectedWorkerType = value;
+          _selectedCompanyId = null;
+          _selectedCompanyName = null;
+          _companySearchController.clear();
+          ref.read(companyProvider.notifier).clearSearchResults();
+        }),
+      ),
+    );
+  }
+}
+
+// ─── Helper widget to avoid Opacity + InkWell nesting issues ─────────────────
+class _WorkerTypeCardInner extends StatelessWidget {
+  final String value, title, description;
+  final IconData icon;
+  final Color color;
+  final bool comingSoon, isSelected;
+  final VoidCallback? onTap;
+
+  const _WorkerTypeCardInner({
+    required this.value, required this.title, required this.description,
+    required this.icon, required this.color, required this.comingSoon,
+    required this.isSelected, required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => setState(() {
-        _selectedWorkerType = value;
-        // Reset company when type changes
-        _selectedCompanyId = null;
-        _selectedCompanyName = null;
-        _companySearchController.clear();
-        ref.read(companyProvider.notifier).clearSearchResults();
-      }),
+      onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -711,14 +740,29 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                 ],
               ),
             ),
-            if (isSelected)
+            if (comingSoon)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Coming Soon',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[600]),
+                ),
+              )
+            else if (isSelected)
               Icon(Icons.check_circle, color: color, size: 20),
           ],
         ),
       ),
     );
   }
+}
 
+// ─── Back in main state class ─────────────────────────────────────────────────
+extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState {
   Widget _buildCreateCompanyForm() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

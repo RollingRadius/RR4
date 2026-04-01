@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -35,14 +36,34 @@ final _tripDetailProvider =
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
-class ShipmentDetailsScreen extends ConsumerWidget {
+class ShipmentDetailsScreen extends ConsumerStatefulWidget {
   final TripModel trip;
-
   const ShipmentDetailsScreen({super.key, required this.trip});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final detailAsync = ref.watch(_tripDetailProvider(trip.id));
+  ConsumerState<ShipmentDetailsScreen> createState() => _ShipmentDetailsScreenState();
+}
+
+class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (mounted) ref.invalidate(_tripDetailProvider(widget.trip.id));
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final detailAsync = ref.watch(_tripDetailProvider(widget.trip.id));
 
     return Scaffold(
       backgroundColor: _background,
@@ -56,37 +77,40 @@ class ShipmentDetailsScreen extends ConsumerWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          trip.tripNumber,
+          widget.trip.tripNumber,
           style: GoogleFonts.manrope(
               fontSize: 16, fontWeight: FontWeight.w800, color: _onSurface),
         ),
         actions: [
           detailAsync.whenOrNull(
-            data: (fullTrip) => fullTrip.currentStage >= 3
-                ? Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: TextButton.icon(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => TruckTrackingScreen(
-                            trip: fullTrip,
-                            emptyWeightUnit:
-                                fullTrip.s3EmptyTruckWeightUnit ?? 'tons',
-                            loadedWeightUnit:
-                                fullTrip.s3LoadedTruckWeightUnit ?? 'tons',
-                          ),
+            data: (fullTrip) => Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (fullTrip.currentStage >= 3)
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => TruckTrackingScreen(
+                          trip: fullTrip,
+                          emptyWeightUnit:
+                              fullTrip.s3EmptyTruckWeightUnit ?? 'tons',
+                          loadedWeightUnit:
+                              fullTrip.s3LoadedTruckWeightUnit ?? 'tons',
                         ),
                       ),
-                      icon: const Icon(Icons.local_shipping_rounded,
-                          size: 16, color: _primary),
-                      label: Text('Track',
-                          style: GoogleFonts.manrope(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: _primary)),
                     ),
-                  )
-                : const SizedBox.shrink(),
+                    icon: const Icon(Icons.local_shipping_rounded,
+                        size: 16, color: _primary),
+                    label: Text('Track',
+                        style: GoogleFonts.manrope(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _primary)),
+                  ),
+                _StatusBadge(status: fullTrip.status),
+                const SizedBox(width: 8),
+              ],
+            ),
           ) ??
               const SizedBox.shrink(),
         ],
@@ -113,7 +137,7 @@ class ShipmentDetailsScreen extends ConsumerWidget {
                   textAlign: TextAlign.center),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: () => ref.invalidate(_tripDetailProvider(trip.id)),
+                onPressed: () => ref.invalidate(_tripDetailProvider(widget.trip.id)),
                 child: const Text('Retry'),
               ),
             ],

@@ -62,9 +62,12 @@ class ApiService {
       onError: (DioException error, ErrorInterceptorHandler handler) async {
         // Auto-handle 401: try refresh once, then force logout
         if (error.response?.statusCode == 401 && _onRefresh != null) {
-          // Don't retry the refresh-token endpoint itself (avoids loops)
-          final isRefreshCall = error.requestOptions.path.contains('/refresh-token');
-          if (!isRefreshCall) {
+          // Don't retry auth endpoints — login/signup failures are not token issues
+          final path = error.requestOptions.path;
+          final isAuthCall = path.contains('/refresh-token') ||
+              path.contains('/auth/login') ||
+              path.contains('/auth/signup');
+          if (!isAuthCall) {
             final refreshed = await _onRefresh!();
             if (refreshed) {
               // Retry original request with the updated token
