@@ -156,3 +156,11 @@ final tripProvider =
   final api = ref.watch(apiServiceProvider);
   return TripNotifier(api);
 });
+
+/// Separate provider for completed trips — used by LP Records tab.
+/// Keeps completed trips isolated from the active-trips list in tripProvider.
+final completedTripsProvider =
+    StateNotifierProvider<TripNotifier, TripState>((ref) {
+  final api = ref.watch(apiServiceProvider);
+  return TripNotifier(api);
+});
