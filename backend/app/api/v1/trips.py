@@ -130,7 +130,7 @@ def list_trips(
 
     return {
         "total": total,
-        "trips": [_enrich(t, db) for t in trips],
+        "trips": _enrich_bulk(trips, db),
     }
 
 
@@ -872,6 +872,43 @@ def cancel_trip(
 
 
 # ─── Internal enrichment ─────────────────────────────────────────────────────
+
+def _enrich_bulk(trips: list, db: Session) -> list:
+    """Batch-enrich a list of trips — 4 queries total regardless of trip count."""
+    if not trips:
+        return []
+
+    from app.models.company import Organization
+    from app.models.vehicle import Vehicle
+    from app.models.driver import Driver
+
+    # Collect unique IDs
+    vehicle_ids = {t.vehicle_id for t in trips if t.vehicle_id}
+    driver_ids  = {t.driver_id  for t in trips if t.driver_id}
+    org_ids     = {t.organization_id for t in trips if t.organization_id} | \
+                  {t.load_owner_org_id for t in trips if t.load_owner_org_id}
+
+    # Single query per type
+    vehicles = {v.id: v for v in db.query(Vehicle).filter(Vehicle.id.in_(vehicle_ids)).all()} if vehicle_ids else {}
+    drivers  = {d.id: d for d in db.query(Driver).filter(Driver.id.in_(driver_ids)).all()}   if driver_ids  else {}
+    orgs     = {o.id: o for o in db.query(Organization).filter(Organization.id.in_(org_ids)).all()} if org_ids else {}
+
+    result = []
+    for trip in trips:
+        data = trip.to_dict()
+        v = vehicles.get(trip.vehicle_id)
+        data["vehicle_plate"] = v.vehicle_number if v else None
+        data["vehicle_model"] = v.model if v else None
+        d = drivers.get(trip.driver_id)
+        data["driver_name"] = d.full_name if d else None
+        lp_org = orgs.get(trip.organization_id)
+        data["lp_org_name"] = lp_org.company_name if lp_org else None
+        lo_org = orgs.get(trip.load_owner_org_id)
+        data["load_owner_org_name"] = lo_org.company_name if lo_org else None
+        result.append(data)
+
+    return result
+
 
 def _enrich(trip: Trip, db: Session) -> dict:
     """Add vehicle plate, driver name, and org names to trip dict."""
