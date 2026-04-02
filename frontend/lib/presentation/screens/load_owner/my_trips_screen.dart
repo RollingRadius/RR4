@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/load_provider.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
@@ -54,12 +53,6 @@ class _MyTripsScreenState extends ConsumerState<MyTripsScreen> {
     });
   }
 
-  String _initials(String name) {
-    final parts = name.trim().split(' ');
-    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-    return name.isNotEmpty ? name[0].toUpperCase() : 'JD';
-  }
-
   Future<void> _onRefresh() async {
     await Future.wait([
       ref.read(tripProvider.notifier).silentRefresh(),
@@ -69,10 +62,11 @@ class _MyTripsScreenState extends ConsumerState<MyTripsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authProvider).user;
     final tripState = ref.watch(tripProvider);
     final loadState = ref.watch(loadProvider);
-    final initials = _initials(user?.fullName ?? 'JD');
+
+    final sortedLoads = [...loadState.loads]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
     final isFirstLoad = (tripState.isLoading && tripState.trips.isEmpty) ||
         (loadState.isLoading && loadState.loads.isEmpty);
@@ -81,7 +75,6 @@ class _MyTripsScreenState extends ConsumerState<MyTripsScreen> {
 
     return Scaffold(
       backgroundColor: _bg,
-      appBar: _TripAppBar(initials: initials),
       body: RefreshIndicator(
         color: _orange,
         onRefresh: _onRefresh,
@@ -128,9 +121,9 @@ class _MyTripsScreenState extends ConsumerState<MyTripsScreen> {
                             (ctx, i) => Padding(
                               padding:
                                   const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                              child: _LoadCard(load: loadState.loads[i]),
+                              child: _LoadCard(load: sortedLoads[i]),
                             ),
-                            childCount: loadState.loads.length,
+                            childCount: sortedLoads.length,
                           ),
                         ),
                         const SliverToBoxAdapter(
@@ -196,67 +189,6 @@ class _MyTripsScreenState extends ConsumerState<MyTripsScreen> {
   }
 }
 
-// ── App bar ───────────────────────────────────────────────────────────────────
-
-class _TripAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final String initials;
-  const _TripAppBar({required this.initials});
-
-  @override
-  Size get preferredSize => const Size.fromHeight(68);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _bg,
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2))
-        ],
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: SizedBox(
-          height: 68,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            child: Row(
-              children: [
-                GestureDetector(
-                  onTap: () => context.pop(),
-                  child: const Icon(Icons.arrow_back_ios_new_rounded,
-                      color: _navy, size: 22),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text('RR Logistics',
-                      style: _manrope(
-                          size: 19, weight: FontWeight.w900, color: _navy)),
-                ),
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: const BoxDecoration(
-                      shape: BoxShape.circle, color: Color(0xFF003366)),
-                  child: Center(
-                    child: Text(initials,
-                        style: GoogleFonts.manrope(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ── Header ────────────────────────────────────────────────────────────────────
 
@@ -407,12 +339,170 @@ class _SectionLabel extends StatelessWidget {
 
 // ── Load Card ─────────────────────────────────────────────────────────────────
 
-class _LoadCard extends StatelessWidget {
+class _LoadCard extends ConsumerStatefulWidget {
   final LoadRequirementModel load;
   const _LoadCard({required this.load});
 
   @override
+  ConsumerState<_LoadCard> createState() => _LoadCardState();
+}
+
+class _LoadCardState extends ConsumerState<_LoadCard> {
+  bool _cancelling = false;
+
+  void _showDetails(BuildContext context) {
+    final load = widget.load;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      isScrollControlled: true,
+      builder: (_) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                    color: _outlineVariant,
+                    borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Text('Load Details',
+                    style: _manrope(
+                        size: 17, weight: FontWeight.w800, color: _navy)),
+                const Spacer(),
+                _LoadStatusBadge(status: load.status),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(load.refId,
+                style: _inter(
+                    size: 12, weight: FontWeight.w600, color: _onSurfaceVariant)),
+            const Divider(height: 24),
+            _RouteVisual(
+              origin: load.pickupLocation ?? '—',
+              destination: load.unloadLocation ?? '—',
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 20,
+              runSpacing: 12,
+              children: [
+                if (load.materialType != null)
+                  _MiniField(label: 'MATERIAL', value: load.materialType!),
+                _MiniField(label: 'TRUCKS', value: '${load.truckCount}'),
+                if (load.entryDate != null)
+                  _MiniField(label: 'ENTRY DATE', value: load.entryDate!),
+                if (load.capacity != null)
+                  _MiniField(label: 'CAPACITY', value: load.capacity!),
+                if (load.axelType != null)
+                  _MiniField(label: 'AXEL TYPE', value: load.axelType!),
+                if (load.bodyType != null)
+                  _MiniField(label: 'BODY TYPE', value: load.bodyType!),
+                _MiniField(label: 'POSTED ON', value: load.displayDate),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _track(BuildContext context) {
+    final trips = ref.read(tripProvider).trips;
+    final pickup = widget.load.pickupLocation;
+    TripModel? match;
+    if (pickup != null) {
+      try {
+        match = trips.firstWhere((t) =>
+            t.origin.toLowerCase().contains(pickup.toLowerCase()) ||
+            pickup.toLowerCase().contains(t.origin.toLowerCase()));
+      } catch (_) {
+        match = null;
+      }
+    }
+    if (match != null) {
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => TripLocateScreen(trip: match!, location: null),
+      ));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No active trip assigned to this load yet.',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _navy,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmCancel(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Cancel Load',
+            style: _manrope(size: 16, weight: FontWeight.w700, color: _navy)),
+        content: Text(
+          'Are you sure you want to cancel ${widget.load.refId}? This cannot be undone.',
+          style: _inter(size: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Keep', style: _manrope(size: 13, color: _onSurfaceVariant)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('Cancel Load',
+                style: _manrope(
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: const Color(0xFFBA1A1A))),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+    setState(() => _cancelling = true);
+    final ok =
+        await ref.read(loadProvider.notifier).cancelLoad(widget.load.id);
+    if (!mounted) return;
+    setState(() => _cancelling = false);
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ref.read(loadProvider).error ?? 'Failed to cancel.',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: const Color(0xFFBA1A1A),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final load = widget.load;
+    final isCancelled = load.status == 'cancelled';
+
     return Container(
       decoration: BoxDecoration(
         color: _surface,
@@ -424,65 +514,180 @@ class _LoadCard extends StatelessWidget {
               offset: const Offset(0, 2))
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Ref ID + status
-            Row(
+      child: Column(
+        children: [
+          // ── Card body ─────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Ref ID + status
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('LOAD REF',
+                              style: _inter(
+                                      size: 9,
+                                      weight: FontWeight.w700,
+                                      color: _onSurfaceVariant)
+                                  .copyWith(letterSpacing: 1.2)),
+                          Text(load.refId,
+                              style: _manrope(
+                                  size: 15,
+                                  weight: FontWeight.w800,
+                                  color: _navy)),
+                        ],
+                      ),
+                    ),
+                    _LoadStatusBadge(status: load.status),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                _RouteVisual(
+                  origin: load.pickupLocation ?? '—',
+                  destination: load.unloadLocation ?? '—',
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 10,
+                  children: [
+                    if (load.materialType != null)
+                      _MiniField(label: 'MATERIAL', value: load.materialType!),
+                    _MiniField(label: 'TRUCKS', value: '${load.truckCount}'),
+                    if (load.entryDate != null)
+                      _MiniField(label: 'DATE', value: load.entryDate!),
+                    if (load.capacity != null)
+                      _MiniField(label: 'CAPACITY', value: load.capacity!),
+                    if (load.axelType != null)
+                      _MiniField(label: 'AXEL', value: load.axelType!),
+                    if (load.bodyType != null)
+                      _MiniField(label: 'BODY', value: load.bodyType!),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // ── Divider ───────────────────────────────────────────────
+          Divider(
+              height: 1,
+              color: _outlineVariant.withValues(alpha: 0.5),
+              indent: 18,
+              endIndent: 18),
+
+          // ── Action buttons ────────────────────────────────────────
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                // View Details
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('LOAD REF',
-                          style: _inter(
-                                  size: 9,
+                  child: InkWell(
+                    onTap: () => _showDetails(context),
+                    borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(18)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 6),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.info_outline_rounded,
+                              size: 14, color: _onSurfaceVariant),
+                          const SizedBox(width: 4),
+                          Text('Details',
+                              style: _inter(
+                                  size: 12,
                                   weight: FontWeight.w700,
-                                  color: _onSurfaceVariant)
-                              .copyWith(letterSpacing: 1.2)),
-                      Text(load.refId,
-                          style: _manrope(
-                              size: 15,
-                              weight: FontWeight.w800,
-                              color: _navy)),
-                    ],
+                                  color: _onSurfaceVariant)),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
-                _LoadStatusBadge(status: load.status),
+                VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: _outlineVariant.withValues(alpha: 0.5)),
+
+                // Track
+                Expanded(
+                  child: InkWell(
+                    onTap: () => _track(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 6),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.location_on_rounded,
+                              size: 14, color: _orange),
+                          const SizedBox(width: 4),
+                          Text('Track',
+                              style: _inter(
+                                  size: 12,
+                                  weight: FontWeight.w700,
+                                  color: _orange)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: _outlineVariant.withValues(alpha: 0.5)),
+
+                // Cancel
+                Expanded(
+                  child: InkWell(
+                    onTap: (isCancelled || _cancelling)
+                        ? null
+                        : () => _confirmCancel(context),
+                    borderRadius: const BorderRadius.only(
+                        bottomRight: Radius.circular(18)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 6),
+                      child: _cancelling
+                          ? const Center(
+                              child: SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFFBA1A1A)),
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.cancel_outlined,
+                                    size: 14,
+                                    color: isCancelled
+                                        ? _outlineVariant
+                                        : const Color(0xFFBA1A1A)),
+                                const SizedBox(width: 4),
+                                Text('Cancel',
+                                    style: _inter(
+                                        size: 12,
+                                        weight: FontWeight.w700,
+                                        color: isCancelled
+                                            ? _outlineVariant
+                                            : const Color(0xFFBA1A1A))),
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 16),
-
-            // Route visual
-            _RouteVisual(
-              origin: load.pickupLocation ?? '—',
-              destination: load.unloadLocation ?? '—',
-            ),
-            const SizedBox(height: 16),
-
-            // Info chips
-            Wrap(
-              spacing: 16,
-              runSpacing: 10,
-              children: [
-                if (load.materialType != null)
-                  _MiniField(label: 'MATERIAL', value: load.materialType!),
-                _MiniField(
-                    label: 'TRUCKS', value: '${load.truckCount}'),
-                if (load.entryDate != null)
-                  _MiniField(label: 'DATE', value: load.entryDate!),
-                if (load.capacity != null)
-                  _MiniField(label: 'CAPACITY', value: load.capacity!),
-                if (load.axelType != null)
-                  _MiniField(label: 'AXEL', value: load.axelType!),
-                if (load.bodyType != null)
-                  _MiniField(label: 'BODY', value: load.bodyType!),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -1013,7 +1013,7 @@ class _UploadLoadRequirementScreenState
                       focusNode: _partnerFocusNode,
                       style: const TextStyle(fontSize: 14, color: Color(0xFF191C1E)),
                       decoration: InputDecoration(
-                        hintText: 'Search by company or name…',
+                        hintText: 'Search Logistic Partner here',
                         hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF737780)),
                         prefixIcon: _partnerSearchLoading
                             ? const SizedBox(
@@ -1167,15 +1167,6 @@ class _UploadLoadRequirementScreenState
                 ),
               ),
 
-              const SizedBox(height: 12),
-
-              // ── Logistic Partner (Coming Soon) ──────────────────────
-              _partnerTypeRow(
-                icon: Icons.handshake_outlined,
-                label: 'Logistic Partner',
-                comingSoon: true,
-                child: const SizedBox.shrink(),
-              ),
 
               // ── Selected chip ──────────────────────────────────────
               if (_selectedPartner != null) ...[
@@ -1744,9 +1735,30 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
         child: SingleChildScrollView(
           child: Column(
             children: [
+              // ── Top left back button ──────────────────────────────────
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 0, 0),
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      context.go(AppConstants.routeLoadOwnerHome);
+                    },
+                    icon: const Icon(Icons.arrow_back, size: 18),
+                    label: const Text('Loads'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: _primary,
+                      textStyle: const TextStyle(
+                          fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ),
+
               // ── Centered success content ──────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 56, 24, 32),
+                padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
                 child: Column(
                   children: [
                     // Animated icon

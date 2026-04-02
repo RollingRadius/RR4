@@ -125,6 +125,18 @@ class LoadNotifier extends StateNotifier<LoadState> {
     }
   }
 
+  /// Cancel a load requirement by ID.
+  Future<bool> cancelLoad(String id) async {
+    try {
+      await _api.dio.patch('/api/loads/$id/cancel');
+      await silentRefresh();
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: _api.handleError(e));
+      return false;
+    }
+  }
+
   /// Submit a new manual load requirement. Returns the created model on
   /// success, null on failure (error stored in state).
   Future<LoadRequirementModel?> createLoad({

@@ -82,6 +82,21 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
       });
       // Keep the main trips list in sync
       ref.read(tripProvider.notifier).patchTrip(fresh);
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() => _fetchingFresh = false);
+      final msg = e.response?.data?['detail'] as String? ??
+          'Failed to load trip details. Please try again.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
     } catch (_) {
       if (mounted) setState(() => _fetchingFresh = false);
     }

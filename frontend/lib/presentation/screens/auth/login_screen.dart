@@ -212,22 +212,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Column(
                         children: [
                           // Branding
-                          Container(
-                            width: 64,
-                            height: 64,
-                            decoration: BoxDecoration(
-                              color: AppTheme.primaryBlue,
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppTheme.primaryBlue.withOpacity(0.3),
-                                  blurRadius: 20,
-                                  offset: const Offset(0, 8),
-                                ),
-                              ],
-                            ),
-                            child: const Icon(Icons.local_shipping_outlined,
-                                color: Colors.white, size: 36),
+                          Image.asset(
+                            'assest/images/app-logo.png',
+                            width: 90,
+                            height: 90,
                           ),
                           const SizedBox(height: 20),
                           const Text(
