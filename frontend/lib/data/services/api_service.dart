@@ -62,7 +62,7 @@ class ApiService {
       onError: (DioException error, ErrorInterceptorHandler handler) async {
         // Auto-handle 401: try refresh once, then force logout
         if (error.response?.statusCode == 401 && _onRefresh != null) {
-          // Don't retry auth endpoints — login/signup failures are not token issues
+          // Don't retry auth or refresh endpoints — those failures are not retryable
           final path = error.requestOptions.path;
           final isAuthCall = path.contains('/refresh-token') ||
               path.contains('/auth/login') ||
@@ -81,7 +81,16 @@ class ApiService {
                 // retry also failed — fall through to logout
               }
             }
-            await _onLogout?.call();
+            // Only logout if the failed path is one the user is authorized to access.
+            // 401 on LP-only endpoints (stages, claims) for a load_owner are
+            // permission errors — do not log the user out.
+            final isLpOnly = path.contains('/claim-stage') ||
+                path.contains('/submit-stage') ||
+                path.contains('/stage/') ||
+                path.contains('/save-draft');
+            if (!isLpOnly) {
+              await _onLogout?.call();
+            }
           }
         }
         handler.next(error);

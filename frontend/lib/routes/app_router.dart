@@ -82,9 +82,27 @@ final routerProvider = Provider<GoRouter>((ref) {
     return AppConstants.routeLogin;
   }
 
+  // Listen to auth state so router refreshes when user logs out
+  final authNotifier = ValueNotifier<int>(0);
+  ref.listen(authProvider, (_, __) => authNotifier.value++);
+
   return GoRouter(
     initialLocation: '/splash',
     debugLogDiagnostics: true,
+    refreshListenable: authNotifier,
+    redirect: (context, state) {
+      final auth = ref.read(authProvider);
+      if (!auth.isInitialized) return null;
+
+      final isOnAuthPage = state.matchedLocation == AppConstants.routeLogin ||
+          state.matchedLocation == AppConstants.routeSignup ||
+          state.matchedLocation == '/splash';
+
+      if (!auth.isAuthenticated && !isOnAuthPage) {
+        return AppConstants.routeLogin;
+      }
+      return null;
+    },
     routes: [
       // Splash Screen
       GoRoute(
