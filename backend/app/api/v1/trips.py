@@ -958,6 +958,10 @@ def _enrich_bulk(trips: list, db: Session) -> list:
     result = []
     for trip in trips:
         data = trip.to_dict()
+        # Strip draft_data from list responses — it can contain large base64 blobs
+        # (e.g. Aadhaar / DL images) that bloat the payload significantly.
+        # draft_data is only needed when resuming a single draft form.
+        data.pop("draft_data", None)
         v = vehicles.get(trip.vehicle_id)
         data["vehicle_plate"] = v.vehicle_number if v else None
         data["vehicle_model"] = v.model if v else None
