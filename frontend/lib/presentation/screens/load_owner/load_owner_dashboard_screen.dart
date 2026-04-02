@@ -161,6 +161,7 @@ class _LoadOwnerDashboardScreenState
           ref.invalidate(_loadsProvider);
           setState(() => _navIndex = 1);
         },
+        onTrackTrips: () => setState(() => _navIndex = 2),
       ),
     ];
     Future.microtask(

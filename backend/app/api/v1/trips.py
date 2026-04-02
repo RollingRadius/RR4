@@ -871,6 +871,68 @@ def cancel_trip(
     return {"success": True, "message": "Trip cancelled successfully.", "trip": _enrich(trip, db)}
 
 
+@router.post("/trips/{trip_id}/complete", status_code=200)
+async def complete_trip(
+    trip_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mark a trip as completed (LP owner/admin only). Notifies the load owner."""
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'super_admin'):
+        raise HTTPException(status_code=403, detail="Only the logistic partner can mark a trip as completed")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+
+    if trip.status == 'completed':
+        raise HTTPException(status_code=409, detail="Trip is already completed.")
+    if trip.status == 'cancelled':
+        raise HTTPException(status_code=409, detail="Cancelled trips cannot be completed.")
+
+    trip.status = 'completed'
+    db.commit()
+
+    # Notify load owner if linked
+    if trip.load_owner_org_id:
+        from app.models.notification import Notification
+        from app.services.ws_manager import manager
+        from datetime import datetime, timezone
+
+        title = "Trip Completed"
+        body = (
+            f"Your shipment {trip.trip_number} ({trip.origin} → {trip.destination}) "
+            "has been marked as completed by the logistic partner."
+        )
+        notif = Notification(
+            recipient_org_id=trip.load_owner_org_id,
+            trip_id=trip.id,
+            type="trip_complete",
+            title=title,
+            body=body,
+        )
+        db.add(notif)
+        db.commit()
+        db.refresh(notif)
+
+        message = {
+            "type":        "trip_complete",
+            "id":          str(notif.id),
+            "trip_id":     str(trip.id),
+            "trip_number": trip.trip_number,
+            "origin":      trip.origin,
+            "destination": trip.destination,
+            "title":       title,
+            "body":        body,
+            "is_read":     False,
+            "created_at":  notif.created_at.isoformat() if notif.created_at else None,
+        }
+        await manager.send_to_org(str(trip.load_owner_org_id), message)
+
+    db.refresh(trip)
+    return {"success": True, "message": "Trip marked as completed.", "trip": _enrich(trip, db)}
+
+
 # ─── Internal enrichment ─────────────────────────────────────────────────────
 
 def _enrich_bulk(trips: list, db: Session) -> list:

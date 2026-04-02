@@ -39,7 +39,9 @@ class OngoingTripCard extends ConsumerWidget {
   final TripModel trip;
   /// When true, hides the "Go to Stage" action button (load owner view).
   final bool readOnly;
-  const OngoingTripCard({super.key, required this.trip, this.readOnly = false});
+  /// When provided, shows a "Complete Trip" button (LP owner dashboard only).
+  final Future<bool> Function()? onComplete;
+  const OngoingTripCard({super.key, required this.trip, this.readOnly = false, this.onComplete});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -195,6 +197,40 @@ class OngoingTripCard extends ConsumerWidget {
                     ),
                   ),
                 ],
+
+                // Complete Trip — LP owner dashboard only, hidden once completed/cancelled
+                if (onComplete != null &&
+                    trip.status != 'completed' &&
+                    trip.status != 'cancelled') ...[
+                  const SizedBox(height: 8),
+                  _CompleteBtn(onComplete: onComplete!),
+                ],
+
+                // Completed banner — shown on LP owner dashboard when trip is done
+                if (onComplete != null && trip.status == 'completed') ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD7F0D9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.check_circle_rounded,
+                            color: Color(0xFF1B5E20), size: 16),
+                        const SizedBox(width: 6),
+                        Text('Trip Completed',
+                            style: _inter(
+                                size: 12,
+                                weight: FontWeight.w700,
+                                color: const Color(0xFF1B5E20))),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -266,6 +302,99 @@ class _LocateBtnState extends ConsumerState<_LocateBtn> {
                       color: Colors.white, size: 15),
                   const SizedBox(width: 6),
                   Text('Locate Trip',
+                      style: _inter(
+                          size: 12,
+                          weight: FontWeight.w700,
+                          color: Colors.white)),
+                ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Complete trip button ─────────────────────────────────────────────────────
+
+class _CompleteBtn extends StatefulWidget {
+  final Future<bool> Function() onComplete;
+  const _CompleteBtn({required this.onComplete});
+
+  @override
+  State<_CompleteBtn> createState() => _CompleteBtnState();
+}
+
+class _CompleteBtnState extends State<_CompleteBtn> {
+  bool _loading = false;
+
+  Future<void> _confirm() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Complete Trip?'),
+        content: const Text(
+            'This will mark the trip as completed and notify the load owner. This action cannot be undone.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32)),
+            child: const Text('Confirm',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _loading = true);
+    final ok = await widget.onComplete();
+    if (!mounted) return;
+    setState(() => _loading = false);
+    if (ok) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Trip marked as completed. Load owner notified.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: _loading ? null : _confirm,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2E7D32), Color(0xFF388E3C)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(10),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2E7D32).withValues(alpha: 0.30),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: _loading
+              ? [
+                  const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white)),
+                ]
+              : [
+                  const Icon(Icons.check_circle_outline_rounded,
+                      color: Colors.white, size: 16),
+                  const SizedBox(width: 6),
+                  Text('Complete Trip',
                       style: _inter(
                           size: 12,
                           weight: FontWeight.w700,

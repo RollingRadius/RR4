@@ -618,7 +618,11 @@ class _DashboardTab extends ConsumerWidget {
             ...ongoingTrips.map(
               (t) => Padding(
                 padding: const EdgeInsets.only(bottom: 14),
-                child: OngoingTripCard(trip: t),
+                child: OngoingTripCard(
+                  trip: t,
+                  onComplete: () =>
+                      ref.read(tripProvider.notifier).completeTrip(t.id),
+                ),
               ),
             ),
           const SizedBox(height: 24),

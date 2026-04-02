@@ -103,6 +103,20 @@ class TripNotifier extends StateNotifier<TripState> {
     );
   }
 
+  /// Mark a trip as completed (LP owner only). Returns true on success.
+  Future<bool> completeTrip(String tripId) async {
+    try {
+      final resp = await _apiService.dio.post('/api/trips/$tripId/complete');
+      final updated = TripModel.fromJson(
+          (resp.data as Map<String, dynamic>)['trip'] as Map<String, dynamic>);
+      patchTrip(updated);
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: _apiService.handleError(e));
+      return false;
+    }
+  }
+
   /// Fetch one trip from the API and patch the list silently.
   Future<void> fetchSingleTrip(String tripId) async {
     try {

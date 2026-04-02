@@ -9,11 +9,13 @@ import 'package:fleet_management/providers/load_provider.dart';
 class UploadLoadRequirementScreen extends ConsumerStatefulWidget {
   final bool embedded;
   final VoidCallback? onDone;
+  final VoidCallback? onTrackTrips;
 
   const UploadLoadRequirementScreen({
     super.key,
     this.embedded = false,
     this.onDone,
+    this.onTrackTrips,
   });
 
   @override
@@ -1510,6 +1512,8 @@ class _UploadLoadRequirementScreenState
         material: submittedMaterial,
         truckCount: submittedTruckCount,
         refId: refId,
+        onTrackTrips: widget.onTrackTrips,
+        onDone: widget.onDone,
       ),
       transitionBuilder: (_, anim, __, child) => FadeTransition(
         opacity: anim,
@@ -1522,10 +1526,8 @@ class _UploadLoadRequirementScreenState
       ),
     );
 
-    // If embedded inside dashboard, notify parent to switch back to Loads tab
-    if (mounted && widget.embedded) {
-      widget.onDone?.call();
-    }
+    // onDone is NOT called here — the user will choose via the success page buttons
+    // (Track in My Trips → tab 2, New Load Requirement → resets form, Dashboard → tab 0)
   }
 
   void _showProfileMenu() {
@@ -1680,6 +1682,8 @@ class _SubmissionSuccessPage extends StatefulWidget {
   final String material;
   final int truckCount;
   final String refId;
+  final VoidCallback? onTrackTrips;
+  final VoidCallback? onDone;
 
   const _SubmissionSuccessPage({
     required this.pickup,
@@ -1687,6 +1691,8 @@ class _SubmissionSuccessPage extends StatefulWidget {
     required this.material,
     required this.truckCount,
     required this.refId,
+    this.onTrackTrips,
+    this.onDone,
   });
 
   @override
@@ -1876,7 +1882,7 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                             child: ElevatedButton(
                               onPressed: () {
                                 Navigator.of(context).pop();
-                                context.push(AppConstants.routeLoadOwnerTrips);
+                                widget.onTrackTrips?.call();
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: _accent,
@@ -1896,7 +1902,10 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                             width: double.infinity,
                             height: 52,
                             child: OutlinedButton(
-                              onPressed: () => Navigator.of(context).pop(),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                                widget.onDone?.call();
+                              },
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: _accent,
                                 side: BorderSide(
