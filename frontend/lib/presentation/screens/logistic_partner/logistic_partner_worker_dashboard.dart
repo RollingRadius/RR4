@@ -162,8 +162,7 @@ class _WorkerTopBar extends ConsumerWidget {
               ),
             ),
             GestureDetector(
-              onTap: () => _showNotificationsSheet(
-                  context, ref, notifState.items),
+              onTap: () => _showNotificationsSheet(context),
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
@@ -201,29 +200,37 @@ class _WorkerTopBar extends ConsumerWidget {
     );
   }
 
-  void _showNotificationsSheet(
-      BuildContext context, WidgetRef ref, List<NotificationModel> items) {
+  void _showNotificationsSheet(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _WorkerNotificationsSheet(items: items, ref: ref),
+      builder: (_) => ProviderScope(
+        parent: ProviderScope.containerOf(context),
+        child: const _WorkerNotificationsSheet(),
+      ),
     );
   }
 }
 
 // ─── Notifications Bottom Sheet ───────────────────────────────────────────────
 
-class _WorkerNotificationsSheet extends StatelessWidget {
-  final List<NotificationModel> items;
-  final WidgetRef ref;
-  const _WorkerNotificationsSheet(
-      {required this.items, required this.ref});
+class _WorkerNotificationsSheet extends ConsumerStatefulWidget {
+  const _WorkerNotificationsSheet();
 
   @override
+  ConsumerState<_WorkerNotificationsSheet> createState() =>
+      _WorkerNotificationsSheetState();
+}
+
+class _WorkerNotificationsSheetState
+    extends ConsumerState<_WorkerNotificationsSheet> {
+  @override
   Widget build(BuildContext context) {
-    final newWorkNotifs =
-        items.where((n) => n.type == 'new_work' || n.type == 'trip_complete').toList();
+    final items = ref.watch(notificationsProvider).items;
+    final newWorkNotifs = items
+        .where((n) => n.type == 'new_work' || n.type == 'trip_complete')
+        .toList();
 
     return DraggableScrollableSheet(
       initialChildSize: 0.55,
@@ -253,21 +260,18 @@ class _WorkerNotificationsSheet extends StatelessWidget {
                   Text('Notifications',
                       style: _manrope(size: 17, weight: FontWeight.w700)),
                   const Spacer(),
-                  if (items.any((n) => !n.isRead))
+                  if (newWorkNotifs.any((n) => !n.isRead))
                     GestureDetector(
-                      onTap: () {
-                        ref
-                            .read(notificationsProvider.notifier)
-                            .markAllRead();
-                        Navigator.pop(context);
-                      },
+                      onTap: () => ref
+                          .read(notificationsProvider.notifier)
+                          .markAllRead(),
                       child: Text('Mark all read',
                           style: _inter(
                               size: 13,
                               weight: FontWeight.w600,
                               color: _primary)),
                     ),
-                  if (items.isNotEmpty) ...[
+                  if (newWorkNotifs.isNotEmpty) ...[
                     const SizedBox(width: 14),
                     GestureDetector(
                       onTap: () {
@@ -298,8 +302,7 @@ class _WorkerNotificationsSheet extends StatelessWidget {
                               color: _secondary.withOpacity(0.4)),
                           const SizedBox(height: 12),
                           Text('No notifications',
-                              style:
-                                  _inter(size: 14, color: _secondary)),
+                              style: _inter(size: 14, color: _secondary)),
                         ],
                       ),
                     )
@@ -316,7 +319,9 @@ class _WorkerNotificationsSheet extends StatelessWidget {
                         final n = newWorkNotifs[i];
                         return _WorkerNotifTile(
                           notif: n,
-                          ref: ref,
+                          onDismiss: () => ref
+                              .read(notificationsProvider.notifier)
+                              .deleteOne(n.id),
                           onTap: () {
                             ref
                                 .read(notificationsProvider.notifier)
@@ -336,81 +341,91 @@ class _WorkerNotificationsSheet extends StatelessWidget {
 
 class _WorkerNotifTile extends StatelessWidget {
   final NotificationModel notif;
-  final WidgetRef ref;
   final VoidCallback onTap;
-  const _WorkerNotifTile({required this.notif, required this.ref, required this.onTap});
+  final VoidCallback onDismiss;
+  const _WorkerNotifTile(
+      {required this.notif, required this.onTap, required this.onDismiss});
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        color:
-            notif.isRead ? Colors.transparent : _primary.withOpacity(0.04),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: _tertiary.withOpacity(0.12),
-                shape: BoxShape.circle,
+    return Dismissible(
+      key: ValueKey(notif.id),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDismiss(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: const Color(0xFFFFDAD6),
+        child: const Icon(Icons.delete_outline_rounded,
+            color: Color(0xFFBA1A1A), size: 22),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          color:
+              notif.isRead ? Colors.transparent : _primary.withOpacity(0.04),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: _tertiary.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.local_shipping_outlined,
+                    color: _tertiary, size: 22),
               ),
-              child: const Icon(Icons.local_shipping_outlined,
-                  color: _tertiary, size: 22),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(notif.title,
-                            style: _manrope(
-                                size: 13,
-                                weight: notif.isRead
-                                    ? FontWeight.w600
-                                    : FontWeight.w700)),
-                      ),
-                      if (!notif.isRead)
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: _primary,
-                            shape: BoxShape.circle,
-                          ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(notif.title,
+                              style: _manrope(
+                                  size: 13,
+                                  weight: notif.isRead
+                                      ? FontWeight.w600
+                                      : FontWeight.w700)),
                         ),
-                      const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: () => ref
-                            .read(notificationsProvider.notifier)
-                            .deleteOne(notif.id),
-                        child: Icon(Icons.close,
-                            size: 16,
-                            color: _secondary.withOpacity(0.5)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(notif.body,
-                      style: _inter(size: 13, color: _secondary),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis),
-                  if (notif.createdAt != null) ...[
+                        if (!notif.isRead)
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: _primary,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        const SizedBox(width: 6),
+                        GestureDetector(
+                          onTap: onDismiss,
+                          child: Icon(Icons.close,
+                              size: 16,
+                              color: _secondary.withOpacity(0.5)),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 4),
-                    Text(_formatTime(notif.createdAt!),
-                        style: _inter(size: 11, color: _secondary)),
+                    Text(notif.body,
+                        style: _inter(size: 13, color: _secondary),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                    if (notif.createdAt != null) ...[
+                      const SizedBox(height: 4),
+                      Text(_formatTime(notif.createdAt!),
+                          style: _inter(size: 11, color: _secondary)),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
