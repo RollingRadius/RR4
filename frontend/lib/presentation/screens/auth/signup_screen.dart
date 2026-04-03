@@ -24,7 +24,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  String _authMethod = AppConstants.authMethodEmail;
+  String _authMethod = AppConstants.authMethodSecurityQuestions;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _termsAccepted = false;
@@ -213,6 +213,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               label: Text('Email'),
                               icon:
                                   Icon(Icons.email_outlined, size: 16),
+                              enabled: false,
                             ),
                             ButtonSegment(
                               value: 'security_questions',
