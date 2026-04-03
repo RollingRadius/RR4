@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
+from app.models.role import Role
 from app.models.user_organization import UserOrganization
 from app.models.notification import Notification
 from app.services.ws_manager import manager
@@ -70,7 +71,9 @@ async def notifications_ws(
         return
 
     org_id = str(user_org.organization_id)
-    await manager.connect(org_id, websocket)
+    role = db.query(Role).filter(Role.id == user_org.role_id).first()
+    role_key = role.role_key if role else 'unknown'
+    await manager.connect(org_id, role_key, websocket)
     try:
         while True:
             # Keep-alive: accept (and discard) any text from the client
@@ -88,11 +91,18 @@ def get_notifications(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return the 50 most-recent notifications for the current user's org."""
+    """Return the 50 most-recent notifications visible to the current user's role."""
     user_org = _current_user_org(current_user, db)
+    role = db.query(Role).filter(Role.id == user_org.role_id).first()
+    role_key = role.role_key if role else ''
     notifs = (
         db.query(Notification)
-        .filter(Notification.recipient_org_id == user_org.organization_id)
+        .filter(
+            Notification.recipient_org_id == user_org.organization_id,
+            # NULL recipient_role = visible to everyone in the org;
+            # non-NULL = only visible to that specific role
+            (Notification.recipient_role == None) | (Notification.recipient_role == role_key),
+        )
         .order_by(Notification.created_at.desc())
         .limit(50)
         .all()

@@ -16,6 +16,7 @@ class Notification(Base):
 
     id               = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     recipient_org_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    recipient_role   = Column(String(50),  nullable=True)   # NULL = visible to all org roles
     trip_id          = Column(UUID(as_uuid=True), nullable=True,  index=True)
     type             = Column(String(50),  nullable=False)
     title            = Column(String(200), nullable=False)

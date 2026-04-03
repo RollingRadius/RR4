@@ -1287,7 +1287,10 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: busy ? null : _submit,
+              onPressed: busy ? null : () {
+                setState(() => _entryPermission = true);
+                _submit();
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: _entryPermission ? _success : _secondary,
                 foregroundColor: Colors.white,
@@ -1999,8 +2002,10 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                 children: [
                   const Icon(Icons.check_circle_rounded, color: _success, size: 16),
                   const SizedBox(width: 8),
-                  Text('Loading complete. Record loaded truck weight.',
-                      style: _inter(size: 12, color: _success, weight: FontWeight.w600)),
+                  Expanded(
+                    child: Text('Loading complete. Record loaded truck weight.',
+                        style: _inter(size: 12, color: _success, weight: FontWeight.w600)),
+                  ),
                 ],
               ),
             ),

@@ -804,6 +804,7 @@ async def notify_lp(
     from app.models.notification import Notification
     notif = Notification(
         recipient_org_id=trip.organization_id,
+        recipient_role='logistic_partner',   # only LP owner sees this, not LP workers
         trip_id=trip.id,
         type="trip_complete",
         title=title,
@@ -826,11 +827,12 @@ async def notify_lp(
         "is_read":     False,
         "created_at":  notif.created_at.isoformat() if notif.created_at else None,
     }
-    await manager.send_to_org(recipient_org_id, message)
+    # Push only to LP owner connections — workers are excluded
+    await manager.send_to_org_role(recipient_org_id, 'logistic_partner', message)
 
     return {
         "success": True,
-        "message": "LP team notified.",
+        "message": "LP owner notified.",
         "realtime_clients": manager.connected_count(recipient_org_id),
         "notification": notif.to_dict(),
     }
