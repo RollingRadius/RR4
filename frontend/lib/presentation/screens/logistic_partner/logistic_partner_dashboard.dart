@@ -295,6 +295,22 @@ class _NotificationsSheet extends StatelessWidget {
                               weight: FontWeight.w600,
                               color: _primary)),
                     ),
+                  if (items.isNotEmpty) ...[
+                    const SizedBox(width: 14),
+                    GestureDetector(
+                      onTap: () {
+                        ref
+                            .read(notificationsProvider.notifier)
+                            .clearAll();
+                        Navigator.pop(context);
+                      },
+                      child: Text('Clear all',
+                          style: _inter(
+                              size: 13,
+                              weight: FontWeight.w600,
+                              color: Colors.red)),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -326,6 +342,7 @@ class _NotificationsSheet extends StatelessWidget {
                         final n = workerNotifs[i];
                         return _NotifTile(
                           notif: n,
+                          ref: ref,
                           onTap: () {
                             ref
                                 .read(notificationsProvider.notifier)
@@ -346,8 +363,9 @@ class _NotificationsSheet extends StatelessWidget {
 
 class _NotifTile extends StatelessWidget {
   final NotificationModel notif;
+  final WidgetRef ref;
   final VoidCallback onTap;
-  const _NotifTile({required this.notif, required this.onTap});
+  const _NotifTile({required this.notif, required this.ref, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -393,6 +411,15 @@ class _NotifTile extends StatelessWidget {
                             shape: BoxShape.circle,
                           ),
                         ),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () => ref
+                            .read(notificationsProvider.notifier)
+                            .deleteOne(notif.id),
+                        child: Icon(Icons.close,
+                            size: 16,
+                            color: _secondary.withOpacity(0.5)),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 4),

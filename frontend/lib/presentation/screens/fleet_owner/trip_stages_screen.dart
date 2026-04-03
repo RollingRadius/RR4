@@ -937,10 +937,11 @@ class _Stage2Form extends ConsumerStatefulWidget {
 }
 
 class _Stage2FormState extends ConsumerState<_Stage2Form> {
-  bool _specsVerified       = false;
-  bool _docsVerified        = false;
-  bool _driverDocsValid     = false;
-  bool _entryPermission     = false;
+  bool _specsVerified            = false;
+  bool _docsVerified             = false;
+  bool _driverDocsValid          = false;
+  bool _entryPermission          = false; // actual state — set only by button press
+  bool _entryPermissionChecked   = false; // visual checkbox — does not affect draft
   String? _dharamKantaLoc;  // 'inside' | 'outside'
   bool _s2WeightConfirmed   = false;
   final _emptyWeightCtrl    = TextEditingController();
@@ -972,7 +973,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
       _specsVerified    = d['specs_verified']              as bool?   ?? false;
       _docsVerified     = d['docs_verified']               as bool?   ?? false;
       _driverDocsValid  = d['driver_docs_valid']           as bool?   ?? false;
-      _entryPermission  = d['entry_permission']            as bool?   ?? false;
+      _entryPermissionChecked = d['entry_permission']       as bool?   ?? false;
       _dharamKantaLoc   = d['dharam_kanta_location']       as String?;
       _s2WeightConfirmed = d['s2_weight_confirmed']        as bool?   ?? false;
       _emptyWeightCtrl.text = d['empty_weight_before_loading'] as String? ?? '';
@@ -987,7 +988,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
       _specsVerified   = trip.s2SpecsVerified    ?? false;
       _docsVerified    = trip.s2DocsVerified     ?? false;
       _driverDocsValid = trip.s2DriverDocsValid  ?? false;
-      _entryPermission = trip.s2EntryPermission  ?? false;
+      _entryPermissionChecked = trip.s2EntryPermission  ?? false;
     }
   }
 
@@ -1252,20 +1253,20 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           // Entry permission — highlighted
           Container(
             decoration: BoxDecoration(
-              color: _entryPermission
+              color: _entryPermissionChecked
                   ? _success.withValues(alpha: 0.08)
                   : const Color(0xFFFFF3E0),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: _entryPermission ? _success : _primary,
+                color: _entryPermissionChecked ? _success : _primary,
                 width: 1.5,
               ),
             ),
             child: _CheckItem(
               label: 'Truck Entry Permission Issued',
               sublabel: 'Factory logistics team receives truck number + driver details.',
-              value: _entryPermission,
-              onChanged: (v) { setState(() => _entryPermission = v); _onCheckChanged(); },
+              value: _entryPermissionChecked,
+              onChanged: (v) => setState(() => _entryPermissionChecked = v),
               activeColor: _success,
             ),
           ),
@@ -1292,7 +1293,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                 _submit();
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: _entryPermission ? _success : _secondary,
+                backgroundColor: _entryPermissionChecked ? _success : _secondary,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

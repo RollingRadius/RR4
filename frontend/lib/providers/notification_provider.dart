@@ -97,6 +97,9 @@ class NotificationsNotifier extends StateNotifier<NotificationsState> {
     );
     try {
       await _dio.delete('/api/notifications/$id');
+    } on DioException catch (e) {
+      // 404 = already deleted — idempotent, ignore silently
+      if (e.response?.statusCode != 404) rethrow;
     } catch (_) {}
   }
 

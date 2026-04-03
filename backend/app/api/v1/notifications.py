@@ -149,11 +149,13 @@ def delete_notification(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete a single notification."""
+    """Delete a single notification. Idempotent — returns success even if already gone."""
     user_org = _current_user_org(current_user, db)
     notif = db.query(Notification).filter(Notification.id == notif_id).first()
-    if not notif or str(notif.recipient_org_id) != str(user_org.organization_id):
-        raise HTTPException(status_code=404, detail="Notification not found")
+    if not notif:
+        return {"success": True}  # already deleted — idempotent
+    if str(notif.recipient_org_id) != str(user_org.organization_id):
+        raise HTTPException(status_code=403, detail="Not your notification")
     db.delete(notif)
     db.commit()
     return {"success": True}
