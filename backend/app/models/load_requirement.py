@@ -3,7 +3,7 @@ Load Requirement Model
 Represents cargo/load requirements posted by load_owner companies.
 """
 
-from sqlalchemy import Column, String, Text, Date, Integer, TIMESTAMP, ForeignKey
+from sqlalchemy import Column, String, Text, Date, Integer, Float, TIMESTAMP, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 import uuid
@@ -21,7 +21,11 @@ class LoadRequirement(Base):
     entry_method = Column(String(10), nullable=False, default='manual')
 
     pickup_location = Column(Text, nullable=True)
+    pickup_lat = Column(Float, nullable=True)
+    pickup_lon = Column(Float, nullable=True)
     unload_location = Column(Text, nullable=True)
+    unload_lat = Column(Float, nullable=True)
+    unload_lon = Column(Float, nullable=True)
     material_type = Column(String(50), nullable=True)
     entry_date = Column(Date, nullable=True)
     truck_count = Column(Integer, nullable=False, default=1)

@@ -41,7 +41,11 @@ class TruckSpecifications(BaseModel):
 class LoadRequirementCreate(BaseModel):
     entry_method: str = 'manual'
     pickup_location: Optional[str] = None
+    pickup_lat: Optional[float] = None
+    pickup_lon: Optional[float] = None
     unload_location: Optional[str] = None
+    unload_lat: Optional[float] = None
+    unload_lon: Optional[float] = None
     material_type: Optional[str] = None
     entry_date: Optional[date] = None
     truck_count: int = 1
@@ -56,7 +60,11 @@ class LoadRequirementResponse(BaseModel):
     created_by: Optional[str]
     entry_method: str
     pickup_location: Optional[str]
+    pickup_lat: Optional[float]
+    pickup_lon: Optional[float]
     unload_location: Optional[str]
+    unload_lat: Optional[float]
+    unload_lon: Optional[float]
     material_type: Optional[str]
     entry_date: Optional[date]
     truck_count: int
@@ -171,7 +179,11 @@ def _record_to_response(record: LoadRequirement) -> dict:
         "created_by":          str(record.created_by) if record.created_by else None,
         "entry_method":        record.entry_method,
         "pickup_location":     record.pickup_location,
+        "pickup_lat":          record.pickup_lat,
+        "pickup_lon":          record.pickup_lon,
         "unload_location":     record.unload_location,
+        "unload_lat":          record.unload_lat,
+        "unload_lon":          record.unload_lon,
         "material_type":       record.material_type,
         "entry_date":          record.entry_date.isoformat() if record.entry_date else None,
         "truck_count":         record.truck_count,
@@ -211,7 +223,11 @@ def create_load_requirement(
         created_by=current_user.id,
         entry_method=payload.entry_method,
         pickup_location=payload.pickup_location,
+        pickup_lat=payload.pickup_lat,
+        pickup_lon=payload.pickup_lon,
         unload_location=payload.unload_location,
+        unload_lat=payload.unload_lat,
+        unload_lon=payload.unload_lon,
         material_type=payload.material_type,
         entry_date=payload.entry_date,
         truck_count=payload.truck_count,

@@ -6,7 +6,11 @@ class LoadRequirementModel {
   final String? createdBy;
   final String entryMethod;
   final String? pickupLocation;
+  final double? pickupLat;
+  final double? pickupLon;
   final String? unloadLocation;
+  final double? unloadLat;
+  final double? unloadLon;
   final String? materialType;
   final String? entryDate;
   final int truckCount;
@@ -30,7 +34,11 @@ class LoadRequirementModel {
     this.createdBy,
     required this.entryMethod,
     this.pickupLocation,
+    this.pickupLat,
+    this.pickupLon,
     this.unloadLocation,
+    this.unloadLat,
+    this.unloadLon,
     this.materialType,
     this.entryDate,
     required this.truckCount,
@@ -55,7 +63,11 @@ class LoadRequirementModel {
         createdBy: j['created_by'] as String?,
         entryMethod: j['entry_method'] as String? ?? 'manual',
         pickupLocation: j['pickup_location'] as String?,
+        pickupLat: (j['pickup_lat'] as num?)?.toDouble(),
+        pickupLon: (j['pickup_lon'] as num?)?.toDouble(),
         unloadLocation: j['unload_location'] as String?,
+        unloadLat: (j['unload_lat'] as num?)?.toDouble(),
+        unloadLon: (j['unload_lon'] as num?)?.toDouble(),
         materialType: j['material_type'] as String?,
         entryDate: j['entry_date'] as String?,
         truckCount: j['truck_count'] as int? ?? 1,

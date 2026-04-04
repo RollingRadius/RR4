@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/load_provider.dart';
+import 'package:fleet_management/data/services/location_search_service.dart';
 
 class UploadLoadRequirementScreen extends ConsumerStatefulWidget {
   final bool embedded;
@@ -43,6 +44,16 @@ class _UploadLoadRequirementScreenState
   String? _materialType = 'Steel Coils';
   final _pickupController = TextEditingController();
   final _dropController = TextEditingController();
+
+  // ── Location autocomplete state ───────────────────────────────────────────
+  Timer? _pickupDebounce;
+  Timer? _dropDebounce;
+  List<LocationSuggestion> _pickupSuggestions = [];
+  List<LocationSuggestion> _dropSuggestions = [];
+  bool _showPickupDropdown = false;
+  bool _showDropDropdown = false;
+  double? _pickupLat, _pickupLon;
+  double? _dropLat, _dropLon;
   final _capacityController = TextEditingController(text: '0');
   final _truckCountController = TextEditingController(text: '1');
   String _capacityUnit = 'Tons';
@@ -120,6 +131,8 @@ class _UploadLoadRequirementScreenState
   void dispose() {
     _pickupController.dispose();
     _dropController.dispose();
+    _pickupDebounce?.cancel();
+    _dropDebounce?.cancel();
     _capacityController.dispose();
     _truckCountController.dispose();
     _partnerController.dispose();
@@ -321,6 +334,61 @@ class _UploadLoadRequirementScreenState
     );
   }
 
+  // ── Location search helpers ────────────────────────────────────────────────
+
+  void _onPickupChanged(String value) {
+    // Clear stored coordinates when user edits text manually
+    _pickupLat = null;
+    _pickupLon = null;
+    _pickupDebounce?.cancel();
+    if (value.trim().length < 2) {
+      setState(() { _pickupSuggestions = []; _showPickupDropdown = false; });
+      return;
+    }
+    _pickupDebounce = Timer(const Duration(milliseconds: 300), () async {
+      final results = await LocationSearchService.search(value);
+      if (!mounted) return;
+      setState(() {
+        _pickupSuggestions = results;
+        _showPickupDropdown = results.isNotEmpty;
+      });
+    });
+  }
+
+  void _onDropChanged(String value) {
+    _dropLat = null;
+    _dropLon = null;
+    _dropDebounce?.cancel();
+    if (value.trim().length < 2) {
+      setState(() { _dropSuggestions = []; _showDropDropdown = false; });
+      return;
+    }
+    _dropDebounce = Timer(const Duration(milliseconds: 300), () async {
+      final results = await LocationSearchService.search(value);
+      if (!mounted) return;
+      setState(() {
+        _dropSuggestions = results;
+        _showDropDropdown = results.isNotEmpty;
+      });
+    });
+  }
+
+  void _selectPickup(LocationSuggestion s) {
+    _pickupController.text = s.displayPlace;
+    _pickupLat = s.lat;
+    _pickupLon = s.lon;
+    setState(() { _pickupSuggestions = []; _showPickupDropdown = false; });
+  }
+
+  void _selectDrop(LocationSuggestion s) {
+    _dropController.text = s.displayPlace;
+    _dropLat = s.lat;
+    _dropLon = s.lon;
+    setState(() { _dropSuggestions = []; _showDropDropdown = false; });
+  }
+
+  // ── Route inputs with autocomplete ────────────────────────────────────────
+
   Widget _routeInputs() {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -359,16 +427,24 @@ class _UploadLoadRequirementScreenState
         Expanded(
           child: Column(
             children: [
-              _formField(
+              _locationField(
                 controller: _pickupController,
                 label: 'Pickup Location',
                 hint: 'Enter Origin Hub',
+                suggestions: _pickupSuggestions,
+                showDropdown: _showPickupDropdown,
+                onChanged: _onPickupChanged,
+                onSelect: _selectPickup,
               ),
               const SizedBox(height: 20),
-              _formField(
+              _locationField(
                 controller: _dropController,
                 label: 'Drop Location',
                 hint: 'Enter Destination',
+                suggestions: _dropSuggestions,
+                showDropdown: _showDropDropdown,
+                onChanged: _onDropChanged,
+                onSelect: _selectDrop,
               ),
             ],
           ),
@@ -377,10 +453,14 @@ class _UploadLoadRequirementScreenState
     );
   }
 
-  Widget _formField({
+  Widget _locationField({
     required TextEditingController controller,
     required String label,
     required String hint,
+    required List<LocationSuggestion> suggestions,
+    required bool showDropdown,
+    required ValueChanged<String> onChanged,
+    required ValueChanged<LocationSuggestion> onSelect,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,14 +469,13 @@ class _UploadLoadRequirementScreenState
         const SizedBox(height: 4),
         TextField(
           controller: controller,
-          style: const TextStyle(
-              fontSize: 15, color: Color(0xFF191C1E)),
+          onChanged: onChanged,
+          style: const TextStyle(fontSize: 15, color: Color(0xFF191C1E)),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(
-                fontSize: 14, color: Color(0xFF737780)),
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            hintStyle: const TextStyle(fontSize: 14, color: Color(0xFF737780)),
+            prefixIcon: const Icon(Icons.location_on_outlined, size: 20, color: Color(0xFF737780)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             filled: true,
             fillColor: _surfaceContainerLowest,
             border: OutlineInputBorder(
@@ -405,11 +484,77 @@ class _UploadLoadRequirementScreenState
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide:
-                  BorderSide(color: _accent, width: 2),
+              borderSide: BorderSide(color: _accent, width: 2),
             ),
           ),
         ),
+        // Suggestions dropdown
+        if (showDropdown && suggestions.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            decoration: BoxDecoration(
+              color: _surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _outlineVariant),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.08),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: suggestions.map((s) {
+                  final isLast = s == suggestions.last;
+                  return InkWell(
+                    onTap: () => onSelect(s),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        border: isLast ? null : Border(
+                          bottom: BorderSide(color: _outlineVariant.withOpacity(0.5)),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.place_rounded, size: 18, color: _accent),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  s.displayPlace,
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF191C1E),
+                                  ),
+                                ),
+                                Text(
+                                  s.displayAddress,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF737780),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1456,6 +1601,10 @@ class _UploadLoadRequirementScreenState
     final load = await ref.read(loadProvider.notifier).createLoad(
           pickupLocation: pickup,
           unloadLocation: drop,
+          pickupLat: _pickupLat,
+          pickupLon: _pickupLon,
+          unloadLat: _dropLat,
+          unloadLon: _dropLon,
           materialType: _materialType ?? 'Steel Coils',
           entryDate: dateStr,
           truckCount: _truckCount,
@@ -1487,6 +1636,10 @@ class _UploadLoadRequirementScreenState
     _dropController.clear();
     _partnerController.clear();
     setState(() {
+      _pickupLat = null; _pickupLon = null;
+      _dropLat = null;   _dropLon = null;
+      _pickupSuggestions = []; _showPickupDropdown = false;
+      _dropSuggestions = [];   _showDropDropdown = false;
       _truckCount = 1;
       _truckCountController.text = '1';
       _capacityController.text = '0';

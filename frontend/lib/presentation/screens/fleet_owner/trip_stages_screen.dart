@@ -474,6 +474,12 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   final _drivingLicense = TextEditingController();
   final _aadhaar        = TextEditingController();
 
+  // ── Focus nodes (for auto-scroll on validation error) ─────────────────────
+  final _driverNameFocus     = FocusNode();
+  final _driverPhoneFocus    = FocusNode();
+  final _drivingLicenseFocus = FocusNode();
+  final _aadhaarFocus        = FocusNode();
+
   // ── File uploads (bytes + filename, for newly picked files) ─────────────────
   ({Uint8List bytes, String name})? _dlDoc;
   ({Uint8List bytes, String name})? _aadhaarDoc;
@@ -593,6 +599,9 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     for (final c in [_driverName, _driverPhone, _drivingLicense, _aadhaar]) {
       c.dispose();
     }
+    for (final f in [_driverNameFocus, _driverPhoneFocus, _drivingLicenseFocus, _aadhaarFocus]) {
+      f.dispose();
+    }
     super.dispose();
   }
 
@@ -641,10 +650,36 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     _onUploadChanged();
   }
 
+  // ── Auto-scroll to first invalid field ────────────────────────────────────
+
+  void _scrollToFirstError() {
+    final checks = [
+      (_driverNameFocus,     _validateDriverName(_driverName.text)),
+      (_driverPhoneFocus,    _validatePhone(_driverPhone.text)),
+      (_drivingLicenseFocus, _validateDrivingLicense(_drivingLicense.text)),
+      (_aadhaarFocus,        _validateAadhaar(_aadhaar.text)),
+    ];
+    for (final (focus, error) in checks) {
+      if (error != null) {
+        focus.requestFocus();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final ctx = focus.context;
+          if (ctx != null) {
+            Scrollable.ensureVisible(ctx, alignment: 0.3, duration: const Duration(milliseconds: 300));
+          }
+        });
+        return;
+      }
+    }
+  }
+
   // ── Submit ───────────────────────────────────────────────────────────────────
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _scrollToFirstError();
+      return;
+    }
 
     final dlCleaned = _drivingLicense.text.trim()
         .replaceAll(RegExp(r'[\s/\-]'), '').toUpperCase();
@@ -748,6 +783,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               padding: const EdgeInsets.only(bottom: 12),
               child: TextFormField(
                 controller: _driverName,
+                focusNode: _driverNameFocus,
                 style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
                 validator: _validateDriverName,
                 inputFormatters: [
@@ -763,6 +799,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               padding: const EdgeInsets.only(bottom: 12),
               child: TextFormField(
                 controller: _driverPhone,
+                focusNode: _driverPhoneFocus,
                 keyboardType: TextInputType.number,
                 style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
                 validator: _validatePhone,
@@ -783,6 +820,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               padding: const EdgeInsets.only(bottom: 4),
               child: TextFormField(
                 controller: _drivingLicense,
+                focusNode: _drivingLicenseFocus,
                 style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
                 validator: _validateDrivingLicense,
                 textCapitalization: TextCapitalization.characters,
@@ -806,6 +844,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               padding: const EdgeInsets.only(bottom: 12),
               child: TextFormField(
                 controller: _aadhaar,
+                focusNode: _aadhaarFocus,
                 keyboardType: TextInputType.number,
                 style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
                 validator: _validateAadhaar,
@@ -947,6 +986,10 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   final _emptyWeightCtrl    = TextEditingController();
   final _emptyWeightUnit    = ValueNotifier<String>('tons');
 
+  // ── Keys for auto-scroll on validation error ──────────────────────────────
+  final _weightSectionKey     = GlobalKey();
+  final _entryPermissionKey   = GlobalKey();
+
   Timer? _debounce;
   DateTime? _lastSaved;
 
@@ -1030,10 +1073,20 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
     } catch (_) {}
   }
 
+  void _scrollToKey(GlobalKey key) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = key.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(ctx, alignment: 0.3, duration: const Duration(milliseconds: 300));
+      }
+    });
+  }
+
   Future<void> _submit() async {
     // If Outside Factory is selected, weight must be entered and confirmed first
     if (_dharamKantaLoc == 'outside' &&
         (_emptyWeightCtrl.text.trim().isEmpty || !_s2WeightConfirmed)) {
+      _scrollToKey(_weightSectionKey);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Please enter and confirm the empty truck weight before proceeding.',
@@ -1047,6 +1100,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
     }
 
     if (!_entryPermission) {
+      _scrollToKey(_entryPermissionKey);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Entry Permission must be issued to proceed.',
@@ -1208,6 +1262,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                 if (_dharamKantaLoc == 'outside') ...[
                   const SizedBox(height: 14),
                   _WeighField(
+                    key: _weightSectionKey,
                     controller: _emptyWeightCtrl,
                     label: 'Empty Truck Weight Before Loading',
                     hint: 'e.g. 12.5',
@@ -1252,6 +1307,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
 
           // Entry permission — highlighted
           Container(
+            key: _entryPermissionKey,
             decoration: BoxDecoration(
               color: _entryPermissionChecked
                   ? _success.withValues(alpha: 0.08)
@@ -1636,6 +1692,14 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   bool _wheelStoppers      = false;
   bool _safetyGear         = false;
 
+  // ── Keys for auto-scroll on validation error ──────────────────────────────
+  final _driverParkedKey      = GlobalKey();
+  final _docsSubmittedKey     = GlobalKey();
+  final _securityVerifiedKey  = GlobalKey();
+  final _driverExitedCabinKey = GlobalKey();
+  final _wheelStoppersKey     = GlobalKey();
+  final _safetyGearKey        = GlobalKey();
+
   final _emptyTruckWeight  = TextEditingController();
   final _loadedTruckWeight = TextEditingController();
   final _emptyWeightUnit   = ValueNotifier<String>('tons');
@@ -1824,8 +1888,35 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       _driverParked && _docsSubmitted && _securityVerified &&
       _driverExitedCabin && _wheelStoppers && _safetyGear;
 
+  void _scrollToKey3(GlobalKey key) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = key.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(ctx, alignment: 0.3, duration: const Duration(milliseconds: 300));
+      }
+    });
+  }
+
+  void _scrollToFirstUnchecked() {
+    final checks = [
+      (_driverParkedKey,      _driverParked),
+      (_docsSubmittedKey,     _docsSubmitted),
+      (_securityVerifiedKey,  _securityVerified),
+      (_driverExitedCabinKey, _driverExitedCabin),
+      (_wheelStoppersKey,     _wheelStoppers),
+      (_safetyGearKey,        _safetyGear),
+    ];
+    for (final (key, checked) in checks) {
+      if (!checked) {
+        _scrollToKey3(key);
+        return;
+      }
+    }
+  }
+
   void _onLoadingComplete() {
     if (!_allChecked) {
+      _scrollToFirstUnchecked();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('All steps must be completed before marking loading complete.',
@@ -1906,16 +1997,19 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
           _SectionHeader(icon: Icons.local_parking_rounded, title: 'Arrival Steps'),
           _CheckItem(
+            key: _driverParkedKey,
             label: 'Driver parks outside factory',
             value: _driverParked,
             onChanged: (v) { setState(() => _driverParked = v); _onCheckChanged(); },
           ),
           _CheckItem(
+            key: _docsSubmittedKey,
             label: 'Documents submitted to security',
             value: _docsSubmitted,
             onChanged: (v) { setState(() => _docsSubmitted = v); _onCheckChanged(); },
           ),
           _CheckItem(
+            key: _securityVerifiedKey,
             label: 'Security verifies vehicle requirements',
             value: _securityVerified,
             onChanged: (v) { setState(() => _securityVerified = v); _onCheckChanged(); },
@@ -1933,6 +2027,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             child: Column(
               children: [
                 _CheckItem(
+                  key: _driverExitedCabinKey,
                   label: 'Driver must exit cabin',
                   value: _driverExitedCabin,
                   onChanged: (v) { setState(() => _driverExitedCabin = v); _onCheckChanged(); },
@@ -1940,6 +2035,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                 ),
                 Divider(height: 1, indent: 16, endIndent: 16, color: _primary.withValues(alpha: 0.15)),
                 _CheckItem(
+                  key: _wheelStoppersKey,
                   label: 'Wheel stoppers installed',
                   value: _wheelStoppers,
                   onChanged: (v) { setState(() => _wheelStoppers = v); _onCheckChanged(); },
@@ -1947,6 +2043,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                 ),
                 Divider(height: 1, indent: 16, endIndent: 16, color: _primary.withValues(alpha: 0.15)),
                 _CheckItem(
+                  key: _safetyGearKey,
                   label: 'Safety shoes and helmet required',
                   value: _safetyGear,
                   onChanged: (v) { setState(() => _safetyGear = v); _onCheckChanged(); },
@@ -2285,6 +2382,7 @@ class _CheckItem extends StatelessWidget {
   final Color activeColor;
 
   const _CheckItem({
+    super.key,
     required this.label,
     required this.value,
     required this.onChanged,
@@ -2352,6 +2450,7 @@ class _WeighField extends StatefulWidget {
   final ValueNotifier<String>? unitNotifier;
 
   const _WeighField({
+    super.key,
     required this.controller,
     required this.label,
     required this.hint,
