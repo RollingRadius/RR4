@@ -40,8 +40,20 @@ class _UploadLoadRequirementScreenState
   String _entryMethod = 'manual'; // 'manual' | 'bulk' | 'photo'
   bool _truckSpecsExpanded = true;
   bool _isSubmitting = false;
-  int _truckCount = 1;
-  String? _materialType = 'Steel Coils';
+  int _truckCount = 0;
+  String? _materialType;
+
+  // ── Keys for auto-scroll on validation errors ─────────────────────────────
+  final _pickupKey = GlobalKey();
+  final _dropKey = GlobalKey();
+  final _materialKey = GlobalKey();
+  final _dateKey = GlobalKey();
+  final _truckCountKey = GlobalKey();
+  final _capacityKey = GlobalKey();
+  final _axleKey = GlobalKey();
+  final _bodyKey = GlobalKey();
+  final _floorKey = GlobalKey();
+  final _partnerKey = GlobalKey();
   final _pickupController = TextEditingController();
   final _dropController = TextEditingController();
 
@@ -54,14 +66,14 @@ class _UploadLoadRequirementScreenState
   bool _showDropDropdown = false;
   double? _pickupLat, _pickupLon;
   double? _dropLat, _dropLon;
-  final _capacityController = TextEditingController(text: '0');
-  final _truckCountController = TextEditingController(text: '1');
+  final _capacityController = TextEditingController();
+  final _truckCountController = TextEditingController();
   String _capacityUnit = 'Tons';
   DateTime? _entryDate;
 
-  String? _selectedAxleType = 'Multi-Axle';
-  String? _selectedBodyType = 'Open Body';
-  String? _selectedFloorType = 'Plain Floor';
+  String? _selectedAxleType;
+  String? _selectedBodyType;
+  String? _selectedFloorType;
 
   // ── Partner targeting ──────────────────────────────────────────────────────
   PartnerResult? _selectedPartner;
@@ -428,6 +440,7 @@ class _UploadLoadRequirementScreenState
           child: Column(
             children: [
               _locationField(
+                key: _pickupKey,
                 controller: _pickupController,
                 label: 'Pickup Location',
                 hint: 'Enter Origin Hub',
@@ -438,6 +451,7 @@ class _UploadLoadRequirementScreenState
               ),
               const SizedBox(height: 20),
               _locationField(
+                key: _dropKey,
                 controller: _dropController,
                 label: 'Drop Location',
                 hint: 'Enter Destination',
@@ -454,6 +468,7 @@ class _UploadLoadRequirementScreenState
   }
 
   Widget _locationField({
+    Key? key,
     required TextEditingController controller,
     required String label,
     required String hint,
@@ -463,6 +478,7 @@ class _UploadLoadRequirementScreenState
     required ValueChanged<LocationSuggestion> onSelect,
   }) {
     return Column(
+      key: key,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _fieldLabel(label),
@@ -561,6 +577,7 @@ class _UploadLoadRequirementScreenState
 
   Widget _materialDropdown() {
     return Column(
+      key: _materialKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _fieldLabel('Material Type'),
@@ -575,6 +592,10 @@ class _UploadLoadRequirementScreenState
             child: DropdownButton<String>(
               value: _materialType,
               isExpanded: true,
+              hint: const Text(
+                'Select material',
+                style: TextStyle(fontSize: 14, color: Color(0xFF737780)),
+              ),
               style: const TextStyle(
                   fontSize: 14, color: Color(0xFF191C1E)),
               dropdownColor: _surfaceContainerLowest,
@@ -592,6 +613,7 @@ class _UploadLoadRequirementScreenState
 
   Widget _datePicker() {
     return Column(
+      key: _dateKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _fieldLabel('Entry Date'),
@@ -647,6 +669,7 @@ class _UploadLoadRequirementScreenState
 
   Widget _truckCountRow() {
     return Container(
+      key: _truckCountKey,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: _surfaceContainerLow,
@@ -678,10 +701,20 @@ class _UploadLoadRequirementScreenState
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
                           border: InputBorder.none,
+                          hintText: '0',
+                          hintStyle: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFB0B5BD),
+                          ),
                         ),
                         onChanged: (v) {
+                          if (v.isEmpty) {
+                            setState(() => _truckCount = 0);
+                            return;
+                          }
                           final n = int.tryParse(v);
-                          if (n != null && n >= 1) {
+                          if (n != null && n >= 0) {
                             setState(() => _truckCount = n);
                           }
                         },
@@ -706,10 +739,10 @@ class _UploadLoadRequirementScreenState
               _countButton(
                 icon: Icons.remove,
                 onTap: () {
-                  if (_truckCount > 1) {
+                  if (_truckCount > 0) {
                     setState(() {
                       _truckCount--;
-                      _truckCountController.text = _truckCount.toString();
+                      _truckCountController.text = _truckCount > 0 ? _truckCount.toString() : '';
                     });
                   }
                 },
@@ -809,6 +842,7 @@ class _UploadLoadRequirementScreenState
                   Expanded(child: _capacityField()),
                   const SizedBox(width: 10),
                   Expanded(child: _specDropdown(
+                    key: _axleKey,
                     label: 'Axle Type',
                     value: _selectedAxleType,
                     items: _axleTypes,
@@ -820,6 +854,7 @@ class _UploadLoadRequirementScreenState
               Row(
                 children: [
                   Expanded(child: _specDropdown(
+                    key: _bodyKey,
                     label: 'Body',
                     value: _selectedBodyType,
                     items: _bodyTypes,
@@ -827,6 +862,7 @@ class _UploadLoadRequirementScreenState
                   )),
                   const SizedBox(width: 10),
                   Expanded(child: _specDropdown(
+                    key: _floorKey,
                     label: 'Floor',
                     value: _selectedFloorType,
                     items: _floorTypes,
@@ -843,6 +879,7 @@ class _UploadLoadRequirementScreenState
 
   Widget _capacityField() {
     return Container(
+      key: _capacityKey,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: _surfaceContainer,
@@ -919,12 +956,14 @@ class _UploadLoadRequirementScreenState
   }
 
   Widget _specDropdown({
+    Key? key,
     required String label,
     required String? value,
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) {
     return Container(
+      key: key,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: _surfaceContainer,
@@ -948,6 +987,14 @@ class _UploadLoadRequirementScreenState
               value: value,
               isExpanded: true,
               isDense: true,
+              hint: Text(
+                'Select',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF43474F).withOpacity(0.5),
+                ),
+              ),
               icon: const Icon(Icons.expand_more, size: 18, color: Color(0xFF43474F)),
               style: const TextStyle(
                 fontSize: 14,
@@ -1090,6 +1137,7 @@ class _UploadLoadRequirementScreenState
 
   Widget _partnerTargetSection() {
     return Column(
+      key: _partnerKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionLabel('Send To'),
@@ -1563,29 +1611,71 @@ class _UploadLoadRequirementScreenState
     return name.isNotEmpty ? name[0].toUpperCase() : 'JD';
   }
 
+  void _scrollToAndWarn(GlobalKey key, String message) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = key.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(ctx, alignment: 0.3, duration: const Duration(milliseconds: 300));
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFF001e40),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _handleSubmit() async {
     final pickup = _pickupController.text.trim();
     final drop = _dropController.text.trim();
 
-    if (pickup.isEmpty || drop.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter pickup and drop locations'),
-          backgroundColor: Color(0xFF001e40),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    // ── Validation with auto-scroll ──────────────────────────────────────────
+    if (pickup.isEmpty) {
+      _scrollToAndWarn(_pickupKey, 'Please enter a pickup location');
       return;
     }
-
+    if (drop.isEmpty) {
+      _scrollToAndWarn(_dropKey, 'Please enter a drop location');
+      return;
+    }
+    if (_materialType == null) {
+      _scrollToAndWarn(_materialKey, 'Please select a material type');
+      return;
+    }
     if (_entryDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select an entry date'),
-          backgroundColor: Color(0xFF001e40),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      _scrollToAndWarn(_dateKey, 'Please select an entry date');
+      return;
+    }
+    if (_truckCount <= 0) {
+      _scrollToAndWarn(_truckCountKey, 'Truck count can\'t be zero');
+      return;
+    }
+    final capacity = _capacityController.text.trim();
+    if (capacity.isEmpty || (double.tryParse(capacity) ?? 0) <= 0) {
+      _scrollToAndWarn(_capacityKey, 'Please enter the load capacity');
+      // Expand truck specs if collapsed so user can see the field
+      if (!_truckSpecsExpanded) setState(() => _truckSpecsExpanded = true);
+      return;
+    }
+    if (_selectedAxleType == null) {
+      _scrollToAndWarn(_axleKey, 'Please select an axle type');
+      if (!_truckSpecsExpanded) setState(() => _truckSpecsExpanded = true);
+      return;
+    }
+    if (_selectedBodyType == null) {
+      _scrollToAndWarn(_bodyKey, 'Please select a body type');
+      if (!_truckSpecsExpanded) setState(() => _truckSpecsExpanded = true);
+      return;
+    }
+    if (_selectedFloorType == null) {
+      _scrollToAndWarn(_floorKey, 'Please select a floor type');
+      if (!_truckSpecsExpanded) setState(() => _truckSpecsExpanded = true);
+      return;
+    }
+    if (_selectedPartner == null) {
+      _scrollToAndWarn(_partnerKey, 'Please select a logistic partner');
       return;
     }
 
@@ -1605,7 +1695,7 @@ class _UploadLoadRequirementScreenState
           pickupLon: _pickupLon,
           unloadLat: _dropLat,
           unloadLon: _dropLon,
-          materialType: _materialType ?? 'Steel Coils',
+          materialType: _materialType!,
           entryDate: dateStr,
           truckCount: _truckCount,
           targetOrgIds: targetOrgIds,
@@ -1628,7 +1718,7 @@ class _UploadLoadRequirementScreenState
     }
 
     // Capture values before clearing
-    final submittedMaterial = _materialType ?? 'Steel Coils';
+    final submittedMaterial = _materialType ?? 'N/A';
     final submittedTruckCount = _truckCount;
     final refId = load.refId;
 
@@ -1640,13 +1730,15 @@ class _UploadLoadRequirementScreenState
       _dropLat = null;   _dropLon = null;
       _pickupSuggestions = []; _showPickupDropdown = false;
       _dropSuggestions = [];   _showDropDropdown = false;
-      _truckCount = 1;
-      _truckCountController.text = '1';
-      _capacityController.text = '0';
+      _truckCount = 0;
+      _truckCountController.text = '';
+      _capacityController.text = '';
       _capacityUnit = 'Tons';
-      _selectedFloorType = 'Plain Floor';
+      _selectedAxleType = null;
+      _selectedBodyType = null;
+      _selectedFloorType = null;
       _entryDate = null;
-      _materialType = 'Steel Coils';
+      _materialType = null;
       _selectedPartner = null;
       _partnerResults.clear();
       _showPartnerDropdown = false;
@@ -1905,7 +1997,7 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                       context.go(AppConstants.routeLoadOwnerHome);
                     },
                     icon: const Icon(Icons.arrow_back, size: 18),
-                    label: const Text('Loads'),
+                    label: const Text('Dashboard'),
                     style: TextButton.styleFrom(
                       foregroundColor: _primary,
                       textStyle: const TextStyle(
