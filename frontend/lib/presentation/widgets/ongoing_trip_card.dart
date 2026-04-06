@@ -203,7 +203,10 @@ class OngoingTripCard extends ConsumerWidget {
                     trip.status != 'completed' &&
                     trip.status != 'cancelled') ...[
                   const SizedBox(height: 8),
-                  _CompleteBtn(onComplete: onComplete!),
+                  _CompleteBtn(
+                    onComplete: onComplete!,
+                    enabled: trip.currentStage >= 4,
+                  ),
                 ],
 
                 // Completed banner — shown on LP owner dashboard when trip is done
@@ -317,7 +320,8 @@ class _LocateBtnState extends ConsumerState<_LocateBtn> {
 
 class _CompleteBtn extends StatefulWidget {
   final Future<bool> Function() onComplete;
-  const _CompleteBtn({required this.onComplete});
+  final bool enabled;
+  const _CompleteBtn({required this.onComplete, this.enabled = true});
 
   @override
   State<_CompleteBtn> createState() => _CompleteBtnState();
@@ -327,6 +331,7 @@ class _CompleteBtnState extends State<_CompleteBtn> {
   bool _loading = false;
 
   Future<void> _confirm() async {
+    if (!widget.enabled) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -360,46 +365,60 @@ class _CompleteBtnState extends State<_CompleteBtn> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _loading ? null : _confirm,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF2E7D32), Color(0xFF388E3C)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF2E7D32).withValues(alpha: 0.30),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
+    final canTap = widget.enabled && !_loading;
+    final bgColors = widget.enabled
+        ? [const Color(0xFF2E7D32), const Color(0xFF388E3C)]
+        : [const Color(0xFFBDBDBD), const Color(0xFF9E9E9E)];
+    return Tooltip(
+      message: widget.enabled ? '' : 'Complete Trip is only available at Stage 4',
+      child: GestureDetector(
+        onTap: canTap ? _confirm : null,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: bgColors,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: _loading
-              ? [
-                  const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white)),
-                ]
-              : [
-                  const Icon(Icons.check_circle_outline_rounded,
-                      color: Colors.white, size: 16),
-                  const SizedBox(width: 6),
-                  Text('Complete Trip',
-                      style: _inter(
-                          size: 12,
-                          weight: FontWeight.w700,
-                          color: Colors.white)),
-                ],
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: widget.enabled
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF2E7D32).withValues(alpha: 0.30),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: _loading
+                ? [
+                    const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white)),
+                  ]
+                : [
+                    Icon(
+                      widget.enabled
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.lock_outline_rounded,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text('Complete Trip',
+                        style: _inter(
+                            size: 12,
+                            weight: FontWeight.w700,
+                            color: Colors.white)),
+                  ],
+          ),
         ),
       ),
     );

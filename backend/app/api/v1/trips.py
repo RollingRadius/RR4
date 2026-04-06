@@ -891,6 +891,8 @@ async def complete_trip(
         raise HTTPException(status_code=409, detail="Trip is already completed.")
     if trip.status == 'cancelled':
         raise HTTPException(status_code=409, detail="Cancelled trips cannot be completed.")
+    if (trip.current_stage or 0) < 4:
+        raise HTTPException(status_code=400, detail="Trip can only be completed after all 4 stages are done.")
 
     trip.status = 'completed'
     db.commit()
