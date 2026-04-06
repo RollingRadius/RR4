@@ -49,6 +49,9 @@ class TripModel {
   final bool? s2DriverDocsValid;
   final bool? s2EntryPermission;
   final String? s2LoadingSlipUrl;
+  final String? s2DharamKantaLoc;
+  final String? s2EmptyWeightKg;
+  final String? s2EmptyWeightUnit;
 
   // ── Stage 3 fields ───────────────────────────────────────────────────────────
   final String? s3EmptyTruckWeightKg;
@@ -127,6 +130,9 @@ class TripModel {
     this.s2DriverDocsValid,
     this.s2EntryPermission,
     this.s2LoadingSlipUrl,
+    this.s2DharamKantaLoc,
+    this.s2EmptyWeightKg,
+    this.s2EmptyWeightUnit,
     this.s3EmptyTruckWeightKg,
     this.s3EmptyTruckWeightUnit,
     this.s3LoadedTruckWeightKg,
@@ -203,6 +209,9 @@ class TripModel {
       s2DriverDocsValid: json['s2_driver_docs_valid'] as bool?,
       s2EntryPermission: json['s2_entry_permission'] as bool?,
       s2LoadingSlipUrl: json['s2_loading_slip_url'] as String?,
+      s2DharamKantaLoc: json['s2_dharam_kanta_loc'] as String?,
+      s2EmptyWeightKg: json['s2_empty_weight_kg'] as String?,
+      s2EmptyWeightUnit: json['s2_empty_weight_unit'] as String?,
       s3EmptyTruckWeightKg: json['s3_empty_truck_weight_kg'] as String?,
       s3EmptyTruckWeightUnit: json['s3_empty_truck_weight_unit'] as String?,
       s3LoadedTruckWeightKg: json['s3_loaded_truck_weight_kg'] as String?,

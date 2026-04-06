@@ -78,12 +78,15 @@ class Trip(Base):
     s1_submitted_at         = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Stage 2 — Pre-Arrival Compliance Check
-    s2_specs_verified    = Column(Boolean, nullable=True)
-    s2_docs_verified     = Column(Boolean, nullable=True)
-    s2_driver_docs_valid = Column(Boolean, nullable=True)
-    s2_entry_permission  = Column(Boolean, nullable=True)
-    s2_verified_at       = Column(TIMESTAMP(timezone=True), nullable=True)
-    s2_loading_slip_url  = Column(Text, nullable=True)
+    s2_specs_verified       = Column(Boolean,     nullable=True)
+    s2_docs_verified        = Column(Boolean,     nullable=True)
+    s2_driver_docs_valid    = Column(Boolean,     nullable=True)
+    s2_entry_permission     = Column(Boolean,     nullable=True)
+    s2_verified_at          = Column(TIMESTAMP(timezone=True), nullable=True)
+    s2_loading_slip_url     = Column(Text,        nullable=True)
+    s2_dharam_kanta_loc     = Column(String(20),  nullable=True)   # 'inside' | 'outside'
+    s2_empty_weight_kg      = Column(String(20),  nullable=True)   # empty truck weight if captured at stage 2
+    s2_empty_weight_unit    = Column(String(10),  nullable=True)   # 'tons' | 'kg'
 
     # Stage 3 — Truck Arrival at Factory
     s3_driver_parked            = Column(Boolean,      nullable=True)
@@ -172,6 +175,9 @@ class Trip(Base):
             "s2_entry_permission": self.s2_entry_permission,
             "s2_verified_at": self.s2_verified_at.isoformat() if self.s2_verified_at else None,
             "s2_loading_slip_url": self.s2_loading_slip_url,
+            "s2_dharam_kanta_loc": self.s2_dharam_kanta_loc,
+            "s2_empty_weight_kg": self.s2_empty_weight_kg,
+            "s2_empty_weight_unit": self.s2_empty_weight_unit,
             # Stage 3
             "s3_driver_parked": self.s3_driver_parked,
             "s3_docs_submitted": self.s3_docs_submitted,

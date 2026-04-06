@@ -310,10 +310,13 @@ def get_trip_vehicle_location(
 
 
 class Stage2Payload(BaseModel):
-    specs_verified:    bool
-    docs_verified:     bool
-    driver_docs_valid: bool
-    entry_permission:  bool
+    specs_verified:         bool
+    docs_verified:          bool
+    driver_docs_valid:      bool
+    entry_permission:       bool
+    dharam_kanta_location:  str | None = None   # 'inside' | 'outside' | ''
+    empty_weight_before_loading: str | None = None
+    empty_weight_unit:      str | None = None
 
 
 # Stage3Payload is replaced by Form fields + UploadFile in the endpoint below.
@@ -470,6 +473,17 @@ def submit_stage2(
     trip.s2_claimed_by        = None  # release claim on submit
     trip.s2_claimed_at        = None
     trip.s2_verified_at       = datetime.now(timezone.utc)
+
+    # Persist dharam kanta data so it survives draft clearance
+    dk_loc = (body.dharam_kanta_location or '').strip() or None
+    trip.s2_dharam_kanta_loc = dk_loc
+    if dk_loc == 'outside' and body.empty_weight_before_loading:
+        trip.s2_empty_weight_kg   = body.empty_weight_before_loading.strip()
+        trip.s2_empty_weight_unit = (body.empty_weight_unit or 'tons').strip()
+    else:
+        trip.s2_empty_weight_kg   = None
+        trip.s2_empty_weight_unit = None
+
     if trip.current_stage < 2:
         trip.current_stage = 2
 

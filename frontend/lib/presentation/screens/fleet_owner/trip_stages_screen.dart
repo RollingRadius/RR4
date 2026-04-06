@@ -987,6 +987,8 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   final _emptyWeightUnit    = ValueNotifier<String>('tons');
 
   // ── Keys for auto-scroll on validation error ──────────────────────────────
+  final _checklistKey         = GlobalKey();
+  final _dharamKantaKey       = GlobalKey();
   final _weightSectionKey     = GlobalKey();
   final _entryPermissionKey   = GlobalKey();
 
@@ -1032,13 +1034,21 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
       _docsVerified    = trip.s2DocsVerified     ?? false;
       _driverDocsValid = trip.s2DriverDocsValid  ?? false;
       _entryPermissionChecked = trip.s2EntryPermission  ?? false;
+
+      // Restore dharam kanta data persisted at submission
+      if (trip.s2DharamKantaLoc != null && trip.s2DharamKantaLoc!.isNotEmpty) {
+        _dharamKantaLoc = trip.s2DharamKantaLoc;
+        if (trip.s2DharamKantaLoc == 'outside' &&
+            trip.s2EmptyWeightKg != null && trip.s2EmptyWeightKg!.isNotEmpty) {
+          _emptyWeightCtrl.text = trip.s2EmptyWeightKg!;
+          _emptyWeightUnit.value = trip.s2EmptyWeightUnit ?? 'tons';
+          _s2WeightConfirmed = true;
+        }
+      }
     }
   }
 
   void _onWeightTextChanged() {
-    setState(() {
-      if (_s2WeightConfirmed) _s2WeightConfirmed = false;
-    });
     _onFieldChanged();
   }
 
@@ -1082,20 +1092,42 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
     });
   }
 
+  void _showError(GlobalKey key, String message) {
+    _scrollToKey(key);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message, style: _inter(size: 13, color: Colors.white)),
+      backgroundColor: _error,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+  }
+
   Future<void> _submit() async {
-    // If Outside Factory is selected, weight must be entered and confirmed first
-    if (_dharamKantaLoc == 'outside' &&
-        (_emptyWeightCtrl.text.trim().isEmpty || !_s2WeightConfirmed)) {
-      _scrollToKey(_weightSectionKey);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please enter and confirm the empty truck weight before proceeding.',
-              style: _inter(size: 13, color: Colors.white)),
-          backgroundColor: _error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
+    // 1. All 3 verification checkboxes must be checked
+    if (!_specsVerified || !_docsVerified || !_driverDocsValid) {
+      _showError(_checklistKey, 'Please confirm all verification items before proceeding.');
+      return;
+    }
+
+    // 2. Dharam Kanta location must be selected (inside or outside)
+    if (_dharamKantaLoc == null) {
+      _showError(_dharamKantaKey, 'Please select weighbridge location (Inside or Outside Factory).');
+      return;
+    }
+
+    // 3. If Outside Factory, weight must be entered (> 0) and confirmed
+    if (_dharamKantaLoc == 'outside') {
+      final weightVal = double.tryParse(_emptyWeightCtrl.text.trim()) ?? 0;
+      if (_emptyWeightCtrl.text.trim().isEmpty || weightVal <= 0 || !_s2WeightConfirmed) {
+        _showError(_weightSectionKey,
+            'Please enter a valid empty truck weight (greater than 0) and confirm it.');
+        return;
+      }
+    }
+
+    // 4. Entry permission checkbox must be checked
+    if (!_entryPermissionChecked) {
+      _showError(_entryPermissionKey, 'Please check "Truck Entry Permission Issued" before proceeding.');
       return;
     }
 
@@ -1188,6 +1220,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           const SizedBox(height: 16),
 
           _CheckItem(
+            key: _checklistKey,
             label: 'Truck specifications match requirement',
             value: _specsVerified,
             onChanged: (v) { setState(() => _specsVerified = v); _onCheckChanged(); },
@@ -1206,6 +1239,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
 
           // ── Dharam Kanta (Weighbridge) location ──
           Container(
+            key: _dharamKantaKey,
             decoration: BoxDecoration(
               color: _surface,
               borderRadius: BorderRadius.circular(14),
@@ -1268,23 +1302,25 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                     hint: 'e.g. 12.5',
                     note: 'Weight recorded outside factory (before loading).',
                     unitNotifier: _emptyWeightUnit,
+                    enabled: !_s2WeightConfirmed,
                   ),
                   const SizedBox(height: 10),
+                  if (!_s2WeightConfirmed)
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: _emptyWeightCtrl.text.trim().isNotEmpty
-                          ? () {
-                              ref
-                                  .read(tripStagesProvider(widget.providerKey).notifier)
-                                  .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim(), _emptyWeightUnit.value);
-                              setState(() => _s2WeightConfirmed = true);
-                              FocusScope.of(context).unfocus();
-                              _saveDraft();
-                            }
-                          : null,
+                      onPressed: () {
+                        final val = double.tryParse(_emptyWeightCtrl.text.trim()) ?? 0;
+                        if (_emptyWeightCtrl.text.trim().isEmpty || val <= 0) return;
+                        ref
+                            .read(tripStagesProvider(widget.providerKey).notifier)
+                            .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim(), _emptyWeightUnit.value);
+                        setState(() => _s2WeightConfirmed = true);
+                        FocusScope.of(context).unfocus();
+                        _saveDraft();
+                      },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _s2WeightConfirmed ? _success : _primary,
+                        backgroundColor: _primary,
                         foregroundColor: Colors.white,
                         disabledBackgroundColor: const Color(0xFFDDE0E2),
                         disabledForegroundColor: _secondary,
@@ -1292,11 +1328,26 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         textStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700),
                       ),
-                      icon: Icon(
-                        _s2WeightConfirmed ? Icons.check_circle_rounded : Icons.input_rounded,
-                        size: 16,
-                      ),
-                      label: Text(_s2WeightConfirmed ? 'Weight Recorded' : 'Enter Weight'),
+                      icon: const Icon(Icons.input_rounded, size: 16),
+                      label: const Text('Confirm Weight'),
+                    ),
+                  ),
+                  if (_s2WeightConfirmed)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: _success.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _success.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle_rounded, color: _success, size: 16),
+                        const SizedBox(width: 8),
+                        Text('Weight recorded: ${_emptyWeightCtrl.text.trim()} ${_emptyWeightUnit.value}',
+                            style: _manrope(size: 13, weight: FontWeight.w700, color: _success)),
+                      ],
                     ),
                   ),
                 ],
@@ -3679,11 +3730,11 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
+                Flexible(child: Text(
                   _completed ? 'Trip Completed' : 'Factory Exit Done — Awaiting Completion',
                   style: _manrope(size: 13, weight: FontWeight.w700,
                       color: _completed ? _primary : _success),
-                ),
+                )),
               ],
             ),
           ),
