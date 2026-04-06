@@ -1757,13 +1757,14 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       ref.read(tripProvider.notifier).patchTrip(trip);
 
       if (!mounted) return;
+      // Capture notifier before navigation — ref must not be used after dispose
+      final trips = ref.read(tripProvider.notifier);
       final nav = Navigator.of(context);
       nav.pop(); // close bottom sheet
       nav.push(
         MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)),
       ).then((_) {
-        // ref.read is safe without mounted — force fresh data and switch to Dashboard
-        ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+        trips.loadTrips(statusFilter: 'ongoing,pending');
       });
     } on DioException catch (e) {
       if (!mounted) return;
