@@ -879,7 +879,7 @@ async def complete_trip(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Mark a trip as completed (LP owner/admin only). Notifies the load owner."""
+    """Mark a trip as completed (LP owner only). Notifies the load owner."""
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
     if role_key not in ('logistic_partner', 'super_admin'):

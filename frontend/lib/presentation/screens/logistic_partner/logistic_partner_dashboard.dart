@@ -1544,18 +1544,18 @@ class _AvailableLoadCard extends ConsumerWidget {
 
   String _buildMessage(LoadRequirementModel load) {
     final lines = <String>[
-      '🚛 *Load Requirements*',
-      '📋 Ref: ${load.refId}',
+      '*Load Requirements*',
+      'Ref: ${load.refId}',
       if (load.pickupLocation != null) '📍 Pickup: ${load.pickupLocation}',
       if (load.unloadLocation != null) '🏁 Drop: ${load.unloadLocation}',
       if (load.entryDate != null) '📅 Date: ${load.entryDate}',
-      '🚚 Trucks Needed: ${load.truckCount}',
-      if (load.materialType != null) '📦 Material: ${load.materialType}',
-      if (load.capacity != null) '⚖️ Capacity: ${load.capacity}',
-      if (load.bodyType != null) '🚛 Body Type: ${load.bodyType}',
-      if (load.axelType != null) '🔧 Axel Type: ${load.axelType}',
-      if (load.floorType != null) '🪵 Floor Type: ${load.floorType}',
-      if (load.companyName != null) '🏢 Company: ${load.companyName}',
+      'Trucks Needed: ${load.truckCount}',
+      if (load.materialType != null) 'Material: ${load.materialType}',
+      if (load.capacity != null) 'Capacity: ${load.capacity}',
+      if (load.bodyType != null) 'Body Type: ${load.bodyType}',
+      if (load.axelType != null) 'Axel Type: ${load.axelType}',
+      if (load.floorType != null) 'Floor Type: ${load.floorType}',
+      if (load.companyName != null) 'Company: ${load.companyName}',
       if (load.companyCity != null || load.companyState != null)
         '📌 Location: ${[
           if (load.companyCity != null) load.companyCity!,

@@ -20,7 +20,7 @@ class AppConfig {
 
   // LocationIQ – autocomplete for pickup / drop locations
   // Replace with your actual token from https://my.locationiq.com/dashboard
-  static const String locationIqKey = 'el';
+  static const String locationIqKey = 'pk.9ab1b6a54c6e760146bdefcc9b6f7e91';
 
   // Timeouts
   static const Duration connectionTimeout = Duration(seconds: 30);
