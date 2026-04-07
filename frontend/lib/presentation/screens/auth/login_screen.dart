@@ -200,7 +200,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         children: [
                           // Branding
                           Image.asset(
-                            'assest/images/app-logo.png',
+                            'assest/images/app-logo-bgremoved.png',
                             width: 90,
                             height: 90,
                           ),

@@ -96,7 +96,15 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final isOnAuthPage = state.matchedLocation == AppConstants.routeLogin ||
           state.matchedLocation == AppConstants.routeSignup ||
-          state.matchedLocation == '/splash';
+          state.matchedLocation == '/splash' ||
+          state.matchedLocation == '/security-questions' ||
+          state.matchedLocation == '/company/selection' ||
+          state.matchedLocation == '/company/search' ||
+          state.matchedLocation == '/company/create' ||
+          state.matchedLocation == '/verify-email' ||
+          state.matchedLocation == '/verify-code' ||
+          state.matchedLocation == '/password-recovery' ||
+          state.matchedLocation == '/username-recovery';
 
       if (!auth.isAuthenticated && !isOnAuthPage) {
         return AppConstants.routeLogin;

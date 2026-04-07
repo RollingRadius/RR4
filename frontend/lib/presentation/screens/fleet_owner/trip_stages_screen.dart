@@ -3833,8 +3833,9 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
           ),
           const SizedBox(height: 12),
 
-          // ── Complete Trip button (LP owner only) ──
-          if (ref.watch(authProvider).user?.isLogisticPartner == true) ...[
+          // ── Complete Trip button (LP owner only, not workers) ──
+          if (ref.watch(authProvider).user?.isLogisticPartner == true &&
+              ref.watch(authProvider).user?.isLogisticPartnerWorker != true) ...[
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(

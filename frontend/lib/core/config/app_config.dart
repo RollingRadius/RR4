@@ -6,7 +6,7 @@ class AppConfig {
   // For local development, use localhost or set API_BASE_URL environment variable
   // For Android emulator, use 10.0.2.2
   static const String apiBaseUrl =
-      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://34.127.125.215:8000');
+      String.fromEnvironment('API_BASE_URL', defaultValue: 'https://api-mobile.rollingradius.com');
 
   static const String apiVersion = '/api';
 
