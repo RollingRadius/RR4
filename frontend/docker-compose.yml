@@ -11,3 +11,5 @@ services:
     ports:
       - "80:80"
     restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
