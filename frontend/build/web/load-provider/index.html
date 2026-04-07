@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta name="theme-color" content="#001e40"/>
+<title>RR Logistics — Load Provider</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    user-select: none;
+  }
+  body { font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+  .glass-header {
+    background: rgba(247,249,251,0.88);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+  .route-line {
+    background-image: linear-gradient(to bottom, #001e40 50%, transparent 50%);
+    background-size: 2px 8px; background-repeat: repeat-y;
+  }
+  input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
+  .entry-panel { display: none; }
+  .entry-panel.active { display: block; }
+  .specs-grid { display: none; }
+  .specs-grid.open { display: grid; }
+  .fab-disabled { opacity: 0.6; cursor: not-allowed; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 20px; height: 20px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.35); border-top-color: #fff;
+    animation: spin 650ms linear infinite; display: inline-block;
+  }
+  @keyframes snack-in { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  .snack-show { animation: snack-in 220ms ease forwards; }
+  .drag-over-ring { outline: 2px solid #001e40 !important; background: rgba(0,30,64,.04) !important; }
+  .app-shell { max-width: 480px; margin: 0 auto; min-height: 100dvh; position: relative; }
+  .bottom-nav-shadow { box-shadow: 0 -4px 24px -4px rgba(25,28,30,.08); }
+
+  /* View switching */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Skeleton pulse */
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .animate-pulse { animation: pulse 1.8s cubic-bezier(.4,0,.6,1) infinite; }
+
+  /* Stat card hero gradient */
+  .hero-card {
+    background: linear-gradient(135deg, #001e40 0%, #003366 60%, #004080 100%);
+    position: relative; overflow: hidden;
+  }
+  .hero-card::before {
+    content:''; position:absolute; top:-40px; right:-40px;
+    width:180px; height:180px; border-radius:50%;
+    background: rgba(255,255,255,.06);
+  }
+  .hero-card::after {
+    content:''; position:absolute; bottom:-50px; left:-30px;
+    width:130px; height:130px; border-radius:50%;
+    background: rgba(255,255,255,.04);
+  }
+
+  /* Status badge */
+  .badge {
+    display: inline-flex; align-items:center; gap:4px;
+    padding: 2px 8px; border-radius: 9999px;
+    font-size: 0.625rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  }
+  .badge--active    { background: rgba(22,163,74,.12);  color: #15803d; }
+  .badge--pending   { background: rgba(234,179,8,.12);  color: #b45309; }
+  .badge--delivered { background: rgba(99,102,241,.12); color: #4338ca; }
+  .badge--cancelled { background: rgba(239,68,68,.12);  color: #b91c1c; }
+
+  /* Filter chips */
+  .chip { transition: all 120ms ease; }
+  .chip.active { background:#001e40; color:#fff; }
+  .chip:not(.active) { background:#eceef0; color:#43474f; }
+
+  /* Nav active pill */
+  .nav-pill {
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap: 3px; padding: 6px 14px; border-radius: 14px; border:none; cursor:pointer;
+    font-family: 'Inter', sans-serif; transition: all 120ms ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .nav-pill.active { background:#001e40; color:#fff; }
+  .nav-pill:not(.active) { background:transparent; color:#43474f; }
+  .nav-pill:not(.active):hover { color:#001e40; }
+  .nav-pill:active { transform: scale(0.9); }
+  .nav-pill .nav-label { font-size: 9px; font-weight:700; letter-spacing:0.06em; text-transform:uppercase; line-height:1; }
+
+  /* Transitions */
+  .view-enter { animation: fadeSlideUp 240ms cubic-bezier(.4,0,.2,1) both; }
+  @keyframes fadeSlideUp {
+    from { opacity:0; transform:translateY(8px); }
+    to   { opacity:1; transform:translateY(0); }
+  }
+
+  /* Profile view */
+  #view-profile .profile-hero {
+    background: linear-gradient(135deg, #001e40 0%, #003366 100%);
+    border-radius: 20px; padding: 28px 20px; text-align:center;
+    display:flex; flex-direction:column; align-items:center; gap:12px;
+  }
+  .profile-avatar-ring {
+    width:80px; height:80px; border-radius:50%;
+    background: rgba(255,255,255,.18); border: 3px solid rgba(255,255,255,.3);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 1.75rem; font-weight:900; color:#fff; letter-spacing:-0.02em;
+  }
+
+  /* Load card */
+  .load-card {
+    background:#eceef0; border-radius:16px; padding:14px 16px;
+    display:flex; flex-direction:column; gap:10px;
+    transition: transform 80ms ease;
+  }
+  .load-card:active { transform: scale(.99); }
+</style>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary":                   "#001e40",
+          "primary-container":         "#003366",
+          "on-primary":                "#ffffff",
+          "on-primary-container":      "#799dd6",
+          "secondary":                 "#515f74",
+          "secondary-container":       "#d5e3fc",
+          "on-secondary-container":    "#57657a",
+          "tertiary":                  "#381300",
+          "tertiary-container":        "#592300",
+          "on-tertiary-container":     "#d8885c",
+          "background":                "#f7f9fb",
+          "on-background":             "#191c1e",
+          "surface":                   "#f7f9fb",
+          "surface-container-lowest":  "#ffffff",
+          "surface-container-low":     "#f2f4f6",
+          "surface-container":         "#eceef0",
+          "surface-container-high":    "#e6e8ea",
+          "on-surface":                "#191c1e",
+          "on-surface-variant":        "#43474f",
+          "outline":                   "#737780",
+          "outline-variant":           "#c3c6d1",
+          "error":                     "#ba1a1a",
+        },
+        fontFamily: { headline: ["Inter"], body: ["Inter"], label: ["Inter"] },
+        borderRadius: { DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", "2xl": "0.75rem", full: "9999px" },
+      },
+    },
+  };
+</script>
+</head>
+
+<body class="bg-background text-on-background min-h-screen">
+
+<!-- ── Auth guard ──────────────────────────────────────── -->
+<div id="authGuard" class="fixed inset-0 z-[999] flex flex-col items-center justify-center gap-4 bg-background">
+  <div style="width:44px;height:44px;border-radius:50%;border:3px solid rgba(0,30,64,.12);border-top-color:#001e40;animation:spin 700ms linear infinite;"></div>
+  <span class="text-sm font-medium text-on-surface-variant">Verifying session…</span>
+</div>
+
+<div class="app-shell">
+
+<!-- ── Top App Bar ──────────────────────────────────────── -->
+<header id="topBar" class="sticky top-0 z-50 glass-header flex justify-between items-center px-5 py-4 w-full border-b border-transparent transition-all duration-200">
+  <div class="flex items-center gap-3">
+    <button id="menuBtn" class="material-symbols-outlined text-primary hover:bg-surface-container transition-colors p-2 rounded-full text-[22px]" aria-label="Menu">menu</button>
+    <h1 class="text-[1.1rem] font-black text-primary tracking-tighter">RR Logistics</h1>
+  </div>
+  <button id="avatarBtn" class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-xs hover:opacity-90 transition-opacity" aria-label="Profile">JD</button>
+</header>
+
+<!-- ══════════════════════════════════════════════════════
+     VIEW: HOME DASHBOARD
+════════════════════════════════════════════════════════ -->
+<div id="view-home" class="view" role="main">
+  <main class="px-5 py-6 space-y-5 pb-36">
+
+    <!-- Hero greeting card -->
+    <div class="hero-card rounded-2xl p-5 text-white relative">
+      <div class="relative z-10">
+        <p class="text-[0.6875rem] uppercase tracking-widest font-semibold text-white/60">Load Owner Portal</p>
+        <h2 id="heroGreeting" class="text-2xl font-black tracking-tight mt-1">Welcome back 👋</h2>
+        <p id="heroCompany" class="text-sm text-white/70 mt-0.5">RR Logistics</p>
+        <div class="mt-4 inline-flex items-center gap-2 text-xs text-white/50 bg-white/10 px-3 py-1.5 rounded-full">
+          <span class="material-symbols-outlined text-[14px]">calendar_today</span>
+          <span id="heroDate"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPI Stats row -->
+    <div class="grid grid-cols-3 gap-3">
+      <div class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/20 shadow-sm flex flex-col gap-1">
+        <span class="material-symbols-outlined text-primary text-[20px]">local_shipping</span>
+        <span id="statActive" class="text-2xl font-black text-primary tabular-nums">—</span>
+        <span class="text-[0.6rem] uppercase tracking-widest font-semibold text-on-surface-variant">Active</span>
+      </div>
+      <div class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/20 shadow-sm flex flex-col gap-1">
+        <span class="material-symbols-outlined text-primary text-[20px]">done_all</span>
+        <span id="statCompleted" class="text-2xl font-black text-primary tabular-nums">—</span>
+        <span class="text-[0.6rem] uppercase tracking-widest font-semibold text-on-surface-variant">Completed</span>
+      </div>
+      <div class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/20 shadow-sm flex flex-col gap-1">
+        <span class="material-symbols-outlined text-[#b45309] text-[20px]">schedule</span>
+        <span id="statPending" class="text-2xl font-black text-primary tabular-nums">—</span>
+        <span class="text-[0.6rem] uppercase tracking-widest font-semibold text-on-surface-variant">Pending</span>
+      </div>
+    </div>
+
+    <!-- Create Load button -->
+    <button id="btnNewLoad"
+      class="w-full bg-primary text-white py-4 rounded-xl font-bold text-[1rem] tracking-tight flex items-center justify-center gap-2.5 active:scale-[.98] transition-transform shadow-lg hover:bg-[#002a57]">
+      <span class="material-symbols-outlined text-[22px]">add</span>
+      Create Load
+    </button>
+
+    <!-- Recent Activity -->
+    <section>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant">Recent Activity</h3>
+        <button id="btnViewAll" class="text-xs font-bold text-primary">View All</button>
+      </div>
+      <div id="recentLoads" class="space-y-3">
+        <div class="h-24 bg-surface-container rounded-2xl animate-pulse"></div>
+        <div class="h-24 bg-surface-container rounded-2xl animate-pulse" style="animation-delay:150ms"></div>
+        <div class="h-24 bg-surface-container rounded-2xl animate-pulse" style="animation-delay:300ms"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     VIEW: UPLOAD LOAD REQUIREMENT
+════════════════════════════════════════════════════════ -->
+<div id="view-upload" class="view" role="main">
+<main class="px-5 py-6 space-y-7 pb-40">
+
+  <!-- ── Section 1 — Entry Method ── -->
+  <section class="space-y-4">
+    <div class="flex flex-col">
+      <span class="text-[0.6875rem] uppercase tracking-widest font-semibold text-on-surface-variant mb-0.5">Entry Method</span>
+      <h2 class="text-2xl font-bold tracking-tight text-primary">New Load</h2>
+    </div>
+    <div class="grid grid-cols-3 gap-3" role="tablist">
+      <button id="btnManual" data-tab="manual" role="tab" aria-selected="true"
+        class="tab-btn flex flex-col items-center justify-center p-4 bg-primary text-white rounded-xl space-y-2 active:scale-95 duration-150">
+        <span class="material-symbols-outlined text-[22px]">edit_note</span>
+        <span class="text-[0.625rem] font-semibold uppercase tracking-wider">Manual</span>
+      </button>
+      <button id="btnBulk" data-tab="bulk" role="tab" aria-selected="false"
+        class="tab-btn flex flex-col items-center justify-center p-4 bg-surface-container text-on-surface-variant rounded-xl space-y-2 hover:bg-surface-container-high active:scale-95 duration-150">
+        <span class="material-symbols-outlined text-[22px]">upload_file</span>
+        <span class="text-[0.625rem] font-semibold uppercase tracking-wider">Bulk</span>
+      </button>
+      <button id="btnPhoto" data-tab="photo" role="tab" aria-selected="false"
+        class="tab-btn flex flex-col items-center justify-center p-4 bg-surface-container text-on-surface-variant rounded-xl space-y-2 hover:bg-surface-container-high active:scale-95 duration-150">
+        <span class="material-symbols-outlined text-[22px]">photo_camera</span>
+        <span class="text-[0.625rem] font-semibold uppercase tracking-wider">Photo</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ── Panel: Manual ── -->
+  <div id="panelManual" class="entry-panel active space-y-0" role="tabpanel">
+    <section class="space-y-6">
+      <div class="bg-surface-container rounded-2xl p-5 space-y-5">
+        <!-- Route visual -->
+        <div class="relative pl-8 space-y-7">
+          <div class="absolute left-[11px] top-3 bottom-3 w-0.5 route-line opacity-30"></div>
+          <div class="relative">
+            <div class="absolute -left-[27px] top-1 w-4 h-4 rounded-full border-2 border-primary bg-white z-10"></div>
+            <div class="space-y-1">
+              <label class="text-[0.6875rem] uppercase tracking-widest font-semibold text-on-surface-variant block" for="pickup">Pickup Location</label>
+              <input id="pickup" type="text" placeholder="Enter Origin Hub"
+                class="w-full bg-surface-container-lowest border-none rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none placeholder:text-outline-variant" autocomplete="off"/>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-primary z-10"></div>
+            <div class="space-y-1">
+              <label class="text-[0.6875rem] uppercase tracking-widest font-semibold text-on-surface-variant block" for="unload">Unload Location</label>
+              <input id="unload" type="text" placeholder="Enter Destination"
+                class="w-full bg-surface-container-lowest border-none rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none placeholder:text-outline-variant" autocomplete="off"/>
+            </div>
+          </div>
+        </div>
+        <!-- Material + Date -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-1">
+            <label class="text-[0.6875rem] uppercase tracking-widest font-semibold text-on-surface-variant block" for="material">Material Type</label>
+            <select id="material" class="w-full bg-surface-container-lowest border-none rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none appearance-none cursor-pointer">
+              <option value="Steel Coils">Steel Coils</option>
+              <option value="Perishables">Perishables</option>
+              <option value="Electronics">Electronics</option>
+              <option value="Industrial">Industrial</option>
+              <option value="Chemicals">Chemicals</option>
+              <option value="Auto Parts">Auto Parts</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[0.6875rem] uppercase tracking-widest font-semibold text-on-surface-variant block" for="entryDate">Entry Date</label>
+            <input id="entryDate" type="date"
+              class="w-full bg-surface-container-lowest border-none rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-primary outline-none"/>
+          </div>
+        </div>
+        <!-- Truck count stepper -->
+        <div class="flex items-center justify-between p-4 bg-surface-container-low rounded-xl">
+          <div class="space-y-0.5">
+            <label class="text-[0.6875rem] uppercase tracking-widest font-semibold text-on-surface-variant block">Truck Count</label>
+            <span id="truckDisplay" class="text-xl font-black text-primary">08 Units</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <button id="btnMinus" aria-label="Decrease"
+              class="w-10 h-10 rounded-full bg-surface-container-lowest flex items-center justify-center text-primary active:scale-90 duration-150 shadow-sm hover:bg-surface-container">
+              <span class="material-symbols-outlined text-[20px]">remove</span>
+            </button>
+            <button id="btnPlus" aria-label="Increase"
+              class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white active:scale-90 duration-150 shadow-md hover:bg-primary-container">
+              <span class="material-symbols-outlined text-[20px]">add</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Truck Specifications -->
+    <section class="space-y-3 mt-6">
+      <button id="specsToggle" aria-expanded="true" aria-controls="specsGrid"
+        class="w-full flex items-center justify-between p-4 bg-surface-container-low rounded-xl hover:bg-surface-container transition-colors">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-primary text-[22px]">local_shipping</span>
+          <span class="font-bold text-primary">Truck Specifications</span>
+        </div>
+        <span id="specsChevron" class="material-symbols-outlined text-on-surface-variant transition-transform duration-200 text-[22px]">expand_more</span>
+      </button>
+      <div id="specsGrid" class="specs-grid open grid-cols-2 gap-3">
+        <div class="p-4 bg-surface-container rounded-xl border-l-4 border-primary">
+          <span class="text-[0.625rem] uppercase tracking-tighter text-on-surface-variant font-bold block">Capacity</span>
+          <div id="specCapacity" class="text-lg font-black text-primary mt-1">24 Tons</div>
+        </div>
+        <div class="p-4 bg-surface-container rounded-xl">
+          <span class="text-[0.625rem] uppercase tracking-tighter text-on-surface-variant font-bold block">Axel Type</span>
+          <div id="specAxel" class="text-lg font-black text-primary mt-1">Multi-Axel</div>
+        </div>
+        <div class="p-4 bg-surface-container rounded-xl">
+          <span class="text-[0.625rem] uppercase tracking-tighter text-on-surface-variant font-bold block">Body</span>
+          <div id="specBody" class="text-lg font-black text-primary mt-1">Open Body</div>
+        </div>
+        <div class="p-4 bg-surface-container rounded-xl">
+          <span class="text-[0.625rem] uppercase tracking-tighter text-on-surface-variant font-bold block">Floor</span>
+          <div id="specFloor" class="text-lg font-black text-primary mt-1">Wooden</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bulk shortcut -->
+    <section class="space-y-3 mt-6">
+      <h3 class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant">Bulk Operations</h3>
+      <div id="dropZone" tabindex="0" role="button" aria-label="Drag and drop or click to browse files"
+        class="border-2 border-dashed border-outline-variant rounded-2xl p-8 flex flex-col items-center justify-center text-center space-y-3 bg-surface-container-low/50 cursor-pointer transition-all duration-200 hover:border-primary hover:bg-surface-container-low focus:outline-none focus:border-primary">
+        <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+          <span class="material-symbols-outlined text-primary text-[26px]">cloud_upload</span>
+        </div>
+        <div class="space-y-1">
+          <p class="text-sm font-bold text-primary">Drag &amp; Drop Manifest</p>
+          <p class="text-[0.625rem] text-on-surface-variant">Excel or CSV &nbsp;·&nbsp; Max 5 files</p>
+        </div>
+        <button id="browseBtn" type="button"
+          class="px-6 py-2 bg-surface-container-lowest text-primary text-xs font-bold rounded-full border border-outline-variant/50 shadow-sm hover:bg-surface-container-high active:scale-95 duration-150">
+          Browse Files
+        </button>
+        <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" multiple class="hidden"/>
+      </div>
+    </section>
+
+    <!-- Photo shortcut -->
+    <div id="photoShortcut" role="button" tabindex="0"
+      class="flex gap-4 items-center p-4 bg-[#592300]/10 rounded-2xl cursor-pointer hover:bg-[#592300]/15 transition-colors mt-4">
+      <div class="w-10 h-10 rounded-xl bg-[#592300] flex items-center justify-center text-[#d8885c] shrink-0">
+        <span class="material-symbols-outlined text-[20px]">camera</span>
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="text-xs font-bold text-primary">Visual Verification</p>
+        <p class="text-[0.625rem] text-on-surface-variant">Capture load photos for instant AI data entry</p>
+      </div>
+      <span class="material-symbols-outlined text-primary text-[22px]">chevron_right</span>
+    </div>
+
+  </div><!-- /panelManual -->
+
+  <!-- ── Panel: Bulk ── -->
+  <div id="panelBulk" class="entry-panel space-y-4" role="tabpanel">
+    <h3 class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant">Bulk Operations</h3>
+    <div id="dropZone2" tabindex="0" role="button"
+      class="border-2 border-dashed border-outline-variant rounded-2xl p-10 flex flex-col items-center justify-center text-center space-y-3 bg-surface-container-low/50 cursor-pointer transition-all duration-200 hover:border-primary hover:bg-surface-container-low focus:outline-none focus:border-primary">
+      <div class="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+        <span class="material-symbols-outlined text-primary text-[30px]">cloud_upload</span>
+      </div>
+      <div class="space-y-1">
+        <p class="text-sm font-bold text-primary">Drag &amp; Drop Manifest</p>
+        <p class="text-[0.625rem] text-on-surface-variant">Excel or CSV &nbsp;·&nbsp; Max 5 files</p>
+      </div>
+      <button id="browseBtn2" type="button"
+        class="px-6 py-2 bg-surface-container-lowest text-primary text-xs font-bold rounded-full border border-outline-variant/50 shadow-sm hover:bg-surface-container-high active:scale-95 duration-150">
+        Browse Files
+      </button>
+      <input type="file" id="fileInput2" accept=".xlsx,.xls,.csv" multiple class="hidden"/>
+    </div>
+    <div id="fileList" class="space-y-2"></div>
+  </div>
+
+  <!-- ── Panel: Photo ── -->
+  <div id="panelPhoto" class="entry-panel space-y-4" role="tabpanel">
+    <h3 class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant">Visual Verification</h3>
+    <div id="cameraWrap" class="relative bg-surface-container rounded-2xl overflow-hidden cursor-pointer"
+      style="min-height:220px;display:flex;align-items:center;justify-content:center;">
+      <video id="cameraFeed" autoplay playsinline class="w-full rounded-2xl hidden"></video>
+      <img id="capturedPhoto" class="w-full rounded-2xl hidden object-cover" alt="Captured load photo"/>
+      <div id="cameraPlaceholder" class="flex flex-col items-center gap-2 p-8 text-center">
+        <span class="material-symbols-outlined text-outline text-5xl">camera_alt</span>
+        <span class="text-sm font-semibold text-on-surface-variant">Tap to start camera</span>
+        <span class="text-[0.625rem] text-outline">AI-assisted data extraction</span>
+      </div>
+    </div>
+    <div class="flex gap-3 justify-center">
+      <button id="captureBtn" class="hidden px-8 py-3 bg-primary text-white text-sm font-bold rounded-full shadow-md active:scale-95 duration-150">
+        <span class="material-symbols-outlined align-middle text-[18px] mr-1">camera</span>Capture
+      </button>
+      <button id="retakeBtn" class="hidden px-6 py-3 bg-surface-container text-primary text-sm font-bold rounded-full active:scale-95 duration-150">
+        Retake
+      </button>
+    </div>
+  </div>
+
+</main>
+</div><!-- /view-upload -->
+
+<!-- ══════════════════════════════════════════════════════
+     VIEW: MY TRIPS
+════════════════════════════════════════════════════════ -->
+<div id="view-trips" class="view" role="main">
+  <main class="px-5 py-6 space-y-5 pb-36">
+    <div>
+      <span class="text-[0.6875rem] uppercase tracking-widest font-semibold text-on-surface-variant">History</span>
+      <h2 class="text-2xl font-bold tracking-tight text-primary mt-0.5">My Trips</h2>
+    </div>
+
+    <!-- Filter chips -->
+    <div class="flex gap-2" id="tripFilters">
+      <button class="chip active px-4 py-1.5 rounded-full text-xs font-bold" data-filter="all">All</button>
+      <button class="chip px-4 py-1.5 rounded-full text-xs font-bold" data-filter="active">Active</button>
+      <button class="chip px-4 py-1.5 rounded-full text-xs font-bold" data-filter="completed">Completed</button>
+      <button class="chip px-4 py-1.5 rounded-full text-xs font-bold" data-filter="pending">Pending</button>
+    </div>
+
+    <!-- Trips list -->
+    <div id="tripsList" class="space-y-3">
+      <div class="h-24 bg-surface-container rounded-2xl animate-pulse"></div>
+      <div class="h-24 bg-surface-container rounded-2xl animate-pulse" style="animation-delay:150ms"></div>
+      <div class="h-24 bg-surface-container rounded-2xl animate-pulse" style="animation-delay:300ms"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     VIEW: FLEET
+════════════════════════════════════════════════════════ -->
+<div id="view-fleet" class="view" role="main">
+  <main class="px-5 py-6 space-y-5 pb-36">
+    <div>
+      <span class="text-[0.6875rem] uppercase tracking-widest font-semibold text-on-surface-variant">Overview</span>
+      <h2 class="text-2xl font-bold tracking-tight text-primary mt-0.5">Fleet</h2>
+    </div>
+
+    <!-- Fleet KPI grid -->
+    <div class="grid grid-cols-2 gap-3">
+      <div class="hero-card rounded-2xl p-4 text-white relative">
+        <div class="relative z-10">
+          <span class="material-symbols-outlined text-white/70 text-[22px]">local_shipping</span>
+          <p id="fleetTotal" class="text-4xl font-black mt-1">—</p>
+          <p class="text-[0.6rem] uppercase tracking-widest font-semibold text-white/60 mt-1">Total Trucks</p>
+        </div>
+      </div>
+      <div class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/20 shadow-sm">
+        <span class="material-symbols-outlined text-green-600 text-[22px]">directions</span>
+        <p id="fleetOnRoute" class="text-4xl font-black text-primary mt-1">—</p>
+        <p class="text-[0.6rem] uppercase tracking-widest font-semibold text-on-surface-variant mt-1">On Route</p>
+      </div>
+      <div class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/20 shadow-sm">
+        <span class="material-symbols-outlined text-[#4338ca] text-[22px]">check_circle</span>
+        <p id="fleetAvail" class="text-4xl font-black text-primary mt-1">—</p>
+        <p class="text-[0.6rem] uppercase tracking-widest font-semibold text-on-surface-variant mt-1">Available</p>
+      </div>
+      <div class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/20 shadow-sm">
+        <span class="material-symbols-outlined text-[#b45309] text-[22px]">build</span>
+        <p id="fleetMaint" class="text-4xl font-black text-primary mt-1">—</p>
+        <p class="text-[0.6rem] uppercase tracking-widest font-semibold text-on-surface-variant mt-1">Maintenance</p>
+      </div>
+    </div>
+
+    <!-- Truck types breakdown -->
+    <div class="bg-surface-container rounded-2xl p-5">
+      <p class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant mb-4">Truck Types</p>
+      <div class="space-y-3" id="fleetTypesList">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-white text-[16px]">local_shipping</span>
+          </div>
+          <div class="flex-1">
+            <div class="flex justify-between mb-1">
+              <span class="text-sm font-semibold text-on-surface">Multi-Axel</span>
+              <span class="text-xs text-on-surface-variant">60%</span>
+            </div>
+            <div class="h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+              <div class="h-full bg-primary rounded-full" style="width:60%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-secondary flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-white text-[16px]">airport_shuttle</span>
+          </div>
+          <div class="flex-1">
+            <div class="flex justify-between mb-1">
+              <span class="text-sm font-semibold text-on-surface">Single Axel</span>
+              <span class="text-xs text-on-surface-variant">30%</span>
+            </div>
+            <div class="h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+              <div class="h-full bg-secondary rounded-full" style="width:30%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-[#592300] flex items-center justify-center shrink-0">
+            <span class="material-symbols-outlined text-[#d8885c] text-[16px]">rv_hookup</span>
+          </div>
+          <div class="flex-1">
+            <div class="flex justify-between mb-1">
+              <span class="text-sm font-semibold text-on-surface">Container</span>
+              <span class="text-xs text-on-surface-variant">10%</span>
+            </div>
+            <div class="h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+              <div class="h-full bg-[#592300] rounded-full" style="width:10%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tracking placeholder -->
+    <div class="bg-surface-container rounded-2xl p-6 flex flex-col items-center justify-center gap-3 min-h-36 text-center border-2 border-dashed border-outline-variant/40">
+      <span class="material-symbols-outlined text-primary/40 text-5xl">location_on</span>
+      <p class="text-sm font-bold text-primary">Live Fleet Tracking</p>
+      <p class="text-[0.625rem] text-on-surface-variant">GPS tracking integration coming soon</p>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     VIEW: PROFILE
+════════════════════════════════════════════════════════ -->
+<div id="view-profile" class="view" role="main">
+  <main class="px-5 py-6 space-y-4 pb-36">
+
+    <!-- Profile hero -->
+    <div class="profile-hero">
+      <div class="profile-avatar-ring" id="profileAvatar">JD</div>
+      <div>
+        <h2 id="profileName" class="text-xl font-black text-white tracking-tight">Loading…</h2>
+        <p id="profileUsername" class="text-sm text-white/60">@—</p>
+      </div>
+      <span class="inline-flex items-center gap-1.5 bg-white/15 text-white text-xs font-bold px-3 py-1 rounded-full">
+        <span class="material-symbols-outlined text-[14px]">verified</span>
+        Load Owner
+      </span>
+    </div>
+
+    <!-- Company card -->
+    <div class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/20 shadow-sm space-y-1">
+      <p class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant mb-3">Company</p>
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-white text-[20px]">business</span>
+        </div>
+        <div>
+          <p id="profileCompany" class="font-bold text-primary text-sm">—</p>
+          <p class="text-[0.625rem] text-on-surface-variant uppercase tracking-wider">Load Owner Company</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contact card -->
+    <div class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/20 shadow-sm">
+      <p class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant mb-3">Contact</p>
+      <div class="space-y-3">
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-primary text-[20px] shrink-0">email</span>
+          <span id="profileEmail" class="text-sm text-on-surface truncate">—</span>
+        </div>
+        <div class="w-full h-px bg-outline-variant/30"></div>
+        <div class="flex items-center gap-3">
+          <span class="material-symbols-outlined text-primary text-[20px] shrink-0">phone</span>
+          <span id="profilePhone" class="text-sm text-on-surface">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity summary -->
+    <div class="bg-surface-container-lowest rounded-2xl p-4 border border-outline-variant/20 shadow-sm">
+      <p class="text-[0.6875rem] uppercase tracking-widest font-bold text-on-surface-variant mb-3">Activity</p>
+      <div class="grid grid-cols-3 gap-3 text-center">
+        <div>
+          <p id="profileTotal" class="text-xl font-black text-primary">—</p>
+          <p class="text-[0.6rem] uppercase tracking-widest font-semibold text-on-surface-variant mt-0.5">Total Loads</p>
+        </div>
+        <div>
+          <p id="profileActive" class="text-xl font-black text-primary">—</p>
+          <p class="text-[0.6rem] uppercase tracking-widest font-semibold text-on-surface-variant mt-0.5">Active</p>
+        </div>
+        <div>
+          <p id="profileDone" class="text-xl font-black text-primary">—</p>
+          <p class="text-[0.6rem] uppercase tracking-widest font-semibold text-on-surface-variant mt-0.5">Done</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sign out -->
+    <button id="logoutBtn"
+      class="w-full border-2 border-error/25 text-error py-4 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-[.98] transition-transform hover:bg-error/5 mt-2">
+      <span class="material-symbols-outlined text-[20px]">logout</span>
+      Sign Out
+    </button>
+
+  </main>
+</div>
+
+<!-- ── Floating Submit (upload view only) ───────────────── -->
+<div id="fabWrap" class="fixed bottom-[88px] left-0 right-0 px-5 z-40 hidden" style="max-width:480px;margin:0 auto;">
+  <button id="submitBtn"
+    class="w-full bg-primary text-white py-4 rounded-xl font-bold tracking-tight shadow-xl flex items-center justify-center gap-3 active:scale-[.98] transition-transform text-[0.9375rem] hover:bg-[#002a57]">
+    <span id="submitBtnText">Submit Load Requirement</span>
+    <span id="submitBtnIcon" class="material-symbols-outlined text-[20px]">send</span>
+  </button>
+</div>
+
+<!-- ── New Load FAB (home view only) ────────────────────── -->
+<div id="newLoadFab" class="fixed bottom-[96px] right-5 z-40" style="max-width:480px;">
+  <button onclick="navigateTo('upload')"
+    class="flex items-center gap-2 bg-primary text-white pl-4 pr-5 py-3 rounded-full shadow-xl font-bold text-sm active:scale-95 transition-transform hover:bg-[#002a57]"
+    aria-label="New Load">
+    <span class="material-symbols-outlined text-[20px]">add</span>
+    New Load
+  </button>
+</div>
+
+<!-- ── Bottom Navigation ─────────────────────────────────── -->
+<nav class="fixed bottom-0 left-0 right-0 h-[84px] bg-white/85 backdrop-blur-md bottom-nav-shadow flex justify-around items-center px-3 z-50 app-shell" style="max-width:480px;margin:0 auto;" aria-label="Main navigation">
+  <button class="nav-pill active" data-nav="home" aria-current="page">
+    <span class="material-symbols-outlined text-[22px]">home</span>
+    <span class="nav-label">Home</span>
+  </button>
+  <button class="nav-pill" data-nav="upload">
+    <span class="material-symbols-outlined text-[22px]">upload_file</span>
+    <span class="nav-label">Upload</span>
+  </button>
+  <button class="nav-pill" data-nav="trips">
+    <span class="material-symbols-outlined text-[22px]">local_shipping</span>
+    <span class="nav-label">My Trips</span>
+  </button>
+  <button class="nav-pill" data-nav="fleet">
+    <span class="material-symbols-outlined text-[22px]">inventory</span>
+    <span class="nav-label">Fleet</span>
+  </button>
+  <button class="nav-pill" data-nav="profile">
+    <span class="material-symbols-outlined text-[22px]">person</span>
+    <span class="nav-label">Profile</span>
+  </button>
+</nav>
+
+</div><!-- /.app-shell -->
+
+<!-- ── Snackbar ─────────────────────────────────────────── -->
+<div id="snackbar" class="fixed bottom-28 left-1/2 -translate-x-1/2 z-[100] hidden max-w-sm w-[90vw]">
+  <div id="snackInner" class="flex items-center gap-3 px-4 py-3 rounded-2xl shadow-xl text-white text-sm font-medium bg-on-surface">
+    <span id="snackIcon" class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1">check_circle</span>
+    <span id="snackMsg">Message</span>
+  </div>
+</div>
+
+<!-- ── Config ─────────────────────────────────────────── -->
+<script>
+  window.RR_CONFIG = { apiBase: window.location.origin, tokenKey: 'rr_lp_token' };
+</script>
+<script src="app.js"></script>
+</body>
+</html>
