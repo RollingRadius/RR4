@@ -200,8 +200,6 @@ class _UploadLoadRequirementScreenState
                   _partnerTargetSection(),
                   const SizedBox(height: 28),
 
-                  // ── Section 5: Photo Visual Verification ────────
-                  _photoVerificationCard(),
                 ]),
               ),
             ),
@@ -1110,56 +1108,6 @@ class _UploadLoadRequirementScreenState
           ),
         ),
       ],
-    );
-  }
-
-  // ── Photo Visual Verification ─────────────────────────────────────────
-
-  Widget _photoVerificationCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF381300).withOpacity(0.06),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: const Color(0xFF592300),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(Icons.camera_alt,
-                color: Color(0xFFD8885C), size: 22),
-          ),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Visual Verification',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF001e40),
-                  ),
-                ),
-                SizedBox(height: 2),
-                Text(
-                  'Capture load photos for instant AI data entry',
-                  style: TextStyle(
-                      fontSize: 11, color: Color(0xFF43474F)),
-                ),
-              ],
-            ),
-          ),
-          const Icon(Icons.chevron_right,
-              color: Color(0xFF001e40), size: 22),
-        ],
-      ),
     );
   }
 

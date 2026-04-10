@@ -193,6 +193,10 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                 style: _inter(size: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
           ],
         ),
+        actions: [
+          _TripStateBadge(trip: _trip),
+          const SizedBox(width: 16),
+        ],
       ),
       body: Column(
         children: [
@@ -279,6 +283,34 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Trip state badge (5-state: Pending / Ongoing / In Transit / Completed / Cancelled) ──
+
+(String, Color, Color) _tripStateColors(TripModel trip) {
+  if (trip.isCancelled) return ('CANCELLED', const Color(0xFFFFDAD6), const Color(0xFFBA1A1A));
+  if (trip.isCompleted) return ('COMPLETED', const Color(0xFFECEEF0), const Color(0xFF546067));
+  if (trip.currentStage >= 4) return ('IN TRANSIT', const Color(0xFFD7F0D9), const Color(0xFF1B5E20));
+  if (trip.currentStage >= 1) return ('ONGOING', const Color(0xFFFFE8D5), const Color(0xFFFF6B00));
+  return ('PENDING', const Color(0xFFFFF3E0), const Color(0xFFE65100));
+}
+
+class _TripStateBadge extends StatelessWidget {
+  final TripModel trip;
+  const _TripStateBadge({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, bg, fg) = _tripStateColors(trip);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(label,
+          style: GoogleFonts.inter(
+              fontSize: 9, fontWeight: FontWeight.w700, color: fg,
+              letterSpacing: 0.6)),
     );
   }
 }

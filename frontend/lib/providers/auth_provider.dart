@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/services/api_service.dart';
@@ -79,9 +81,64 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final ApiService _apiService;
   final UserApi _userApi;
 
+  Timer? _expiryTimer;
+
   AuthNotifier(this._authApi, this._storage, this._apiService, this._userApi) : super(AuthState()) {
     _apiService.setAuthCallbacks(onRefresh: refreshToken, onLogout: logout);
     _loadStoredAuth();
+  }
+
+  /// Decode the `exp` claim from a JWT without any extra package.
+  DateTime? _getTokenExpiry(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      // Normalize base64url padding
+      var payload = parts[1];
+      while (payload.length % 4 != 0) {
+        payload += '=';
+      }
+      final decoded = utf8.decode(base64Url.decode(payload));
+      final map = jsonDecode(decoded) as Map<String, dynamic>;
+      final exp = map['exp'];
+      if (exp == null) return null;
+      return DateTime.fromMillisecondsSinceEpoch((exp as int) * 1000);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Cancel any existing expiry timer and set a new one.
+  void _scheduleExpiryLogout(String token) {
+    _expiryTimer?.cancel();
+    final expiry = _getTokenExpiry(token);
+    if (expiry == null) return;
+    final remaining = expiry.difference(DateTime.now());
+    if (remaining.isNegative) {
+      // Already expired — logout immediately (async, don't await here)
+      logout();
+      return;
+    }
+    _expiryTimer = Timer(remaining, () {
+      print('⏱️ Token expired — auto-logout');
+      logout();
+    });
+    print('⏱️ Auto-logout scheduled in ${remaining.inMinutes} min');
+  }
+
+  /// Called on app resume to verify the stored token hasn't expired in the background.
+  void checkTokenExpiry() {
+    final token = state.token;
+    if (token == null || !state.isAuthenticated) return;
+    final expiry = _getTokenExpiry(token);
+    if (expiry == null) return;
+    if (DateTime.now().isAfter(expiry)) {
+      print('⏱️ Token expired while app was in background — logging out');
+      logout();
+    } else {
+      // Reschedule in case OS killed the timer while suspended
+      _scheduleExpiryLogout(token);
+    }
   }
 
   /// Load stored authentication
@@ -91,11 +148,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final token = rawToken?.replaceAll(RegExp(r'\s+'), '');
 
       if (token != null && token.isNotEmpty) {
+        // Reject expired stored tokens immediately
+        final expiry = _getTokenExpiry(token);
+        if (expiry != null && DateTime.now().isAfter(expiry)) {
+          print('⏱️ Stored token is expired — clearing session');
+          await _storage.delete(key: AppConfig.tokenKey);
+          state = state.copyWith(isInitialized: true);
+          return;
+        }
+
         // Set token in API service
         _apiService.setToken(token);
 
         // Load user profile
         await loadUserProfile();
+
+        _scheduleExpiryLogout(token);
 
         state = state.copyWith(
           isAuthenticated: true,
@@ -147,6 +215,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
         token: token,
       );
 
+      _scheduleExpiryLogout(token);
+
       // Enrich profile with full_name / phone in the background.
       // loadUserProfile now preserves role_key if the server omits it.
       await loadUserProfile();
@@ -183,6 +253,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Logout
   Future<void> logout() async {
+    _expiryTimer?.cancel();
+    _expiryTimer = null;
     await _storage.delete(key: AppConfig.tokenKey);
 
     // Remove token from API service
@@ -287,6 +359,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
         // Update user info from response
         final user = UserModel.fromJson(response);
+
+        _scheduleExpiryLogout(token);
 
         state = state.copyWith(
           token: token,

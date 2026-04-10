@@ -89,7 +89,7 @@ class OngoingTripCard extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      _StatusBadge(status: trip.status),
+                      _StatusBadge(trip: trip),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -610,22 +610,12 @@ class _ActionChip extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  final String status;
-  const _StatusBadge({required this.status});
+  final TripModel trip;
+  const _StatusBadge({required this.trip});
 
   @override
   Widget build(BuildContext context) {
-    final (label, bg, fg) = switch (status) {
-      'ongoing' => (
-          'IN TRANSIT',
-          const Color(0xFFD7F0D9),
-          const Color(0xFF1B5E20)
-        ),
-      'pending' =>
-        ('PENDING', const Color(0xFFFFF3E0), const Color(0xFFE65100)),
-      'completed' => ('DONE', const Color(0xFFECEEF0), _secondary),
-      _ => ('CANCELLED', const Color(0xFFFFDAD6), const Color(0xFFBA1A1A)),
-    };
+    final (label, bg, fg) = _tripState(trip);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration:
@@ -635,6 +625,23 @@ class _StatusBadge extends StatelessWidget {
               .copyWith(letterSpacing: 0.6)),
     );
   }
+}
+
+/// Returns (label, background, foreground) for a trip based on the 5-state logic.
+(String, Color, Color) _tripState(TripModel trip) {
+  if (trip.isCancelled) {
+    return ('CANCELLED', const Color(0xFFFFDAD6), const Color(0xFFBA1A1A));
+  }
+  if (trip.isCompleted) {
+    return ('COMPLETED', const Color(0xFFECEEF0), const Color(0xFF546067));
+  }
+  if (trip.currentStage >= 4) {
+    return ('IN TRANSIT', const Color(0xFFD7F0D9), const Color(0xFF1B5E20));
+  }
+  if (trip.currentStage >= 1) {
+    return ('ONGOING', const Color(0xFFFFE8D5), const Color(0xFFFF6B00));
+  }
+  return ('PENDING', const Color(0xFFFFF3E0), const Color(0xFFE65100));
 }
 
 /// Maps a trip to a display label for the current stage (1, 2, LS, 3, 4).

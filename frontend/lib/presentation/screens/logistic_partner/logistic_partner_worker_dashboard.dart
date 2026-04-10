@@ -85,6 +85,16 @@ class _LogisticPartnerWorkerDashboardState
 
   @override
   Widget build(BuildContext context) {
+    // When the LP worker receives a cancellation notification, immediately
+    // remove the cancelled trip from Fleet Status without waiting for the 30s poll.
+    ref.listen<NotificationsState>(notificationsProvider, (prev, next) {
+      if (prev == null || next.items.length <= (prev.items.length)) return;
+      final newest = next.items.first;
+      if (newest.type == 'trip_cancelled' || newest.type == 'load_cancelled') {
+        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+      }
+    });
+
     final user = ref.watch(authProvider).user;
 
     final pages = [
@@ -136,7 +146,7 @@ class _WorkerTopBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final notifState = ref.watch(notificationsProvider);
     final unread = notifState.items
-        .where((n) => !n.isRead && (n.type == 'new_work' || n.type == 'trip_complete'))
+        .where((n) => !n.isRead && (n.type == 'new_work' || n.type == 'trip_complete' || n.type == 'trip_cancelled' || n.type == 'load_cancelled'))
         .length;
 
     return SafeArea(
@@ -229,7 +239,7 @@ class _WorkerNotificationsSheetState
   Widget build(BuildContext context) {
     final items = ref.watch(notificationsProvider).items;
     final newWorkNotifs = items
-        .where((n) => n.type == 'new_work' || n.type == 'trip_complete')
+        .where((n) => n.type == 'new_work' || n.type == 'trip_complete' || n.type == 'trip_cancelled' || n.type == 'load_cancelled')
         .toList();
 
     return DraggableScrollableSheet(
@@ -372,11 +382,11 @@ class _WorkerNotifTile extends StatelessWidget {
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: _tertiary.withOpacity(0.12),
+                  color: _notifIconBg(notif.type),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.local_shipping_outlined,
-                    color: _tertiary, size: 22),
+                child: Icon(_notifIcon(notif.type),
+                    color: _notifIconColor(notif.type), size: 22),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -429,6 +439,42 @@ class _WorkerNotifTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  IconData _notifIcon(String type) {
+    switch (type) {
+      case 'trip_cancelled':
+      case 'load_cancelled':
+        return Icons.cancel_outlined;
+      case 'trip_complete':
+        return Icons.check_circle_outline_rounded;
+      default:
+        return Icons.local_shipping_outlined;
+    }
+  }
+
+  Color _notifIconColor(String type) {
+    switch (type) {
+      case 'trip_cancelled':
+      case 'load_cancelled':
+        return const Color(0xFFBA1A1A);
+      case 'trip_complete':
+        return const Color(0xFF2E7D32);
+      default:
+        return _tertiary;
+    }
+  }
+
+  Color _notifIconBg(String type) {
+    switch (type) {
+      case 'trip_cancelled':
+      case 'load_cancelled':
+        return const Color(0xFFFFDAD6);
+      case 'trip_complete':
+        return const Color(0xFFE8F5E9);
+      default:
+        return _tertiary.withOpacity(0.12);
+    }
   }
 
   String _formatTime(String iso) {

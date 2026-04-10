@@ -89,7 +89,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
               ],
             ),
             actions: [
-              _StatusChip(status: trip.status),
+              _StatusChip(trip: trip),
               const SizedBox(width: 16),
             ],
           ),
@@ -554,28 +554,33 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
+// ─── 5-state trip label helper ────────────────────────────────────────────────
+
+(String, Color, Color) _tripState(TripModel trip) {
+  if (trip.isCancelled) {
+    return ('CANCELLED', const Color(0xFFFFDAD6), const Color(0xFFBA1A1A));
+  }
+  if (trip.isCompleted) {
+    return ('COMPLETED', const Color(0xFFECEEF0), const Color(0xFF546067));
+  }
+  if (trip.currentStage >= 4) {
+    return ('IN TRANSIT', const Color(0xFFD7F0D9), const Color(0xFF1B5E20));
+  }
+  if (trip.currentStage >= 1) {
+    return ('ONGOING', const Color(0xFFFFE8D5), const Color(0xFFFF6B00));
+  }
+  return ('PENDING', const Color(0xFFFFF3E0), const Color(0xFFE65100));
+}
+
 // ─── Status chip ──────────────────────────────────────────────────────────────
 
 class _StatusChip extends StatelessWidget {
-  final String status;
-  const _StatusChip({required this.status});
+  final TripModel trip;
+  const _StatusChip({required this.trip});
 
   @override
   Widget build(BuildContext context) {
-    final (label, bg, fg) = switch (status) {
-      'ongoing' => (
-          'ONGOING',
-          const Color(0xFFD7F0D9),
-          const Color(0xFF1B5E20)
-        ),
-      'pending' => (
-          'PENDING',
-          const Color(0xFFFFF3E0),
-          const Color(0xFFE65100)
-        ),
-      'completed' => ('DONE', const Color(0xFFECEEF0), _secondary),
-      _ => ('CANCELLED', const Color(0xFFFFDAD6), const Color(0xFFBA1A1A)),
-    };
+    final (label, bg, fg) = _tripState(trip);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

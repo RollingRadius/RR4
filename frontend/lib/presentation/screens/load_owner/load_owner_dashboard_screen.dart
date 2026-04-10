@@ -1213,10 +1213,11 @@ class _DashboardTab extends ConsumerWidget {
       data: (loads) {
         // ── Trip-based KPI stats ────────────────────────────────────────────
         final allTrips = allTripsAsync.valueOrNull ?? [];
-        final totalActive  = allTrips.where((t) => !t.isCompleted && !t.isCancelled).length;
         final inTransit    = allTrips.where((t) => t.currentStage >= 4 && !t.isCompleted && !t.isCancelled).length;
-        final ongoing      = allTrips.where((t) => t.currentStage >= 1 && t.currentStage < 4).length;
+        final ongoing      = allTrips.where((t) => t.currentStage >= 1 && t.currentStage < 4 && !t.isCancelled).length;
         final completed    = allTrips.where((t) => t.isCompleted).length;
+        // Total Active = fulfilled (pending) + ongoing + in transit (all non-completed, non-cancelled)
+        final totalActive  = allTrips.where((t) => !t.isCompleted && !t.isCancelled).length;
 
         // IDs of loads that are already represented as cancelled trips
         final linkedLoadIds = allTrips
@@ -1513,7 +1514,7 @@ class _FilteredTripsScreen extends StatelessWidget {
       case 'in_transit':
         return trips.where((t) => t.currentStage >= 4 && !t.isCompleted && !t.isCancelled).toList();
       case 'ongoing':
-        return trips.where((t) => t.currentStage >= 1 && t.currentStage < 4).toList();
+        return trips.where((t) => t.currentStage >= 1 && t.currentStage < 4 && !t.isCancelled).toList();
       case 'completed':
         return trips.where((t) => t.isCompleted).toList();
       case 'cancelled':

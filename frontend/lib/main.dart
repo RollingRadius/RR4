@@ -6,6 +6,7 @@ import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/routes/app_router.dart';
 import 'package:fleet_management/providers/settings_provider.dart';
 import 'package:fleet_management/providers/theme_provider.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -27,11 +28,38 @@ void main() async {
   );
 }
 
-class FleetManagementApp extends ConsumerWidget {
+class FleetManagementApp extends ConsumerStatefulWidget {
   const FleetManagementApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FleetManagementApp> createState() => _FleetManagementAppState();
+}
+
+class _FleetManagementAppState extends ConsumerState<FleetManagementApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Re-check token expiry when the app comes back from the background.
+      // The OS may have suspended the Dart isolate, killing any active Timer.
+      ref.read(authProvider.notifier).checkTokenExpiry();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeState = ref.watch(themeProvider);
 

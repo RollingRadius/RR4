@@ -107,7 +107,7 @@ class _ShipmentDetailsScreenState extends ConsumerState<ShipmentDetailsScreen> {
                             fontWeight: FontWeight.w700,
                             color: _primary)),
                   ),
-                _StatusBadge(status: fullTrip.status),
+                _StatusBadge(trip: fullTrip),
                 const SizedBox(width: 8),
               ],
             ),
@@ -215,7 +215,7 @@ class _TripHeaderCard extends StatelessWidget {
                       color: _onSurface),
                 ),
               ),
-              _StatusBadge(status: trip.status),
+              _StatusBadge(trip: trip),
             ],
           ),
           const SizedBox(height: 12),
@@ -282,50 +282,29 @@ class _RouteRow extends StatelessWidget {
 }
 
 class _StatusBadge extends StatelessWidget {
-  final String status;
-  const _StatusBadge({required this.status});
-
-  Color get _bg {
-    switch (status) {
-      case 'ongoing':
-        return _primary.withValues(alpha: 0.10);
-      case 'completed':
-        return const Color(0xFF006B5E).withValues(alpha: 0.10);
-      case 'cancelled':
-        return _errorContainer;
-      default:
-        return _surfaceContainer;
-    }
-  }
-
-  Color get _fg {
-    switch (status) {
-      case 'ongoing':
-        return _primary;
-      case 'completed':
-        return const Color(0xFF006B5E);
-      case 'cancelled':
-        return _error;
-      default:
-        return _secondary;
-    }
-  }
+  final TripModel trip;
+  const _StatusBadge({required this.trip});
 
   @override
   Widget build(BuildContext context) {
+    final (label, bg, fg) = _tripStateColors(trip);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: _bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        status.toUpperCase(),
-        style: GoogleFonts.inter(
-            fontSize: 10, fontWeight: FontWeight.w700, color: _fg),
-      ),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Text(label,
+          style: GoogleFonts.inter(
+              fontSize: 10, fontWeight: FontWeight.w700, color: fg,
+              letterSpacing: 0.4)),
     );
   }
+}
+
+(String, Color, Color) _tripStateColors(TripModel trip) {
+  if (trip.isCancelled) return ('CANCELLED', const Color(0xFFFFDAD6), const Color(0xFFBA1A1A));
+  if (trip.isCompleted) return ('COMPLETED', const Color(0xFFECEEF0), const Color(0xFF546067));
+  if (trip.currentStage >= 4) return ('IN TRANSIT', const Color(0xFFD7F0D9), const Color(0xFF1B5E20));
+  if (trip.currentStage >= 1) return ('ONGOING', const Color(0xFFFFE8D5), const Color(0xFFFF6B00));
+  return ('PENDING', const Color(0xFFFFF3E0), const Color(0xFFE65100));
 }
 
 // ─── Stage progress timeline ──────────────────────────────────────────────────
