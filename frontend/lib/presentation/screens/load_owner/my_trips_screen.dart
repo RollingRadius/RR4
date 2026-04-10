@@ -522,7 +522,11 @@ class _LoadCardState extends ConsumerState<_LoadCard> {
         await ref.read(loadProvider.notifier).cancelLoad(widget.load.id);
     if (!mounted) return;
     setState(() => _cancelling = false);
-    if (!ok) {
+    if (ok) {
+      // If the load had a linked trip, the backend also cancelled it.
+      // Refresh tripProvider so the cancelled trip appears in the dashboard.
+      ref.read(tripProvider.notifier).silentRefresh();
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(ref.read(loadProvider).error ?? 'Failed to cancel.',

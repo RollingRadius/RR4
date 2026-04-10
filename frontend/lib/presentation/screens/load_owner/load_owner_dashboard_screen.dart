@@ -102,6 +102,7 @@ class LoadItem {
 
   bool get isDelayed => status == 'delayed';
   bool get isCompleted => status == 'completed';
+  bool get isCancelled => status == 'cancelled';
 }
 
 // ─── Providers ────────────────────────────────────────────────────────────────
@@ -1216,13 +1217,31 @@ class _DashboardTab extends ConsumerWidget {
         final inTransit    = allTrips.where((t) => t.currentStage >= 4 && !t.isCompleted && !t.isCancelled).length;
         final ongoing      = allTrips.where((t) => t.currentStage >= 1 && t.currentStage < 4).length;
         final completed    = allTrips.where((t) => t.isCompleted).length;
-        final cancelled    = allTrips.where((t) => t.isCancelled).length;
+
+        // IDs of loads that are already represented as cancelled trips
+        final linkedLoadIds = allTrips
+            .where((t) => t.isCancelled && t.loadRequirementId != null)
+            .map((t) => t.loadRequirementId!)
+            .toSet();
+
+        // Cancelled loads that have NO linked cancelled trip (unfulfilled cancellations)
+        final unfulfilledCancelledLoads = loads
+            .where((l) => l.isCancelled && !linkedLoadIds.contains(l.id))
+            .toList();
+
+        final cancelledTrips = allTrips.where((t) => t.isCancelled).toList();
+        final cancelled = cancelledTrips.length + unfulfilledCancelledLoads.length;
 
         final topLoad = loads.isNotEmpty ? loads.first : null;
 
         void openFiltered(String filter) {
           Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => _FilteredTripsScreen(trips: allTrips, filter: filter),
+            builder: (_) => _FilteredTripsScreen(
+              trips: allTrips,
+              filter: filter,
+              unfulfilledCancelledLoads:
+                  filter == 'cancelled' ? unfulfilledCancelledLoads : const [],
+            ),
           ));
         }
 
@@ -1460,8 +1479,14 @@ class _FilteredTripsScreen extends StatelessWidget {
   final List<TripModel> trips;
   /// 'all' | 'in_transit' | 'ongoing' | 'completed' | 'cancelled'
   final String filter;
+  /// Cancelled loads that never had a linked trip (only used when filter == 'cancelled')
+  final List<LoadItem> unfulfilledCancelledLoads;
 
-  const _FilteredTripsScreen({required this.trips, required this.filter});
+  const _FilteredTripsScreen({
+    required this.trips,
+    required this.filter,
+    this.unfulfilledCancelledLoads = const [],
+  });
 
   String get _title {
     switch (filter) {
@@ -1515,10 +1540,209 @@ class _FilteredTripsScreen extends StatelessWidget {
     return _secondary;
   }
 
+  Widget _tripCard(TripModel trip, Color accent) {
+    final labelColor = _stageLabelColor(trip);
+    final label = _stageLabel(trip);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border(left: BorderSide(color: accent, width: 4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  trip.tripNumber,
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: _secondary,
+                      letterSpacing: 0.6),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  trip.loadItem,
+                  style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: _onSurface),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined,
+                        size: 12, color: _secondary),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        '${trip.origin} → ${trip.destination}',
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: _secondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                if (trip.driverName != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.person_outline_rounded,
+                          size: 12, color: _secondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        trip.driverName!,
+                        style: GoogleFonts.inter(
+                            fontSize: 11, color: _secondary),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: labelColor.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  label,
+                  style: GoogleFonts.inter(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      color: labelColor,
+                      letterSpacing: 0.4),
+                ),
+              ),
+              if (trip.vehiclePlate != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.local_shipping_outlined,
+                        size: 12, color: _secondary),
+                    const SizedBox(width: 4),
+                    Text(
+                      trip.vehiclePlate!,
+                      style: GoogleFonts.inter(
+                          fontSize: 11, color: _secondary),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _loadCard(LoadItem load) {
+    const accent = Color(0xFF78909C);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _surfaceLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: const Border(left: BorderSide(color: accent, width: 4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  load.displayId,
+                  style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: _secondary,
+                      letterSpacing: 0.6),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  load.name,
+                  style: GoogleFonts.manrope(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: _onSurface),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.location_on_outlined,
+                        size: 12, color: _secondary),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        load.routeLabel,
+                        style: GoogleFonts.inter(
+                            fontSize: 12, color: _secondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              'NO TRIP',
+              style: GoogleFonts.inter(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                  color: accent,
+                  letterSpacing: 0.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = _filtered;
     final accent = _accentColor;
+    final totalCount = items.length + unfulfilledCancelledLoads.length;
 
     return Scaffold(
       backgroundColor: _background,
@@ -1539,7 +1763,7 @@ class _FilteredTripsScreen extends StatelessWidget {
               decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
             ),
             Text(
-              '$_title  (${items.length})',
+              '$_title  ($totalCount)',
               style: GoogleFonts.manrope(
                   fontSize: 17,
                   fontWeight: FontWeight.w800,
@@ -1552,7 +1776,7 @@ class _FilteredTripsScreen extends StatelessWidget {
           child: Divider(height: 1, color: _surfaceContainer),
         ),
       ),
-      body: items.isEmpty
+      body: totalCount == 0
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1570,128 +1794,47 @@ class _FilteredTripsScreen extends StatelessWidget {
                 ],
               ),
             )
-          : ListView.separated(
+          : ListView(
               padding: const EdgeInsets.all(16),
-              itemCount: items.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, i) {
-                final trip = items[i];
-                final labelColor = _stageLabelColor(trip);
-                final label = _stageLabel(trip);
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: _surfaceLowest,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border(left: BorderSide(color: accent, width: 4)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+              children: [
+                // ── Cancelled trips (fulfilled loads + direct cancels) ─────
+                if (items.isNotEmpty) ...[
+                  if (unfulfilledCancelledLoads.isNotEmpty) ...[
+                    Text(
+                      'CANCELLED TRIPS  (${items.length})',
+                      style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: _secondary,
+                          letterSpacing: 0.8),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  ...items.asMap().entries.map((e) => Padding(
+                        padding: EdgeInsets.only(
+                            bottom: e.key < items.length - 1 ? 10 : 0),
+                        child: _tripCard(e.value, accent),
+                      )),
+                ],
+                // ── Unfulfilled cancelled loads (no trip was ever created) ─
+                if (unfulfilledCancelledLoads.isNotEmpty) ...[
+                  if (items.isNotEmpty) const SizedBox(height: 20),
+                  Text(
+                    'CANCELLED LOADS (NO TRIP)  (${unfulfilledCancelledLoads.length})',
+                    style: GoogleFonts.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: _secondary,
+                        letterSpacing: 0.8),
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              trip.tripNumber,
-                              style: GoogleFonts.inter(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: _secondary,
-                                  letterSpacing: 0.6),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              trip.loadItem,
-                              style: GoogleFonts.manrope(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: _onSurface),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                const Icon(Icons.location_on_outlined,
-                                    size: 12, color: _secondary),
-                                const SizedBox(width: 4),
-                                Expanded(
-                                  child: Text(
-                                    '${trip.origin} → ${trip.destination}',
-                                    style: GoogleFonts.inter(
-                                        fontSize: 12, color: _secondary),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (trip.driverName != null) ...[
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  const Icon(Icons.person_outline_rounded,
-                                      size: 12, color: _secondary),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    trip.driverName!,
-                                    style: GoogleFonts.inter(
-                                        fontSize: 11, color: _secondary),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: labelColor.withValues(alpha: 0.10),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Text(
-                              label,
-                              style: GoogleFonts.inter(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  color: labelColor,
-                                  letterSpacing: 0.4),
-                            ),
-                          ),
-                          if (trip.vehiclePlate != null) ...[
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                const Icon(Icons.local_shipping_outlined,
-                                    size: 12, color: _secondary),
-                                const SizedBox(width: 4),
-                                Text(
-                                  trip.vehiclePlate!,
-                                  style: GoogleFonts.inter(
-                                      fontSize: 11, color: _secondary),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
+                  const SizedBox(height: 10),
+                  ...unfulfilledCancelledLoads.asMap().entries.map((e) => Padding(
+                        padding: EdgeInsets.only(
+                            bottom: e.key < unfulfilledCancelledLoads.length - 1 ? 10 : 0),
+                        child: _loadCard(e.value),
+                      )),
+                ],
+              ],
             ),
     );
   }

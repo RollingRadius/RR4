@@ -84,6 +84,9 @@ class TripModel {
   final String? s3ClaimedBy;
   final String? s4ClaimedBy;
 
+  // ── Linked load requirement (if trip was created from a load) ────────────────
+  final String? loadRequirementId;
+
   // ── Draft (cross-device in-progress form data) ────────────────────────────────
   final Map<String, dynamic>? draftData;
 
@@ -158,6 +161,7 @@ class TripModel {
     this.s2ClaimedBy,
     this.s3ClaimedBy,
     this.s4ClaimedBy,
+    this.loadRequirementId,
     this.draftData,
   });
 
@@ -239,6 +243,7 @@ class TripModel {
       s2ClaimedBy:        json['s2_claimed_by']         as String?,
       s3ClaimedBy:        json['s3_claimed_by']         as String?,
       s4ClaimedBy:        json['s4_claimed_by']         as String?,
+      loadRequirementId:  json['load_requirement_id']   as String?,
       draftData:          json['draft_data'] as Map<String, dynamic>?,
     );
   }

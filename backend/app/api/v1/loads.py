@@ -654,14 +654,16 @@ def list_load_requirements(
 
 
 @router.patch("/{load_id}/cancel", status_code=status.HTTP_200_OK)
-def cancel_load_requirement(
+async def cancel_load_requirement(
     load_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
     Soft-cancel a load requirement (status → 'cancelled').
-    Only the owning load_owner company can cancel their own loads.
+    - If the load has a linked trip, that trip is also cancelled.
+    - The LP org is notified via WebSocket in both cases (fulfilled or just matched).
+    - Only the owning load_owner company can cancel their own loads.
     """
     company = _get_load_owner_company(current_user, db)
 
@@ -681,12 +683,81 @@ def cancel_load_requirement(
     if load.status == 'cancelled':
         raise HTTPException(status_code=409, detail="Load is already cancelled")
 
+    # ── 1. Cancel the load ────────────────────────────────────────────────────
     load.status = 'cancelled'
+
+    # ── 2. Cancel the linked trip (if any) ───────────────────────────────────
+    linked_trip = db.query(Trip).filter(
+        Trip.load_requirement_id == load_uuid,
+        Trip.status.notin_(['cancelled', 'completed']),
+    ).first()
+
+    if linked_trip:
+        linked_trip.status = 'cancelled'
+
     db.commit()
+
+    # ── 3. Notify the LP org ──────────────────────────────────────────────────
+    # Determine which LP org to notify:
+    #   - Fulfilled load  → trip.organization_id (the fleet org running the trip)
+    #   - Matched but no trip yet → load.fulfilling_org_id
+    lp_org_id = None
+    if linked_trip and linked_trip.organization_id:
+        lp_org_id = linked_trip.organization_id
+    elif load.fulfilling_org_id:
+        lp_org_id = load.fulfilling_org_id
+
+    if lp_org_id:
+        from app.models.notification import Notification
+        from app.services.ws_manager import manager
+
+        canceller = company.company_name if hasattr(company, 'company_name') else "Load Owner"
+
+        if linked_trip:
+            title = "Trip Cancelled"
+            body = (
+                f"Trip {linked_trip.trip_number} "
+                f"({linked_trip.origin} → {linked_trip.destination}) "
+                f"has been cancelled by {canceller}."
+            )
+            trip_id_for_notif = linked_trip.id
+            notif_type = "trip_cancelled"
+        else:
+            title = "Load Requirement Cancelled"
+            body = (
+                f"Load requirement from {load.pickup_location} → {load.unload_location} "
+                f"has been cancelled by {canceller}."
+            )
+            trip_id_for_notif = None
+            notif_type = "load_cancelled"
+
+        notif = Notification(
+            recipient_org_id=lp_org_id,
+            trip_id=trip_id_for_notif,
+            type=notif_type,
+            title=title,
+            body=body,
+        )
+        db.add(notif)
+        db.commit()
+        db.refresh(notif)
+
+        message = {
+            "type":        notif_type,
+            "id":          str(notif.id),
+            "trip_id":     str(linked_trip.id) if linked_trip else None,
+            "title":       title,
+            "body":        body,
+            "is_read":     False,
+            "created_at":  notif.created_at.isoformat() if notif.created_at else None,
+        }
+        await manager.send_to_org(str(lp_org_id), message)
+
     db.refresh(load)
 
     return {
         "success": True,
         "message": "Load requirement cancelled successfully.",
         "load": _record_to_response(load),
+        "trip_cancelled": linked_trip is not None,
     }
