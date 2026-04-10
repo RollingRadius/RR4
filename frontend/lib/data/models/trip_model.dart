@@ -33,8 +33,10 @@ class TripModel {
   final String? s1DriverPhone;
   final String? s1DrivingLicense;
   final String? s1DrivingLicenseUrl;
+  final String? s1DrivingLicenseBackUrl;
   final String? s1Aadhaar;
   final String? s1AadhaarUrl;
+  final String? s1AadhaarBackUrl;
   final String? s1Rc;
   final String? s1Insurance;
   final String? s1Pollution;
@@ -116,8 +118,10 @@ class TripModel {
     this.s1DriverPhone,
     this.s1DrivingLicense,
     this.s1DrivingLicenseUrl,
+    this.s1DrivingLicenseBackUrl,
     this.s1Aadhaar,
     this.s1AadhaarUrl,
+    this.s1AadhaarBackUrl,
     this.s1Rc,
     this.s1Insurance,
     this.s1Pollution,
@@ -195,8 +199,10 @@ class TripModel {
       s1DriverPhone: json['s1_driver_phone'] as String?,
       s1DrivingLicense: json['s1_driving_license'] as String?,
       s1DrivingLicenseUrl: json['s1_driving_license_url'] as String?,
+      s1DrivingLicenseBackUrl: json['s1_driving_license_back_url'] as String?,
       s1Aadhaar: json['s1_aadhaar'] as String?,
       s1AadhaarUrl: json['s1_aadhaar_url'] as String?,
+      s1AadhaarBackUrl: json['s1_aadhaar_back_url'] as String?,
       s1Rc: json['s1_rc'] as String?,
       s1Insurance: json['s1_insurance'] as String?,
       s1Pollution: json['s1_pollution'] as String?,

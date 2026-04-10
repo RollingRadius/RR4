@@ -66,8 +66,10 @@ class Trip(Base):
     s1_driving_license      = Column(String(50),  nullable=True)
     s1_aadhaar              = Column(String(20),  nullable=True)
     # Document upload URL paths (stored after file upload)
-    s1_driving_license_url  = Column(Text, nullable=True)
-    s1_aadhaar_url          = Column(Text, nullable=True)
+    s1_driving_license_url       = Column(Text, nullable=True)
+    s1_driving_license_back_url  = Column(Text, nullable=True)
+    s1_aadhaar_url               = Column(Text, nullable=True)
+    s1_aadhaar_back_url          = Column(Text, nullable=True)
     s1_rc                   = Column(Text, nullable=True)
     s1_insurance            = Column(Text, nullable=True)
     s1_pollution            = Column(Text, nullable=True)
@@ -159,7 +161,9 @@ class Trip(Base):
             "s1_driving_license": self.s1_driving_license,
             "s1_aadhaar": self.s1_aadhaar,
             "s1_driving_license_url": self.s1_driving_license_url,
+            "s1_driving_license_back_url": self.s1_driving_license_back_url,
             "s1_aadhaar_url": self.s1_aadhaar_url,
+            "s1_aadhaar_back_url": self.s1_aadhaar_back_url,
             "s1_rc": self.s1_rc,
             "s1_insurance": self.s1_insurance,
             "s1_pollution": self.s1_pollution,

@@ -482,7 +482,9 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
 
   // ── File uploads (bytes + filename, for newly picked files) ─────────────────
   ({Uint8List bytes, String name})? _dlDoc;
+  ({Uint8List bytes, String name})? _dlBackDoc;
   ({Uint8List bytes, String name})? _aadhaarDoc;
+  ({Uint8List bytes, String name})? _aadhaarBackDoc;
   ({Uint8List bytes, String name})? _rcDoc;
   ({Uint8List bytes, String name})? _insuranceDoc;
   ({Uint8List bytes, String name})? _pollutionDoc;
@@ -518,7 +520,9 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       _drivingLicense.text = d['driving_license'] as String? ?? '';
       _aadhaar.text        = d['aadhaar']         as String? ?? '';
       _dlDoc              = _restoreFile(d, 'dl_doc');
+      _dlBackDoc          = _restoreFile(d, 'dl_back_doc');
       _aadhaarDoc         = _restoreFile(d, 'aadhaar_doc');
+      _aadhaarBackDoc     = _restoreFile(d, 'aadhaar_back_doc');
       _rcDoc              = _restoreFile(d, 'rc_doc');
       _insuranceDoc       = _restoreFile(d, 'insurance_doc');
       _pollutionDoc       = _restoreFile(d, 'pollution_doc');
@@ -579,7 +583,9 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
           'driving_license': _drivingLicense.text.trim(),
           'aadhaar':         _aadhaar.text.trim(),
           ..._fileDraftEntry(_dlDoc,              'dl_doc'),
+          ..._fileDraftEntry(_dlBackDoc,          'dl_back_doc'),
           ..._fileDraftEntry(_aadhaarDoc,         'aadhaar_doc'),
+          ..._fileDraftEntry(_aadhaarBackDoc,     'aadhaar_back_doc'),
           ..._fileDraftEntry(_rcDoc,              'rc_doc'),
           ..._fileDraftEntry(_insuranceDoc,       'insurance_doc'),
           ..._fileDraftEntry(_pollutionDoc,       'pollution_doc'),
@@ -694,8 +700,10 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     void _addFile(String key, ({Uint8List bytes, String name})? f) {
       if (f != null) fields[key] = MultipartFile.fromBytes(f.bytes, filename: f.name);
     }
-    _addFile('driving_license_doc',  _dlDoc);
-    _addFile('aadhaar_doc',          _aadhaarDoc);
+    _addFile('driving_license_doc',       _dlDoc);
+    _addFile('driving_license_doc_back',  _dlBackDoc);
+    _addFile('aadhaar_doc',               _aadhaarDoc);
+    _addFile('aadhaar_doc_back',          _aadhaarBackDoc);
     _addFile('rc_doc',               _rcDoc);
     _addFile('insurance_doc',        _insuranceDoc);
     _addFile('pollution_doc',        _pollutionDoc);
@@ -856,24 +864,46 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               ),
             ),
 
-            // Driving License photo upload (optional)
-            _uploadTile(
-              'Driving License (Photo)',
-              'Photo of the driving license',
-              _dlDoc,
-              (f) => _dlDoc = f,
-              () { setState(() => _dlDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1DrivingLicenseUrl,
+            // Driving License — Front & Back
+            _DocPairSection(
+              title: 'Driving License',
+              frontTile: _uploadTile(
+                'Front Side',
+                'Photo of the front of the driving license',
+                _dlDoc,
+                (f) => _dlDoc = f,
+                () { setState(() => _dlDoc = null); _onUploadChanged(); },
+                existingUrl: widget.trip.s1DrivingLicenseUrl,
+              ),
+              backTile: _uploadTile(
+                'Back Side',
+                'Photo of the back of the driving license',
+                _dlBackDoc,
+                (f) => _dlBackDoc = f,
+                () { setState(() => _dlBackDoc = null); _onUploadChanged(); },
+                existingUrl: widget.trip.s1DrivingLicenseBackUrl,
+              ),
             ),
 
-            // Aadhaar card photo upload (optional)
-            _uploadTile(
-              'Aadhaar Card (Photo)',
-              'Photo of the Aadhaar card',
-              _aadhaarDoc,
-              (f) => _aadhaarDoc = f,
-              () { setState(() => _aadhaarDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1AadhaarUrl,
+            // Aadhaar Card — Front & Back
+            _DocPairSection(
+              title: 'Aadhaar Card',
+              frontTile: _uploadTile(
+                'Front Side',
+                'Photo of the front of the Aadhaar card',
+                _aadhaarDoc,
+                (f) => _aadhaarDoc = f,
+                () { setState(() => _aadhaarDoc = null); _onUploadChanged(); },
+                existingUrl: widget.trip.s1AadhaarUrl,
+              ),
+              backTile: _uploadTile(
+                'Back Side',
+                'Photo of the back of the Aadhaar card',
+                _aadhaarBackDoc,
+                (f) => _aadhaarBackDoc = f,
+                () { setState(() => _aadhaarBackDoc = null); _onUploadChanged(); },
+                existingUrl: widget.trip.s1AadhaarBackUrl,
+              ),
             ),
             const SizedBox(height: 8),
 
@@ -2352,6 +2382,40 @@ class _CompletionView extends StatelessWidget {
 }
 
 // ─── Shared Widgets ───────────────────────────────────────────────────────────
+
+/// Groups a document's front and back upload tiles under a labelled header.
+class _DocPairSection extends StatelessWidget {
+  final String title;
+  final Widget frontTile;
+  final Widget backTile;
+  const _DocPairSection({required this.title, required this.frontTile, required this.backTile});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: _secondary,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          frontTile,
+          backTile,
+        ],
+      ),
+    );
+  }
+}
 
 class _SectionHeader extends StatelessWidget {
   final IconData icon;

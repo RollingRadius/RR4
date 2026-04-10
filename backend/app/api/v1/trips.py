@@ -352,8 +352,10 @@ async def submit_stage1(
     driving_license:      str           = Form(...),
     aadhaar:              str           = Form(...),
     # Optional document uploads
-    driving_license_doc:  Optional[UploadFile] = File(None),
-    aadhaar_doc:          Optional[UploadFile] = File(None),
+    driving_license_doc:      Optional[UploadFile] = File(None),
+    driving_license_doc_back: Optional[UploadFile] = File(None),
+    aadhaar_doc:              Optional[UploadFile] = File(None),
+    aadhaar_doc_back:         Optional[UploadFile] = File(None),
     rc_doc:               Optional[UploadFile] = File(None),
     insurance_doc:        Optional[UploadFile] = File(None),
     pollution_doc:        Optional[UploadFile] = File(None),
@@ -399,8 +401,10 @@ async def submit_stage1(
     trip.s1_aadhaar         = aadhaar
 
     # For file fields: only overwrite if a new file was uploaded, otherwise keep existing URL
-    new_dl      = await _save_doc(driving_license_doc,  "dl")
-    new_aadhaar = await _save_doc(aadhaar_doc,          "aadhaar")
+    new_dl           = await _save_doc(driving_license_doc,       "dl")
+    new_dl_back      = await _save_doc(driving_license_doc_back,  "dl_back")
+    new_aadhaar      = await _save_doc(aadhaar_doc,               "aadhaar")
+    new_aadhaar_back = await _save_doc(aadhaar_doc_back,          "aadhaar_back")
     new_rc      = await _save_doc(rc_doc,               "rc")
     new_ins     = await _save_doc(insurance_doc,        "insurance")
     new_pol     = await _save_doc(pollution_doc,        "pollution")
@@ -409,8 +413,10 @@ async def submit_stage1(
     new_tax     = await _save_doc(tax_declaration_doc,  "tax_decl")
     new_chq     = await _save_doc(cancelled_cheque_doc, "cheque")
 
-    if new_dl      is not None: trip.s1_driving_license_url = new_dl
-    if new_aadhaar is not None: trip.s1_aadhaar_url         = new_aadhaar
+    if new_dl           is not None: trip.s1_driving_license_url      = new_dl
+    if new_dl_back      is not None: trip.s1_driving_license_back_url = new_dl_back
+    if new_aadhaar      is not None: trip.s1_aadhaar_url              = new_aadhaar
+    if new_aadhaar_back is not None: trip.s1_aadhaar_back_url         = new_aadhaar_back
     if new_rc      is not None: trip.s1_rc                  = new_rc
     if new_ins     is not None: trip.s1_insurance           = new_ins
     if new_pol     is not None: trip.s1_pollution           = new_pol
