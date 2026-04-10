@@ -651,3 +651,42 @@ def list_load_requirements(
         "loads": [_record_to_response(r) for r in records],
         "count": len(records),
     }
+
+
+@router.patch("/{load_id}/cancel", status_code=status.HTTP_200_OK)
+def cancel_load_requirement(
+    load_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Soft-cancel a load requirement (status → 'cancelled').
+    Only the owning load_owner company can cancel their own loads.
+    """
+    company = _get_load_owner_company(current_user, db)
+
+    try:
+        load_uuid = uuid.UUID(load_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid load ID format")
+
+    load = db.query(LoadRequirement).filter(
+        LoadRequirement.id == load_uuid,
+        LoadRequirement.company_id == company.id,
+    ).first()
+
+    if not load:
+        raise HTTPException(status_code=404, detail="Load requirement not found")
+
+    if load.status == 'cancelled':
+        raise HTTPException(status_code=409, detail="Load is already cancelled")
+
+    load.status = 'cancelled'
+    db.commit()
+    db.refresh(load)
+
+    return {
+        "success": True,
+        "message": "Load requirement cancelled successfully.",
+        "load": _record_to_response(load),
+    }
