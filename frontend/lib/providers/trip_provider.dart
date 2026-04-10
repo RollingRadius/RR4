@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/data/services/api_service.dart';
@@ -104,6 +105,16 @@ class TripNotifier extends StateNotifier<TripState> {
           (resp.data as Map<String, dynamic>)['trip'] as Map<String, dynamic>);
       patchTrip(updated);
       return true;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        // Trip no longer exists server-side — remove from local state silently.
+        state = state.copyWith(
+          trips: state.trips.where((t) => t.id != tripId).toList(),
+        );
+        return true;
+      }
+      state = state.copyWith(error: _apiService.handleError(e));
+      return false;
     } catch (e) {
       state = state.copyWith(error: _apiService.handleError(e));
       return false;

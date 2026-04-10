@@ -873,7 +873,12 @@ async def cancel_trip(
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
 
-    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    import uuid as _uuid_mod
+    try:
+        trip_uuid = _uuid_mod.UUID(trip_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid trip ID format")
+    trip = db.query(Trip).filter(Trip.id == trip_uuid).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
 
