@@ -596,6 +596,19 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
         },
       });
       if (mounted) setState(() => _lastSaved = DateTime.now());
+    } on DioException catch (e) {
+      // Surface draft save failures so they are visible during testing
+      final status = e.response?.statusCode;
+      final detail = e.response?.data?['detail'] as String? ?? e.message ?? 'Unknown error';
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Draft save failed ($status): $detail',
+              style: const TextStyle(fontSize: 12)),
+          backgroundColor: Colors.orange.shade800,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ));
+      }
     } catch (_) {}
   }
 

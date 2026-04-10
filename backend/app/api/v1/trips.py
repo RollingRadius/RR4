@@ -859,12 +859,17 @@ async def notify_lp(
 
 
 @router.patch("/trips/{trip_id}/cancel")
-def cancel_trip(
+async def cancel_trip(
     trip_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Cancel a trip. Allowed by load_owner (their trip) or logistic_partner (their org's trip)."""
+    """
+    Cancel a trip (soft-cancel: status → 'cancelled', record kept in DB).
+    - load_owner: can cancel trips belonging to their org.
+    - logistic_partner / super_admin: can cancel trips in their org.
+    When a load_owner cancels, the LP org receives a push notification.
+    """
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
 
@@ -889,6 +894,47 @@ def cancel_trip(
 
     trip.status = 'cancelled'
     db.commit()
+
+    # ── Notify the LP org when a load_owner cancels ───────────────────────────
+    if role_key == 'load_owner' and trip.organization_id:
+        from app.models.notification import Notification
+        from app.services.ws_manager import manager
+
+        # Identify who cancelled (load owner org name if available)
+        from app.models.company import Organization
+        lo_org = db.query(Organization).filter(Organization.id == user_org.organization_id).first()
+        canceller = lo_org.company_name if lo_org else "Load Owner"
+
+        title = "Trip Cancelled"
+        body = (
+            f"Trip {trip.trip_number} ({trip.origin} → {trip.destination}) "
+            f"has been cancelled by {canceller}."
+        )
+        notif = Notification(
+            recipient_org_id=trip.organization_id,
+            trip_id=trip.id,
+            type="trip_cancelled",
+            title=title,
+            body=body,
+        )
+        db.add(notif)
+        db.commit()
+        db.refresh(notif)
+
+        message = {
+            "type":        "trip_cancelled",
+            "id":          str(notif.id),
+            "trip_id":     str(trip.id),
+            "trip_number": trip.trip_number,
+            "origin":      trip.origin,
+            "destination": trip.destination,
+            "title":       title,
+            "body":        body,
+            "is_read":     False,
+            "created_at":  notif.created_at.isoformat() if notif.created_at else None,
+        }
+        await manager.send_to_org(str(trip.organization_id), message)
+
     db.refresh(trip)
     return {"success": True, "message": "Trip cancelled successfully.", "trip": _enrich(trip, db)}
 

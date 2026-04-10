@@ -104,7 +104,7 @@ class LoadItem {
   bool get isCompleted => status == 'completed';
 }
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+// ─── Providers ────────────────────────────────────────────────────────────────
 
 final _loadsProvider = FutureProvider.autoDispose<List<LoadItem>>((ref) async {
   final dio = ref.read(dioProvider);
@@ -113,6 +113,17 @@ final _loadsProvider = FutureProvider.autoDispose<List<LoadItem>>((ref) async {
   final list = data['loads'] as List? ?? [];
   return list
       .map((e) => LoadItem.fromJson(e as Map<String, dynamic>))
+      .toList();
+});
+
+/// Fetches ALL trips (no status filter) for the dashboard KPI stats.
+final _allTripsProvider = FutureProvider.autoDispose<List<TripModel>>((ref) async {
+  final dio = ref.read(dioProvider);
+  final response = await dio.get('/api/trips');
+  final data = response.data as Map<String, dynamic>;
+  final list = data['trips'] as List? ?? [];
+  return list
+      .map((e) => TripModel.fromJson(e as Map<String, dynamic>))
       .toList();
 });
 
@@ -1162,6 +1173,7 @@ class _DashboardTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loadsAsync = ref.watch(_loadsProvider);
+    final allTripsAsync = ref.watch(_allTripsProvider);
     final tripState = ref.watch(tripProvider);
     final ongoingTrips = tripState.ongoingTrips;
 
@@ -1185,7 +1197,10 @@ class _DashboardTab extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               ElevatedButton(
-                onPressed: () => ref.invalidate(_loadsProvider),
+                onPressed: () {
+                  ref.invalidate(_loadsProvider);
+                  ref.invalidate(_allTripsProvider);
+                },
                 style: ElevatedButton.styleFrom(
                     backgroundColor: _primary, foregroundColor: Colors.white),
                 child: const Text('Retry'),
@@ -1195,12 +1210,21 @@ class _DashboardTab extends ConsumerWidget {
         ),
       ),
       data: (loads) {
-        final total = loads.length;
-        final inTransit =
-            loads.where((l) => l.status == 'in_transit').length;
-        final delayed = loads.where((l) => l.isDelayed).length;
-        final completed = loads.where((l) => l.isCompleted).length;
+        // ── Trip-based KPI stats ────────────────────────────────────────────
+        final allTrips = allTripsAsync.valueOrNull ?? [];
+        final totalActive  = allTrips.where((t) => !t.isCompleted && !t.isCancelled).length;
+        final inTransit    = allTrips.where((t) => t.currentStage >= 4 && !t.isCompleted && !t.isCancelled).length;
+        final ongoing      = allTrips.where((t) => t.currentStage >= 1 && t.currentStage < 4).length;
+        final completed    = allTrips.where((t) => t.isCompleted).length;
+        final cancelled    = allTrips.where((t) => t.isCancelled).length;
+
         final topLoad = loads.isNotEmpty ? loads.first : null;
+
+        void openFiltered(String filter) {
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => _FilteredTripsScreen(trips: allTrips, filter: filter),
+          ));
+        }
 
         return SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -1208,10 +1232,13 @@ class _DashboardTab extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _KpiGrid(
-                  total: total,
-                  inTransit: inTransit,
-                  delayed: delayed,
-                  completed: completed),
+                totalActive: totalActive,
+                inTransit: inTransit,
+                ongoing: ongoing,
+                completed: completed,
+                cancelled: cancelled,
+                onCardTap: openFiltered,
+              ),
               const SizedBox(height: 24),
               // ── Shipment Status — with live trip cards ────────────────
               _ShipmentStatusWithTrips(
@@ -1260,37 +1287,84 @@ class _DashboardTab extends ConsumerWidget {
 // ─── KPI Grid ─────────────────────────────────────────────────────────────────
 
 class _KpiGrid extends StatelessWidget {
-  final int total;
+  final int totalActive;
   final int inTransit;
-  final int delayed;
+  final int ongoing;
   final int completed;
+  final int cancelled;
+  final void Function(String filter) onCardTap;
 
   const _KpiGrid({
-    required this.total,
+    required this.totalActive,
     required this.inTransit,
-    required this.delayed,
+    required this.ongoing,
     required this.completed,
+    required this.cancelled,
+    required this.onCardTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
-      crossAxisSpacing: 12,
-      mainAxisSpacing: 12,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      childAspectRatio: 1.7,
+    return Column(
       children: [
-        _KpiCard(label: 'TOTAL ACTIVE', value: '$total', accent: _primary),
-        _KpiCard(label: 'IN TRANSIT', value: '$inTransit', accent: _tertiary),
-        _KpiCard(
-            label: 'DELAYED',
-            value: '$delayed',
-            accent: _error,
-            showWarning: delayed > 0),
-        _KpiCard(
-            label: 'COMPLETED', value: '$completed', accent: _secondaryFixed),
+        Row(
+          children: [
+            Expanded(
+              child: _KpiCard(
+                label: 'TOTAL ACTIVE',
+                value: '$totalActive',
+                accent: _primary,
+                onTap: () => onCardTap('all'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _KpiCard(
+                label: 'IN TRANSIT',
+                value: '$inTransit',
+                accent: _tertiary,
+                onTap: () => onCardTap('in_transit'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _KpiCard(
+                label: 'ONGOING',
+                value: '$ongoing',
+                accent: const Color(0xFFFF9800),
+                onTap: () => onCardTap('ongoing'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _KpiCard(
+                label: 'COMPLETED',
+                value: '$completed',
+                accent: _secondaryFixed,
+                onTap: () => onCardTap('completed'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _KpiCard(
+                label: 'CANCELLED',
+                value: '$cancelled',
+                accent: const Color(0xFF78909C),
+                onTap: () => onCardTap('cancelled'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: SizedBox()),
+          ],
+        ),
       ],
     );
   }
@@ -1301,60 +1375,324 @@ class _KpiCard extends StatelessWidget {
   final String value;
   final Color accent;
   final bool showWarning;
+  final VoidCallback? onTap;
+
   const _KpiCard({
     required this.label,
     required this.value,
     required this.accent,
     this.showWarning = false,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _surfaceLowest,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(16),
-        border: Border(left: BorderSide(color: accent, width: 4)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: _inter(
-              size: 9,
-              weight: FontWeight.w700,
-              color: _secondary,
-            ).copyWith(letterSpacing: 0.8),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Text(
-                value,
-                style: _manrope(
-                  size: 32,
-                  weight: FontWeight.w800,
-                  color: _onSurface,
-                ).copyWith(height: 1.0),
+        child: Ink(
+          decoration: BoxDecoration(
+            color: _surfaceLowest,
+            borderRadius: BorderRadius.circular(16),
+            border: Border(left: BorderSide(color: accent, width: 4)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-              if (showWarning) ...[
-                const SizedBox(width: 6),
-                const Icon(Icons.warning_rounded, color: _error, size: 18),
-              ],
             ],
           ),
-        ],
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: _inter(
+                          size: 9,
+                          weight: FontWeight.w700,
+                          color: _secondary,
+                        ).copyWith(letterSpacing: 0.8),
+                      ),
+                    ),
+                    if (onTap != null)
+                      Icon(Icons.arrow_forward_ios_rounded,
+                          size: 10, color: _secondary.withValues(alpha: 0.5)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Text(
+                      value,
+                      style: _manrope(
+                        size: 32,
+                        weight: FontWeight.w800,
+                        color: _onSurface,
+                      ).copyWith(height: 1.0),
+                    ),
+                    if (showWarning) ...[
+                      const SizedBox(width: 6),
+                      const Icon(Icons.warning_rounded, color: _error, size: 18),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
+    );
+  }
+}
+
+// ─── Filtered Trips Screen ────────────────────────────────────────────────────
+
+class _FilteredTripsScreen extends StatelessWidget {
+  final List<TripModel> trips;
+  /// 'all' | 'in_transit' | 'ongoing' | 'completed' | 'cancelled'
+  final String filter;
+
+  const _FilteredTripsScreen({required this.trips, required this.filter});
+
+  String get _title {
+    switch (filter) {
+      case 'in_transit':  return 'In Transit';
+      case 'ongoing':     return 'Ongoing';
+      case 'completed':   return 'Completed';
+      case 'cancelled':   return 'Cancelled';
+      default:            return 'Total Active';
+    }
+  }
+
+  Color get _accentColor {
+    switch (filter) {
+      case 'in_transit':  return _tertiary;
+      case 'ongoing':     return const Color(0xFFFF9800);
+      case 'completed':   return _secondaryFixed;
+      case 'cancelled':   return const Color(0xFF78909C);
+      default:            return _primary;
+    }
+  }
+
+  List<TripModel> get _filtered {
+    switch (filter) {
+      case 'in_transit':
+        return trips.where((t) => t.currentStage >= 4 && !t.isCompleted && !t.isCancelled).toList();
+      case 'ongoing':
+        return trips.where((t) => t.currentStage >= 1 && t.currentStage < 4).toList();
+      case 'completed':
+        return trips.where((t) => t.isCompleted).toList();
+      case 'cancelled':
+        return trips.where((t) => t.isCancelled).toList();
+      default: // 'all' = total active
+        return trips.where((t) => !t.isCompleted && !t.isCancelled).toList();
+    }
+  }
+
+  /// Human-readable stage label for a trip.
+  String _stageLabel(TripModel t) {
+    if (t.isCompleted) return 'COMPLETED';
+    if (t.isCancelled) return 'CANCELLED';
+    if (t.currentStage >= 4) return 'IN TRANSIT';
+    if (t.currentStage >= 1) return 'STAGE ${t.currentStage + 1}';
+    return 'PENDING';
+  }
+
+  Color _stageLabelColor(TripModel t) {
+    if (t.isCompleted)        return _secondaryFixed;
+    if (t.isCancelled)        return const Color(0xFF78909C);
+    if (t.currentStage >= 4)  return _tertiary;
+    if (t.currentStage >= 1)  return const Color(0xFFFF9800);
+    return _secondary;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = _filtered;
+    final accent = _accentColor;
+
+    return Scaffold(
+      backgroundColor: _background,
+      appBar: AppBar(
+        backgroundColor: _background,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18, color: _onSurface),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 10,
+              height: 10,
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(color: accent, shape: BoxShape.circle),
+            ),
+            Text(
+              '$_title  (${items.length})',
+              style: GoogleFonts.manrope(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: _onSurface),
+            ),
+          ],
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Divider(height: 1, color: _surfaceContainer),
+        ),
+      ),
+      body: items.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.local_shipping_outlined,
+                      color: _secondary, size: 56),
+                  const SizedBox(height: 14),
+                  Text(
+                    'No ${_title.toLowerCase()} trips',
+                    style: GoogleFonts.manrope(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: _secondary),
+                  ),
+                ],
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (_, i) {
+                final trip = items[i];
+                final labelColor = _stageLabelColor(trip);
+                final label = _stageLabel(trip);
+                return Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: _surfaceLowest,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border(left: BorderSide(color: accent, width: 4)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              trip.tripNumber,
+                              style: GoogleFonts.inter(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: _secondary,
+                                  letterSpacing: 0.6),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              trip.loadItem,
+                              style: GoogleFonts.manrope(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: _onSurface),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                const Icon(Icons.location_on_outlined,
+                                    size: 12, color: _secondary),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    '${trip.origin} → ${trip.destination}',
+                                    style: GoogleFonts.inter(
+                                        fontSize: 12, color: _secondary),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (trip.driverName != null) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(Icons.person_outline_rounded,
+                                      size: 12, color: _secondary),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    trip.driverName!,
+                                    style: GoogleFonts.inter(
+                                        fontSize: 11, color: _secondary),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: labelColor.withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              label,
+                              style: GoogleFonts.inter(
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  color: labelColor,
+                                  letterSpacing: 0.4),
+                            ),
+                          ),
+                          if (trip.vehiclePlate != null) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(Icons.local_shipping_outlined,
+                                    size: 12, color: _secondary),
+                                const SizedBox(width: 4),
+                                Text(
+                                  trip.vehiclePlate!,
+                                  style: GoogleFonts.inter(
+                                      fontSize: 11, color: _secondary),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
     );
   }
 }
@@ -1566,14 +1904,11 @@ class _ShipmentCard extends StatelessWidget {
 
   String _statusLabel(String s) {
     switch (s) {
-      case 'in_transit':
-        return 'IN TRANSIT';
-      case 'delayed':
-        return 'DELAYED';
-      case 'completed':
-        return 'COMPLETED';
-      default:
-        return 'PENDING';
+      case 'in_transit':  return 'IN TRANSIT';
+      case 'delayed':     return 'DELAYED';
+      case 'completed':   return 'COMPLETED';
+      case 'cancelled':   return 'CANCELLED';
+      default:            return 'PENDING';
     }
   }
 

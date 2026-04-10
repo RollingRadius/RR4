@@ -43,6 +43,8 @@ class TripState {
       trips.where((t) => t.isOngoing || t.isPending).toList();
   List<TripModel> get completedTrips =>
       trips.where((t) => t.isCompleted).toList();
+  List<TripModel> get cancelledTrips =>
+      trips.where((t) => t.isCancelled).toList();
 }
 
 // ─── Notifier ────────────────────────────────────────────────────────────────
@@ -91,6 +93,22 @@ class TripNotifier extends StateNotifier<TripState> {
   /// Called by the 30-second timer — never shows a loading indicator.
   Future<void> silentRefresh({String? statusFilter}) =>
       loadTrips(statusFilter: statusFilter, silent: true);
+
+  /// Cancel a trip (soft-cancel: status → 'cancelled', record kept in DB).
+  /// The cancelled trip will appear in the Cancelled filter on the dashboard.
+  /// Returns true on success.
+  Future<bool> cancelTrip(String tripId) async {
+    try {
+      final resp = await _apiService.dio.patch('/api/trips/$tripId/cancel');
+      final updated = TripModel.fromJson(
+          (resp.data as Map<String, dynamic>)['trip'] as Map<String, dynamic>);
+      patchTrip(updated);
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: _apiService.handleError(e));
+      return false;
+    }
+  }
 
   /// Replace one trip in the in-memory list without hitting the API.
   void patchTrip(TripModel updated) {

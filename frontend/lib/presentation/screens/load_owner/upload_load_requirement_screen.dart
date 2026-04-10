@@ -200,11 +200,7 @@ class _UploadLoadRequirementScreenState
                   _partnerTargetSection(),
                   const SizedBox(height: 28),
 
-                  // ── Section 5: Bulk Upload ──────────────────────
-                  _bulkUploadSection(),
-                  const SizedBox(height: 28),
-
-                  // ── Section 6: Photo Visual Verification ────────
+                  // ── Section 5: Photo Visual Verification ────────
                   _photoVerificationCard(),
                 ]),
               ),
@@ -253,22 +249,31 @@ class _UploadLoadRequirementScreenState
   Widget _entryMethodToggle() {
     return Row(
       children: [
-        _entryMethodButton(
-          icon: Icons.edit_note,
-          label: 'MANUAL',
-          key: 'manual',
+        Expanded(
+          flex: 3,
+          child: _entryMethodButton(
+            icon: Icons.edit_note,
+            label: 'MANUAL',
+            key: 'manual',
+          ),
         ),
         const SizedBox(width: 10),
-        _entryMethodButton(
-          icon: Icons.upload_file,
-          label: 'BULK',
-          key: 'bulk',
+        Expanded(
+          flex: 2,
+          child: _entryMethodButton(
+            icon: Icons.upload_file,
+            label: 'BULK',
+            key: 'bulk',
+          ),
         ),
         const SizedBox(width: 10),
-        _entryMethodButton(
-          icon: Icons.photo_camera,
-          label: 'PHOTO',
-          key: 'photo',
+        Expanded(
+          flex: 2,
+          child: _entryMethodButton(
+            icon: Icons.photo_camera,
+            label: 'PHOTO',
+            key: 'photo',
+          ),
         ),
       ],
     );
@@ -280,37 +285,77 @@ class _UploadLoadRequirementScreenState
     required String key,
   }) {
     final isActive = _entryMethod == key;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _entryMethod = key),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(vertical: 14),
-          decoration: BoxDecoration(
-            color: isActive ? _accent : _surfaceContainer,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            children: [
-              Icon(
-                icon,
-                color: isActive ? Colors.white : _onSurfaceVariant,
-                size: 22,
+    final isComingSoon = key == 'bulk' || key == 'photo';
+    return GestureDetector(
+        onTap: isComingSoon ? null : () => setState(() => _entryMethod = key),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              decoration: BoxDecoration(
+                color: isComingSoon
+                    ? _surfaceContainer.withOpacity(0.5)
+                    : isActive
+                        ? _accent
+                        : _surfaceContainer,
+                borderRadius: BorderRadius.circular(14),
               ),
-              const SizedBox(height: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.8,
-                  color: isActive ? Colors.white : _onSurfaceVariant,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    color: isComingSoon
+                        ? _onSurfaceVariant.withOpacity(0.4)
+                        : isActive
+                            ? Colors.white
+                            : _onSurfaceVariant,
+                    size: 26,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: isComingSoon
+                          ? _onSurfaceVariant.withOpacity(0.4)
+                          : isActive
+                              ? Colors.white
+                              : _onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (isComingSoon)
+              Positioned(
+                top: -6,
+                right: -4,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF592300),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'SOON',
+                    style: TextStyle(
+                      fontSize: 7,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
-      ),
     );
   }
 
@@ -1059,21 +1104,6 @@ class _UploadLoadRequirementScreenState
                   'Excel or CSV (Max 5 Trips)',
                   style: TextStyle(
                       fontSize: 11, color: Color(0xFF43474F)),
-                ),
-                const SizedBox(height: 14),
-                OutlinedButton(
-                  onPressed: () {},
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF001e40),
-                    side: BorderSide(
-                        color: _outlineVariant.withOpacity(0.4)),
-                    shape: const StadiumBorder(),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 8),
-                    textStyle: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.w700),
-                  ),
-                  child: const Text('Browse Files'),
                 ),
               ],
             ),

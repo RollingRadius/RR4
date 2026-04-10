@@ -181,6 +181,33 @@ class _MyTripsScreenState extends ConsumerState<MyTripsScreen> {
                         ),
                       ],
 
+                      // ── Cancelled trips section ─────────────────────
+                      if (tripState.cancelledTrips.isNotEmpty) ...[
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                            child: _SectionLabel(
+                                'CANCELLED TRIPS',
+                                count: tripState.cancelledTrips.length,
+                                danger: true),
+                          ),
+                        ),
+                        SliverList(
+                          delegate: SliverChildBuilderDelegate(
+                            (ctx, i) => Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                              child: Opacity(
+                                opacity: 0.55,
+                                child: _TripCard(
+                                    trip: tripState.cancelledTrips[i]),
+                              ),
+                            ),
+                            childCount: tripState.cancelledTrips.length,
+                          ),
+                        ),
+                      ],
+
                       const SliverToBoxAdapter(child: SizedBox(height: 80)),
                     ],
                   ),
@@ -310,27 +337,39 @@ class _StatCard extends StatelessWidget {
 class _SectionLabel extends StatelessWidget {
   final String text;
   final int count;
-  const _SectionLabel(this.text, {required this.count});
+  final bool danger;
+  const _SectionLabel(this.text, {required this.count, this.danger = false});
 
   @override
   Widget build(BuildContext context) {
+    const red = Color(0xFFBA1A1A);
+    final labelColor = danger ? red : _onSurfaceVariant;
+    final badgeBg = danger
+        ? const Color(0xFFFFDAD6)
+        : _navy.withValues(alpha: 0.10);
+    final badgeFg = danger ? red : _navy;
+
     return Row(
       children: [
+        if (danger) ...[
+          const Icon(Icons.cancel_rounded, size: 13, color: red),
+          const SizedBox(width: 5),
+        ],
         Text(text,
             style: _inter(
                     size: 11,
                     weight: FontWeight.w700,
-                    color: _onSurfaceVariant)
+                    color: labelColor)
                 .copyWith(letterSpacing: 1.4)),
         const SizedBox(width: 8),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           decoration: BoxDecoration(
-              color: _navy.withValues(alpha: 0.10),
+              color: badgeBg,
               borderRadius: BorderRadius.circular(8)),
           child: Text('$count',
               style: _inter(
-                  size: 10, weight: FontWeight.w700, color: _navy)),
+                  size: 10, weight: FontWeight.w700, color: badgeFg)),
         ),
       ],
     );
@@ -726,12 +765,164 @@ class _LoadStatusBadge extends StatelessWidget {
 
 // ── Trip Card ─────────────────────────────────────────────────────────────────
 
-class _TripCard extends ConsumerWidget {
+class _TripCard extends ConsumerStatefulWidget {
   final TripModel trip;
   const _TripCard({required this.trip});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TripCard> createState() => _TripCardState();
+}
+
+class _TripCardState extends ConsumerState<_TripCard> {
+  bool _cancelling = false;
+  bool _locating = false;
+
+  Future<void> _locate(BuildContext context) async {
+    setState(() => _locating = true);
+    final loc = await ref
+        .read(tripProvider.notifier)
+        .fetchTripLocation(widget.trip.id);
+    if (!mounted) return;
+    setState(() => _locating = false);
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TripLocateScreen(trip: widget.trip, location: loc),
+    ));
+  }
+
+  Future<void> _confirmCancelAndDelete(BuildContext context) async {
+    final trip = widget.trip;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        icon: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFDAD6),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.warning_rounded,
+              color: Color(0xFFBA1A1A), size: 28),
+        ),
+        title: Text(
+          'Cancel & Delete Trip',
+          style: _manrope(size: 16, weight: FontWeight.w800, color: _navy),
+          textAlign: TextAlign.center,
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Trip ${trip.tripNumber} will be permanently cancelled and all its data will be deleted.',
+              style: _inter(size: 13),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFFB74D)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.info_outline_rounded,
+                      size: 14, color: Color(0xFFE65100)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This action cannot be undone.',
+                      style: _inter(
+                          size: 11,
+                          weight: FontWeight.w600,
+                          color: Color(0xFFE65100)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        actions: [
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _navy,
+                    side: const BorderSide(color: Color(0xFFC3C6D1)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: Text('Keep Trip',
+                      style: _manrope(
+                          size: 13,
+                          weight: FontWeight.w700,
+                          color: _navy)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFBA1A1A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                  child: Text('Cancel Trip',
+                      style: _manrope(
+                          size: 13,
+                          weight: FontWeight.w700,
+                          color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _cancelling = true);
+    final ok = await ref
+        .read(tripProvider.notifier)
+        .cancelTrip(widget.trip.id);
+    if (!mounted) return;
+    setState(() => _cancelling = false);
+
+    if (!ok) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ref.read(tripProvider).error ?? 'Failed to cancel trip.',
+            style: _inter(size: 13, color: Colors.white),
+          ),
+          backgroundColor: const Color(0xFFBA1A1A),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final trip = widget.trip;
+    final isCancelled = trip.isCancelled;
+    final isCompleted = trip.isCompleted;
+    final canCancel = !isCancelled && !isCompleted && !_cancelling;
+
     return Container(
       decoration: BoxDecoration(
         color: _surface,
@@ -798,30 +989,28 @@ class _TripCard extends ConsumerWidget {
               indent: 18,
               endIndent: 18),
 
-          // ── Footer row: View Details | Locate Trip ────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+          // ── Footer row: View Details | Locate Trip | Cancel ───────────
+          IntrinsicHeight(
             child: Row(
               children: [
                 // View Details
                 Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                            builder: (_) => TripDetailScreen(trip: trip, readOnly: true))),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF2F4F6),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) =>
+                            TripDetailScreen(trip: trip, readOnly: true))),
+                    borderRadius:
+                        const BorderRadius.only(bottomLeft: Radius.circular(18)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 6),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(Icons.receipt_long_outlined,
                               size: 14, color: _navy),
-                          const SizedBox(width: 6),
-                          Text('View Details',
+                          const SizedBox(width: 4),
+                          Text('Details',
                               style: _inter(
                                   size: 12,
                                   weight: FontWeight.w700,
@@ -831,36 +1020,114 @@ class _TripCard extends ConsumerWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
 
-                // Locate Trip (only when vehicle assigned)
-                if (trip.hasVehicle)
-                  Expanded(
-                    child: _LocateButton(trip: trip),
-                  )
-                else
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF2F4F6),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.location_off_rounded,
-                              size: 14, color: _outline),
-                          const SizedBox(width: 6),
-                          Text('No Vehicle',
-                              style: _inter(
-                                  size: 12,
-                                  weight: FontWeight.w600,
-                                  color: _outline)),
-                        ],
-                      ),
+                VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: _outlineVariant.withValues(alpha: 0.5)),
+
+                // Locate Trip
+                Expanded(
+                  child: InkWell(
+                    onTap: (trip.hasVehicle && !_locating)
+                        ? () => _locate(context)
+                        : null,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 6),
+                      child: _locating
+                          ? const Center(
+                              child: SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: _orange),
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  trip.hasVehicle
+                                      ? Icons.location_on_rounded
+                                      : Icons.location_off_rounded,
+                                  size: 14,
+                                  color: trip.hasVehicle ? _orange : _outline,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  trip.hasVehicle ? 'Track' : 'No Vehicle',
+                                  style: _inter(
+                                      size: 12,
+                                      weight: FontWeight.w700,
+                                      color:
+                                          trip.hasVehicle ? _orange : _outline),
+                                ),
+                              ],
+                            ),
                     ),
                   ),
+                ),
+
+                VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: _outlineVariant.withValues(alpha: 0.5)),
+
+                // Cancel Trip
+                Expanded(
+                  child: InkWell(
+                    onTap: canCancel
+                        ? () => _confirmCancelAndDelete(context)
+                        : null,
+                    borderRadius: const BorderRadius.only(
+                        bottomRight: Radius.circular(18)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 12, horizontal: 6),
+                      child: _cancelling
+                          ? const Center(
+                              child: SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Color(0xFFBA1A1A)),
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  isCancelled
+                                      ? Icons.cancel_rounded
+                                      : isCompleted
+                                          ? Icons.lock_outline_rounded
+                                          : Icons.cancel_outlined,
+                                  size: 14,
+                                  color: (isCancelled || isCompleted)
+                                      ? _outlineVariant
+                                      : const Color(0xFFBA1A1A),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isCancelled
+                                      ? 'Cancelled'
+                                      : isCompleted
+                                          ? 'Completed'
+                                          : 'Cancel',
+                                  style: _inter(
+                                      size: 12,
+                                      weight: FontWeight.w700,
+                                      color: (isCancelled || isCompleted)
+                                          ? _outlineVariant
+                                          : const Color(0xFFBA1A1A)),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -870,75 +1137,6 @@ class _TripCard extends ConsumerWidget {
   }
 }
 
-// ── Locate button (fetches GPS then opens map) ────────────────────────────────
-
-class _LocateButton extends ConsumerStatefulWidget {
-  final TripModel trip;
-  const _LocateButton({required this.trip});
-
-  @override
-  ConsumerState<_LocateButton> createState() => _LocateButtonState();
-}
-
-class _LocateButtonState extends ConsumerState<_LocateButton> {
-  bool _loading = false;
-
-  Future<void> _locate() async {
-    setState(() => _loading = true);
-    final loc = await ref
-        .read(tripProvider.notifier)
-        .fetchTripLocation(widget.trip.id);
-    if (!mounted) return;
-    setState(() => _loading = false);
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => TripLocateScreen(trip: widget.trip, location: loc),
-    ));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _loading ? null : _locate,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-              colors: [Color(0xFFFF6B00), Color(0xFFE55C00)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-                color: _orange.withValues(alpha: 0.30),
-                blurRadius: 8,
-                offset: const Offset(0, 3))
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: _loading
-              ? [
-                  const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white)),
-                ]
-              : [
-                  const Icon(Icons.location_on_rounded,
-                      color: Colors.white, size: 14),
-                  const SizedBox(width: 6),
-                  Text('Locate Trip',
-                      style: _inter(
-                          size: 12,
-                          weight: FontWeight.w700,
-                          color: Colors.white)),
-                ],
-        ),
-      ),
-    );
-  }
-}
 
 // ── Route visual ──────────────────────────────────────────────────────────────
 
