@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "115596629718",
+    "project_id": "rr-4-51634",
+    "storage_bucket": "rr-4-51634.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:115596629718:android:269d8ebfcda4673988db77",
+        "android_client_info": {
+          "package_name": "com.example.fleet_management"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDm-h3NYqgHHT-aZlVfaA34car-slFjnCw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

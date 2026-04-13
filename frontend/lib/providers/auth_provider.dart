@@ -5,9 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/services/api_service.dart';
 import 'package:fleet_management/data/services/auth_api.dart';
 import 'package:fleet_management/data/services/user_api.dart';
+import 'package:fleet_management/data/services/fcm_service.dart';
 import 'package:fleet_management/data/models/user_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:fleet_management/core/config/app_config.dart';
+
+final fcmServiceProvider = Provider<FcmService>((ref) => FcmService());
 
 /// API Service Provider
 final apiServiceProvider = Provider<ApiService>((ref) {
@@ -80,10 +83,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final FlutterSecureStorage _storage;
   final ApiService _apiService;
   final UserApi _userApi;
+  final FcmService _fcmService;
 
   Timer? _expiryTimer;
 
-  AuthNotifier(this._authApi, this._storage, this._apiService, this._userApi) : super(AuthState()) {
+  AuthNotifier(this._authApi, this._storage, this._apiService, this._userApi, this._fcmService) : super(AuthState()) {
     _apiService.setAuthCallbacks(onRefresh: refreshToken, onLogout: logout);
     _loadStoredAuth();
   }
@@ -170,6 +174,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
           token: token,
           isInitialized: true,
         );
+
+        // Subscribe to role topic for already-authenticated user
+        final user = state.user;
+        if (user != null) {
+          await _fcmService.subscribeToRoleTopic(user);
+          _sendFcmTokenToBackend();
+        }
       } else {
         state = state.copyWith(isInitialized: true);
       }
@@ -221,6 +232,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // loadUserProfile now preserves role_key if the server omits it.
       await loadUserProfile();
 
+      // Subscribe to role topic + send token to backend
+      final updatedUser = state.user;
+      if (updatedUser != null) {
+        await _fcmService.subscribeToRoleTopic(updatedUser);
+        _sendFcmTokenToBackend();
+      }
+
+      // Listen for token refresh
+      _fcmService.onTokenRefresh((newToken) {
+        _apiService.dio.post('/api/users/fcm-token', data: {'fcm_token': newToken});
+      });
+
       return true;
     } catch (e) {
       print('❌ Login failed: $e');
@@ -241,6 +264,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       state = state.copyWith(isLoading: false);
 
+      // Subscribe to all_users at signup — role not yet known
+      await _fcmService.subscribeToAllUsers();
+
       return response;
     } catch (e) {
       state = state.copyWith(
@@ -257,9 +283,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _expiryTimer = null;
     await _storage.delete(key: AppConfig.tokenKey);
 
-    // Remove token from API service
-    _apiService.removeToken();
+    // Remove FCM token from backend + unsubscribe role topics
+    try {
+      await _apiService.dio.delete('/api/users/fcm-token');
+    } catch (_) {}
+    await _fcmService.unsubscribeFromRoleTopics();
 
+    _apiService.removeToken();
     state = AuthState();
   }
 
@@ -378,6 +408,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// Send FCM token to backend (best-effort, never throws)
+  Future<void> _sendFcmTokenToBackend() async {
+    try {
+      final token = await _fcmService.getToken();
+      if (token != null) {
+        await _apiService.dio.post('/api/users/fcm-token', data: {'fcm_token': token});
+        print('✅ FCM token sent to backend');
+      }
+    } catch (e) {
+      print('⚠️ FCM token send failed (non-critical): $e');
+    }
+  }
+
   /// Clear error
   void clearError() {
     state = state.copyWith(error: null);
@@ -390,5 +433,6 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final storage = ref.watch(secureStorageProvider);
   final apiService = ref.watch(apiServiceProvider);
   final userApi = ref.watch(userApiProvider);
-  return AuthNotifier(authApi, storage, apiService, userApi);
+  final fcmService = ref.watch(fcmServiceProvider);
+  return AuthNotifier(authApi, storage, apiService, userApi, fcmService);
 });

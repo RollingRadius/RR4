@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/routes/app_router.dart';
@@ -8,9 +11,20 @@ import 'package:fleet_management/providers/settings_provider.dart';
 import 'package:fleet_management/providers/theme_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp();
+}
+
 void main() async {
   // Ensure Flutter binding is initialized
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase (Android/iOS only — not web)
+  if (!kIsWeb) {
+    await Firebase.initializeApp();
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  }
 
   // Initialize app configuration
   AppConfig.initialize();

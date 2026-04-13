@@ -21,6 +21,7 @@ from app.dependencies import get_current_user
 from app.models import User, UserOrganization
 from app.models.trip import Trip
 from app.models.role import Role
+from app.services import fcm_service
 
 router = APIRouter()
 
@@ -786,6 +787,16 @@ async def notify_stage4(
     }
     await manager.send_to_org(recipient_org_id, message)
 
+    # FCM push (best-effort, for users with app in background)
+    try:
+        fcm_service.send_to_org_users(
+            trip.load_owner_org_id, title, body,
+            {"type": "stage4_exit", "trip_id": str(trip.id)},
+            db,
+        )
+    except Exception:
+        pass
+
     connected = manager.connected_count(recipient_org_id)
     return {
         "success": True,
@@ -849,6 +860,16 @@ async def notify_lp(
     }
     # Push only to LP owner connections — workers are excluded
     await manager.send_to_org_role(recipient_org_id, 'logistic_partner', message)
+
+    # FCM push to LP org users (best-effort)
+    try:
+        fcm_service.send_to_org_users(
+            trip.organization_id, title, body,
+            {"type": "trip_complete", "trip_id": str(trip.id)},
+            db,
+        )
+    except Exception:
+        pass
 
     return {
         "success": True,
@@ -940,6 +961,16 @@ async def cancel_trip(
         }
         await manager.send_to_org(str(trip.organization_id), message)
 
+        # FCM push to LP org users (best-effort)
+        try:
+            fcm_service.send_to_org_users(
+                trip.organization_id, title, body,
+                {"type": "trip_cancelled", "trip_id": str(trip.id)},
+                db,
+            )
+        except Exception:
+            pass
+
     db.refresh(trip)
     return {"success": True, "message": "Trip cancelled successfully.", "trip": _enrich(trip, db)}
 
@@ -1003,6 +1034,16 @@ async def complete_trip(
             "created_at":  notif.created_at.isoformat() if notif.created_at else None,
         }
         await manager.send_to_org(str(trip.load_owner_org_id), message)
+
+        # FCM push to load owner org users (best-effort)
+        try:
+            fcm_service.send_to_org_users(
+                trip.load_owner_org_id, title, body,
+                {"type": "trip_complete", "trip_id": str(trip.id)},
+                db,
+            )
+        except Exception:
+            pass
 
     db.refresh(trip)
     return {"success": True, "message": "Trip marked as completed.", "trip": _enrich(trip, db)}

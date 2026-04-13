@@ -5,6 +5,7 @@ User Profile and Organization Management API Endpoints
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+from pydantic import BaseModel
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -15,6 +16,33 @@ from app.models.role import Role
 from app.models.driver import Driver
 
 router = APIRouter()
+
+
+class FcmTokenRequest(BaseModel):
+    fcm_token: str
+
+
+@router.post("/fcm-token")
+def save_fcm_token(
+    body: FcmTokenRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Store FCM token for the current user (for targeted push notifications)."""
+    current_user.fcm_token = body.fcm_token
+    db.commit()
+    return {"success": True}
+
+
+@router.delete("/fcm-token")
+def remove_fcm_token(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove FCM token on logout."""
+    current_user.fcm_token = None
+    db.commit()
+    return {"success": True}
 
 
 @router.get("/me")

@@ -25,6 +25,7 @@ from app.models.company import Organization
 from app.models.load_requirement import LoadRequirement
 from app.models.trip import Trip
 from app.models.role import Role
+from app.services import fcm_service
 
 router = APIRouter()
 
@@ -245,6 +246,19 @@ def create_load_requirement(
     db.add(record)
     db.commit()
     db.refresh(record)
+
+    # Broadcast to all LP users so they know a new load is available
+    try:
+        pickup = record.pickup_location or '?'
+        drop   = record.unload_location or '?'
+        fcm_service.send_to_topic(
+            fcm_service.TOPIC_FLEET_MANAGERS,
+            "New Load Available",
+            f"A new load has been posted: {pickup} → {drop}. Check available loads.",
+            {"type": "new_load", "load_id": str(record.id)},
+        )
+    except Exception:
+        pass
 
     return {
         "success": True,
@@ -622,6 +636,30 @@ async def fulfill_load_requirement(
     except Exception:
         pass  # notification failure must never block the trip creation response
 
+    # FCM: notify LP workers (token-based, org-specific) about new assignment
+    try:
+        fcm_service.send_to_org_users(
+            fleet_company.id,
+            "New Trip Assigned",
+            f"Trip {trip.trip_number}: {trip.origin} → {trip.destination}. Begin stage processing.",
+            {"type": "new_work", "trip_id": str(trip.id)},
+            db,
+        )
+    except Exception:
+        pass
+
+    # FCM: notify load owner org that their load was accepted
+    try:
+        fcm_service.send_to_org_users(
+            load.company_id,
+            "Load Requirement Accepted",
+            f"Your load ({trip.origin} → {trip.destination}) has been accepted by a fleet partner.",
+            {"type": "load_accepted", "load_id": str(load.id), "trip_id": str(trip.id)},
+            db,
+        )
+    except Exception:
+        pass
+
     return {
         "success": True,
         "message": "Load requirement accepted. Trip created successfully.",
@@ -752,6 +790,16 @@ async def cancel_load_requirement(
             "created_at":  notif.created_at.isoformat() if notif.created_at else None,
         }
         await manager.send_to_org(str(lp_org_id), message)
+
+        # FCM push to LP org users (best-effort)
+        try:
+            fcm_service.send_to_org_users(
+                lp_org_id, title, body,
+                {"type": notif_type, "load_id": str(load.id)},
+                db,
+            )
+        except Exception:
+            pass
 
     db.refresh(load)
 
