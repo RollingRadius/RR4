@@ -37,7 +37,9 @@ final FlutterLocalNotificationsPlugin _localNotifications =
 // ── Service class ─────────────────────────────────────────────────────────────
 
 class FcmService {
-  final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  // Lazy getter — only accessed inside methods that are already guarded by kIsWeb checks.
+  // Avoids calling FirebaseMessaging.instance at construction time on web.
+  FirebaseMessaging get _messaging => FirebaseMessaging.instance;
 
   // Topic names — must match backend constants
   static const String topicAllUsers     = 'all_users';
