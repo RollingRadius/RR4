@@ -52,6 +52,9 @@ logs/
 uploads/
 temp/
 
+# Firebase service account key — NEVER commit this
+firebase-service-account.json
+
 # Testing
 .pytest_cache/
 .coverage

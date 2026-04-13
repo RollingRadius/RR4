@@ -95,6 +95,7 @@ services:
       - ./alembic:/app/alembic
       - ./uploads:/app/uploads
       - ./logs:/app/logs
+      - ./firebase-service-account.json:/app/firebase-service-account.json:ro
     depends_on:
       postgres:
         condition: service_healthy
