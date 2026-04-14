@@ -40,6 +40,7 @@ def send_to_token(
             token=token,
         )
         messaging.send(message)
+        logger.info(f'FCM sent to token ...{token[-10:]}')
         return True
     except Exception as e:
         logger.error(f'FCM send_to_token failed: {e}')

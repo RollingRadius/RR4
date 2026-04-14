@@ -241,7 +241,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // Listen for token refresh
       _fcmService.onTokenRefresh((newToken) {
-        _apiService.dio.post('/api/users/fcm-token', data: {'fcm_token': newToken});
+        _apiService.dio.post('/api/user/fcm-token', data: {'fcm_token': newToken});
       });
 
       return true;
@@ -285,7 +285,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
     // Remove FCM token from backend + unsubscribe role topics
     try {
-      await _apiService.dio.delete('/api/users/fcm-token');
+      await _apiService.dio.delete('/api/user/fcm-token');
     } catch (_) {}
     await _fcmService.unsubscribeFromRoleTopics();
 
@@ -413,7 +413,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final token = await _fcmService.getToken();
       if (token != null) {
-        await _apiService.dio.post('/api/users/fcm-token', data: {'fcm_token': token});
+        await _apiService.dio.post('/api/user/fcm-token', data: {'fcm_token': token});
         print('✅ FCM token sent to backend');
       }
     } catch (e) {

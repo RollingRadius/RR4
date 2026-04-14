@@ -2569,12 +2569,15 @@ class _LoadVisibilityCard extends StatelessWidget {
             children: const [
               Icon(Icons.inventory_2_outlined, size: 18, color: _secondary),
               SizedBox(width: 8),
-              Text(
-                'Load Visibility',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: _onSurface,
+              Flexible(
+                child: Text(
+                  'Load Visibility',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _onSurface,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -2654,12 +2657,15 @@ class _TruckDriverCard extends StatelessWidget {
             children: const [
               Icon(Icons.badge_outlined, size: 18, color: _secondary),
               SizedBox(width: 8),
-              Text(
-                'Truck & Driver',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: _onSurface,
+              Flexible(
+                child: Text(
+                  'Truck & Driver',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _onSurface,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
