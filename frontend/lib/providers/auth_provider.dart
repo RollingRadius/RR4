@@ -239,10 +239,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
         _sendFcmTokenToBackend();
       }
 
-      // When Firebase rotates the token, send the new one and persist it
+      // When Firebase rotates the token, send the new one to backend
       _fcmService.onTokenRefresh((newToken) {
         _apiService.dio.post('/api/user/fcm-token', data: {'fcm_token': newToken});
-        _storage.write(key: 'fcm_last_sent_token', value: newToken);
       });
 
       return true;
@@ -410,15 +409,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Send FCM token to backend only if it changed since last send.
+  /// Send FCM token to backend on every login so each user account on this
+  /// device has their token registered (multiple users can share one device).
   Future<void> _sendFcmTokenToBackend() async {
     try {
       final token = await _fcmService.getToken();
       if (token == null) return;
-      final lastSent = await _storage.read(key: 'fcm_last_sent_token');
-      if (lastSent == token) return; // unchanged — skip unnecessary API call
       await _apiService.dio.post('/api/user/fcm-token', data: {'fcm_token': token});
-      await _storage.write(key: 'fcm_last_sent_token', value: token);
       print('✅ FCM token sent to backend');
     } catch (e) {
       print('⚠️ FCM token send failed (non-critical): $e');
