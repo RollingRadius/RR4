@@ -438,6 +438,20 @@ async def submit_stage1(
 
     db.commit()
     db.refresh(trip)
+
+    # FCM: notify LO org on first Stage 1 submission
+    if not was_already_submitted and trip.load_owner_org_id:
+        try:
+            fcm_service.send_to_org_users(
+                trip.load_owner_org_id,
+                "Stage 1 Complete — Driver Registered",
+                f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nDriver {trip.s1_driver_name} registered and documents verified.",
+                {"type": "stage1_done", "trip_id": str(trip.id)},
+                db,
+            )
+        except Exception:
+            pass
+
     msg = "Stage 1 updated." if was_already_submitted else "Stage 1 saved. Proceed to compliance check."
     return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
@@ -496,6 +510,20 @@ def submit_stage2(
 
     db.commit()
     db.refresh(trip)
+
+    # FCM: notify LO org on first Stage 2 submission
+    if not was_already_submitted and trip.load_owner_org_id:
+        try:
+            fcm_service.send_to_org_users(
+                trip.load_owner_org_id,
+                "Stage 2 Complete — Compliance Cleared",
+                f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nCompliance check passed. Truck cleared for entry.",
+                {"type": "stage2_done", "trip_id": str(trip.id)},
+                db,
+            )
+        except Exception:
+            pass
+
     msg = "Stage 2 updated." if was_already_submitted else "Entry permission issued. Coordinate truck arrival."
     return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
@@ -620,6 +648,20 @@ async def submit_stage3(
 
     db.commit()
     db.refresh(trip)
+
+    # FCM: notify LO org on first Stage 3 submission
+    if not was_already_submitted and trip.load_owner_org_id:
+        try:
+            fcm_service.send_to_org_users(
+                trip.load_owner_org_id,
+                "Stage 3 Complete — Truck Loaded",
+                f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nTruck loaded and shipment is now in transit.",
+                {"type": "stage3_done", "trip_id": str(trip.id)},
+                db,
+            )
+        except Exception:
+            pass
+
     msg = "Stage 3 updated." if was_already_submitted else "Truck intake complete. Trip is now active."
     return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
@@ -787,10 +829,12 @@ async def notify_stage4(
     }
     await manager.send_to_org(recipient_org_id, message)
 
-    # FCM push (best-effort, for users with app in background)
+    # FCM: notify LO org on Stage 4 exit
     try:
         fcm_service.send_to_org_users(
-            trip.load_owner_org_id, title, body,
+            trip.load_owner_org_id,
+            "Stage 4 Complete — Truck Exited",
+            f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nTruck has exited the facility.",
             {"type": "stage4_exit", "trip_id": str(trip.id)},
             db,
         )
@@ -861,10 +905,12 @@ async def notify_lp(
     # Push only to LP owner connections — workers are excluded
     await manager.send_to_org_role(recipient_org_id, 'logistic_partner', message)
 
-    # FCM push to LP org users (best-effort)
+    # FCM: notify LP org that trip is complete
     try:
         fcm_service.send_to_org_users(
-            trip.organization_id, title, body,
+            trip.organization_id,
+            "Trip Marked Complete",
+            f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nMarked as complete.",
             {"type": "trip_complete", "trip_id": str(trip.id)},
             db,
         )
@@ -961,10 +1007,12 @@ async def cancel_trip(
         }
         await manager.send_to_org(str(trip.organization_id), message)
 
-        # FCM push to LP org users (best-effort)
+        # FCM: notify LP org of cancellation
         try:
             fcm_service.send_to_org_users(
-                trip.organization_id, title, body,
+                trip.organization_id,
+                "Trip Cancelled",
+                f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nCancelled by the load owner.",
                 {"type": "trip_cancelled", "trip_id": str(trip.id)},
                 db,
             )
@@ -1035,10 +1083,12 @@ async def complete_trip(
         }
         await manager.send_to_org(str(trip.load_owner_org_id), message)
 
-        # FCM push to load owner org users (best-effort)
+        # FCM: notify LO org that trip is completed
         try:
             fcm_service.send_to_org_users(
-                trip.load_owner_org_id, title, body,
+                trip.load_owner_org_id,
+                "Trip Completed",
+                f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nYour shipment has been completed by the fleet partner.",
                 {"type": "trip_complete", "trip_id": str(trip.id)},
                 db,
             )

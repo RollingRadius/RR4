@@ -247,16 +247,24 @@ def create_load_requirement(
     db.commit()
     db.refresh(record)
 
-    # Broadcast to all LP users so they know a new load is available
+    # Notify only the targeted LP orgs (token-based, not broadcast to all)
     try:
         pickup = record.pickup_location or '?'
         drop   = record.unload_location or '?'
-        fcm_service.send_to_topic(
-            fcm_service.TOPIC_FLEET_MANAGERS,
-            "New Load Available",
-            f"A new load has been posted: {pickup} → {drop}. Check available loads.",
-            {"type": "new_load", "load_id": str(record.id)},
-        )
+        count  = record.truck_count or 1
+        notif_title = "New Load Available"
+        notif_body  = f"{pickup} → {drop} | {count} truck(s) needed. Tap to view details."
+        notif_data  = {"type": "new_load", "load_id": str(record.id)}
+        orgs_to_notify = target_org_ids or []
+        for org_id in orgs_to_notify:
+            try:
+                import uuid as _u
+                fcm_service.send_to_org_users(
+                    _u.UUID(str(org_id)) if not hasattr(org_id, 'hex') else org_id,
+                    notif_title, notif_body, notif_data, db,
+                )
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -636,24 +644,24 @@ async def fulfill_load_requirement(
     except Exception:
         pass  # notification failure must never block the trip creation response
 
-    # FCM: notify LP workers (token-based, org-specific) about new assignment
+    # FCM: notify LP workers about new trip assignment
     try:
         fcm_service.send_to_org_users(
             fleet_company.id,
             "New Trip Assigned",
-            f"Trip {trip.trip_number}: {trip.origin} → {trip.destination}. Begin stage processing.",
+            f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nBegin stage processing.",
             {"type": "new_work", "trip_id": str(trip.id)},
             db,
         )
     except Exception:
         pass
 
-    # FCM: notify load owner org that their load was accepted
+    # FCM: notify load owner that their load was accepted
     try:
         fcm_service.send_to_org_users(
             load.company_id,
-            "Load Requirement Accepted",
-            f"Your load ({trip.origin} → {trip.destination}) has been accepted by a fleet partner.",
+            "Load Accepted",
+            f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nYour load has been accepted by a fleet partner.",
             {"type": "load_accepted", "load_id": str(load.id), "trip_id": str(trip.id)},
             db,
         )

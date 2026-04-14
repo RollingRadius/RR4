@@ -42,14 +42,20 @@ class NotificationWsService {
           } catch (_) {}
         },
         onDone: () {
-          // Auto-reconnect after 5 seconds
+          // Close code 4001 = server permanently rejected (no role/org) — don't retry
+          final closeCode = _channel?.closeCode;
+          if (closeCode == 4001) return;
+          // Auto-reconnect after 5 seconds for transient drops
           Future.delayed(const Duration(seconds: 5), () {
             if (_shouldReconnect && _currentToken != null) {
               _doConnect(_currentToken!);
             }
           });
         },
-        onError: (_) {
+        onError: (error) {
+          // HTTP 403 during WebSocket upgrade = permanent rejection — don't retry
+          final msg = error.toString();
+          if (msg.contains('403') || msg.contains('401')) return;
           Future.delayed(const Duration(seconds: 5), () {
             if (_shouldReconnect && _currentToken != null) {
               _doConnect(_currentToken!);

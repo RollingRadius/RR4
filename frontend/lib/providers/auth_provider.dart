@@ -175,10 +175,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
           isInitialized: true,
         );
 
-        // Subscribe to role topic for already-authenticated user
+        // Subscribe to role topics (once) + sync FCM token if changed
         final user = state.user;
         if (user != null) {
-          await _fcmService.subscribeToRoleTopic(user);
+          await _subscribeToTopicsIfNeeded(user);
           _sendFcmTokenToBackend();
         }
       } else {
@@ -232,16 +232,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // loadUserProfile now preserves role_key if the server omits it.
       await loadUserProfile();
 
-      // Subscribe to role topic + send token to backend
+      // Subscribe to role topics (once) + sync FCM token if changed
       final updatedUser = state.user;
       if (updatedUser != null) {
-        await _fcmService.subscribeToRoleTopic(updatedUser);
+        await _subscribeToTopicsIfNeeded(updatedUser);
         _sendFcmTokenToBackend();
       }
 
-      // Listen for token refresh
+      // When Firebase rotates the token, send the new one and persist it
       _fcmService.onTokenRefresh((newToken) {
         _apiService.dio.post('/api/user/fcm-token', data: {'fcm_token': newToken});
+        _storage.write(key: 'fcm_last_sent_token', value: newToken);
       });
 
       return true;
@@ -264,8 +265,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       state = state.copyWith(isLoading: false);
 
-      // Subscribe to all_users at signup — role not yet known
-      await _fcmService.subscribeToAllUsers();
+      // Subscribe to all_users at signup — role not yet known.
+      // Role-specific topics are subscribed on first login once role is assigned.
+      final alreadySubscribed = await _storage.read(key: 'fcm_topics_subscribed');
+      if (alreadySubscribed != 'true') {
+        await _fcmService.subscribeToAllUsers();
+      }
 
       return response;
     } catch (e) {
@@ -283,11 +288,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _expiryTimer = null;
     await _storage.delete(key: AppConfig.tokenKey);
 
-    // Remove FCM token from backend + unsubscribe role topics
-    try {
-      await _apiService.dio.delete('/api/user/fcm-token');
-    } catch (_) {}
-    await _fcmService.unsubscribeFromRoleTopics();
+    // FCM token stays in DB and topic subscriptions stay active on the device —
+    // push notifications continue to reach this device even when logged out.
 
     _apiService.removeToken();
     state = AuthState();
@@ -408,17 +410,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Send FCM token to backend (best-effort, never throws)
+  /// Send FCM token to backend only if it changed since last send.
   Future<void> _sendFcmTokenToBackend() async {
     try {
       final token = await _fcmService.getToken();
-      if (token != null) {
-        await _apiService.dio.post('/api/user/fcm-token', data: {'fcm_token': token});
-        print('✅ FCM token sent to backend');
-      }
+      if (token == null) return;
+      final lastSent = await _storage.read(key: 'fcm_last_sent_token');
+      if (lastSent == token) return; // unchanged — skip unnecessary API call
+      await _apiService.dio.post('/api/user/fcm-token', data: {'fcm_token': token});
+      await _storage.write(key: 'fcm_last_sent_token', value: token);
+      print('✅ FCM token sent to backend');
     } catch (e) {
       print('⚠️ FCM token send failed (non-critical): $e');
     }
+  }
+
+  /// Subscribe to role topics only once (persisted in secure storage).
+  /// Firebase subscriptions survive app restarts, so this only runs once
+  /// per device install when the user's role is first known.
+  Future<void> _subscribeToTopicsIfNeeded(UserModel user) async {
+    final alreadySubscribed = await _storage.read(key: 'fcm_topics_subscribed');
+    if (alreadySubscribed == 'true') return;
+    await _fcmService.subscribeToRoleTopic(user);
+    await _storage.write(key: 'fcm_topics_subscribed', value: 'true');
+    print('✅ FCM role topics subscribed');
   }
 
   /// Clear error
