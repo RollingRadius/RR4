@@ -21,6 +21,25 @@ app = FastAPI(
     debug=settings.DEBUG
 )
 
+# ── Observability ────────────────────────────────────────────────────────────
+# Feature-flagged: set OTEL_ENABLED=true / PROMETHEUS_ENABLED=true in .env
+# To remove entirely: delete app/telemetry.py and this block
+if settings.OTEL_ENABLED:
+    from app.database import engine as _db_engine
+    from app.telemetry import setup_otel
+    setup_otel(
+        app,
+        engine=_db_engine,
+        service_name=settings.OTEL_SERVICE_NAME,
+        service_version=settings.APP_VERSION,
+        otlp_endpoint=settings.OTEL_ENDPOINT,
+    )
+
+if settings.PROMETHEUS_ENABLED:
+    from app.telemetry import setup_prometheus
+    setup_prometheus(app)
+# ─────────────────────────────────────────────────────────────────────────────
+
 # Configure CORS
 # This API uses JWT Bearer tokens (not cookies), so allow_credentials must be
 # False when allow_origins contains "*". Browsers reject the combination of

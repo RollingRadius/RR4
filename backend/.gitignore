@@ -26,10 +26,12 @@ ENV/
 #env/
 .venv
 
-# Environment Variables
-#.env
-#.env.local
-#.env.production
+# Environment Variables — real secrets, never commit
+.env
+.env.local
+.env.production
+.env.docker
+# .env.example and .env.docker.example ARE committed (safe templates with false defaults)
 
 # IDEs
 .vscode/

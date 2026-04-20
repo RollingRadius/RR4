@@ -75,6 +75,14 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "logs/app.log"
 
+    # Observability — OpenTelemetry → SigNoz
+    OTEL_ENABLED: bool = False
+    OTEL_ENDPOINT: str = "http://localhost:4317"
+    OTEL_SERVICE_NAME: str = "fleet-management-api"
+
+    # Observability — Prometheus metrics
+    PROMETHEUS_ENABLED: bool = False
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
