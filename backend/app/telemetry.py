@@ -74,9 +74,8 @@ def setup_prometheus(app):
 
     Instrumentator(
         should_group_status_codes=False,   # track 200/201/400/422/500 separately
-        should_ignore_untemplated=True,    # ignore unknown routes (scanners/bots)
+        should_ignore_untemplated=False,   # track all requests including failed validation
         should_respect_env_var=False,
-        excluded_handlers=["/metrics", "/health", "/"],  # skip infra endpoints
     ).instrument(app).expose(app, endpoint="/metrics")
 
     print("[Prometheus] Metrics exposed → /metrics")

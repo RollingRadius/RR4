@@ -21,9 +21,7 @@ app = FastAPI(
     debug=settings.DEBUG
 )
 
-# ── Observability ────────────────────────────────────────────────────────────
-# Feature-flagged: set OTEL_ENABLED=true / PROMETHEUS_ENABLED=true in .env
-# To remove entirely: delete app/telemetry.py and this block
+# ── Observability — OTEL only here (must be before CORS middleware) ──────────
 if settings.OTEL_ENABLED:
     from app.database import engine as _db_engine
     from app.telemetry import setup_otel
@@ -34,10 +32,6 @@ if settings.OTEL_ENABLED:
         service_version=settings.APP_VERSION,
         otlp_endpoint=settings.OTEL_ENDPOINT,
     )
-
-if settings.PROMETHEUS_ENABLED:
-    from app.telemetry import setup_prometheus
-    setup_prometheus(app)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Configure CORS
@@ -173,6 +167,12 @@ app.include_router(workers.router, prefix="/api", tags=["Workers"])
 # Notifications — prefix="" so the router's own full paths (/ws/notifications,
 # /api/notifications, etc.) are used unchanged.
 app.include_router(notifications.router, prefix="", tags=["Notifications"])
+
+# ── Prometheus — must be after all routers are registered ────────────────────
+if settings.PROMETHEUS_ENABLED:
+    from app.telemetry import setup_prometheus
+    setup_prometheus(app)
+# ─────────────────────────────────────────────────────────────────────────────
 
 # Mount static files for uploads (logos, vehicle photos, etc.)
 uploads_path = os.path.join(os.getcwd(), settings.UPLOAD_DIR)
