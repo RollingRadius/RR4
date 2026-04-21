@@ -42,7 +42,7 @@ class TrackingService:
     def __init__(self, db: AsyncSession, redis_client: Optional[redis.Redis] = None):
         self.db = db
         self.redis = redis_client
-        self.osrm_base_url = getattr(settings, 'OSRM_BASE_URL', 'http://localhost:5000')
+        self.osrm_base_url = settings.OSRM_BASE_URL
 
     # ========================================================================
     # Location Management

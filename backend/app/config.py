@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     # Security Settings
     MAX_FAILED_LOGIN_ATTEMPTS: int = 3
-    ACCOUNT_LOCKOUT_MINUTES: int = 30
+    ACCOUNT_LOCKOUT_MINUTES: int = 2
     EMAIL_VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
 
@@ -74,6 +74,12 @@ class Settings(BaseSettings):
     # Logging
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "logs/app.log"
+
+    # Firebase
+    FIREBASE_CREDENTIALS_PATH: str = "firebase-service-account.json"
+
+    # OSRM Route Optimization Service
+    OSRM_BASE_URL: str = "http://localhost:5000"
 
     # Observability — OpenTelemetry → SigNoz
     OTEL_ENABLED: bool = False

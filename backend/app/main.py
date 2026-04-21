@@ -41,7 +41,7 @@ if settings.OTEL_ENABLED:
 # all pre-flighted requests (those with Authorization header) to fail.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

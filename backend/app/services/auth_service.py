@@ -219,6 +219,13 @@ class AuthService:
                 detail=ERROR_ACCOUNT_LOCKED.format(minutes=minutes_remaining)
             )
 
+        # Auto-unlock: lockout period has expired but status was never reset back to active
+        if user.status == USER_STATUS_LOCKED and not user.is_locked():
+            user.status = USER_STATUS_ACTIVE
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            self.db.commit()
+
         # Verify password
         if not verify_password(password, user.password_hash):
             # Record failed attempt

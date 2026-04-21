@@ -4,13 +4,14 @@ SQLAlchemy setup for PostgreSQL
 """
 
 from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
-from typing import Generator
+from typing import Generator, AsyncGenerator
 
 from app.config import settings
 
-# Create SQLAlchemy engine
+# Create SQLAlchemy engine (sync — used by all standard endpoints)
 engine = create_engine(
     settings.DATABASE_URL,
     pool_pre_ping=True,  # Verify connections before using
@@ -19,8 +20,17 @@ engine = create_engine(
     echo=settings.DEBUG  # Log SQL queries in debug mode
 )
 
-# Session factory
+# Session factory (sync)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Async engine — used only by the GPS tracking module
+_async_database_url = settings.DATABASE_URL.replace(
+    "postgresql://", "postgresql+asyncpg://", 1
+).replace(
+    "postgresql+psycopg2://", "postgresql+asyncpg://", 1
+)
+async_engine = create_async_engine(_async_database_url, pool_pre_ping=True)
+AsyncSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
 
 # Base class for SQLAlchemy models
 Base = declarative_base()
@@ -41,6 +51,15 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+async def async_get_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    Async dependency for endpoints that need an async SQLAlchemy session.
+    Used exclusively by the GPS tracking module.
+    """
+    async with AsyncSessionLocal() as session:
+        yield session
 
 
 def init_db():

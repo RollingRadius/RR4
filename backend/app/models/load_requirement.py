@@ -3,7 +3,7 @@ Load Requirement Model
 Represents cargo/load requirements posted by load_owner companies.
 """
 
-from sqlalchemy import Column, String, Text, Date, Integer, Float, TIMESTAMP, ForeignKey
+from sqlalchemy import Column, String, Text, Date, Integer, Float, TIMESTAMP, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 import uuid
@@ -15,8 +15,13 @@ class LoadRequirement(Base):
     __tablename__ = "load_requirements"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    company_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    created_by = Column(UUID(as_uuid=True), nullable=True)
+    company_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     entry_method = Column(String(10), nullable=False, default='manual')
 

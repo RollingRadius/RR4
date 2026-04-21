@@ -9,11 +9,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_db, async_get_db
 from app.models.user import User
 from app.models.driver import Driver
+from app.models.zone import Zone
 from app.models.tracking import RouteOptimization
+from app.models.user_organization import UserOrganization
 from app.services.tracking_service import TrackingService
 from app.schemas.tracking import (
     LocationCreate,
@@ -34,7 +37,7 @@ from app.schemas.tracking import (
     DriverTrackingStatusResponse,
     TrackingAnalyticsSummary
 )
-from app.api.v1.auth import get_current_user
+from app.dependencies import get_current_user
 from app.services.capability_service import CapabilityService
 
 router = APIRouter(prefix="/tracking", tags=["GPS Tracking"])
@@ -44,20 +47,40 @@ router = APIRouter(prefix="/tracking", tags=["GPS Tracking"])
 # Helper Functions
 # ============================================================================
 
-def get_tracking_service(db: AsyncSession = Depends(get_db)) -> TrackingService:
-    """Dependency to get tracking service instance"""
-    # TODO: Initialize Redis client here when implemented
-    return TrackingService(db=db, redis_client=None)
+def get_tracking_service(async_db: AsyncSession = Depends(async_get_db)) -> TrackingService:
+    """Dependency to get tracking service instance with async session"""
+    return TrackingService(db=async_db, redis_client=None)
 
 
-async def check_capability(
-    capability: str,
-    db: AsyncSession,
-    current_user: User
-):
-    """Check if user has required capability"""
+def _get_user_org_id(current_user: User, db: Session) -> UUID:
+    """Resolve the active organization ID for the current user."""
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == 'active'
+    ).first()
+    if not user_org or not user_org.organization_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User must be associated with an active organization"
+        )
+    return user_org.organization_id
+
+
+def check_capability(capability: str, db: Session, current_user: User) -> None:
+    """Check if user has required capability (sync)."""
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == 'active'
+    ).first()
+    if not user_org:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Missing required capability: {capability}"
+        )
     cap_service = CapabilityService(db)
-    has_cap = await cap_service.user_has_capability(current_user.id, capability)
+    has_cap = cap_service.check_user_capability(
+        str(current_user.id), str(user_org.organization_id), capability
+    )
     if not has_cap:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -65,20 +88,21 @@ async def check_capability(
         )
 
 
-async def get_driver_and_check_org(
+def get_driver_and_check_org(
     driver_id: UUID,
     current_user: User,
-    db: AsyncSession
+    db: Session
 ) -> Driver:
-    """Get driver and verify organization access"""
-    driver = await db.get(Driver, driver_id)
+    """Get driver and verify organization access (sync)."""
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Driver {driver_id} not found"
         )
 
-    if driver.organization_id != current_user.organization_id:
+    org_id = _get_user_org_id(current_user, db)
+    if driver.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to driver from different organization"
@@ -101,23 +125,23 @@ async def get_driver_and_check_org(
 async def create_location(
     location_data: LocationCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     tracking_service: TrackingService = Depends(get_tracking_service)
 ):
     """Create a single location record (for urgent/real-time updates)"""
-    # Check if current user is a driver
-    if not current_user.driver_profile:
+    driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+    if not driver:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only drivers can submit location data"
         )
 
-    driver = current_user.driver_profile
+    org_id = _get_user_org_id(current_user, db)
 
     try:
         location = await tracking_service.create_location(
             driver_id=driver.id,
-            organization_id=current_user.organization_id,
+            organization_id=org_id,
             location_data=location_data
         )
         return LocationResponse.model_validate(location)
@@ -138,23 +162,23 @@ async def create_location(
 async def create_locations_batch(
     batch_data: LocationBatchCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     tracking_service: TrackingService = Depends(get_tracking_service)
 ):
     """Create multiple location records in batch"""
-    # Check if current user is a driver
-    if not current_user.driver_profile:
+    driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+    if not driver:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only drivers can submit location data"
         )
 
-    driver = current_user.driver_profile
+    org_id = _get_user_org_id(current_user, db)
 
     try:
         locations = await tracking_service.create_locations_batch(
             driver_id=driver.id,
-            organization_id=current_user.organization_id,
+            organization_id=org_id,
             locations=batch_data.locations
         )
         return {
@@ -178,14 +202,15 @@ async def create_locations_batch(
 async def get_live_locations(
     driver_ids: Optional[List[UUID]] = Query(None, description="Filter by specific driver IDs"),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     tracking_service: TrackingService = Depends(get_tracking_service)
 ):
     """Get latest locations for all drivers (live tracking)"""
-    await check_capability("tracking.view.live", db, current_user)
+    check_capability("tracking.view.live", db, current_user)
+    org_id = _get_user_org_id(current_user, db)
 
     locations = await tracking_service.get_latest_locations(
-        organization_id=current_user.organization_id,
+        organization_id=org_id,
         driver_ids=driver_ids
     )
     return locations
@@ -200,15 +225,16 @@ async def get_live_locations(
 async def get_driver_location(
     driver_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     tracking_service: TrackingService = Depends(get_tracking_service)
 ):
     """Get current location for a specific driver"""
-    await check_capability("tracking.view.live", db, current_user)
-    await get_driver_and_check_org(driver_id, current_user, db)
+    check_capability("tracking.view.live", db, current_user)
+    get_driver_and_check_org(driver_id, current_user, db)
+    org_id = _get_user_org_id(current_user, db)
 
     locations = await tracking_service.get_latest_locations(
-        organization_id=current_user.organization_id,
+        organization_id=org_id,
         driver_ids=[driver_id]
     )
 
@@ -234,17 +260,17 @@ async def get_driver_history(
     page: int = Query(1, ge=1, description="Page number"),
     page_size: int = Query(100, ge=1, le=500, description="Records per page"),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     tracking_service: TrackingService = Depends(get_tracking_service)
 ):
     """Get location history for a driver within time range"""
-    # Allow drivers to view their own history, or users with capability
-    is_own_history = current_user.driver_profile and current_user.driver_profile.id == driver_id
+    own_driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+    is_own_history = own_driver and own_driver.id == driver_id
 
     if not is_own_history:
-        await check_capability("tracking.view.history", db, current_user)
+        check_capability("tracking.view.history", db, current_user)
 
-    await get_driver_and_check_org(driver_id, current_user, db)
+    get_driver_and_check_org(driver_id, current_user, db)
 
     locations, total = await tracking_service.get_driver_history(
         driver_id=driver_id,
@@ -281,14 +307,15 @@ async def get_geofence_events(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     tracking_service: TrackingService = Depends(get_tracking_service)
 ):
     """Get geofence events with filtering"""
-    await check_capability("tracking.view.geofences", db, current_user)
+    check_capability("tracking.view.geofences", db, current_user)
+    org_id = _get_user_org_id(current_user, db)
 
     events, total = await tracking_service.get_geofence_events(
-        organization_id=current_user.organization_id,
+        organization_id=org_id,
         driver_id=driver_id,
         zone_id=zone_id,
         start_time=start_time,
@@ -316,27 +343,26 @@ async def get_geofence_events(
 async def create_geofence_event(
     event_data: GeofenceEventCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     tracking_service: TrackingService = Depends(get_tracking_service)
 ):
     """Report a geofence event (enter/exit)"""
-    # Only drivers can report their own geofence events
-    if not current_user.driver_profile:
+    driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+    if not driver:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only drivers can report geofence events"
         )
 
-    driver = current_user.driver_profile
+    org_id = _get_user_org_id(current_user, db)
 
     event = await tracking_service.create_geofence_event(
         driver_id=driver.id,
-        organization_id=current_user.organization_id,
+        organization_id=org_id,
         event_data=event_data
     )
 
-    # Build response with related data
-    zone = await db.get("Zone", event_data.zone_id)
+    zone = db.query(Zone).filter(Zone.id == event_data.zone_id).first()
 
     return GeofenceEventResponse(
         id=event.id,
@@ -366,11 +392,11 @@ async def create_geofence_event(
 async def optimize_route(
     request: RouteOptimizeRequest,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     tracking_service: TrackingService = Depends(get_tracking_service)
 ):
     """Optimize route waypoints using OSRM"""
-    await check_capability("tracking.routes.optimize", db, current_user)
+    check_capability("tracking.routes.optimize", db, current_user)
 
     try:
         result = await tracking_service.optimize_route_osrm(request.waypoints)
@@ -393,21 +419,22 @@ async def list_routes(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """List saved routes"""
-    await check_capability("tracking.routes.view", db, current_user)
+    check_capability("tracking.routes.view", db, current_user)
+    org_id = _get_user_org_id(current_user, db)
 
     from sqlalchemy import select, func, and_
 
     # Build filters
-    filters = [RouteOptimization.organization_id == current_user.organization_id]
+    filters = [RouteOptimization.organization_id == org_id]
     if status_filter:
         filters.append(RouteOptimization.status == status_filter)
 
     # Count total
     count_query = select(func.count(RouteOptimization.id)).where(and_(*filters))
-    total_result = await db.execute(count_query)
+    total_result = db.execute(count_query)
     total = total_result.scalar() or 0
 
     # Get paginated data
@@ -419,7 +446,7 @@ async def list_routes(
         .offset((page - 1) * page_size)
     )
 
-    result = await db.execute(query)
+    result = db.execute(query)
     routes = result.scalars().all()
 
     return RouteListResponse(
@@ -441,13 +468,14 @@ async def list_routes(
 async def create_route(
     route_data: RouteCreate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Create a saved route"""
-    await check_capability("tracking.routes.create", db, current_user)
+    check_capability("tracking.routes.create", db, current_user)
+    org_id = _get_user_org_id(current_user, db)
 
     route = RouteOptimization(
-        organization_id=current_user.organization_id,
+        organization_id=org_id,
         created_by=current_user.id,
         name=route_data.name,
         waypoints=[wp.dict() for wp in route_data.waypoints],
@@ -458,8 +486,8 @@ async def create_route(
     )
 
     db.add(route)
-    await db.commit()
-    await db.refresh(route)
+    db.commit()
+    db.refresh(route)
 
     return RouteResponse.model_validate(route)
 
@@ -473,19 +501,20 @@ async def create_route(
 async def get_route(
     route_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get route details"""
-    await check_capability("tracking.routes.view", db, current_user)
+    check_capability("tracking.routes.view", db, current_user)
+    org_id = _get_user_org_id(current_user, db)
 
-    route = await db.get(RouteOptimization, route_id)
+    route = db.query(RouteOptimization).filter(RouteOptimization.id == route_id).first()
     if not route:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Route not found"
         )
 
-    if route.organization_id != current_user.organization_id:
+    if route.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied"
@@ -504,19 +533,20 @@ async def update_route(
     route_id: UUID,
     route_data: RouteUpdate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Update a route"""
-    await check_capability("tracking.routes.update", db, current_user)
+    check_capability("tracking.routes.update", db, current_user)
+    org_id = _get_user_org_id(current_user, db)
 
-    route = await db.get(RouteOptimization, route_id)
+    route = db.query(RouteOptimization).filter(RouteOptimization.id == route_id).first()
     if not route:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Route not found"
         )
 
-    if route.organization_id != current_user.organization_id:
+    if route.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied"
@@ -536,8 +566,8 @@ async def update_route(
     if route_data.status is not None:
         route.status = route_data.status
 
-    await db.commit()
-    await db.refresh(route)
+    db.commit()
+    db.refresh(route)
 
     return RouteResponse.model_validate(route)
 
@@ -551,26 +581,27 @@ async def update_route(
 async def delete_route(
     route_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Delete a route"""
-    await check_capability("tracking.routes.delete", db, current_user)
+    check_capability("tracking.routes.delete", db, current_user)
+    org_id = _get_user_org_id(current_user, db)
 
-    route = await db.get(RouteOptimization, route_id)
+    route = db.query(RouteOptimization).filter(RouteOptimization.id == route_id).first()
     if not route:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Route not found"
         )
 
-    if route.organization_id != current_user.organization_id:
+    if route.organization_id != org_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied"
         )
 
-    await db.delete(route)
-    await db.commit()
+    db.delete(route)
+    db.commit()
 
 
 # ============================================================================
@@ -587,16 +618,16 @@ async def update_driver_tracking(
     driver_id: UUID,
     tracking_update: DriverTrackingUpdate,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Enable or disable tracking for a driver"""
-    await check_capability("tracking.admin.control", db, current_user)
+    check_capability("tracking.admin.control", db, current_user)
 
-    driver = await get_driver_and_check_org(driver_id, current_user, db)
+    driver = get_driver_and_check_org(driver_id, current_user, db)
 
     driver.tracking_enabled = tracking_update.tracking_enabled
-    await db.commit()
-    await db.refresh(driver)
+    db.commit()
+    db.refresh(driver)
 
     return DriverTrackingStatusResponse(
         driver_id=driver.id,
@@ -615,16 +646,16 @@ async def update_driver_tracking(
 async def get_driver_tracking_status(
     driver_id: UUID,
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     """Get tracking status for a driver"""
-    # Allow drivers to check their own status
-    is_own_status = current_user.driver_profile and current_user.driver_profile.id == driver_id
+    own_driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+    is_own_status = own_driver and own_driver.id == driver_id
 
     if not is_own_status:
-        await check_capability("tracking.view.status", db, current_user)
+        check_capability("tracking.view.status", db, current_user)
 
-    driver = await get_driver_and_check_org(driver_id, current_user, db)
+    driver = get_driver_and_check_org(driver_id, current_user, db)
 
     return DriverTrackingStatusResponse(
         driver_id=driver.id,
@@ -649,12 +680,12 @@ async def get_trip_analytics(
     start_time: datetime = Query(..., description="Trip start time"),
     end_time: datetime = Query(..., description="Trip end time"),
     current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: Session = Depends(get_db),
     tracking_service: TrackingService = Depends(get_tracking_service)
 ):
     """Get trip analytics summary"""
-    await check_capability("tracking.view.analytics", db, current_user)
-    await get_driver_and_check_org(driver_id, current_user, db)
+    check_capability("tracking.view.analytics", db, current_user)
+    get_driver_and_check_org(driver_id, current_user, db)
 
     try:
         analytics = await tracking_service.calculate_trip_analytics(
