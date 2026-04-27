@@ -44,6 +44,7 @@ class AppConstants {
   static const String routeLoadOwnerWorkerHome = '/lo-worker/home';
   static const String routeWorkerRequests = '/worker-requests';
   static const String routeLpWorkers = '/lp/workers';
+  static const String routeTransporterHome = '/transporter/dashboard';
 
   // Error Messages
   static const String errorNetwork = 'Network error. Please check your connection.';

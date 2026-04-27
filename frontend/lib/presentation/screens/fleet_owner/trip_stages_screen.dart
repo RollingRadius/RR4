@@ -33,7 +33,9 @@ const _border    = Color(0xFFECEEF0);
 
 class TripStagesScreen extends ConsumerStatefulWidget {
   final TripModel trip;
-  const TripStagesScreen({super.key, required this.trip});
+  /// Visual stage index (0–4) to open directly for editing. Null = default flow.
+  final int? initialStage;
+  const TripStagesScreen({super.key, required this.trip, this.initialStage});
 
   @override
   ConsumerState<TripStagesScreen> createState() => _TripStagesScreenState();
@@ -57,6 +59,11 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
     if (_trip.currentStage >= 4) {
       _showStage4 = true;
       _stage4Done = true;
+    }
+    // If opened at a specific stage from the sliding panel, jump there directly.
+    if (widget.initialStage != null) {
+      _editingStage = widget.initialStage;
+      if (widget.initialStage == 4) _showStage4 = true;
     }
     // Fetch fresh data after first frame so ref is available
     WidgetsBinding.instance.addPostFrameCallback((_) => _fetchFreshTrip());
@@ -111,7 +118,7 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
     _fetchFreshTrip();
   }
 
-  /// Opens a stage form. Both owners and workers can always open any stage freely.
+  /// Opens a stage form. LP workers are locked to the current stage only.
   Future<void> _enterStage(int visualStage) async {
     final user = ref.read(authProvider).user;
     if (user == null) return;
@@ -122,7 +129,10 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
   Future<void> _releaseStage(int visualStage) async {}
 
   /// Returns a tap handler for the step indicator.
+  /// LP workers get null — they cannot freely switch stages.
   Function(int)? _buildStepTapHandler() {
+    final user = ref.read(authProvider).user;
+    if (user?.isLogisticPartnerWorker == true) return null;
     return (int i) => _enterStage(i);
   }
 
@@ -3942,36 +3952,6 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
           ),
           const SizedBox(height: 12),
 
-          // ── Complete Trip button (LP owner only, not workers) ──
-          if (ref.watch(authProvider).user?.isLogisticPartner == true &&
-              ref.watch(authProvider).user?.isLogisticPartnerWorker != true) ...[
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: (_completing || _completed) ? null : _completeTrip,
-                icon: _completing
-                    ? const SizedBox(width: 18, height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Icon(
-                        _completed ? Icons.check_circle_rounded : Icons.flag_rounded,
-                        size: 18,
-                      ),
-                label: Text(
-                  _completed ? 'Trip Completed' : _completing ? 'Completing…' : 'Complete Trip',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _completed ? _success : _primary,
-                  foregroundColor: Colors.white,
-                  disabledBackgroundColor: _success.withValues(alpha: 0.7),
-                  disabledForegroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
 
           // Back to Dashboard — secondary
           SizedBox(

@@ -37,11 +37,13 @@ TextStyle _inter({
 
 class OngoingTripCard extends ConsumerWidget {
   final TripModel trip;
-  /// When true, hides the "Go to Stage" action button (load owner view).
+  /// When true, hides all fleet management actions (load owner view).
   final bool readOnly;
+  /// When true, restricts to worker-level actions only — hides LP-owner-only features.
+  final bool workerMode;
   /// When provided, shows a "Complete Trip" button (LP owner dashboard only).
   final Future<bool> Function()? onComplete;
-  const OngoingTripCard({super.key, required this.trip, this.readOnly = false, this.onComplete});
+  const OngoingTripCard({super.key, required this.trip, this.readOnly = false, this.workerMode = false, this.onComplete});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -155,6 +157,17 @@ class OngoingTripCard extends ConsumerWidget {
                     ),
                   ],
                 ),
+
+                // Stage sliding panel — LP owner only
+                if (!readOnly && !workerMode) ...[
+                  const SizedBox(height: 8),
+                  _StageSlidingPanel(
+                    trip: trip,
+                    onRefresh: () => ref
+                        .read(tripProvider.notifier)
+                        .loadTrips(statusFilter: 'ongoing,pending'),
+                  ),
+                ],
 
                 // Go to Present Stage — fleet management only (hidden for load owners)
                 if (!readOnly && trip.currentStage < 4) ...[
@@ -802,6 +815,114 @@ class _StageStripState extends State<_StageStrip>
           ),
         );
       }),
+    );
+  }
+}
+
+// ─── Stage sliding panel ──────────────────────────────────────────────────────
+
+class _StageSlidingPanel extends StatelessWidget {
+  final TripModel trip;
+  final VoidCallback onRefresh;
+  const _StageSlidingPanel({required this.trip, required this.onRefresh});
+
+  static const _shortLabels = ['1', '2', 'LS', '3', '4'];
+  static const _names = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit'];
+  static const _green = Color(0xFF2E7D32);
+
+  @override
+  Widget build(BuildContext context) {
+    final currentVisual = _visualStageIndex(trip);
+
+    return SizedBox(
+      height: 80,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.zero,
+        itemCount: 5,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final isDone    = currentVisual > i;
+          final isActive  = currentVisual == i;
+
+          final bg = isDone
+              ? _green.withValues(alpha: 0.08)
+              : isActive
+                  ? _primary.withValues(alpha: 0.08)
+                  : const Color(0xFFF2F4F6);
+          final borderColor = isDone
+              ? _green
+              : isActive
+                  ? _primary
+                  : _outlineVariant;
+          final labelColor = isDone
+              ? _green
+              : isActive
+                  ? _primary
+                  : _outline;
+
+          return GestureDetector(
+            onTap: () => Navigator.of(context)
+                .push(MaterialPageRoute(
+                    builder: (_) => TripStagesScreen(trip: trip, initialStage: i)))
+                .then((_) => onRefresh()),
+            child: Container(
+              width: 78,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: borderColor, width: isDone || isActive ? 1.5 : 1),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isDone
+                          ? _green
+                          : isActive
+                              ? _primary
+                              : _outlineVariant,
+                    ),
+                    child: Center(
+                      child: isDone
+                          ? const Icon(Icons.check_rounded,
+                              size: 13, color: Colors.white)
+                          : Text(
+                              _shortLabels[i],
+                              style: _inter(
+                                  size: i == 2 ? 7 : 9,
+                                  weight: FontWeight.w700,
+                                  color: Colors.white),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    _names[i],
+                    style: _inter(
+                        size: 9, weight: FontWeight.w600, color: labelColor),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isDone ? 'Done' : isActive ? 'Active' : 'Pending',
+                    style: _inter(
+                        size: 8, weight: FontWeight.w500, color: labelColor),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

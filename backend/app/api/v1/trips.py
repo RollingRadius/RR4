@@ -1099,6 +1099,178 @@ async def complete_trip(
     return {"success": True, "message": "Trip marked as completed.", "trip": _enrich(trip, db)}
 
 
+# ─── Transporter Endpoints ────────────────────────────────────────────────────
+
+class AssignTransporterPayload(BaseModel):
+    transporter_user_id: str
+
+
+@router.post("/trips/{trip_id}/assign-transporter", status_code=200)
+def assign_transporter(
+    trip_id: str,
+    payload: AssignTransporterPayload,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """LP assigns a transporter user to upload the loading slip for a trip."""
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'super_admin'):
+        raise HTTPException(status_code=403, detail="Only the logistic partner can assign a transporter.")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.current_stage < 2:
+        raise HTTPException(status_code=409, detail="Trip must reach Stage 2 before assigning a transporter.")
+
+    # Verify the target user exists and has transporter role
+    import uuid as _uuid_mod
+    try:
+        t_uid = _uuid_mod.UUID(payload.transporter_user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid transporter user ID.")
+
+    transporter_user = db.query(User).filter(User.id == t_uid).first()
+    if not transporter_user:
+        raise HTTPException(status_code=404, detail="Transporter user not found.")
+
+    transporter_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == t_uid,
+        UserOrganization.status == 'active'
+    ).first()
+    if not transporter_org:
+        raise HTTPException(status_code=400, detail="Transporter does not have an active profile.")
+
+    t_role_key = _get_role_key(transporter_org, db)
+    if t_role_key != 'transporter':
+        raise HTTPException(status_code=400, detail="The selected user is not a registered transporter.")
+
+    trip.transporter_user_id = t_uid
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "message": f"Transporter {transporter_user.full_name} assigned.", "trip": _enrich(trip, db)}
+
+
+@router.get("/trips/transporter/assigned", status_code=200)
+def get_transporter_trips(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get all trips assigned to the current transporter user."""
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key != 'transporter':
+        raise HTTPException(status_code=403, detail="Transporter access only.")
+
+    trips = db.query(Trip).filter(
+        Trip.transporter_user_id == current_user.id
+    ).order_by(Trip.created_at.desc()).all()
+
+    return {"success": True, "trips": _enrich_bulk(trips, db)}
+
+
+@router.post("/trips/{trip_id}/transporter-loading-slip", status_code=200)
+async def transporter_upload_loading_slip(
+    trip_id: str,
+    slip: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Transporter uploads the loading slip for their assigned trip."""
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key != 'transporter':
+        raise HTTPException(status_code=403, detail="Transporter access only.")
+
+    import uuid as _uuid_mod
+    try:
+        uid = _uuid_mod.UUID(trip_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid trip ID.")
+
+    trip = db.query(Trip).filter(Trip.id == uid).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found.")
+
+    if str(trip.transporter_user_id) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="This trip is not assigned to you.")
+
+    if trip.current_stage < 2:
+        raise HTTPException(status_code=409, detail="Trip is not yet at the loading slip stage.")
+
+    if trip.s2_loading_slip_url:
+        raise HTTPException(status_code=409, detail="Loading slip has already been uploaded.")
+
+    upload_dir = Path(f"uploads/trips/{trip_id}")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(slip.filename).suffix if slip.filename else '.jpg'
+    filename = f"loading_slip_{_uuid_module.uuid4().hex}{ext}"
+    file_path = upload_dir / filename
+    content = await slip.read()
+    file_path.write_bytes(content)
+
+    trip.s2_loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "message": "Loading slip uploaded successfully.", "trip": _enrich(trip, db)}
+
+
+# ─── Transporter Search (used by LP to find transporters) ────────────────────
+
+@router.get("/transporters/search", status_code=200)
+def search_transporters(
+    q: str = Query(..., min_length=2),
+    limit: int = Query(10, le=20),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """LP searches for registered transporters by name or company."""
+    from sqlalchemy import or_, func
+    from app.models.company import Organization
+
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'super_admin'):
+        raise HTTPException(status_code=403, detail="Only logistic partners can search transporters.")
+
+    rows = (
+        db.query(
+            User.id.label('user_id'),
+            User.full_name.label('full_name'),
+            User.phone.label('phone'),
+            Organization.company_name.label('company_name'),
+            Organization.city.label('city'),
+        )
+        .join(UserOrganization, UserOrganization.user_id == User.id)
+        .join(Role, Role.id == UserOrganization.role_id)
+        .join(Organization, Organization.id == UserOrganization.organization_id)
+        .filter(
+            UserOrganization.status == 'active',
+            Role.role_key == 'transporter',
+            or_(
+                User.full_name.ilike(f'%{q}%'),
+                Organization.company_name.ilike(f'%{q}%'),
+                User.phone.ilike(f'%{q}%'),
+            )
+        )
+        .limit(limit)
+        .all()
+    )
+
+    return {
+        "success": True,
+        "transporters": [
+            {
+                "user_id": str(r.user_id),
+                "full_name": r.full_name,
+                "phone": r.phone,
+                "company_name": r.company_name,
+                "city": r.city or '',
+            }
+            for r in rows
+        ]
+    }
+
+
 # ─── Internal enrichment ─────────────────────────────────────────────────────
 
 def _enrich_bulk(trips: list, db: Session) -> list:
@@ -1184,5 +1356,18 @@ def _enrich(trip: Trip, db: Session) -> dict:
             data["load_owner_org_name"] = None
     else:
         data["load_owner_org_name"] = None
+
+    # Transporter name
+    if trip.transporter_user_id:
+        try:
+            t_user = db.query(User).filter(User.id == trip.transporter_user_id).first()
+            data["transporter_name"] = t_user.full_name if t_user else None
+            data["transporter_phone"] = t_user.phone if t_user else None
+        except Exception:
+            data["transporter_name"] = None
+            data["transporter_phone"] = None
+    else:
+        data["transporter_name"] = None
+        data["transporter_phone"] = None
 
     return data

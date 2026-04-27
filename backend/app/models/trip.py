@@ -114,6 +114,10 @@ class Trip(Base):
     s4_completed_at     = Column(TIMESTAMP(timezone=True), nullable=True)
     s4_notified_at      = Column(TIMESTAMP(timezone=True), nullable=True)
 
+    # ── Transporter Assignment ────────────────────────────────────────────────────
+    # User ID of the transporter assigned by LP to upload the loading slip
+    transporter_user_id = Column(UUID(as_uuid=True), nullable=True)
+
     # ── Stage Authorship (who submitted each stage) ──────────────────────────────
     s1_submitted_by = Column(UUID(as_uuid=True), nullable=True)
     s2_submitted_by = Column(UUID(as_uuid=True), nullable=True)
@@ -155,6 +159,7 @@ class Trip(Base):
             "end_date": str(self.end_date) if self.end_date else None,
             "load_requirement_id": str(self.load_requirement_id) if self.load_requirement_id else None,
             "current_stage": self.current_stage,
+            "transporter_user_id": str(self.transporter_user_id) if self.transporter_user_id else None,
             # Stage 1
             "s1_driver_name": self.s1_driver_name,
             "s1_driver_phone": self.s1_driver_phone,

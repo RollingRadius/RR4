@@ -87,6 +87,11 @@ class TripModel {
   // ── Linked load requirement (if trip was created from a load) ────────────────
   final String? loadRequirementId;
 
+  // ── Transporter assignment ────────────────────────────────────────────────────
+  final String? transporterUserId;
+  final String? transporterName;
+  final String? transporterPhone;
+
   // ── Draft (cross-device in-progress form data) ────────────────────────────────
   final Map<String, dynamic>? draftData;
 
@@ -162,6 +167,9 @@ class TripModel {
     this.s3ClaimedBy,
     this.s4ClaimedBy,
     this.loadRequirementId,
+    this.transporterUserId,
+    this.transporterName,
+    this.transporterPhone,
     this.draftData,
   });
 
@@ -244,9 +252,16 @@ class TripModel {
       s3ClaimedBy:        json['s3_claimed_by']         as String?,
       s4ClaimedBy:        json['s4_claimed_by']         as String?,
       loadRequirementId:  json['load_requirement_id']   as String?,
+      transporterUserId:  json['transporter_user_id']   as String?,
+      transporterName:    json['transporter_name']       as String?,
+      transporterPhone:   json['transporter_phone']      as String?,
       draftData:          json['draft_data'] as Map<String, dynamic>?,
     );
   }
+
+  /// True when the trip is at the loading slip sub-stage (stage 2, slip not yet uploaded).
+  bool get isAtLoadingSlipStage =>
+      currentStage == 2 && s2LoadingSlipUrl == null;
 
   static List<String>? _parseUrlList(dynamic value) {
     if (value == null) return null;

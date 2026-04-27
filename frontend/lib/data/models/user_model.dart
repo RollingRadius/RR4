@@ -82,4 +82,5 @@ class UserModel {
   bool get isLogisticPartnerWorker => roleKey == 'logistic_partner_worker';
   bool get isLoadOwnerWorker => roleKey == 'load_owner_worker';
   bool get isWorkerPending => roleKey == 'pending_user';
+  bool get isTransporter => roleKey == 'transporter' || businessType == 'transporter';
 }

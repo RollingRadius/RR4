@@ -272,6 +272,8 @@ class ProfileService:
             business_type = profile_data.get('business_type', 'other')
             if business_type == 'load_owner':
                 role = self._get_role_by_key('load_owner')
+            elif business_type == 'transporter':
+                role = self._get_role_by_key('transporter')
             else:
                 role = self._get_role_by_key('logistic_partner')
             user_org = UserOrganization(

@@ -105,6 +105,12 @@ DEFAULT_ROLES = [
         "role_key": "independent_user",
         "description": "User without company affiliation. Assigned when skipping company selection.",
         "is_system_role": True
+    },
+    {
+        "role_name": "Transporter",
+        "role_key": "transporter",
+        "description": "Independent transporter who handles loading slip upload for trips assigned by a logistic partner.",
+        "is_system_role": True
     }
 ]
 
@@ -186,6 +192,7 @@ BUSINESS_TYPES = [
     "rental",
     "logistic_partner",
     "load_owner",
+    "transporter",
     # 'owner' removed — logistic_partner is the default for all non-load-owner business types
     "other"
 ]

@@ -33,6 +33,10 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
   final _stateController = TextEditingController();
   final _pincodeController = TextEditingController();
 
+  // Transporter-specific fields
+  final _gstNumberController = TextEditingController();
+  final _panNumberController = TextEditingController();
+
   String? _pincodeError;
 
   // Join company (worker)
@@ -53,6 +57,8 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
     _stateController.dispose();
     _pincodeController.dispose();
     _companySearchController.dispose();
+    _gstNumberController.dispose();
+    _panNumberController.dispose();
     super.dispose();
   }
 
@@ -123,6 +129,28 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
       }
       profileData['pincode'] = pincode;
       profileData['country'] = 'India';
+    } else if (_selectedRoleType == 'transporter') {
+      if (_companyNameController.text.isEmpty) {
+        _showError('Please enter your company name');
+        return;
+      }
+      if (_gstNumberController.text.isEmpty) {
+        _showError('Please enter your GST Number');
+        return;
+      }
+      if (_panNumberController.text.isEmpty) {
+        _showError('Please enter your PAN Card Number');
+        return;
+      }
+      if (_addressController.text.isEmpty) {
+        _showError('Please enter your address');
+        return;
+      }
+      profileData['company_name'] = _companyNameController.text.trim();
+      profileData['business_type'] = 'transporter';
+      profileData['gstin'] = _gstNumberController.text.trim().toUpperCase();
+      profileData['pan_number'] = _panNumberController.text.trim().toUpperCase();
+      profileData['address'] = _addressController.text.trim();
     }
 
     // Submit profile
@@ -183,6 +211,8 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
             final updatedUser = ref.read(authProvider).user;
             if (updatedUser?.isLoadOwner == true) {
               context.go(AppConstants.routeLoadOwnerHome);
+            } else if (updatedUser?.isTransporter == true) {
+              context.go(AppConstants.routeTransporterHome);
             } else if (updatedUser?.isDriver == true) {
               context.go('/driver/home');
             } else {
@@ -344,6 +374,13 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                         'Register your company and become the Logistic Partner',
                         Icons.add_business_outlined,
                       ),
+                      const SizedBox(height: 12),
+                      _buildRoleOption(
+                        'transporter',
+                        'Join as Transporter',
+                        'Register as an independent transporter to upload loading slips for assigned trips',
+                        Icons.airport_shuttle_outlined,
+                      ),
 
                       const SizedBox(height: 32),
 
@@ -351,6 +388,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                       if (_selectedRoleType == 'driver') _buildDriverForm(),
                       if (_selectedRoleType == 'join_company') _buildJoinCompanyForm(),
                       if (_selectedRoleType == 'create_company') _buildCreateCompanyForm(),
+                      if (_selectedRoleType == 'transporter') _buildTransporterForm(),
 
                       if (_selectedRoleType != null) const SizedBox(height: 32),
 
@@ -908,6 +946,67 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
             keyboardType: TextInputType.number,
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _buildTransporterForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Divider(height: 32),
+        const Text(
+          'Transporter Details',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Enter your transport business details',
+          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _companyNameController,
+          decoration: InputDecoration(
+            labelText: 'Company Name *',
+            hintText: 'Your transport company name',
+            prefixIcon: const Icon(Icons.business),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _gstNumberController,
+          textCapitalization: TextCapitalization.characters,
+          decoration: InputDecoration(
+            labelText: 'GST Number *',
+            hintText: '22AAAAA0000A1Z5',
+            prefixIcon: const Icon(Icons.receipt_long),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _panNumberController,
+          textCapitalization: TextCapitalization.characters,
+          decoration: InputDecoration(
+            labelText: 'PAN Card Number *',
+            hintText: 'ABCDE1234F',
+            prefixIcon: const Icon(Icons.credit_card),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _addressController,
+          decoration: InputDecoration(
+            labelText: 'Address *',
+            hintText: 'Your business address',
+            prefixIcon: const Icon(Icons.location_on),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          maxLines: 2,
+        ),
       ],
     );
   }

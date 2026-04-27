@@ -52,6 +52,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           context.go(AppConstants.routeLoadOwnerHome);
           _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
               Icons.check_circle);
+        } else if (user?.isTransporter == true) {
+          context.go(AppConstants.routeTransporterHome);
+          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
+              Icons.check_circle);
         } else if (user?.isDriver == true) {
           context.go('/driver/home');
           _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
