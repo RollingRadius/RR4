@@ -1242,14 +1242,14 @@ def search_transporters(
         )
         .join(UserOrganization, UserOrganization.user_id == User.id)
         .join(Role, Role.id == UserOrganization.role_id)
-        .join(Organization, Organization.id == UserOrganization.organization_id)
+        .outerjoin(Organization, Organization.id == UserOrganization.organization_id)
         .filter(
             UserOrganization.status == 'active',
             Role.role_key == 'transporter',
             or_(
                 User.full_name.ilike(f'%{q}%'),
-                Organization.company_name.ilike(f'%{q}%'),
                 User.phone.ilike(f'%{q}%'),
+                Organization.company_name.ilike(f'%{q}%'),
             )
         )
         .limit(limit)
