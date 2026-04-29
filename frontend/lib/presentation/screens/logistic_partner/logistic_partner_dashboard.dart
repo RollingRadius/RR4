@@ -1772,13 +1772,40 @@ class _FulfillSheet extends ConsumerStatefulWidget {
 class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   String? _selectedVehicleId;
   String? _selectedDriverId;
+  String? _selectedTransporterId;
+  String? _selectedTransporterName;
   final _amountController = TextEditingController();
+  final _transporterController = TextEditingController();
+  List<Map<String, dynamic>> _transporterResults = [];
+  bool _transporterSearchLoading = false;
+  Timer? _transporterDebounce;
   bool _isLoading = false;
 
   @override
   void dispose() {
     _amountController.dispose();
+    _transporterController.dispose();
+    _transporterDebounce?.cancel();
     super.dispose();
+  }
+
+  Future<void> _searchTransporters(String q) async {
+    if (q.length < 2) {
+      setState(() => _transporterResults = []);
+      return;
+    }
+    setState(() => _transporterSearchLoading = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final resp = await api.dio.get(
+        '/api/transporters/search',
+        queryParameters: {'q': q, 'limit': 10},
+      );
+      final list = (resp.data['transporters'] as List).cast<Map<String, dynamic>>();
+      if (mounted) setState(() { _transporterResults = list; _transporterSearchLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _transporterResults = []; _transporterSearchLoading = false; });
+    }
   }
 
   Future<void> _confirm() async {
@@ -1795,20 +1822,19 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
           if (_selectedVehicleId != null) 'vehicle_id': _selectedVehicleId,
           if (_selectedDriverId != null) 'driver_id': _selectedDriverId,
           if (amount != null) 'trip_amount': amount,
+          if (_selectedTransporterId != null) 'transporter_user_id': _selectedTransporterId,
         },
       );
 
       final tripData = resp.data['trip'] as Map<String, dynamic>;
       final trip = TripModel.fromJson(tripData);
 
-      // Immediately add the new trip to the in-memory list so it shows in fleet status
       ref.read(tripProvider.notifier).patchTrip(trip);
 
       if (!mounted) return;
-      // Capture notifier before navigation — ref must not be used after dispose
       final trips = ref.read(tripProvider.notifier);
       final nav = Navigator.of(context);
-      nav.pop(); // close bottom sheet
+      nav.pop();
       nav.push(
         MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)),
       ).then((_) {
@@ -1833,164 +1859,309 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   Widget build(BuildContext context) {
     final vehicles = ref.watch(vehicleProvider).vehicles;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-          20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Handle
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                  color: _surfaceContainer,
-                  borderRadius: BorderRadius.circular(2)),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          Text('Fulfill Load Requirement',
-              style: _manrope(size: 18, weight: FontWeight.w800)),
-          const SizedBox(height: 4),
-          Text('${widget.load.refId} · ${widget.load.pickupLocation ?? '—'} → ${widget.load.unloadLocation ?? '—'}',
-              style: _inter(size: 12, color: _secondary),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 24),
-
-          // Truck count info
-          _InfoRow(
-            icon: Icons.local_shipping_rounded,
-            label: 'Trucks Needed',
-            value: '${widget.load.truckCount}',
-          ),
-          if (widget.load.materialType != null)
-            _InfoRow(
-              icon: Icons.inventory_2_outlined,
-              label: 'Material',
-              value: widget.load.materialType!,
-            ),
-          if (widget.load.capacity != null)
-            _InfoRow(
-              icon: Icons.scale_outlined,
-              label: 'Capacity',
-              value: widget.load.capacity!,
-            ),
-          const SizedBox(height: 20),
-
-          // Vehicle selector
-          if (vehicles.isNotEmpty) ...[
-            Text('Assign Vehicle (optional)',
-                style: _inter(
-                    size: 12, weight: FontWeight.w700, color: _secondary)),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              decoration: BoxDecoration(
-                color: _surfaceContainerLow,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _surfaceContainer),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedVehicleId,
-                  isExpanded: true,
-                  hint: Text('Select vehicle',
-                      style: _inter(size: 13, color: _secondary)),
-                  style: _inter(
-                      size: 13,
-                      color: const Color(0xFF191C1E),
-                      weight: FontWeight.w500),
-                  items: [
-                    DropdownMenuItem<String>(
-                      value: null,
-                      child: Text('None',
-                          style: _inter(size: 13, color: _secondary)),
-                    ),
-                    ...vehicles.map((v) {
-                      final reg = v['registration'] as String? ?? '—';
-                      final id = v['id'] as String?;
-                      return DropdownMenuItem<String>(
-                        value: id,
-                        child: Text(reg),
-                      );
-                    }),
-                  ],
-                  onChanged: (val) =>
-                      setState(() => _selectedVehicleId = val),
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                      color: _surfaceContainer,
+                      borderRadius: BorderRadius.circular(2)),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-          ],
+              const SizedBox(height: 20),
 
-          // Trip Amount
-          Text('Trip Amount (₹)',
-              style: _inter(
-                  size: 12, weight: FontWeight.w700, color: _secondary)),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+              Text('Fulfill Load Requirement',
+                  style: _manrope(size: 18, weight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('${widget.load.refId} · ${widget.load.pickupLocation ?? '—'} → ${widget.load.unloadLocation ?? '—'}',
+                  style: _inter(size: 12, color: _secondary),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 24),
+
+              // Load info
+              _InfoRow(
+                icon: Icons.local_shipping_rounded,
+                label: 'Trucks Needed',
+                value: '${widget.load.truckCount}',
+              ),
+              if (widget.load.materialType != null)
+                _InfoRow(
+                  icon: Icons.inventory_2_outlined,
+                  label: 'Material',
+                  value: widget.load.materialType!,
+                ),
+              if (widget.load.capacity != null)
+                _InfoRow(
+                  icon: Icons.scale_outlined,
+                  label: 'Capacity',
+                  value: widget.load.capacity!,
+                ),
+              const SizedBox(height: 20),
+
+              // Vehicle selector
+              if (vehicles.isNotEmpty) ...[
+                Text('Assign Vehicle (optional)',
+                    style: _inter(
+                        size: 12, weight: FontWeight.w700, color: _secondary)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  decoration: BoxDecoration(
+                    color: _surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _surfaceContainer),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedVehicleId,
+                      isExpanded: true,
+                      hint: Text('Select vehicle',
+                          style: _inter(size: 13, color: _secondary)),
+                      style: _inter(
+                          size: 13,
+                          color: const Color(0xFF191C1E),
+                          weight: FontWeight.w500),
+                      items: [
+                        DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('None',
+                              style: _inter(size: 13, color: _secondary)),
+                        ),
+                        ...vehicles.map((v) {
+                          final reg = v['registration'] as String? ?? '—';
+                          final id = v['id'] as String?;
+                          return DropdownMenuItem<String>(
+                            value: id,
+                            child: Text(reg),
+                          );
+                        }),
+                      ],
+                      onChanged: (val) =>
+                          setState(() => _selectedVehicleId = val),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+
+              // Transporter search
+              Text('Assign Transporter (optional)',
+                  style: _inter(
+                      size: 12, weight: FontWeight.w700, color: _secondary)),
+              const SizedBox(height: 8),
+              if (_selectedTransporterId != null) ...[
+                // Selected transporter chip
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person_outline, size: 18, color: Color(0xFF2E7D32)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _selectedTransporterName ?? 'Transporter selected',
+                          style: _inter(size: 13, weight: FontWeight.w600, color: const Color(0xFF2E7D32)),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          _selectedTransporterId = null;
+                          _selectedTransporterName = null;
+                          _transporterResults = [];
+                          _transporterController.clear();
+                        }),
+                        child: const Icon(Icons.close, size: 18, color: Color(0xFF2E7D32)),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                // Search field
+                TextField(
+                  controller: _transporterController,
+                  decoration: InputDecoration(
+                    hintText: 'Search by name or phone',
+                    hintStyle: _inter(size: 13, color: _secondary),
+                    prefixIcon: _transporterSearchLoading
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 16, height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : const Icon(Icons.search, size: 18),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+                    filled: true,
+                    fillColor: _surfaceContainerLow,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _surfaceContainer),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _surfaceContainer),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _primary, width: 1.5),
+                    ),
+                  ),
+                  onChanged: (val) {
+                    _transporterDebounce?.cancel();
+                    _transporterDebounce = Timer(
+                      const Duration(milliseconds: 400),
+                      () => _searchTransporters(val.trim()),
+                    );
+                  },
+                ),
+                if (_transporterResults.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _surfaceContainer),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: _transporterResults.map((t) {
+                        final name = t['full_name'] as String? ?? '—';
+                        final phone = t['phone'] as String? ?? '';
+                        final company = t['company_name'] as String? ?? '';
+                        final city = t['city'] as String? ?? '';
+                        final label = [company, city].where((s) => s.isNotEmpty).join(' · ');
+                        return InkWell(
+                          onTap: () => setState(() {
+                            _selectedTransporterId = t['user_id'] as String?;
+                            _selectedTransporterName = '$name${label.isNotEmpty ? ' ($label)' : ''}';
+                            _transporterResults = [];
+                            _transporterController.clear();
+                          }),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.person_outline, size: 16, color: Color(0xFF6B7280)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(name,
+                                          style: _inter(size: 13, weight: FontWeight.w600,
+                                              color: const Color(0xFF191C1E))),
+                                      if (phone.isNotEmpty || label.isNotEmpty)
+                                        Text(
+                                          [if (phone.isNotEmpty) phone, if (label.isNotEmpty) label].join(' · '),
+                                          style: _inter(size: 11, color: _secondary),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ],
+              const SizedBox(height: 20),
+
+              // Trip Amount
+              Text('Trip Amount (₹)',
+                  style: _inter(
+                      size: 12, weight: FontWeight.w700, color: _secondary)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                ],
+                decoration: InputDecoration(
+                  hintText: 'Enter agreed trip amount',
+                  hintStyle: _inter(size: 13, color: _secondary),
+                  prefixIcon: const Icon(Icons.currency_rupee, size: 18),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+                  filled: true,
+                  fillColor: _surfaceContainerLow,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _surfaceContainer),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _surfaceContainer),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: _primary, width: 1.5),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Confirm button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _confirm,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                    textStyle: GoogleFonts.manrope(
+                        fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2),
+                        )
+                      : const Text('Confirm Fulfillment'),
+                ),
+              ),
             ],
-            decoration: InputDecoration(
-              hintText: 'Enter agreed trip amount',
-              hintStyle: _inter(size: 13, color: _secondary),
-              prefixIcon: const Icon(Icons.currency_rupee, size: 18),
-              contentPadding:
-                  const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
-              filled: true,
-              fillColor: _surfaceContainerLow,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _surfaceContainer),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _surfaceContainer),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: _primary, width: 1.5),
-              ),
-            ),
           ),
-          const SizedBox(height: 20),
-
-          // Confirm button
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : _confirm,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14)),
-                textStyle: GoogleFonts.manrope(
-                    fontSize: 15, fontWeight: FontWeight.w700),
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
-                    )
-                  : const Text('Confirm Fulfillment'),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
