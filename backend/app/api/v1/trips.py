@@ -135,6 +135,24 @@ def list_trips(
     }
 
 
+@router.get("/trips/transporter/assigned", status_code=200)
+def get_transporter_trips_early(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get all trips assigned to the current transporter user."""
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key != 'transporter':
+        raise HTTPException(status_code=403, detail="Transporter access only.")
+
+    trips = db.query(Trip).filter(
+        Trip.transporter_user_id == current_user.id
+    ).order_by(Trip.created_at.desc()).all()
+
+    return {"success": True, "trips": _enrich_bulk(trips, db)}
+
+
 @router.get("/trips/{trip_id}")
 def get_trip(
     trip_id: str,
