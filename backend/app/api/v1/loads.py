@@ -374,10 +374,11 @@ async def create_load_requirement_photo(
 
 
 class FulfillPayload(BaseModel):
-    vehicle_id:  Optional[str]   = None
-    driver_id:   Optional[str]   = None
-    trip_amount: Optional[float] = None   # Agreed freight amount (₹)
-    notes:       Optional[str]   = None
+    vehicle_id:          Optional[str]   = None
+    driver_id:           Optional[str]   = None
+    trip_amount:         Optional[float] = None   # Agreed freight amount (₹)
+    notes:               Optional[str]   = None
+    transporter_user_id: Optional[str]   = None   # Transporter to upload loading slip
 
 
 # ── Logistic Partner Endpoints ───────────────────────────────────────────────
@@ -561,6 +562,26 @@ async def fulfill_load_requirement(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid driver_id.")
 
+    # Parse and validate optional transporter
+    transporter_uuid = None
+    if payload.transporter_user_id:
+        try:
+            transporter_uuid = uuid.UUID(payload.transporter_user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid transporter_user_id.")
+        t_user = db.query(User).filter(User.id == transporter_uuid).first()
+        if not t_user:
+            raise HTTPException(status_code=404, detail="Transporter user not found.")
+        t_org = db.query(UserOrganization).filter(
+            UserOrganization.user_id == transporter_uuid,
+            UserOrganization.status == 'active',
+        ).first()
+        if not t_org:
+            raise HTTPException(status_code=400, detail="Selected user is not an active transporter.")
+        t_role = db.query(Role).filter(Role.id == t_org.role_id).first()
+        if not t_role or t_role.role_key != 'transporter':
+            raise HTTPException(status_code=400, detail="Selected user does not have the transporter role.")
+
     # Build and persist the trip — wrapped fully so any error returns JSON (not a bare 500)
     try:
         trip_kwargs = dict(
@@ -576,6 +597,7 @@ async def fulfill_load_requirement(
             load_owner_org_id=load.company_id,
             vehicle_id=vehicle_uuid,
             driver_id=driver_uuid,
+            transporter_user_id=transporter_uuid,
             created_by=current_user.id,
         )
         # load_requirement_id added in migration 026 — only set if the column exists
