@@ -34,14 +34,13 @@ def upgrade():
 
     # 3. Seed the transporter role
     op.execute("""
-        INSERT INTO roles (id, role_name, role_key, description, is_system_role, created_at, updated_at)
+        INSERT INTO roles (id, role_name, role_key, description, is_system_role, created_at)
         VALUES (
             gen_random_uuid(),
             'Transporter',
             'transporter',
             'Independent transporter who handles loading slip upload for trips assigned by a logistic partner.',
             TRUE,
-            NOW(),
             NOW()
         )
         ON CONFLICT (role_key) DO NOTHING
