@@ -110,6 +110,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (!auth.isAuthenticated && !isOnAuthPage) {
         return AppConstants.routeLogin;
       }
+
+      // Prevent transporters from accessing LP/fleet-manager routes
+      final user = auth.user;
+      if (user != null && user.isTransporter) {
+        final loc = state.matchedLocation;
+        final isTransporterPage = loc.startsWith(AppConstants.routeTransporterHome) ||
+            loc == AppConstants.routeLogin ||
+            loc == '/profile-complete';
+        if (!isTransporterPage) {
+          return AppConstants.routeTransporterHome;
+        }
+      }
+
       return null;
     },
     routes: [

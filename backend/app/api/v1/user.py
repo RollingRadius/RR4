@@ -89,14 +89,18 @@ def get_current_user_profile(
         "business_type": None,
     }
 
-    if user_org and user_org.organization:
+    if user_org:
+        # Always return role info (even for transporters who have no organization)
         response.update({
-            "company_id": str(user_org.organization_id),
-            "company_name": user_org.organization.company_name,
-            "business_type": user_org.organization.business_type,
             "role": user_org.role.role_name if user_org.role else None,
             "role_key": user_org.role.role_key if user_org.role else None,
         })
+        if user_org.organization:
+            response.update({
+                "company_id": str(user_org.organization_id),
+                "company_name": user_org.organization.company_name,
+                "business_type": user_org.organization.business_type,
+            })
 
     return response
 

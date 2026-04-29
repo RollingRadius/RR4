@@ -44,7 +44,7 @@ class UserModel {
       companyName: json['company_name'] as String?,
       businessType: json['business_type'] as String?,
       role: json['role'] as String?,
-      roleKey: json['role_key'] as String?,
+      roleKey: (json['role_key'] ?? json['role']) as String?,
     );
   }
 
