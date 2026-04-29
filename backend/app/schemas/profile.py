@@ -9,8 +9,8 @@ from typing import Optional
 
 class ProfileCompletionRequest(BaseModel):
     """Profile completion request - user selects their role"""
-    # Role Selection Type: 'driver', 'independent', 'join_company', 'create_company'
-    role_type: str = Field(..., pattern="^(driver|independent|join_company|create_company)$")
+    # Role Selection Type: 'driver', 'independent', 'join_company', 'create_company', 'transporter'
+    role_type: str = Field(..., pattern="^(driver|independent|join_company|create_company|transporter)$")
 
     # For driver role
     license_number: Optional[str] = Field(None, min_length=5, max_length=50)
