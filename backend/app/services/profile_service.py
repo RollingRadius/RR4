@@ -230,6 +230,17 @@ class ProfileService:
             )
             self.db.add(notif)
 
+        elif role_type == 'transporter':
+            # Set as independent Transporter (no company required)
+            role = self._get_role_by_key('transporter')
+            user_org = UserOrganization(
+                user_id=user.id,
+                organization_id=None,
+                role_id=role.id,
+                status='active'
+            )
+            self.db.add(user_org)
+
         elif role_type == 'create_company':
             # Create new company
             if not profile_data.get('company_name'):
