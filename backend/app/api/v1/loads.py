@@ -7,13 +7,14 @@ import json
 import random
 import string
 import uuid
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy import or_, func, cast, text
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -138,9 +139,11 @@ def _get_fleet_member_org(current_user: User, db: Session) -> Organization:
 
 
 def _generate_trip_number(db: Session) -> str:
-    for _ in range(10):
+    ist = ZoneInfo("Asia/Kolkata")
+    date_part = datetime.now(ist).strftime('%d%m%y')  # Always DDMMYY in IST, e.g. 300426
+    for _ in range(15):
         suffix = ''.join(random.choices(string.digits, k=5))
-        trip_number = f"RR-{suffix}"
+        trip_number = f"RR-{date_part}-{suffix}"  # e.g. RR-300426-12345
         if not db.query(Trip).filter(Trip.trip_number == trip_number).first():
             return trip_number
     raise HTTPException(status_code=500, detail="Could not generate unique trip number")
@@ -582,51 +585,58 @@ async def fulfill_load_requirement(
         if not t_role or t_role.role_key != 'transporter':
             raise HTTPException(status_code=400, detail="Selected user does not have the transporter role.")
 
-    # Build and persist the trip — wrapped fully so any error returns JSON (not a bare 500)
-    try:
-        trip_kwargs = dict(
-            id=uuid.uuid4(),
-            trip_number=_generate_trip_number(db),
-            origin=load.pickup_location or '',
-            destination=load.unload_location or '',
-            load_item=load.material_type or 'Cargo',
-            weight=load.capacity,
-            trip_amount=payload.trip_amount,
-            status='ongoing',
-            organization_id=fleet_company.id,
-            load_owner_org_id=load.company_id,
-            vehicle_id=vehicle_uuid,
-            driver_id=driver_uuid,
-            transporter_user_id=transporter_uuid,
-            created_by=current_user.id,
-        )
-        # load_requirement_id added in migration 026 — only set if the column exists
-        if hasattr(Trip, 'load_requirement_id'):
-            trip_kwargs['load_requirement_id'] = load.id
+    # Build and persist the trip — retry on trip_number collision (race condition guard)
+    trip_kwargs = dict(
+        id=uuid.uuid4(),
+        origin=load.pickup_location or '',
+        destination=load.unload_location or '',
+        load_item=load.material_type or 'Cargo',
+        weight=load.capacity,
+        trip_amount=payload.trip_amount,
+        status='ongoing',
+        organization_id=fleet_company.id,
+        load_owner_org_id=load.company_id,
+        vehicle_id=vehicle_uuid,
+        driver_id=driver_uuid,
+        transporter_user_id=transporter_uuid,
+        created_by=current_user.id,
+    )
+    if hasattr(Trip, 'load_requirement_id'):
+        trip_kwargs['load_requirement_id'] = load.id
 
-        trip = Trip(**trip_kwargs)
-        db.add(trip)
-
-        load.status = 'assigned'
-        # fulfilling_org_id added in migration 026 — only set if the column exists
-        if hasattr(load, 'fulfilling_org_id'):
-            load.fulfilling_org_id = fleet_company.id
-
-        db.commit()
-        db.refresh(trip)
-        db.refresh(load)
-    except SQLAlchemyError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error while creating trip: {str(exc)}"
-        )
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error while creating trip: {str(exc)}"
-        )
+    trip = None
+    for attempt in range(3):
+        try:
+            trip_kwargs['id'] = uuid.uuid4()
+            trip_kwargs['trip_number'] = _generate_trip_number(db)
+            trip = Trip(**trip_kwargs)
+            db.add(trip)
+            load.status = 'assigned'
+            if hasattr(load, 'fulfilling_org_id'):
+                load.fulfilling_org_id = fleet_company.id
+            db.commit()
+            db.refresh(trip)
+            db.refresh(load)
+            break
+        except IntegrityError:
+            db.rollback()
+            if attempt == 2:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Could not create trip after multiple attempts. Please try again."
+                )
+        except SQLAlchemyError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error while creating trip: {str(exc)}"
+            )
+        except Exception as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Unexpected error while creating trip: {str(exc)}"
+            )
 
     # ── Notify LP workers about new work ──────────────────────────────────────
     try:
