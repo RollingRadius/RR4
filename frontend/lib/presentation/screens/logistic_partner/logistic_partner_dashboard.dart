@@ -1780,6 +1780,8 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   bool _transporterSearchLoading = false;
   Timer? _transporterDebounce;
   bool _isLoading = false;
+  String? _transporterError;
+  String? _amountError;
 
   @override
   void dispose() {
@@ -1810,9 +1812,25 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
 
   Future<void> _confirm() async {
     if (_isLoading) return;
-    setState(() => _isLoading = true);
 
-    final amount = double.tryParse(_amountController.text.trim());
+    // Validate required fields
+    final amountText = _amountController.text.trim();
+    final amount = double.tryParse(amountText);
+    String? tErr;
+    String? aErr;
+    if (_selectedTransporterId == null) tErr = 'Please select a transporter';
+    if (amountText.isEmpty) {
+      aErr = 'Please enter the trip amount';
+    } else if (amount == null || amount <= 0) {
+      aErr = 'Please enter a valid amount greater than 0';
+    }
+    if (tErr != null || aErr != null) {
+      setState(() { _transporterError = tErr; _amountError = aErr; });
+      return;
+    }
+
+    setState(() { _isLoading = true; _transporterError = null; _amountError = null; });
+
     final api = ref.read(apiServiceProvider);
 
     try {
@@ -1963,9 +1981,13 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
               ],
 
               // Transporter search
-              Text('Assign Transporter (optional)',
-                  style: _inter(
-                      size: 12, weight: FontWeight.w700, color: _secondary)),
+              Row(
+                children: [
+                  Text('Assign Transporter',
+                      style: _inter(size: 12, weight: FontWeight.w700, color: _secondary)),
+                  Text(' *', style: _inter(size: 12, weight: FontWeight.w700, color: Colors.red)),
+                ],
+              ),
               const SizedBox(height: 8),
               if (_selectedTransporterId != null) ...[
                 // Selected transporter chip
@@ -2066,6 +2088,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                             _selectedTransporterName = '$name${label.isNotEmpty ? ' ($label)' : ''}';
                             _transporterResults = [];
                             _transporterController.clear();
+                            _transporterError = null;
                           }),
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
@@ -2098,12 +2121,26 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                   ),
                 ],
               ],
+              if (_transporterError != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(Icons.error_outline, size: 13, color: Colors.red),
+                    const SizedBox(width: 4),
+                    Text(_transporterError!, style: _inter(size: 11, color: Colors.red)),
+                  ],
+                ),
+              ],
               const SizedBox(height: 20),
 
               // Trip Amount
-              Text('Trip Amount (₹)',
-                  style: _inter(
-                      size: 12, weight: FontWeight.w700, color: _secondary)),
+              Row(
+                children: [
+                  Text('Trip Amount (₹)',
+                      style: _inter(size: 12, weight: FontWeight.w700, color: _secondary)),
+                  Text(' *', style: _inter(size: 12, weight: FontWeight.w700, color: Colors.red)),
+                ],
+              ),
               const SizedBox(height: 8),
               TextField(
                 controller: _amountController,
@@ -2111,10 +2148,14 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
                 ],
+                onChanged: (_) {
+                  if (_amountError != null) setState(() => _amountError = null);
+                },
                 decoration: InputDecoration(
                   hintText: 'Enter agreed trip amount',
                   hintStyle: _inter(size: 13, color: _secondary),
                   prefixIcon: const Icon(Icons.currency_rupee, size: 18),
+                  errorText: _amountError,
                   contentPadding:
                       const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
                   filled: true,
@@ -2125,11 +2166,16 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: _surfaceContainer),
+                    borderSide: BorderSide(
+                      color: _amountError != null ? Colors.red : _surfaceContainer,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: _primary, width: 1.5),
+                    borderSide: BorderSide(
+                      color: _amountError != null ? Colors.red : _primary,
+                      width: 1.5,
+                    ),
                   ),
                 ),
               ),
