@@ -12,6 +12,7 @@ import 'package:fleet_management/providers/trip_stages_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
+import 'package:fleet_management/core/config/app_config.dart';
 
 // ─── Typography & Colours ─────────────────────────────────────────────────────
 TextStyle _manrope({double size = 14, FontWeight weight = FontWeight.w600, Color color = const Color(0xFF191C1E)}) =>
@@ -1640,39 +1641,67 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
 
   @override
   Widget build(BuildContext context) {
+    final existingUrl = widget.trip.s2LoadingSlipUrl;
+    final showExisting = existingUrl != null && _slipFile == null;
+    final imageUrl = existingUrl != null
+        ? '${AppConfig.apiBaseUrl}$existingUrl'
+        : null;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // Header — green if already uploaded, orange if pending
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _primary.withValues(alpha: 0.07),
+              color: showExisting
+                  ? _success.withValues(alpha: 0.07)
+                  : _primary.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _primary.withValues(alpha: 0.20)),
+              border: Border.all(
+                color: showExisting
+                    ? _success.withValues(alpha: 0.25)
+                    : _primary.withValues(alpha: 0.20),
+              ),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: _primary.withValues(alpha: 0.12),
+                    color: showExisting
+                        ? _success.withValues(alpha: 0.12)
+                        : _primary.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.receipt_long_rounded, color: _primary, size: 22),
+                  child: Icon(
+                    showExisting
+                        ? Icons.check_circle_rounded
+                        : Icons.receipt_long_rounded,
+                    color: showExisting ? _success : _primary,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Loading Slip Required',
-                          style: _manrope(size: 15, weight: FontWeight.w800)),
+                      Text(
+                        showExisting
+                            ? 'Loading Slip Uploaded'
+                            : 'Loading Slip Required',
+                        style: _manrope(size: 15, weight: FontWeight.w800),
+                      ),
                       const SizedBox(height: 3),
-                      Text('Upload the loading slip before the truck can proceed to the factory.',
-                          style: _inter(size: 12, color: _secondary)),
+                      Text(
+                        showExisting
+                            ? 'Slip uploaded by transporter. Tap image to replace if needed.'
+                            : 'Upload the loading slip before the truck can proceed to the factory.',
+                        style: _inter(size: 12, color: _secondary),
+                      ),
                     ],
                   ),
                 ),
@@ -1692,11 +1721,16 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                 color: _surface,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: _slipFile != null ? _success.withValues(alpha: 0.50) : _border,
-                  width: _slipFile != null ? 1.5 : 1,
+                  color: _slipFile != null
+                      ? _success.withValues(alpha: 0.50)
+                      : showExisting
+                          ? _success.withValues(alpha: 0.30)
+                          : _border,
+                  width: (_slipFile != null || showExisting) ? 1.5 : 1,
                 ),
               ),
               child: _slipFile != null
+                  // ── Newly picked local file preview ──────────────────────
                   ? Stack(
                       children: [
                         ClipRRect(
@@ -1735,13 +1769,97 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                               children: [
                                 const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
                                 const SizedBox(width: 4),
-                                Text('Slip Ready', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+                                Text('Ready to Upload', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
                               ],
                             ),
                           ),
                         ),
                       ],
                     )
+                  : showExisting
+                  // ── Existing server-uploaded slip ─────────────────────────
+                  ? Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(13),
+                          child: Image.network(
+                            imageUrl!,
+                            height: 220,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (_, child, progress) => progress == null
+                                ? child
+                                : SizedBox(
+                                    height: 220,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: _success,
+                                        value: progress.expectedTotalBytes != null
+                                            ? progress.cumulativeBytesLoaded /
+                                              progress.expectedTotalBytes!
+                                            : null,
+                                      ),
+                                    ),
+                                  ),
+                            errorBuilder: (_, __, ___) => SizedBox(
+                              height: 220,
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.broken_image_rounded,
+                                        size: 36, color: _secondary.withValues(alpha: 0.4)),
+                                    const SizedBox(height: 8),
+                                    Text('Could not load image',
+                                        style: _inter(size: 12, color: _secondary)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Uploaded badge
+                        Positioned(
+                          top: 8, left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _success,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+                                const SizedBox(width: 4),
+                                Text('Slip Uploaded', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        // Tap to replace hint
+                        Positioned(
+                          bottom: 8, right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 12),
+                                const SizedBox(width: 4),
+                                Text('Tap to replace', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w500)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  // ── Empty — no slip yet ───────────────────────────────────
                   : Padding(
                       padding: const EdgeInsets.symmetric(vertical: 36),
                       child: Column(
@@ -1780,28 +1898,30 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
 
           const SizedBox(height: 28),
 
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: (_slipFile != null && !_uploading) ? _upload : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _primary,
-                foregroundColor: Colors.white,
-                disabledBackgroundColor: const Color(0xFFDDE0E2),
-                disabledForegroundColor: _secondary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
+          // Only show upload button when a new file has been picked (to replace)
+          if (_slipFile != null || !showExisting)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: (_slipFile != null && !_uploading) ? _upload : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: const Color(0xFFDDE0E2),
+                  disabledForegroundColor: _secondary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+                icon: _uploading
+                    ? const SizedBox(
+                        width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.upload_rounded, size: 20),
+                label: Text(_uploading ? 'Uploading...' : 'Submit Loading Slip'),
               ),
-              icon: _uploading
-                  ? const SizedBox(
-                      width: 18, height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.upload_rounded, size: 20),
-              label: Text(_uploading ? 'Uploading...' : 'Submit Loading Slip'),
             ),
-          ),
         ],
       ),
     );
