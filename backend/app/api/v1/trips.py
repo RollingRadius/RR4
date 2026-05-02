@@ -147,7 +147,8 @@ def get_transporter_trips_early(
         raise HTTPException(status_code=403, detail="Transporter access only.")
 
     trips = db.query(Trip).filter(
-        Trip.transporter_user_id == current_user.id
+        Trip.transporter_user_id == current_user.id,
+        Trip.status != 'cancelled',
     ).order_by(Trip.created_at.desc()).all()
 
     return {"success": True, "trips": _enrich_bulk(trips, db)}
@@ -1037,15 +1038,51 @@ async def cancel_trip(
         except Exception:
             pass
 
-        # FCM: notify the assigned transporter directly
+        # Notification + FCM: notify the assigned transporter directly
         if trip.transporter_user_id:
+            from app.models.notification import Notification as _Notification
+            t_title = "Trip Cancelled"
+            t_body = (
+                f"Trip {trip.trip_number} ({trip.origin} → {trip.destination}) "
+                f"has been cancelled by the load owner."
+            )
+            t_notif = _Notification(
+                recipient_user_id=trip.transporter_user_id,
+                trip_id=trip.id,
+                type="trip_cancelled",
+                title=t_title,
+                body=t_body,
+            )
+            db.add(t_notif)
+            db.commit()
+            db.refresh(t_notif)
+
+            # WebSocket push to transporter
+            t_ws_msg = {
+                "type":        "trip_cancelled",
+                "id":          str(t_notif.id),
+                "trip_id":     str(trip.id),
+                "trip_number": trip.trip_number,
+                "origin":      trip.origin,
+                "destination": trip.destination,
+                "title":       t_title,
+                "body":        t_body,
+                "is_read":     False,
+                "created_at":  t_notif.created_at.isoformat() if t_notif.created_at else None,
+            }
+            try:
+                await manager.send_to_org(f"user:{str(trip.transporter_user_id)}", t_ws_msg)
+            except Exception:
+                pass
+
+            # FCM push
             try:
                 transporter_user = db.query(User).filter(User.id == trip.transporter_user_id).first()
                 if transporter_user and transporter_user.fcm_token:
                     fcm_service.send_to_token(
                         transporter_user.fcm_token,
-                        "Trip Cancelled",
-                        f"Trip {trip.trip_number} ({trip.origin} → {trip.destination}) has been cancelled by the load owner.",
+                        t_title,
+                        t_body,
                         {"type": "trip_cancelled", "trip_id": str(trip.id)},
                     )
             except Exception:
@@ -1194,7 +1231,8 @@ def get_transporter_trips(
         raise HTTPException(status_code=403, detail="Transporter access only.")
 
     trips = db.query(Trip).filter(
-        Trip.transporter_user_id == current_user.id
+        Trip.transporter_user_id == current_user.id,
+        Trip.status != 'cancelled',
     ).order_by(Trip.created_at.desc()).all()
 
     return {"success": True, "trips": _enrich_bulk(trips, db)}

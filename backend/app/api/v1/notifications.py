@@ -42,14 +42,11 @@ def _get_user_from_token(token: str, db: Session):
     return user, user_org
 
 
-def _current_user_org(current_user: User, db: Session) -> UserOrganization:
-    user_org = db.query(UserOrganization).filter(
+def _current_user_org(current_user: User, db: Session) -> UserOrganization | None:
+    return db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id,
         UserOrganization.status == "active",
     ).first()
-    if not user_org:
-        raise HTTPException(status_code=403, detail="No active organisation")
-    return user_org
 
 
 # ─── WebSocket endpoint ───────────────────────────────────────────────────────
@@ -61,27 +58,31 @@ async def notifications_ws(
     db: Session = Depends(get_db),
 ):
     """
-    Load-owner clients connect with their JWT to receive real-time notifications.
-    The connection is keyed by the user's organisation ID so all users in the
-    same org receive the same broadcasts.
+    Clients connect with their JWT to receive real-time notifications.
+    Org-based users are keyed by org_id; transporters (no org) are keyed by user:{user_id}.
     """
-    _, user_org = _get_user_from_token(token, db)
-    if not user_org:
+    user, user_org = _get_user_from_token(token, db)
+    if not user:
         await websocket.close(code=4001)
         return
 
-    org_id = str(user_org.organization_id)
-    role = db.query(Role).filter(Role.id == user_org.role_id).first()
-    role_key = role.role_key if role else 'unknown'
-    await manager.connect(org_id, role_key, websocket)
+    if user_org:
+        conn_key = str(user_org.organization_id)
+        role = db.query(Role).filter(Role.id == user_org.role_id).first()
+        role_key = role.role_key if role else 'unknown'
+    else:
+        # Transporter or user without org — key by user id
+        conn_key = f"user:{str(user.id)}"
+        role_key = 'transporter'
+
+    await manager.connect(conn_key, role_key, websocket)
     try:
         while True:
-            # Keep-alive: accept (and discard) any text from the client
             await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(org_id, websocket)
+        manager.disconnect(conn_key, websocket)
     except Exception:
-        manager.disconnect(org_id, websocket)
+        manager.disconnect(conn_key, websocket)
 
 
 # ─── REST endpoints ───────────────────────────────────────────────────────────
@@ -93,20 +94,30 @@ def get_notifications(
 ):
     """Return the 50 most-recent notifications visible to the current user's role."""
     user_org = _current_user_org(current_user, db)
-    role = db.query(Role).filter(Role.id == user_org.role_id).first()
-    role_key = role.role_key if role else ''
-    notifs = (
-        db.query(Notification)
-        .filter(
-            Notification.recipient_org_id == user_org.organization_id,
-            # NULL recipient_role = visible to everyone in the org;
-            # non-NULL = only visible to that specific role
-            (Notification.recipient_role == None) | (Notification.recipient_role == role_key),
+
+    if user_org:
+        role = db.query(Role).filter(Role.id == user_org.role_id).first()
+        role_key = role.role_key if role else ''
+        notifs = (
+            db.query(Notification)
+            .filter(
+                Notification.recipient_org_id == user_org.organization_id,
+                (Notification.recipient_role == None) | (Notification.recipient_role == role_key),
+            )
+            .order_by(Notification.created_at.desc())
+            .limit(50)
+            .all()
         )
-        .order_by(Notification.created_at.desc())
-        .limit(50)
-        .all()
-    )
+    else:
+        # Transporter / user without org — return user-targeted notifications only
+        notifs = (
+            db.query(Notification)
+            .filter(Notification.recipient_user_id == current_user.id)
+            .order_by(Notification.created_at.desc())
+            .limit(50)
+            .all()
+        )
+
     unread = sum(1 for n in notifs if not n.is_read)
     return {
         "notifications": [n.to_dict() for n in notifs],
@@ -122,7 +133,12 @@ def mark_notification_read(
 ):
     user_org = _current_user_org(current_user, db)
     notif = db.query(Notification).filter(Notification.id == notif_id).first()
-    if not notif or str(notif.recipient_org_id) != str(user_org.organization_id):
+    if not notif:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    # Allow if org-based match OR user-based match
+    org_match = user_org and notif.recipient_org_id and str(notif.recipient_org_id) == str(user_org.organization_id)
+    user_match = notif.recipient_user_id and str(notif.recipient_user_id) == str(current_user.id)
+    if not org_match and not user_match:
         raise HTTPException(status_code=404, detail="Notification not found")
     notif.is_read = True
     db.commit()
@@ -135,10 +151,16 @@ def mark_all_read(
     db: Session = Depends(get_db),
 ):
     user_org = _current_user_org(current_user, db)
-    db.query(Notification).filter(
-        Notification.recipient_org_id == user_org.organization_id,
-        Notification.is_read == False,  # noqa: E712
-    ).update({"is_read": True})
+    if user_org:
+        db.query(Notification).filter(
+            Notification.recipient_org_id == user_org.organization_id,
+            Notification.is_read == False,  # noqa: E712
+        ).update({"is_read": True})
+    else:
+        db.query(Notification).filter(
+            Notification.recipient_user_id == current_user.id,
+            Notification.is_read == False,  # noqa: E712
+        ).update({"is_read": True})
     db.commit()
     return {"success": True}
 
@@ -154,7 +176,9 @@ def delete_notification(
     notif = db.query(Notification).filter(Notification.id == notif_id).first()
     if not notif:
         return {"success": True}  # already deleted — idempotent
-    if str(notif.recipient_org_id) != str(user_org.organization_id):
+    org_match = user_org and notif.recipient_org_id and str(notif.recipient_org_id) == str(user_org.organization_id)
+    user_match = notif.recipient_user_id and str(notif.recipient_user_id) == str(current_user.id)
+    if not org_match and not user_match:
         raise HTTPException(status_code=403, detail="Not your notification")
     db.delete(notif)
     db.commit()
@@ -166,10 +190,15 @@ def clear_all_notifications(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Delete all notifications for the current user's org."""
+    """Delete all notifications for the current user."""
     user_org = _current_user_org(current_user, db)
-    db.query(Notification).filter(
-        Notification.recipient_org_id == user_org.organization_id
-    ).delete()
+    if user_org:
+        db.query(Notification).filter(
+            Notification.recipient_org_id == user_org.organization_id
+        ).delete()
+    else:
+        db.query(Notification).filter(
+            Notification.recipient_user_id == current_user.id
+        ).delete()
     db.commit()
     return {"success": True}

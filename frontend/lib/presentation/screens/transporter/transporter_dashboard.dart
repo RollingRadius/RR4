@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +8,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
+import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -140,19 +143,28 @@ class TransporterDashboard extends ConsumerStatefulWidget {
 class _TransporterDashboardState extends ConsumerState<TransporterDashboard> {
   int _tab = 0;
   Timer? _pollTimer;
+  StreamSubscription<RemoteMessage>? _fcmSub;
 
   @override
   void initState() {
     super.initState();
-    // Poll every 30s so cancelled trips disappear automatically
+    // Poll every 30s as a fallback (catches cancellations when app is in background)
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       ref.read(transporterTripsProvider.notifier).refresh();
+    });
+    // Immediate refresh when a trip_cancelled FCM message arrives in foreground
+    _fcmSub = FirebaseMessaging.onMessage.listen((message) {
+      if (message.data['type'] == 'trip_cancelled') {
+        ref.read(transporterTripsProvider.notifier).refresh();
+        ref.read(notificationsProvider.notifier).refresh();
+      }
     });
   }
 
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _fcmSub?.cancel();
     super.dispose();
   }
 
@@ -396,12 +408,12 @@ class _DashboardTab extends ConsumerWidget {
 
 // ─── Top bar ──────────────────────────────────────────────────────────────────
 
-class _TopBar extends StatelessWidget {
+class _TopBar extends ConsumerWidget {
   final dynamic user;
   const _TopBar({required this.user});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final initials = ((user?.fullName ?? 'T') as String)
         .trim()
         .split(' ')
@@ -409,6 +421,10 @@ class _TopBar extends StatelessWidget {
         .take(2)
         .map((w) => w[0].toUpperCase())
         .join();
+
+    final unread = ref.watch(notificationsProvider).items
+        .where((n) => !n.isRead && n.type == 'trip_cancelled')
+        .length;
 
     return Container(
       color: _cardBg,
@@ -444,6 +460,39 @@ class _TopBar extends StatelessWidget {
                   ],
                 ),
               ),
+              // Bell icon
+              GestureDetector(
+                onTap: () => _showNotificationsSheet(context),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.notifications_outlined, color: _grey2, size: 26),
+                    if (unread > 0)
+                      Positioned(
+                        top: -4,
+                        right: -4,
+                        child: Container(
+                          padding: const EdgeInsets.all(3),
+                          decoration: const BoxDecoration(
+                            color: _orange,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          child: Text(
+                            unread > 99 ? '99+' : '$unread',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
               // Role badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -469,6 +518,199 @@ class _TopBar extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showNotificationsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => ProviderScope(
+        parent: ProviderScope.containerOf(context),
+        child: const _NotificationsSheet(),
+      ),
+    );
+  }
+}
+
+// ─── Notifications sheet ──────────────────────────────────────────────────────
+
+class _NotificationsSheet extends ConsumerWidget {
+  const _NotificationsSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final items = ref.watch(notificationsProvider).items
+        .where((n) => n.type == 'trip_cancelled')
+        .toList();
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.55,
+      minChildSize: 0.35,
+      maxChildSize: 0.85,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                color: _divider,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              child: Row(
+                children: [
+                  Text('Notifications', style: _t(17, FontWeight.w700, _grey1)),
+                  const Spacer(),
+                  if (items.any((n) => !n.isRead))
+                    GestureDetector(
+                      onTap: () => ref.read(notificationsProvider.notifier).markAllRead(),
+                      child: Text('Mark all read',
+                          style: _t(13, FontWeight.w600, _orange)),
+                    ),
+                  if (items.isNotEmpty) ...[
+                    const SizedBox(width: 14),
+                    GestureDetector(
+                      onTap: () {
+                        ref.read(notificationsProvider.notifier).clearAll();
+                        Navigator.pop(context);
+                      },
+                      child: Text('Clear all',
+                          style: _t(13, FontWeight.w600, Colors.red)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Container(height: 1, color: _divider),
+            Expanded(
+              child: items.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.notifications_none_rounded,
+                              size: 48, color: _grey3),
+                          const SizedBox(height: 12),
+                          Text('No notifications', style: _t(14, FontWeight.w500, _grey3)),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: controller,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) =>
+                          Divider(height: 1, indent: 20, endIndent: 20, color: _divider),
+                      itemBuilder: (ctx, i) {
+                        final n = items[i];
+                        return _NotifTile(
+                          notif: n,
+                          onDismiss: () =>
+                              ref.read(notificationsProvider.notifier).deleteOne(n.id),
+                          onTap: () {
+                            ref.read(notificationsProvider.notifier).markRead(n.id);
+                            Navigator.pop(context);
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NotifTile extends StatelessWidget {
+  final NotificationModel notif;
+  final VoidCallback onTap;
+  final VoidCallback onDismiss;
+  const _NotifTile({required this.notif, required this.onTap, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dismissible(
+      key: ValueKey(notif.id),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDismiss(),
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        color: const Color(0xFFFFDAD6),
+        child: const Icon(Icons.delete_outline_rounded, color: Color(0xFFBA1A1A), size: 22),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          color: notif.isRead ? Colors.transparent : _orange.withOpacity(0.04),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  color: _orangeL,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.cancel_outlined, color: _orange, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(notif.title,
+                        style: _t(14, notif.isRead ? FontWeight.w500 : FontWeight.w700, _grey1)),
+                    const SizedBox(height: 4),
+                    Text(notif.body,
+                        style: _t(12, FontWeight.w400, _grey2),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
+                    if (notif.createdAt != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatDate(notif.createdAt!),
+                        style: _t(11, FontWeight.w400, _grey3),
+                      ),
+                    ],
+
+                  ],
+                ),
+              ),
+              if (!notif.isRead)
+                Container(
+                  width: 8, height: 8,
+                  margin: const EdgeInsets.only(top: 4, left: 8),
+                  decoration: const BoxDecoration(color: _orange, shape: BoxShape.circle),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(String raw) {
+    try {
+      final dt = DateTime.parse(raw).toLocal();
+      final diff = DateTime.now().difference(dt);
+      if (diff.inMinutes < 1) return 'Just now';
+      if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+      if (diff.inDays < 1) return '${diff.inHours}h ago';
+      return '${diff.inDays}d ago';
+    } catch (_) {
+      return '';
+    }
   }
 }
 

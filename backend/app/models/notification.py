@@ -14,15 +14,16 @@ from app.database import Base
 class Notification(Base):
     __tablename__ = "notifications"
 
-    id               = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    recipient_org_id = Column(UUID(as_uuid=True), nullable=False, index=True)
-    recipient_role   = Column(String(50),  nullable=True)   # NULL = visible to all org roles
-    trip_id          = Column(UUID(as_uuid=True), nullable=True,  index=True)
-    type             = Column(String(50),  nullable=False)
-    title            = Column(String(200), nullable=False)
-    body             = Column(Text,        nullable=False)
-    is_read          = Column(Boolean,     nullable=False, default=False)
-    created_at       = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
+    id                = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    recipient_org_id  = Column(UUID(as_uuid=True), nullable=True,  index=True)
+    recipient_user_id = Column(UUID(as_uuid=True), nullable=True,  index=True)
+    recipient_role    = Column(String(50),  nullable=True)   # NULL = visible to all org roles
+    trip_id           = Column(UUID(as_uuid=True), nullable=True,  index=True)
+    type              = Column(String(50),  nullable=False)
+    title             = Column(String(200), nullable=False)
+    body              = Column(Text,        nullable=False)
+    is_read           = Column(Boolean,     nullable=False, default=False)
+    created_at        = Column(TIMESTAMP(timezone=True), server_default=func.now(), nullable=False)
 
     def to_dict(self) -> dict:
         return {
