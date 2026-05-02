@@ -1037,6 +1037,20 @@ async def cancel_trip(
         except Exception:
             pass
 
+        # FCM: notify the assigned transporter directly
+        if trip.transporter_user_id:
+            try:
+                transporter_user = db.query(User).filter(User.id == trip.transporter_user_id).first()
+                if transporter_user and transporter_user.fcm_token:
+                    fcm_service.send_to_token(
+                        transporter_user.fcm_token,
+                        "Trip Cancelled",
+                        f"Trip {trip.trip_number} ({trip.origin} → {trip.destination}) has been cancelled by the load owner.",
+                        {"type": "trip_cancelled", "trip_id": str(trip.id)},
+                    )
+            except Exception:
+                pass
+
     db.refresh(trip)
     return {"success": True, "message": "Trip cancelled successfully.", "trip": _enrich(trip, db)}
 

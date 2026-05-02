@@ -139,6 +139,30 @@ class TransporterDashboard extends ConsumerStatefulWidget {
 
 class _TransporterDashboardState extends ConsumerState<TransporterDashboard> {
   int _tab = 0;
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Poll every 30s so cancelled trips disappear automatically
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      ref.read(transporterTripsProvider.notifier).refresh();
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  void _onTabTap(int i) {
+    // Refresh loads silently when switching to the Loads tab
+    if (i == 2 && _tab != 2) {
+      ref.read(_transporterLoadsProvider.notifier).refresh();
+    }
+    setState(() => _tab = i);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,7 +183,7 @@ class _TransporterDashboardState extends ConsumerState<TransporterDashboard> {
       ),
       bottomNavigationBar: _BottomNav(
         current: _tab,
-        onTap: (i) => setState(() => _tab = i),
+        onTap: _onTabTap,
         pendingCount: state.pendingCount,
       ),
     );
