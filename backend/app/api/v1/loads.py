@@ -463,6 +463,58 @@ def list_available_loads(
     }
 
 
+@router.get("/transporter/available", status_code=status.HTTP_200_OK)
+def list_loads_for_transporter(
+    pickup: Optional[str] = Query(None, description="Filter by pickup location (partial match)"),
+    drop: Optional[str] = Query(None, description="Filter by drop/unload location (partial match)"),
+    material: Optional[str] = Query(None, description="Filter by material type"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Browse all pending load requirements posted by load owner companies.
+    Every transporter sees every posted load — no targeting filter applied.
+
+    **Requires:** JWT · role_key == 'transporter'
+    """
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == 'active',
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied.")
+    role = db.query(Role).filter(Role.id == user_org.role_id).first()
+    if not role or role.role_key != 'transporter':
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only transporters can access this endpoint.")
+
+    base_filter = [LoadRequirement.status == 'pending']
+    if pickup:
+        base_filter.append(LoadRequirement.pickup_location.ilike(f'%{pickup}%'))
+    if drop:
+        base_filter.append(LoadRequirement.unload_location.ilike(f'%{drop}%'))
+    if material:
+        base_filter.append(LoadRequirement.material_type.ilike(f'%{material}%'))
+
+    rows = (
+        db.query(LoadRequirement, Organization)
+        .join(Organization, Organization.id == LoadRequirement.company_id)
+        .filter(*base_filter)
+        .order_by(LoadRequirement.created_at.desc())
+        .all()
+    )
+
+    loads = []
+    for record, company in rows:
+        item = _record_to_response(record)
+        item['company_name'] = company.company_name
+        item['company_city'] = company.city
+        item['company_state'] = company.state
+        item['company_phone'] = company.business_phone
+        loads.append(item)
+
+    return {"success": True, "loads": loads, "count": len(loads)}
+
+
 @router.get("/search-partners", status_code=status.HTTP_200_OK)
 def search_fleet_partners(
     q: str = Query(..., min_length=1, description="Search query (user name or company name)"),

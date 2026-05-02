@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
+import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 
@@ -81,6 +83,51 @@ class _TripsNotifier extends StateNotifier<_TripsState> {
       );
 }
 
+// ─── Loads Provider ───────────────────────────────────────────────────────────
+
+class _LoadsState {
+  final List<LoadRequirementModel> loads;
+  final bool loading;
+  final String? error;
+  const _LoadsState({this.loads = const [], this.loading = false, this.error});
+
+  _LoadsState copyWith({List<LoadRequirementModel>? loads, bool? loading, String? error}) =>
+      _LoadsState(loads: loads ?? this.loads, loading: loading ?? this.loading, error: error);
+}
+
+class _LoadsNotifier extends StateNotifier<_LoadsState> {
+  final Dio _dio;
+  _LoadsNotifier(this._dio) : super(const _LoadsState()) { _fetch(); }
+
+  Future<void> _fetch({String? pickup, String? drop, String? material}) async {
+    state = state.copyWith(loading: true, error: null);
+    try {
+      final params = <String, dynamic>{};
+      if (pickup != null && pickup.isNotEmpty) params['pickup'] = pickup;
+      if (drop != null && drop.isNotEmpty) params['drop'] = drop;
+      if (material != null && material.isNotEmpty) params['material'] = material;
+      final resp = await _dio.get('/api/loads/transporter/available', queryParameters: params);
+      final list = ((resp.data['loads'] as List?) ?? [])
+          .map((j) => LoadRequirementModel.fromJson(j as Map<String, dynamic>))
+          .toList();
+      state = state.copyWith(loads: list, loading: false);
+    } catch (e) {
+      final msg = e is DioException
+          ? (e.response?.data?['detail'] as String? ?? 'Failed to load')
+          : e.toString();
+      state = state.copyWith(error: msg, loading: false);
+    }
+  }
+
+  Future<void> refresh({String? pickup, String? drop, String? material}) =>
+      _fetch(pickup: pickup, drop: drop, material: material);
+}
+
+final _transporterLoadsProvider =
+    StateNotifierProvider.autoDispose<_LoadsNotifier, _LoadsState>(
+  (ref) => _LoadsNotifier(ref.watch(dioProvider)),
+);
+
 // ─── Root widget ──────────────────────────────────────────────────────────────
 
 class TransporterDashboard extends ConsumerStatefulWidget {
@@ -106,6 +153,7 @@ class _TransporterDashboardState extends ConsumerState<TransporterDashboard> {
         children: [
           _DashboardTab(state: state),
           _RecordsTab(state: state),
+          const _LoadsTab(),
           const _ProfileTab(),
         ],
       ),
@@ -145,7 +193,9 @@ class _BottomNav extends StatelessWidget {
                   activeIcon: Icons.dashboard_rounded, label: 'Dashboard', onTap: onTap),
               _NavItem(index: 1, current: current, icon: Icons.receipt_long_outlined,
                   activeIcon: Icons.receipt_long_rounded, label: 'Records', onTap: onTap),
-              _NavItem(index: 2, current: current, icon: Icons.person_outline_rounded,
+              _NavItem(index: 2, current: current, icon: Icons.local_shipping_outlined,
+                  activeIcon: Icons.local_shipping_rounded, label: 'Loads', onTap: onTap),
+              _NavItem(index: 3, current: current, icon: Icons.person_outline_rounded,
                   activeIcon: Icons.person_rounded, label: 'Profile', onTap: onTap),
             ],
           ),
@@ -966,6 +1016,513 @@ class _RecordCard extends StatelessWidget {
                 Text(trip.lpOrgName!, style: _t(11, FontWeight.w500, _grey3)),
               ],
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Loads Tab ────────────────────────────────────────────────────────────────
+
+class _LoadsTab extends ConsumerStatefulWidget {
+  const _LoadsTab();
+
+  @override
+  ConsumerState<_LoadsTab> createState() => _LoadsTabState();
+}
+
+class _LoadsTabState extends ConsumerState<_LoadsTab> {
+  final _pickupCtrl = TextEditingController();
+  final _dropCtrl   = TextEditingController();
+  Timer? _debounce;
+
+  bool get _hasFilters =>
+      _pickupCtrl.text.trim().isNotEmpty || _dropCtrl.text.trim().isNotEmpty;
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _pickupCtrl.dispose();
+    _dropCtrl.dispose();
+    super.dispose();
+  }
+
+  void _onFilterChanged() {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      ref.read(_transporterLoadsProvider.notifier).refresh(
+            pickup: _pickupCtrl.text.trim().isNotEmpty ? _pickupCtrl.text.trim() : null,
+            drop:   _dropCtrl.text.trim().isNotEmpty   ? _dropCtrl.text.trim()   : null,
+          );
+      setState(() {});
+    });
+  }
+
+  void _clearFilters() {
+    _pickupCtrl.clear();
+    _dropCtrl.clear();
+    _debounce?.cancel();
+    ref.read(_transporterLoadsProvider.notifier).refresh();
+    setState(() {});
+  }
+
+  Widget _filterField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+  }) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: controller.text.trim().isNotEmpty ? _orange : _divider,
+          width: controller.text.trim().isNotEmpty ? 1.5 : 1,
+        ),
+      ),
+      child: TextField(
+        controller: controller,
+        onChanged: (_) => _onFilterChanged(),
+        style: _t(13, FontWeight.w500, _grey1),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: _t(13, FontWeight.w400, _grey3),
+          prefixIcon: Icon(icon, color: controller.text.trim().isNotEmpty ? _orange : _grey3, size: 18),
+          suffixIcon: controller.text.trim().isNotEmpty
+              ? GestureDetector(
+                  onTap: () {
+                    controller.clear();
+                    _onFilterChanged();
+                  },
+                  child: const Icon(Icons.close_rounded, color: _grey3, size: 16),
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(_transporterLoadsProvider);
+    final isFiltered = _hasFilters;
+
+    return SafeArea(
+      child: Column(
+        children: [
+          // ── Header ──────────────────────────────────────────────────────────
+          Container(
+            color: _cardBg,
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text('Available Loads', style: _t(22, FontWeight.w800, _grey1)),
+                    const Spacer(),
+                    if (isFiltered)
+                      GestureDetector(
+                        onTap: _clearFilters,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _orangeL,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text('Clear filters', style: _t(11, FontWeight.w700, _orange)),
+                        ),
+                      )
+                    else
+                      IconButton(
+                        onPressed: () => ref.read(_transporterLoadsProvider.notifier).refresh(),
+                        icon: const Icon(Icons.refresh_rounded, color: _orange, size: 22),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Pickup filter
+                _filterField(
+                  controller: _pickupCtrl,
+                  hint: 'Filter by pickup location…',
+                  icon: Icons.location_on_rounded,
+                ),
+                const SizedBox(height: 8),
+                // Drop filter
+                _filterField(
+                  controller: _dropCtrl,
+                  hint: 'Filter by drop location…',
+                  icon: Icons.flag_rounded,
+                ),
+                // Active filter summary
+                if (isFiltered) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.filter_list_rounded, size: 13, color: _orange),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${state.loads.length} result${state.loads.length == 1 ? '' : 's'} found',
+                        style: _t(11, FontWeight.w600, _orange),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // ── Body ────────────────────────────────────────────────────────────
+          Expanded(
+            child: state.loading
+                ? const Center(child: CircularProgressIndicator(color: _orange, strokeWidth: 2))
+                : state.error != null
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.error_outline_rounded, color: _grey3, size: 40),
+                            const SizedBox(height: 12),
+                            Text(state.error!, style: _t(13, FontWeight.w500, _grey3),
+                                textAlign: TextAlign.center),
+                            const SizedBox(height: 16),
+                            TextButton(
+                              onPressed: () => ref.read(_transporterLoadsProvider.notifier).refresh(),
+                              child: Text('Retry', style: _t(13, FontWeight.w700, _orange)),
+                            ),
+                          ],
+                        ),
+                      )
+                    : state.loads.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.local_shipping_outlined, color: _grey3, size: 48),
+                                const SizedBox(height: 16),
+                                Text(
+                                  isFiltered
+                                      ? 'No loads match your search'
+                                      : 'No loads available right now',
+                                  style: _t(15, FontWeight.w600, _grey3),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  isFiltered ? 'Try different locations' : 'Pull down to refresh',
+                                  style: _t(12, FontWeight.w400, _grey3),
+                                ),
+                              ],
+                            ),
+                          )
+                        : RefreshIndicator(
+                            color: _orange,
+                            onRefresh: () => ref
+                                .read(_transporterLoadsProvider.notifier)
+                                .refresh(
+                                  pickup: _pickupCtrl.text.trim().isNotEmpty ? _pickupCtrl.text.trim() : null,
+                                  drop:   _dropCtrl.text.trim().isNotEmpty   ? _dropCtrl.text.trim()   : null,
+                                ),
+                            child: ListView.builder(
+                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+                              itemCount: state.loads.length,
+                              itemBuilder: (_, i) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _LoadCard(
+                                  load: state.loads[i],
+                                  onTap: () => _showDetail(context, state.loads[i]),
+                                ),
+                              ),
+                            ),
+                          ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDetail(BuildContext context, LoadRequirementModel load) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _LoadDetailSheet(load: load),
+    );
+  }
+}
+
+// ─── Load Card ────────────────────────────────────────────────────────────────
+
+class _LoadCard extends StatelessWidget {
+  final LoadRequirementModel load;
+  final VoidCallback onTap;
+  const _LoadCard({required this.load, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: _cardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _divider),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Company + date
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    load.companyName ?? 'Load Owner',
+                    style: _t(13, FontWeight.w700, _grey1),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(load.displayDate, style: _t(11, FontWeight.w500, _grey3)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Container(height: 1, color: _divider),
+            const SizedBox(height: 10),
+            // Route
+            Row(
+              children: [
+                const Icon(Icons.location_on_rounded, size: 13, color: _orange),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(load.pickupLocation ?? '—', style: _t(13, FontWeight.w600, _grey1),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 12, top: 2, bottom: 2),
+              child: Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: _grey3),
+            ),
+            Row(
+              children: [
+                const Icon(Icons.flag_rounded, size: 13, color: _grey3),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(load.unloadLocation ?? '—', style: _t(13, FontWeight.w600, _grey1),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Material + trucks
+            Row(
+              children: [
+                const Icon(Icons.inventory_2_outlined, size: 13, color: _grey3),
+                const SizedBox(width: 6),
+                Text(load.materialType ?? '—', style: _t(12, FontWeight.w500, _grey2)),
+                const Spacer(),
+                const Icon(Icons.local_shipping_outlined, size: 13, color: _grey3),
+                const SizedBox(width: 4),
+                Text('${load.truckCount} truck${load.truckCount > 1 ? 's' : ''}',
+                    style: _t(12, FontWeight.w500, _grey2)),
+              ],
+            ),
+            if (load.capacity != null) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.scale_outlined, size: 13, color: _grey3),
+                  const SizedBox(width: 6),
+                  Text(load.capacity!, style: _t(12, FontWeight.w500, _grey2)),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Load Detail Bottom Sheet ─────────────────────────────────────────────────
+
+class _LoadDetailSheet extends StatelessWidget {
+  final LoadRequirementModel load;
+  const _LoadDetailSheet({required this.load});
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.65,
+      minChildSize: 0.4,
+      maxChildSize: 0.92,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Padding(
+              padding: const EdgeInsets.only(top: 12, bottom: 8),
+              child: Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: _divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Text('Load Details', style: _t(18, FontWeight.w800, _grey1)),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _orangeL,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text('PENDING', style: _t(10, FontWeight.w700, _orange).copyWith(letterSpacing: 0.5)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: ListView(
+                controller: controller,
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                children: [
+                  _DetailSection(
+                    icon: Icons.business_rounded,
+                    title: 'Load Owner',
+                    children: [
+                      _DetailRow(label: 'Company', value: load.companyName ?? '—'),
+                      if (load.companyCity != null || load.companyState != null)
+                        _DetailRow(
+                          label: 'Location',
+                          value: [load.companyCity, load.companyState]
+                              .where((s) => s != null && s.isNotEmpty)
+                              .join(', '),
+                        ),
+                      if (load.companyPhone != null)
+                        _DetailRow(label: 'Phone', value: load.companyPhone!),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _DetailSection(
+                    icon: Icons.route_rounded,
+                    title: 'Route',
+                    children: [
+                      _DetailRow(label: 'Pickup', value: load.pickupLocation ?? '—'),
+                      _DetailRow(label: 'Drop', value: load.unloadLocation ?? '—'),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _DetailSection(
+                    icon: Icons.inventory_2_outlined,
+                    title: 'Load Info',
+                    children: [
+                      _DetailRow(label: 'Material', value: load.materialType ?? '—'),
+                      _DetailRow(label: 'Trucks Required', value: '${load.truckCount}'),
+                      if (load.capacity != null)
+                        _DetailRow(label: 'Capacity', value: load.capacity!),
+                      if (load.entryDate != null)
+                        _DetailRow(label: 'Date', value: load.entryDate!),
+                    ],
+                  ),
+                  if (load.axelType != null || load.bodyType != null || load.floorType != null) ...[
+                    const SizedBox(height: 16),
+                    _DetailSection(
+                      icon: Icons.settings_outlined,
+                      title: 'Truck Specs',
+                      children: [
+                        if (load.axelType != null)
+                          _DetailRow(label: 'Axle Type', value: load.axelType!),
+                        if (load.bodyType != null)
+                          _DetailRow(label: 'Body Type', value: load.bodyType!),
+                        if (load.floorType != null)
+                          _DetailRow(label: 'Floor Type', value: load.floorType!),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  _DetailRow(label: 'Posted On', value: load.displayDate),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DetailSection extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final List<Widget> children;
+  const _DetailSection({required this.icon, required this.title, required this.children});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _divider),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 15, color: _orange),
+              const SizedBox(width: 6),
+              Text(title, style: _t(12, FontWeight.w700, _grey2).copyWith(letterSpacing: 0.3)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+  const _DetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(label, style: _t(12, FontWeight.w500, _grey3)),
+          ),
+          Expanded(
+            child: Text(value, style: _t(12, FontWeight.w600, _grey1)),
           ),
         ],
       ),
