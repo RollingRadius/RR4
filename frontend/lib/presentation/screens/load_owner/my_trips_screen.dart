@@ -488,17 +488,20 @@ class _LoadCardState extends ConsumerState<_LoadCard> {
   }
 
   Future<void> _confirmCancel(BuildContext context) async {
+    final isAssigned = widget.load.isAssigned;
+    final dialogTitle = isAssigned ? 'Cancel Trip' : 'Cancel Load';
+    final dialogBody = isAssigned
+        ? 'This load has an active trip. Cancelling will cancel both the load and the linked trip. This cannot be undone.'
+        : 'Are you sure you want to cancel. ${widget.load.refId}? ';
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape:
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Cancel Load',
+        title: Text(dialogTitle,
             style: _manrope(size: 16, weight: FontWeight.w700, color: _navy)),
-        content: Text(
-          'Are you sure you want to cancel ${widget.load.refId}? This cannot be undone.',
-          style: _inter(size: 13),
-        ),
+        content: Text(dialogBody, style: _inter(size: 13)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -506,7 +509,7 @@ class _LoadCardState extends ConsumerState<_LoadCard> {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Cancel Load',
+            child: Text(dialogTitle,
                 style: _manrope(
                     size: 13,
                     weight: FontWeight.w700,
@@ -545,6 +548,7 @@ class _LoadCardState extends ConsumerState<_LoadCard> {
   Widget build(BuildContext context) {
     final load = widget.load;
     final isCancelled = load.status == 'cancelled';
+    final isAssigned = load.isAssigned;
 
     return Container(
       decoration: BoxDecoration(
@@ -685,7 +689,7 @@ class _LoadCardState extends ConsumerState<_LoadCard> {
                     thickness: 1,
                     color: _outlineVariant.withValues(alpha: 0.5)),
 
-                // Cancel
+                // Cancel Load / Cancel Trip
                 Expanded(
                   child: InkWell(
                     onTap: (isCancelled || _cancelling)
@@ -709,19 +713,31 @@ class _LoadCardState extends ConsumerState<_LoadCard> {
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.cancel_outlined,
-                                    size: 14,
-                                    color: isCancelled
-                                        ? _outlineVariant
-                                        : const Color(0xFFBA1A1A)),
+                                Icon(
+                                  isCancelled
+                                      ? Icons.cancel_rounded
+                                      : isAssigned
+                                          ? Icons.local_shipping_rounded
+                                          : Icons.cancel_outlined,
+                                  size: 14,
+                                  color: isCancelled
+                                      ? _outlineVariant
+                                      : const Color(0xFFBA1A1A),
+                                ),
                                 const SizedBox(width: 4),
-                                Text('Cancel',
-                                    style: _inter(
-                                        size: 12,
-                                        weight: FontWeight.w700,
-                                        color: isCancelled
-                                            ? _outlineVariant
-                                            : const Color(0xFFBA1A1A))),
+                                Text(
+                                  isCancelled
+                                      ? 'Cancelled'
+                                      : isAssigned
+                                          ? 'Cancel Trip'
+                                          : 'Cancel Load',
+                                  style: _inter(
+                                      size: 12,
+                                      weight: FontWeight.w700,
+                                      color: isCancelled
+                                          ? _outlineVariant
+                                          : const Color(0xFFBA1A1A)),
+                                ),
                               ],
                             ),
                     ),
@@ -743,6 +759,11 @@ class _LoadStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, bg, fg) = switch (status) {
+      'assigned' => (
+          'TRIP ACTIVE',
+          const Color(0xFFD7F0D9),
+          const Color(0xFF1B5E20)
+        ),
       'active' => (
           'ACTIVE',
           const Color(0xFFD5E3FC),
@@ -903,6 +924,7 @@ class _TripCardState extends ConsumerState<_TripCard> {
         .cancelTrip(widget.trip.id);
     if (!mounted) return;
     setState(() => _cancelling = false);
+    if (ok) ref.read(loadProvider.notifier).silentRefresh();
 
     if (!ok) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -893,6 +893,53 @@ async def cancel_load_requirement(
         except Exception:
             pass
 
+    # ── 4. Notify the transporter if the linked trip had one assigned ──────────
+    if linked_trip and linked_trip.transporter_user_id:
+        from app.models.notification import Notification as _TN
+        from app.services.ws_manager import manager as _mgr
+        canceller_name = company.company_name if hasattr(company, 'company_name') else "Load Owner"
+        t_title = "Trip Cancelled"
+        t_body = (
+            f"Trip {linked_trip.trip_number} ({linked_trip.origin} → {linked_trip.destination}) "
+            f"has been cancelled by {canceller_name}."
+        )
+        t_notif = _TN(
+            recipient_user_id=linked_trip.transporter_user_id,
+            trip_id=linked_trip.id,
+            type="trip_cancelled",
+            title=t_title,
+            body=t_body,
+        )
+        db.add(t_notif)
+        db.commit()
+        db.refresh(t_notif)
+
+        t_msg = {
+            "type":        "trip_cancelled",
+            "id":          str(t_notif.id),
+            "trip_id":     str(linked_trip.id),
+            "trip_number": linked_trip.trip_number,
+            "origin":      linked_trip.origin,
+            "destination": linked_trip.destination,
+            "title":       t_title,
+            "body":        t_body,
+            "is_read":     False,
+            "created_at":  t_notif.created_at.isoformat() if t_notif.created_at else None,
+        }
+        try:
+            await _mgr.send_to_org(f"user:{str(linked_trip.transporter_user_id)}", t_msg)
+        except Exception:
+            pass
+        try:
+            t_user = db.query(User).filter(User.id == linked_trip.transporter_user_id).first()
+            if t_user and t_user.fcm_token:
+                fcm_service.send_to_token(
+                    t_user.fcm_token, t_title, t_body,
+                    {"type": "trip_cancelled", "trip_id": str(linked_trip.id)},
+                )
+        except Exception:
+            pass
+
     db.refresh(load)
 
     return {

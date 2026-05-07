@@ -984,6 +984,17 @@ async def cancel_trip(
         raise HTTPException(status_code=409, detail="Completed trips cannot be cancelled.")
 
     trip.status = 'cancelled'
+
+    # Also cancel the linked load requirement (it's tied to this trip)
+    if getattr(trip, 'load_requirement_id', None):
+        from app.models.load_requirement import LoadRequirement
+        linked_load = db.query(LoadRequirement).filter(
+            LoadRequirement.id == trip.load_requirement_id,
+            LoadRequirement.status == 'assigned',
+        ).first()
+        if linked_load:
+            linked_load.status = 'cancelled'
+
     db.commit()
 
     # ── Notify the LP org when a load_owner cancels ───────────────────────────

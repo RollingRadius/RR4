@@ -91,7 +91,7 @@ class LoadRequirementModel {
   String get refId => 'REQ-${id.replaceAll('-', '').substring(0, 8).toUpperCase()}';
 
   bool get isPending => status == 'pending';
-  bool get isActive => status == 'active';
+  bool get isActive => status == 'active';bool get isAssigned => status == 'assigned'; // load became a trip (LP confirmed fulfillment)
   bool get isCompleted => status == 'completed';
   bool get isCancelled => status == 'cancelled';
 
