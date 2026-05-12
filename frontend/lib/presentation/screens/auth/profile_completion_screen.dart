@@ -134,10 +134,6 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
         _showError('Please enter your company name');
         return;
       }
-      if (_gstNumberController.text.isEmpty) {
-        _showError('Please enter your GST Number');
-        return;
-      }
       if (_panNumberController.text.isEmpty) {
         _showError('Please enter your PAN Card Number');
         return;
@@ -148,7 +144,9 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
       }
       profileData['company_name'] = _companyNameController.text.trim();
       profileData['business_type'] = 'transporter';
-      profileData['gstin'] = _gstNumberController.text.trim().toUpperCase();
+      if (_gstNumberController.text.trim().isNotEmpty) {
+        profileData['gstin'] = _gstNumberController.text.trim().toUpperCase();
+      }
       profileData['pan_number'] = _panNumberController.text.trim().toUpperCase();
       profileData['address'] = _addressController.text.trim();
     }
@@ -979,7 +977,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           controller: _gstNumberController,
           textCapitalization: TextCapitalization.characters,
           decoration: InputDecoration(
-            labelText: 'GST Number *',
+            labelText: 'GST Number (optional)',
             hintText: '22AAAAA0000A1Z5',
             prefixIcon: const Icon(Icons.receipt_long),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
