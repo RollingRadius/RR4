@@ -86,6 +86,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final FcmService _fcmService;
 
   Timer? _expiryTimer;
+  Timer? _preRefreshTimer;
 
   AuthNotifier(this._authApi, this._storage, this._apiService, this._userApi, this._fcmService) : super(AuthState()) {
     _apiService.setAuthCallbacks(onRefresh: refreshToken, onLogout: logout);
@@ -112,22 +113,40 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Cancel any existing expiry timer and set a new one.
+  /// Cancel any existing expiry timers and set new ones.
+  /// - 10 min before expiry: silently refresh so active users are never interrupted.
+  /// - At expiry: logout (only reached if the silent refresh failed).
   void _scheduleExpiryLogout(String token) {
     _expiryTimer?.cancel();
+    _preRefreshTimer?.cancel();
     final expiry = _getTokenExpiry(token);
     if (expiry == null) return;
     final remaining = expiry.difference(DateTime.now());
     if (remaining.isNegative) {
-      // Already expired — logout immediately (async, don't await here)
       logout();
       return;
     }
+
+    // Silent pre-expiry refresh — fires 10 min before expiry
+    const preRefreshBuffer = Duration(minutes: 10);
+    final preRefreshIn = remaining - preRefreshBuffer;
+    if (preRefreshIn > Duration.zero) {
+      _preRefreshTimer = Timer(preRefreshIn, () async {
+        print('⏱️ Pre-expiry refresh triggered');
+        final ok = await refreshToken();
+        if (!ok) {
+          // Refresh failed — hard logout at actual expiry (timer still running)
+          print('⚠️ Pre-expiry refresh failed — will logout at expiry');
+        }
+      });
+    }
+
+    // Hard logout at expiry (cancelled if pre-refresh succeeds and reschedules)
     _expiryTimer = Timer(remaining, () {
       print('⏱️ Token expired — auto-logout');
       logout();
     });
-    print('⏱️ Auto-logout scheduled in ${remaining.inMinutes} min');
+    print('⏱️ Session: expires in ${remaining.inMinutes} min, refresh in ${preRefreshIn > Duration.zero ? (preRefreshIn.inMinutes) : 0} min');
   }
 
   /// Called on app resume to verify the stored token hasn't expired in the background.
@@ -285,6 +304,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> logout() async {
     _expiryTimer?.cancel();
     _expiryTimer = null;
+    _preRefreshTimer?.cancel();
+    _preRefreshTimer = null;
     await _storage.delete(key: AppConfig.tokenKey);
 
     // FCM token stays in DB and topic subscriptions stay active on the device —

@@ -1898,32 +1898,6 @@ class _ProfileTab extends ConsumerWidget {
 
             const SizedBox(height: 32),
 
-            // Info box
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: _amberL,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _amber.withOpacity(0.3)),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Icon(Icons.info_outline_rounded, size: 18, color: _amber),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'As a Transporter, you can only upload loading slips for trips assigned to you by a Logistic Partner.',
-                        style: _t(12, FontWeight.w500, Color(0xFF78550E)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
             const SizedBox(height: 28),
 
             // Logout
