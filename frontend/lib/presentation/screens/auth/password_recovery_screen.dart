@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:fleet_management/data/models/security_question_model.dart';
-import 'package:fleet_management/providers/security_questions_provider.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+
+/// Holds a single question returned by the recovery API.
+class _RecoveryQuestion {
+  final String questionId; // UUID from the backend
+  final String questionText;
+  const _RecoveryQuestion(
+      {required this.questionId, required this.questionText});
+}
 
 class PasswordRecoveryScreen extends ConsumerStatefulWidget {
   const PasswordRecoveryScreen({super.key});
@@ -21,7 +28,7 @@ class _PasswordRecoveryScreenState
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  String _recoveryMethod = 'email'; // 'email' or 'security_questions'
+  String _recoveryMethod = 'security_questions'; // default to working method
   bool _isLoading = false;
   bool _showPasswordReset = false;
 
@@ -31,7 +38,8 @@ class _PasswordRecoveryScreenState
     TextEditingController(),
     TextEditingController(),
   ];
-  List<SecurityQuestionModel> _userQuestions = [];
+  List<_RecoveryQuestion> _userQuestions = [];
+  String? _resetToken;
 
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
@@ -47,36 +55,8 @@ class _PasswordRecoveryScreenState
     super.dispose();
   }
 
-  Future<void> _handleEmailRecovery() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    // TODO: Implement email recovery
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password reset link sent to your email!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      context.go(AppConstants.routeLogin);
-    }
-  }
-
   Future<void> _loadUserSecurityQuestions() async {
-    if (_usernameController.text.isEmpty) {
+    if (_usernameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter your username'),
@@ -88,36 +68,54 @@ class _PasswordRecoveryScreenState
 
     setState(() {
       _isLoading = true;
+      _userQuestions = [];
+      _showPasswordReset = false;
+      _resetToken = null;
+      for (var c in _answerControllers) {
+        c.clear();
+      }
     });
 
-    // TODO: Load user's security questions from backend
-    // For now, show all questions
-    await ref.read(securityQuestionsProvider.notifier).loadQuestions();
+    try {
+      final authApi = ref.read(authApiProvider);
+      final response = await authApi.getUserSecurityQuestionsForRecovery(
+          _usernameController.text.trim());
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _showPasswordReset = false;
-      });
+      final rawList = response['questions'] as List<dynamic>;
+      final questions = rawList
+          .map((q) => _RecoveryQuestion(
+                questionId: q['question_id'] as String,
+                questionText: q['question_text'] as String,
+              ))
+          .toList();
 
-      final questions = ref.read(securityQuestionsProvider).questions;
-      if (questions.isNotEmpty) {
+      if (mounted) {
         setState(() {
-          // Take first 3 questions as user's questions (in production, this would come from backend)
-          _userQuestions = questions.take(3).toList();
+          _isLoading = false;
+          _userQuestions = questions;
         });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }
 
   Future<void> _handleSecurityQuestionsRecovery() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
-    // Validate answers
-    for (var controller in _answerControllers) {
-      if (controller.text.isEmpty) {
+    // Build answers list matching the loaded questions order
+    final answers = <Map<String, String>>[];
+    for (int i = 0; i < _userQuestions.length; i++) {
+      final text = _answerControllers[i].text.trim();
+      if (text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Please answer all security questions'),
@@ -126,48 +124,83 @@ class _PasswordRecoveryScreenState
         );
         return;
       }
+      answers.add({
+        'question_id': _userQuestions[i].questionId,
+        'answer': text,
+      });
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
-    // TODO: Verify security answers with backend
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final authApi = ref.read(authApiProvider);
+      final response = await authApi.verifySecurityAnswers(
+        username: _usernameController.text.trim(),
+        answers: answers,
+      );
 
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-        _showPasswordReset = true;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _resetToken = response['reset_token'] as String?;
+          _showPasswordReset = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _handlePasswordReset() async {
-    if (!_formKey.currentState!.validate()) {
+    if (!_formKey.currentState!.validate()) return;
+    if (_resetToken == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Session expired. Please start over.'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
-    // TODO: Reset password with backend
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password reset successful! Please login with your new password.'),
-          backgroundColor: Colors.green,
-        ),
+    try {
+      final authApi = ref.read(authApiProvider);
+      await authApi.resetPasswordWithToken(
+        resetToken: _resetToken!,
+        newPassword: _newPasswordController.text,
       );
 
-      context.go(AppConstants.routeLogin);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Password reset successful! Please login with your new password.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        context.go(AppConstants.routeLogin);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -210,7 +243,7 @@ class _PasswordRecoveryScreenState
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Choose a recovery method to reset your password',
+                        'Reset your password using your security questions',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.grey[600],
                             ),
@@ -278,41 +311,53 @@ class _PasswordRecoveryScreenState
                 )),  // closes FadeSlide for Username
                 const SizedBox(height: 24),
 
-                // Email Recovery
+                // Email Recovery — Coming Soon
                 if (_recoveryMethod == 'email') ...[
-                  FadeSlide(delay: 450, child: Card(
-                    color: Colors.blue.shade50,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline, color: Colors.blue.shade700),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'A password reset link will be sent to your registered email address.',
-                              style: TextStyle(color: Colors.blue.shade900),
+                  FadeSlide(
+                    delay: 450,
+                    child: Card(
+                      color: Colors.amber.shade50,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(color: Colors.amber.shade300),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0),
+                        child: Column(
+                          children: [
+                            Icon(Icons.construction_rounded,
+                                size: 48, color: Colors.amber.shade700),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Coming Soon',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber.shade900,
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                            Text(
+                              'Email-based password recovery is under development. '
+                              'Please use Security Questions to reset your password for now.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.amber.shade800),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  )),  // closes Card and FadeSlide
-                  const SizedBox(height: 24),
-
+                  ),
+                  const SizedBox(height: 16),
                   FadeSlide(
                     delay: 550,
                     child: SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleEmailRecovery,
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Send Reset Link'),
+                      child: OutlinedButton.icon(
+                        onPressed: () => setState(
+                            () => _recoveryMethod = 'security_questions'),
+                        icon: const Icon(Icons.security),
+                        label: const Text('Use Security Questions Instead'),
                       ),
                     ),
                   ),
@@ -381,7 +426,9 @@ class _PasswordRecoveryScreenState
                       ),
                       const SizedBox(height: 8),
                       TextFormField(
-                        controller: _answerControllers[i],
+                        controller: i < _answerControllers.length
+                            ? _answerControllers[i]
+                            : TextEditingController(),
                         decoration: const InputDecoration(
                           hintText: 'Enter your answer',
                           prefixIcon: Icon(Icons.edit),

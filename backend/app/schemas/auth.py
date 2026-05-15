@@ -243,10 +243,16 @@ class ForgotPasswordEmailRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
 
 
+class SecurityAnswerInput(BaseModel):
+    """A single security question answer (for recovery)"""
+    question_id: str = Field(..., description="Question UUID")
+    answer: str = Field(..., min_length=1, max_length=255)
+
+
 class VerifyAnswersRequest(BaseModel):
     """Request body for verifying security answers (password reset)"""
     username: str = Field(..., min_length=3, max_length=50)
-    answers: List[str] = Field(..., min_length=3, max_length=3)
+    answers: List[SecurityAnswerInput] = Field(..., min_length=3, max_length=3)
 
 
 class ResetPasswordRequest(BaseModel):

@@ -80,4 +80,49 @@ class AuthApi {
       throw _apiService.handleError(e);
     }
   }
+
+  /// Get a user's security questions for password recovery
+  Future<Map<String, dynamic>> getUserSecurityQuestionsForRecovery(
+      String username) async {
+    try {
+      final response = await _apiService.dio.get(
+        '/api/auth/forgot-password/questions/$username',
+      );
+      return response.data;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
+  /// Verify security answers and get a password-reset token
+  Future<Map<String, dynamic>> verifySecurityAnswers({
+    required String username,
+    required List<Map<String, String>> answers,
+  }) async {
+    try {
+      final response = await _apiService.dio.post(
+        '/api/auth/forgot-password/verify-answers',
+        data: {'username': username, 'answers': answers},
+      );
+      return response.data;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
+  /// Reset password using the token obtained after answer verification
+  Future<Map<String, dynamic>> resetPasswordWithToken({
+    required String resetToken,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _apiService.dio.post(
+        '/api/auth/reset-password',
+        data: {'reset_token': resetToken, 'new_password': newPassword},
+      );
+      return response.data;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
 }

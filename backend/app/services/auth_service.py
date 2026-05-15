@@ -97,7 +97,7 @@ class AuthService:
         if signup_data['auth_method'] == AUTH_METHOD_SECURITY_QUESTIONS:
             self._save_security_questions(
                 user.id,
-                signup_data['password'],
+                password_hash,  # use the hash so recovery can decrypt with user.password_hash
                 signup_data['security_questions']
             )
 

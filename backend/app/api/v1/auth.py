@@ -237,7 +237,9 @@ def verify_security_answers(
     - 3 failed attempts → 30-minute lockout
     """
     recovery_service = RecoveryService(db)
-    return recovery_service.verify_security_answers_for_password_reset(data.username, data.answers)
+    return recovery_service.verify_security_answers_for_password_reset(
+        data.username, [a.model_dump() for a in data.answers]
+    )
 
 
 @router.post("/reset-password")

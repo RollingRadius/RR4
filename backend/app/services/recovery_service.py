@@ -14,7 +14,7 @@ from app.models.user_security_answer import UserSecurityAnswer
 from app.models.verification_token import VerificationToken
 from app.models.recovery_attempt import RecoveryAttempt
 from app.core.security import hash_password
-from app.core.encryption import decrypt_and_compare
+from app.core.encryption import decrypt_and_compare, re_encrypt_answers
 from app.services.email_service import EmailService
 
 
@@ -277,8 +277,26 @@ class RecoveryService:
                 detail="User not found"
             )
 
+        # Re-encrypt security answers with the new password hash before changing it.
+        # Answers are encrypted using the password_hash as key material, so any
+        # hash change must be followed by re-encryption to keep answers readable.
+        old_hash = user.password_hash
+        new_hash = hash_password(new_password)
+
+        user_answers = self.db.query(UserSecurityAnswer).filter(
+            UserSecurityAnswer.user_id == user.id
+        ).all()
+
+        if user_answers:
+            salt = user_answers[0].encryption_salt  # all answers share the same salt
+            old_encrypted = [ua.encrypted_answer for ua in user_answers]
+            new_encrypted = re_encrypt_answers(old_encrypted, old_hash, new_hash, salt)
+            if new_encrypted:
+                for i, ua in enumerate(user_answers):
+                    ua.encrypted_answer = new_encrypted[i]
+
         # Update password
-        user.password_hash = hash_password(new_password)
+        user.password_hash = new_hash
         user.failed_login_attempts = 0
         user.locked_until = None
 
