@@ -31,7 +31,7 @@ class RecoveryService:
             RecoveryAttempt.user_id == user_id,
             RecoveryAttempt.attempt_type == attempt_type,
             RecoveryAttempt.success == False,
-            RecoveryAttempt.attempted_at > cutoff_time
+            RecoveryAttempt.created_at > cutoff_time
         ).count()
 
         if failed_attempts >= 3:
@@ -45,14 +45,12 @@ class RecoveryService:
         user_id: str,
         attempt_type: str,
         success: bool,
-        details: Dict = None
     ) -> None:
         """Log a recovery attempt"""
         attempt = RecoveryAttempt(
             user_id=user_id,
             attempt_type=attempt_type,
             success=success,
-            details=details or {}
         )
         self.db.add(attempt)
         self.db.commit()
