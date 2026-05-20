@@ -111,8 +111,15 @@ class Trip(Base):
     s4_bilty_checked    = Column(Boolean, nullable=True)
     s4_weight_checked   = Column(Boolean, nullable=True)
     s4_material_checked = Column(Boolean, nullable=True)
-    s4_completed_at     = Column(TIMESTAMP(timezone=True), nullable=True)
-    s4_notified_at      = Column(TIMESTAMP(timezone=True), nullable=True)
+    s4_completed_at       = Column(TIMESTAMP(timezone=True), nullable=True)
+    s4_notified_at        = Column(TIMESTAMP(timezone=True), nullable=True)
+    s4_diesel_receipt_url = Column(Text, nullable=True)   # uploaded after truck exits factory
+
+    # Stage 5 — Unloading (Proof of Delivery + Halting Charge)
+    s5_pod_url        = Column(Text,                    nullable=True)
+    s5_halting_charge = Column(Numeric(12, 2),          nullable=True)
+    s5_submitted_by   = Column(UUID(as_uuid=True),      nullable=True)
+    s5_completed_at   = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # ── Transporter Assignment ────────────────────────────────────────────────────
     # User ID of the transporter assigned by LP to upload the loading slip
@@ -128,6 +135,9 @@ class Trip(Base):
 
     # ── Draft (cross-device in-progress form data) ───────────────────────────────
     draft_data = Column(JSONB, nullable=True)
+
+    # ── Per-field attribution (fieldKey → @username, persists across submits) ──
+    field_attributions = Column(JSONB, nullable=True)
 
     # ── Dates ────────────────────────────────────────────────────────────────────
     start_date = Column(Date, nullable=True)
@@ -209,6 +219,12 @@ class Trip(Base):
             "s4_material_checked": self.s4_material_checked,
             "s4_completed_at": self.s4_completed_at.isoformat() if self.s4_completed_at else None,
             "s4_notified_at": self.s4_notified_at.isoformat() if self.s4_notified_at else None,
+            "s4_diesel_receipt_url": self.s4_diesel_receipt_url,
+            # Stage 5 — Unloading
+            "s5_pod_url": self.s5_pod_url,
+            "s5_halting_charge": float(self.s5_halting_charge) if self.s5_halting_charge is not None else None,
+            "s5_submitted_by": str(self.s5_submitted_by) if self.s5_submitted_by else None,
+            "s5_completed_at": self.s5_completed_at.isoformat() if self.s5_completed_at else None,
             # Stage authorship
             "s1_submitted_by": str(self.s1_submitted_by) if self.s1_submitted_by else None,
             "s2_submitted_by": str(self.s2_submitted_by) if self.s2_submitted_by else None,
@@ -224,6 +240,7 @@ class Trip(Base):
             # "s3_claimed_at": None,
             # "s4_claimed_at": None,
             "draft_data": self.draft_data,
+            "field_attributions": self.field_attributions,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

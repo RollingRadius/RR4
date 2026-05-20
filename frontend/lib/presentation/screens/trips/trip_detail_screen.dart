@@ -214,7 +214,9 @@ class _GoToStageButton extends ConsumerWidget {
         0 => 'Truck Registration',
         1 => 'Compliance Check',
         2 => 'Factory Arrival',
-        _ => 'Exit & Complete',
+        3 => 'Exit Check',
+        4 => 'Diesel Receipt',
+        _ => 'Unloading',
       };
 
   @override

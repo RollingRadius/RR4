@@ -71,12 +71,26 @@ class TripModel {
   final bool? s4MaterialChecked;
   final String? s4CompletedAt;
   final String? s4NotifiedAt;
+  final String? s4DieselReceiptUrl;   // uploaded after truck exits factory
+
+  // ── Stage 5 fields — Unloading ────────────────────────────────────────────────
+  final String?  s5PodUrl;
+  final double?  s5HaltingCharge;
+  final String?  s5SubmittedBy;
+  final String?  s5CompletedAt;
 
   // ── Stage authorship (who submitted each stage) ───────────────────────────────
   final String? s1SubmittedBy;
   final String? s2SubmittedBy;
   final String? s3SubmittedBy;
   final String? s4SubmittedBy;
+
+  // ── Stage submitter usernames (resolved by backend) ────────────────────────
+  final String? s1SubmittedByUsername;
+  final String? s2SubmittedByUsername;
+  final String? s3SubmittedByUsername;
+  final String? s4SubmittedByUsername;
+  final String? s5SubmittedByUsername;
 
   // ── Stage claims (who is currently working on each stage) ─────────────────────
   final String? s1ClaimedBy;
@@ -94,6 +108,9 @@ class TripModel {
 
   // ── Draft (cross-device in-progress form data) ────────────────────────────────
   final Map<String, dynamic>? draftData;
+
+  // ── Per-field attribution (fieldKey → @username, persists across submits) ──
+  final Map<String, dynamic>? fieldAttributions;
 
   const TripModel({
     required this.id,
@@ -158,10 +175,20 @@ class TripModel {
     this.s4MaterialChecked,
     this.s4CompletedAt,
     this.s4NotifiedAt,
+    this.s4DieselReceiptUrl,
+    this.s5PodUrl,
+    this.s5HaltingCharge,
+    this.s5SubmittedBy,
+    this.s5CompletedAt,
     this.s1SubmittedBy,
     this.s2SubmittedBy,
     this.s3SubmittedBy,
     this.s4SubmittedBy,
+    this.s1SubmittedByUsername,
+    this.s2SubmittedByUsername,
+    this.s3SubmittedByUsername,
+    this.s4SubmittedByUsername,
+    this.s5SubmittedByUsername,
     this.s1ClaimedBy,
     this.s2ClaimedBy,
     this.s3ClaimedBy,
@@ -171,6 +198,7 @@ class TripModel {
     this.transporterName,
     this.transporterPhone,
     this.draftData,
+    this.fieldAttributions,
   });
 
   bool get isOngoing => status == 'ongoing';
@@ -241,12 +269,22 @@ class TripModel {
       s4BiltyChecked:     json['s4_bilty_checked']     as bool?,
       s4WeightChecked:    json['s4_weight_checked']     as bool?,
       s4MaterialChecked:  json['s4_material_checked']   as bool?,
-      s4CompletedAt:      json['s4_completed_at']       as String?,
-      s4NotifiedAt:       json['s4_notified_at']        as String?,
-      s1SubmittedBy:      json['s1_submitted_by']       as String?,
-      s2SubmittedBy:      json['s2_submitted_by']       as String?,
-      s3SubmittedBy:      json['s3_submitted_by']       as String?,
-      s4SubmittedBy:      json['s4_submitted_by']       as String?,
+      s4CompletedAt:      json['s4_completed_at']        as String?,
+      s4NotifiedAt:       json['s4_notified_at']         as String?,
+      s4DieselReceiptUrl: json['s4_diesel_receipt_url']  as String?,
+      s5PodUrl:           json['s5_pod_url']             as String?,
+      s5HaltingCharge:    (json['s5_halting_charge'] as num?)?.toDouble(),
+      s5SubmittedBy:      json['s5_submitted_by']        as String?,
+      s5CompletedAt:      json['s5_completed_at']        as String?,
+      s1SubmittedBy:          json['s1_submitted_by']           as String?,
+      s2SubmittedBy:          json['s2_submitted_by']           as String?,
+      s3SubmittedBy:          json['s3_submitted_by']           as String?,
+      s4SubmittedBy:          json['s4_submitted_by']           as String?,
+      s1SubmittedByUsername:  json['s1_submitted_by_username']  as String?,
+      s2SubmittedByUsername:  json['s2_submitted_by_username']  as String?,
+      s3SubmittedByUsername:  json['s3_submitted_by_username']  as String?,
+      s4SubmittedByUsername:  json['s4_submitted_by_username']  as String?,
+      s5SubmittedByUsername:  json['s5_submitted_by_username']  as String?,
       s1ClaimedBy:        json['s1_claimed_by']         as String?,
       s2ClaimedBy:        json['s2_claimed_by']         as String?,
       s3ClaimedBy:        json['s3_claimed_by']         as String?,
@@ -256,6 +294,7 @@ class TripModel {
       transporterName:    json['transporter_name']       as String?,
       transporterPhone:   json['transporter_phone']      as String?,
       draftData:          json['draft_data'] as Map<String, dynamic>?,
+      fieldAttributions:  json['field_attributions'] as Map<String, dynamic>?,
     );
   }
 

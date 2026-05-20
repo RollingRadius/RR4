@@ -74,6 +74,9 @@ class _LogisticPartnerWorkerDashboardState
     if (index == 0 && _navIndex != 0) {
       ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
     }
+    if (index == 1 && _navIndex != 1) {
+      ref.read(completedTripsProvider.notifier).loadTrips(statusFilter: 'completed');
+    }
     setState(() => _navIndex = index);
   }
 
@@ -99,6 +102,7 @@ class _LogisticPartnerWorkerDashboardState
 
     final pages = [
       const _WorkerHomeTab(),
+      const _WorkerRecordsTab(),
       const _WorkerProfileTab(),
     ];
 
@@ -501,7 +505,8 @@ class _WorkerBottomNav extends StatelessWidget {
 
   static const _items = [
     (Icons.dashboard_rounded, 'DASHBOARD', 0),
-    (Icons.person_outline, 'PROFILE', 1),
+    (Icons.history_rounded, 'RECORDS', 1),
+    (Icons.person_outline, 'PROFILE', 2),
   ];
 
   @override
@@ -906,6 +911,128 @@ class _WorkerProfileTab extends ConsumerWidget {
   }
 }
 
+// ─── Records Tab ──────────────────────────────────────────────────────────────
+
+class _WorkerRecordsTab extends ConsumerWidget {
+  const _WorkerRecordsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(completedTripsProvider);
+    final trips = state.trips.where((t) => t.isCompleted).toList()
+      ..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
+
+    return RefreshIndicator(
+      color: _primary,
+      onRefresh: () => ref
+          .read(completedTripsProvider.notifier)
+          .loadTrips(statusFilter: 'completed'),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Trip Records',
+                            style: _manrope(size: 20, weight: FontWeight.w800)),
+                        Text('All completed trips',
+                            style: _inter(size: 12, color: _secondary)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD7F0D9),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${trips.length} completed',
+                      style: _inter(
+                          size: 11,
+                          weight: FontWeight.w700,
+                          color: const Color(0xFF1B5E20)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (state.isLoading)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (state.error != null && trips.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline_rounded,
+                        size: 48, color: Color(0xFFBA1A1A)),
+                    const SizedBox(height: 12),
+                    Text(state.error!,
+                        style: _inter(size: 13),
+                        textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => ref
+                          .read(completedTripsProvider.notifier)
+                          .loadTrips(statusFilter: 'completed'),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (trips.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.folder_copy_outlined,
+                        size: 64,
+                        color: _secondary.withValues(alpha: 0.4)),
+                    const SizedBox(height: 16),
+                    Text('No completed trips yet',
+                        style: _manrope(
+                            size: 15,
+                            weight: FontWeight.w700,
+                            color: _secondary)),
+                    const SizedBox(height: 6),
+                    Text('Completed trips will appear here',
+                        style: _inter(size: 13, color: _secondary)),
+                  ],
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: OngoingTripCard(trip: trips[i], readOnly: true),
+                  ),
+                  childCount: trips.length,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── App Drawer ───────────────────────────────────────────────────────────────
 
 class _WorkerDrawer extends ConsumerWidget {
@@ -921,7 +1048,8 @@ class _WorkerDrawer extends ConsumerWidget {
 
   static const _navItems = [
     (Icons.dashboard_rounded, 'Dashboard', 0),
-    (Icons.person_outline_rounded, 'Profile', 1),
+    (Icons.history_rounded, 'Records', 1),
+    (Icons.person_outline_rounded, 'Profile', 2),
   ];
 
   @override

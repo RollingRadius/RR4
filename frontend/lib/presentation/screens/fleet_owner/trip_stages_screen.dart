@@ -49,7 +49,8 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
   bool _fetchingFresh = false;
   bool _showStage4 = false;
   bool _stage4Done = false;
-  /// Non-null when re-editing a completed stage (visual dot index 0-4).
+  bool _stage5Done = false;
+  /// Non-null when re-editing a completed stage (visual dot index 0-5).
   int? _editingStage;
 
   @override
@@ -57,9 +58,15 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
     super.initState();
     _trip = widget.trip;
     _providerKey = (_trip.id, _trip.currentStage);
-    if (_trip.currentStage >= 4) {
+    if (_trip.currentStage >= 5) {
       _showStage4 = true;
       _stage4Done = true;
+      _stage5Done = true;
+    } else if (_trip.currentStage >= 4 && _trip.s4DieselReceiptUrl != null) {
+      _showStage4 = true;
+      _stage4Done = true;
+    } else if (_trip.currentStage >= 4) {
+      _showStage4 = true; // checklist done, diesel still needed
     }
     // If opened at a specific stage from the sliding panel, jump there directly.
     if (widget.initialStage != null) {
@@ -83,9 +90,15 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
         _tripFreshness++;
         _fetchingFresh = false;
         _providerKey = (fresh.id, fresh.currentStage);
-        if (fresh.currentStage >= 4 && !_stage4Done) {
+        if (fresh.currentStage >= 5 && !_stage5Done) {
           _showStage4 = true;
           _stage4Done = true;
+          _stage5Done = true;
+        } else if (fresh.currentStage >= 4 && fresh.s4DieselReceiptUrl != null && !_stage4Done) {
+          _showStage4 = true;
+          _stage4Done = true;
+        } else if (fresh.currentStage >= 4 && !_showStage4) {
+          _showStage4 = true;
         }
       });
       // Keep the main trips list in sync
@@ -173,10 +186,31 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
           onEditDone: _exitEditMode,
         );
       case 4:
-      default:
         return _Stage4Form(
+          key: ValueKey('edit_s4_${_trip.id}_$_tripFreshness'),
           trip: _trip,
-          onComplete: _exitEditMode,
+          onComplete: (updated) {
+            setState(() {
+              _trip = updated;
+              _stage4Done = true;
+              ref.read(tripProvider.notifier).patchTrip(updated);
+            });
+            _exitEditMode();
+          },
+        );
+      case 5:
+      default:
+        return _Stage5Form(
+          key: ValueKey('edit_s5_${_trip.id}_$_tripFreshness'),
+          trip: _trip,
+          onComplete: (updated) {
+            setState(() {
+              _trip = updated;
+              _stage5Done = true;
+              ref.read(tripProvider.notifier).patchTrip(updated);
+            });
+            _exitEditMode();
+          },
         );
     }
   }
@@ -221,6 +255,7 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
           _StepIndicator(
             trip: _trip,
             stage4Done: _stage4Done,
+            stage5Done: _stage5Done,
             onStepTap: _buildStepTapHandler(),
           ),
           if (state.error != null)
@@ -242,55 +277,74 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
           Expanded(
             child: _editingStage != null
                 ? _buildEditForm(_editingStage!)
-                : _stage4Done
+                : _stage5Done
                     ? _Stage4CompleteView(
                         trip: _trip,
                         onDone: () => Navigator.of(context).pop(),
                       )
-                    : _showStage4
-                        ? _Stage4Form(
+                    : _stage4Done
+                        ? _Stage5Form(
+                            key: ValueKey('s5_${_trip.id}_$_tripFreshness'),
                             trip: _trip,
-                            onComplete: () => setState(() => _stage4Done = true),
+                            onComplete: (updated) {
+                              setState(() {
+                                _trip = updated;
+                                _stage5Done = true;
+                                ref.read(tripProvider.notifier).patchTrip(updated);
+                              });
+                            },
                           )
-                        : stage == 3
-                            ? _CompletionView(
+                        : _showStage4
+                            ? _Stage4Form(
+                                key: ValueKey('s4_${_trip.id}_$_tripFreshness'),
                                 trip: _trip,
-                                emptyWeightKg: state.emptyWeightKg,
-                                emptyWeightUnit: state.emptyWeightUnit ?? 'tons',
-                                loadedWeightKg: state.loadedWeightKg,
-                                loadedWeightUnit: state.loadedWeightUnit ?? 'tons',
-                                onDone: () => Navigator.of(context).pop(),
-                                onNextStage: () => setState(() => _showStage4 = true),
+                                onComplete: (updated) {
+                                  setState(() {
+                                    _trip = updated;
+                                    _stage4Done = true;
+                                    ref.read(tripProvider.notifier).patchTrip(updated);
+                                  });
+                                },
                               )
-                            : stage == 0
-                                ? _Stage1Form(
-                                    key: ValueKey('s1_${_trip.id}_$_tripFreshness'),
-                                    providerKey: _providerKey,
+                            : stage == 3
+                                ? _CompletionView(
                                     trip: _trip,
-                                    onEditDone: null,
+                                    emptyWeightKg: state.emptyWeightKg,
+                                    emptyWeightUnit: state.emptyWeightUnit ?? 'tons',
+                                    loadedWeightKg: state.loadedWeightKg,
+                                    loadedWeightUnit: state.loadedWeightUnit ?? 'tons',
+                                    onDone: () => Navigator.of(context).pop(),
+                                    onNextStage: () => setState(() => _showStage4 = true),
                                   )
-                                : stage == 1
-                                    ? _Stage2Form(
-                                        key: ValueKey('s2_${_trip.id}_$_tripFreshness'),
+                                : stage == 0
+                                    ? _Stage1Form(
+                                        key: ValueKey('s1_${_trip.id}_$_tripFreshness'),
                                         providerKey: _providerKey,
                                         trip: _trip,
+                                        onEditDone: null,
                                       )
-                                    : _trip.s2LoadingSlipUrl == null
-                                        ? _LoadingSlipMini(
-                                            key: ValueKey('slip_${_trip.id}'),
-                                            trip: _trip,
-                                            onUploaded: (updated) {
-                                              setState(() {
-                                                _trip = updated;
-                                                ref.read(tripProvider.notifier).patchTrip(updated);
-                                              });
-                                            },
-                                          )
-                                        : _Stage3Form(
-                                            key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
+                                    : stage == 1
+                                        ? _Stage2Form(
+                                            key: ValueKey('s2_${_trip.id}_$_tripFreshness'),
                                             providerKey: _providerKey,
                                             trip: _trip,
-                                          ),
+                                          )
+                                        : _trip.s2LoadingSlipUrl == null
+                                            ? _LoadingSlipMini(
+                                                key: ValueKey('slip_${_trip.id}'),
+                                                trip: _trip,
+                                                onUploaded: (updated) {
+                                                  setState(() {
+                                                    _trip = updated;
+                                                    ref.read(tripProvider.notifier).patchTrip(updated);
+                                                  });
+                                                },
+                                              )
+                                            : _Stage3Form(
+                                                key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
+                                                providerKey: _providerKey,
+                                                trip: _trip,
+                                              ),
           ),
         ],
       ),
@@ -331,12 +385,14 @@ class _TripStateBadge extends StatelessWidget {
 class _StepIndicator extends StatefulWidget {
   final TripModel trip;
   final bool stage4Done;
+  final bool stage5Done;
   final Function(int)? onStepTap;
-  const _StepIndicator({required this.trip, required this.stage4Done, this.onStepTap});
+  const _StepIndicator({required this.trip, required this.stage4Done, required this.stage5Done, this.onStepTap});
 
-  static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit'];
+  static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit', 'Unloading'];
 
   int visualIndex() {
+    if (stage5Done) return 6;
     if (stage4Done) return 5;
     final s = trip.currentStage;
     if (s == 0) return 0;
@@ -378,7 +434,7 @@ class _StepIndicatorState extends State<_StepIndicator>
       color: _surface,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Row(
-        children: List.generate(5, (i) {
+        children: List.generate(6, (i) {
           final stepLabel = i < 2 ? '${i + 1}' : i == 2 ? 'LS' : '$i';
           final isDone   = visualIdx > i;
           final isActive = visualIdx == i;
@@ -462,7 +518,7 @@ class _StepIndicatorState extends State<_StepIndicator>
                 )
               : dot;
 
-          if (i == 4) return dotWidget;
+          if (i == 5) return dotWidget;
 
           return Expanded(
             child: Row(
@@ -511,6 +567,14 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   final _formKey = GlobalKey<FormState>();
   final _picker  = ImagePicker();
 
+  // ── Per-field attribution tracking ─────────────────────────────────────────
+  /// Attributions restored from draft: fieldKey → @username
+  final Map<String, String> _fieldAttributions = {};
+  /// Fields touched by the current user this session (sent to backend on save)
+  final Set<String> _touchedByMe = {};
+  void _touchField(String key) => _touchedByMe.add(key);
+  String? _attrOf(String key) => _fieldAttributions[key];
+
   // ── Text fields ─────────────────────────────────────────────────────────────
   final _driverName     = TextEditingController();
   final _driverPhone    = TextEditingController();
@@ -543,15 +607,23 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   void initState() {
     super.initState();
     _prefillFromDraft();
-    for (final c in [_driverName, _driverPhone, _drivingLicense, _aadhaar]) {
-      c.addListener(_onFieldChanged);
-    }
+    // Individual listeners so we know WHICH field the current user touched
+    _driverName.addListener(()     { _touchField('driver_name');     _onFieldChanged(); });
+    _driverPhone.addListener(()    { _touchField('driver_phone');    _onFieldChanged(); });
+    _drivingLicense.addListener(() { _touchField('driving_license'); _onFieldChanged(); });
+    _aadhaar.addListener(()        { _touchField('aadhaar');         _onFieldChanged(); });
   }
 
   // ── Draft restore ────────────────────────────────────────────────────────────
 
   void _prefillFromDraft() {
     final trip = widget.trip;
+
+    // Always load persistent field attributions first (survive stage submission)
+    trip.fieldAttributions?.forEach((k, v) {
+      if (v is String) _fieldAttributions[k] = v;
+    });
+
     final draft = trip.draftData;
 
     // Prefer draft data over committed trip fields (draft = in-progress edits)
@@ -575,6 +647,11 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       _cancelledChequeDoc = _restoreFile(d, 'cancelled_cheque_doc');
       if (draft['saved_at'] != null) {
         _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
+      }
+      // Draft attributions override persistent ones
+      final attrs = draft['attributions'] as Map<String, dynamic>?;
+      if (attrs != null) {
+        attrs.forEach((k, v) { if (v is String) _fieldAttributions[k] = v; });
       }
       return;
     }
@@ -637,6 +714,9 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
           ..._fileDraftEntry(_taxDeclDoc,         'tax_decl_doc'),
           ..._fileDraftEntry(_cancelledChequeDoc, 'cancelled_cheque_doc'),
         },
+        // Per-field attribution: backend resolves these to current_user.username
+        if (_touchedByMe.isNotEmpty)
+          'attributions': {for (final k in _touchedByMe) k: true},
       });
       if (mounted) setState(() => _lastSaved = DateTime.now());
     } on DioException catch (e) {
@@ -807,6 +887,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
         borderSide: const BorderSide(color: _error, width: 1.5)),
   );
 
+  /// Builds an upload tile with optional per-field attribution display.
+  /// [fieldKey] is used for touch tracking and attribution lookup.
   Widget _uploadTile(
     String label,
     String subtitle,
@@ -814,18 +896,32 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     void Function(({Uint8List bytes, String name}) f) onPicked,
     VoidCallback onRemove, {
     String? existingUrl,
+    String? fieldKey,
   }) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: _DocUploadTile(
-          label: label,
-          subtitle: subtitle,
-          bytes: file?.bytes,
-          fileName: file?.name,
-          existingUrl: file == null ? existingUrl : null,
-          onPickSource: (src) => _pickFile(src, onPicked),
-          onRemove: onRemove,
-        ),
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: _DocUploadTile(
+              label: label,
+              subtitle: subtitle,
+              bytes: file?.bytes,
+              fileName: file?.name,
+              existingUrl: file == null ? existingUrl : null,
+              onPickSource: (src) async {
+                if (fieldKey != null) _touchField(fieldKey);
+                await _pickFile(src, onPicked);
+              },
+              onRemove: () {
+                if (fieldKey != null) _touchField(fieldKey);
+                onRemove();
+              },
+            ),
+          ),
+          _FieldAttribution(username: fieldKey != null ? _attrOf(fieldKey) : null),
+          const SizedBox(height: 8),
+        ],
       );
 
   @override
@@ -839,12 +935,19 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Stage 1 attribution — who submitted this stage (LP side only)
+            _StageAttribution(
+              username: widget.trip.currentStage >= 1
+                  ? widget.trip.s1SubmittedByUsername
+                  : null,
+            ),
+
             // ── Driver Details ─────────────────────────────────────────────────
             _SectionHeader(icon: Icons.person_outline_rounded, title: 'Driver Details'),
 
             // Driver Name — alphabets only, max 25
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 3),
               child: TextFormField(
                 controller: _driverName,
                 focusNode: _driverNameFocus,
@@ -857,10 +960,12 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 decoration: _dec('Driver Name'),
               ),
             ),
+            _FieldAttribution(username: _attrOf('driver_name')),
+            const SizedBox(height: 8),
 
             // Driver Phone — +91 shown as static prefix, user enters 10 digits
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 3),
               child: TextFormField(
                 controller: _driverPhone,
                 focusNode: _driverPhoneFocus,
@@ -878,6 +983,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 ),
               ),
             ),
+            _FieldAttribution(username: _attrOf('driver_phone')),
+            const SizedBox(height: 8),
 
             // Driving License — alphanumeric, 10-18 chars
             Padding(
@@ -896,16 +1003,18 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.only(bottom: 12, top: 4),
+              padding: const EdgeInsets.only(bottom: 4, top: 4),
               child: Text(
                 'New: RJ1420230012345   Old: RJ14/1234/2009',
                 style: _inter(size: 11, color: _secondary),
               ),
             ),
+            _FieldAttribution(username: _attrOf('driving_license')),
+            const SizedBox(height: 8),
 
             // Aadhaar — exactly 12 digits
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 3),
               child: TextFormField(
                 controller: _aadhaar,
                 focusNode: _aadhaarFocus,
@@ -919,6 +1028,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 decoration: _dec('Aadhaar Number (12 digits)'),
               ),
             ),
+            _FieldAttribution(username: _attrOf('aadhaar')),
+            const SizedBox(height: 8),
 
             // Driving License — Front & Back
             _DocPairSection(
@@ -930,6 +1041,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 (f) => _dlDoc = f,
                 () { setState(() => _dlDoc = null); _onUploadChanged(); },
                 existingUrl: widget.trip.s1DrivingLicenseUrl,
+                fieldKey: 'dl_doc',
               ),
               backTile: _uploadTile(
                 'Back Side',
@@ -938,6 +1050,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 (f) => _dlBackDoc = f,
                 () { setState(() => _dlBackDoc = null); _onUploadChanged(); },
                 existingUrl: widget.trip.s1DrivingLicenseBackUrl,
+                fieldKey: 'dl_back_doc',
               ),
             ),
 
@@ -951,6 +1064,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 (f) => _aadhaarDoc = f,
                 () { setState(() => _aadhaarDoc = null); _onUploadChanged(); },
                 existingUrl: widget.trip.s1AadhaarUrl,
+                fieldKey: 'aadhaar_doc',
               ),
               backTile: _uploadTile(
                 'Back Side',
@@ -959,6 +1073,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 (f) => _aadhaarBackDoc = f,
                 () { setState(() => _aadhaarBackDoc = null); _onUploadChanged(); },
                 existingUrl: widget.trip.s1AadhaarBackUrl,
+                fieldKey: 'aadhaar_back_doc',
               ),
             ),
             const SizedBox(height: 8),
@@ -968,19 +1083,19 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
             _uploadTile('RC (Registration Certificate)', 'Upload vehicle RC',
               _rcDoc, (f) => _rcDoc = f,
               () { setState(() => _rcDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1Rc),
+              existingUrl: widget.trip.s1Rc, fieldKey: 'rc_doc'),
             _uploadTile('Insurance', 'Upload insurance document',
               _insuranceDoc, (f) => _insuranceDoc = f,
               () { setState(() => _insuranceDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1Insurance),
+              existingUrl: widget.trip.s1Insurance, fieldKey: 'insurance_doc'),
             _uploadTile('Pollution Certificate', 'Upload pollution certificate',
               _pollutionDoc, (f) => _pollutionDoc = f,
               () { setState(() => _pollutionDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1Pollution),
+              existingUrl: widget.trip.s1Pollution, fieldKey: 'pollution_doc'),
             _uploadTile('Fitness Certificate', 'Upload fitness certificate',
               _fitnessDoc, (f) => _fitnessDoc = f,
               () { setState(() => _fitnessDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1Fitness),
+              existingUrl: widget.trip.s1Fitness, fieldKey: 'fitness_doc'),
             const SizedBox(height: 8),
 
             // ── Owner Documents ────────────────────────────────────────────────
@@ -988,11 +1103,11 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
             _uploadTile('PAN', 'Upload PAN card',
               _panDoc, (f) => _panDoc = f,
               () { setState(() => _panDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1Pan),
+              existingUrl: widget.trip.s1Pan, fieldKey: 'pan_doc'),
             _uploadTile('Tax Declaration', 'Upload tax declaration document',
               _taxDeclDoc, (f) => _taxDeclDoc = f,
               () { setState(() => _taxDeclDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1TaxDeclaration),
+              existingUrl: widget.trip.s1TaxDeclaration, fieldKey: 'tax_decl_doc'),
             const SizedBox(height: 8),
 
             // ── Truck Owner Payment Details ────────────────────────────────────
@@ -1000,7 +1115,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
             _uploadTile('Cancelled Cheque (Owner / Transporter)', 'Upload a cancelled cheque',
               _cancelledChequeDoc, (f) => _cancelledChequeDoc = f,
               () { setState(() => _cancelledChequeDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1CancelledCheque),
+              existingUrl: widget.trip.s1CancelledCheque, fieldKey: 'cancelled_cheque_doc'),
             const SizedBox(height: 8),
 
             if (_lastSaved != null)
@@ -1072,6 +1187,12 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   final _emptyWeightCtrl    = TextEditingController();
   final _emptyWeightUnit    = ValueNotifier<String>('tons');
 
+  // ── Per-field attribution ─────────────────────────────────────────────────
+  final Map<String, String> _fieldAttributions = {};
+  final Set<String> _touchedByMe = {};
+  void _touchField(String key) => _touchedByMe.add(key);
+  String? _attrOf(String key) => _fieldAttributions[key];
+
   // ── Keys for auto-scroll on validation error ──────────────────────────────
   final _checklistKey         = GlobalKey();
   final _dharamKantaKey       = GlobalKey();
@@ -1098,6 +1219,12 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
 
   void _prefillFromDraft() {
     final trip = widget.trip;
+
+    // Always load persistent field attributions first
+    trip.fieldAttributions?.forEach((k, v) {
+      if (v is String) _fieldAttributions[k] = v;
+    });
+
     final draft = trip.draftData;
     if (draft != null && draft['stage'] == 2) {
       final d = draft['data'] as Map<String, dynamic>? ?? {};
@@ -1109,6 +1236,11 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
       _s2WeightConfirmed = d['s2_weight_confirmed']        as bool?   ?? false;
       _emptyWeightCtrl.text = d['empty_weight_before_loading'] as String? ?? '';
       _emptyWeightUnit.value = d['empty_weight_unit']      as String? ?? 'tons';
+      // Draft attributions override persistent ones
+      final attrs = draft['attributions'] as Map<String, dynamic>?;
+      if (attrs != null) {
+        attrs.forEach((k, v) { if (v is String) _fieldAttributions[k] = v; });
+      }
       if (draft['saved_at'] != null) {
         _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
       }
@@ -1164,6 +1296,8 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           'empty_weight_unit':          _emptyWeightUnit.value,
           's2_weight_confirmed':        _s2WeightConfirmed,
         },
+        if (_touchedByMe.isNotEmpty)
+          'attributions': {for (final k in _touchedByMe) k: true},
       });
       if (mounted) setState(() => _lastSaved = DateTime.now());
     } catch (_) {}
@@ -1270,6 +1404,13 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Stage 2 attribution — who submitted this stage (LP side only)
+          _StageAttribution(
+            username: widget.trip.currentStage >= 2
+                ? widget.trip.s2SubmittedByUsername
+                : null,
+          ),
+
           // Trip info banner
           Container(
             padding: const EdgeInsets.all(14),
@@ -1309,17 +1450,17 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
             key: _checklistKey,
             label: 'Truck specifications match requirement',
             value: _specsVerified,
-            onChanged: (v) { setState(() => _specsVerified = v); _onCheckChanged(); },
+            onChanged: (v) { setState(() => _specsVerified = v); _touchField('specs_verified'); _onCheckChanged(); },
           ),
           _CheckItem(
             label: 'All documents uploaded',
             value: _docsVerified,
-            onChanged: (v) { setState(() => _docsVerified = v); _onCheckChanged(); },
+            onChanged: (v) { setState(() => _docsVerified = v); _touchField('docs_verified'); _onCheckChanged(); },
           ),
           _CheckItem(
             label: 'Driver documents valid',
             value: _driverDocsValid,
-            onChanged: (v) { setState(() => _driverDocsValid = v); _onCheckChanged(); },
+            onChanged: (v) { setState(() => _driverDocsValid = v); _touchField('driver_docs_valid'); _onCheckChanged(); },
           ),
           const SizedBox(height: 20),
 
@@ -1358,6 +1499,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                         _s2WeightConfirmed = false;
                       }
                     });
+                    _touchField('dharam_kanta_location');
                     _onCheckChanged();
                   },
                 ),
@@ -1374,6 +1516,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                         _s2WeightConfirmed = false;
                       }
                     });
+                    _touchField('dharam_kanta_location');
                     _onCheckChanged();
                   },
                 ),
@@ -1390,6 +1533,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                     unitNotifier: _emptyWeightUnit,
                     enabled: !_s2WeightConfirmed,
                   ),
+                  _FieldAttribution(username: _attrOf('empty_weight_before_loading')),
                   const SizedBox(height: 10),
                   if (!_s2WeightConfirmed)
                   SizedBox(
@@ -1398,6 +1542,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                       onPressed: () {
                         final val = double.tryParse(_emptyWeightCtrl.text.trim()) ?? 0;
                         if (_emptyWeightCtrl.text.trim().isEmpty || val <= 0) return;
+                        _touchField('empty_weight_before_loading');
                         ref
                             .read(tripStagesProvider(widget.providerKey).notifier)
                             .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim(), _emptyWeightUnit.value);
@@ -1948,6 +2093,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   bool _wheelStoppers      = false;
   bool _safetyGear         = false;
 
+  // ── Per-field attribution ─────────────────────────────────────────────────
+  final Map<String, String> _fieldAttributions = {};
+  final Set<String> _touchedByMe = {};
+  void _touchField(String key) => _touchedByMe.add(key);
+  String? _attrOf(String key) => _fieldAttributions[key];
+
   // ── Keys for auto-scroll on validation error ──────────────────────────────
   final _driverParkedKey      = GlobalKey();
   final _docsSubmittedKey     = GlobalKey();
@@ -1980,8 +2131,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   void initState() {
     super.initState();
     _prefillFromDraft();
-    _emptyTruckWeight.addListener(_onFieldChanged);
-    _loadedTruckWeight.addListener(_onFieldChanged);
+    _emptyTruckWeight.addListener(() { _touchField('empty_truck_weight'); _onFieldChanged(); });
+    _loadedTruckWeight.addListener(() { _touchField('loaded_truck_weight'); _onFieldChanged(); });
     _emptyWeightUnit.addListener(_onFieldChanged);
     _loadedWeightUnit.addListener(_onFieldChanged);
     // Restore S2 Dharam Kanta into provider after first frame (ref available)
@@ -1996,6 +2147,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
   void _prefillFromDraft() {
     final trip = widget.trip;
+
+    // Always load persistent field attributions first
+    trip.fieldAttributions?.forEach((k, v) {
+      if (v is String) _fieldAttributions[k] = v;
+    });
+
     final draft = trip.draftData;
     if (draft == null || draft['stage'] != 3) {
       // No draft — prefill weights from committed trip data when re-editing
@@ -2037,6 +2194,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           .where((m) => m['b64'] != null && m['name'] != null)
           .map((m) => (bytes: base64Decode(m['b64'] as String), name: m['name'] as String))
           .toList();
+    }
+    // Draft attributions override persistent ones
+    final attrs = draft['attributions'] as Map<String, dynamic>?;
+    if (attrs != null) {
+      attrs.forEach((k, v) { if (v is String) _fieldAttributions[k] = v; });
     }
     if (draft['saved_at'] != null) {
       _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
@@ -2093,6 +2255,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               .map((f) => {'b64': base64Encode(f.bytes), 'name': f.name})
               .toList(),
         },
+        if (_touchedByMe.isNotEmpty)
+          'attributions': {for (final k in _touchedByMe) k: true},
       });
       if (mounted) setState(() => _lastSaved = DateTime.now());
     } catch (_) {}
@@ -2115,6 +2279,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     if (picked == null || !mounted) return;
     final bytes = await picked.readAsBytes();
     setState(() => _biltyData = (bytes: bytes, name: picked.name));
+    _touchField('bilty_doc');
     _saveDraft();
   }
 
@@ -2132,11 +2297,13 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       );
       setState(() => _materialDocs = [..._materialDocs, ...items]);
     }
+    _touchField('material_docs');
     _saveDraft();
   }
 
   void _removeMaterialDoc(int index) {
     setState(() => _materialDocs.removeAt(index));
+    _touchField('material_docs');
     _saveDraft();
   }
 
@@ -2247,6 +2414,13 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Stage 3 attribution — who submitted this stage (LP side only)
+          _StageAttribution(
+            username: widget.trip.currentStage >= 3
+                ? widget.trip.s3SubmittedByUsername
+                : null,
+          ),
+
           Text('RR Executive coordinates with driver:',
               style: _manrope(size: 16, weight: FontWeight.w800)),
           const SizedBox(height: 16),
@@ -2256,19 +2430,19 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             key: _driverParkedKey,
             label: 'Driver parks outside factory',
             value: _driverParked,
-            onChanged: (v) { setState(() => _driverParked = v); _onCheckChanged(); },
+            onChanged: (v) { setState(() => _driverParked = v); _touchField('driver_parked'); _onCheckChanged(); },
           ),
           _CheckItem(
             key: _docsSubmittedKey,
             label: 'Documents submitted to security',
             value: _docsSubmitted,
-            onChanged: (v) { setState(() => _docsSubmitted = v); _onCheckChanged(); },
+            onChanged: (v) { setState(() => _docsSubmitted = v); _touchField('docs_submitted'); _onCheckChanged(); },
           ),
           _CheckItem(
             key: _securityVerifiedKey,
             label: 'Security verifies vehicle requirements',
             value: _securityVerified,
-            onChanged: (v) { setState(() => _securityVerified = v); _onCheckChanged(); },
+            onChanged: (v) { setState(() => _securityVerified = v); _touchField('security_verified'); _onCheckChanged(); },
           ),
           const SizedBox(height: 8),
 
@@ -2286,7 +2460,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                   key: _driverExitedCabinKey,
                   label: 'Driver must exit cabin',
                   value: _driverExitedCabin,
-                  onChanged: (v) { setState(() => _driverExitedCabin = v); _onCheckChanged(); },
+                  onChanged: (v) { setState(() => _driverExitedCabin = v); _touchField('driver_exited_cabin'); _onCheckChanged(); },
                   activeColor: _primary,
                 ),
                 Divider(height: 1, indent: 16, endIndent: 16, color: _primary.withValues(alpha: 0.15)),
@@ -2294,7 +2468,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                   key: _wheelStoppersKey,
                   label: 'Wheel stoppers installed',
                   value: _wheelStoppers,
-                  onChanged: (v) { setState(() => _wheelStoppers = v); _onCheckChanged(); },
+                  onChanged: (v) { setState(() => _wheelStoppers = v); _touchField('wheel_stoppers'); _onCheckChanged(); },
                   activeColor: _primary,
                 ),
                 Divider(height: 1, indent: 16, endIndent: 16, color: _primary.withValues(alpha: 0.15)),
@@ -2302,7 +2476,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                   key: _safetyGearKey,
                   label: 'Safety shoes and helmet required',
                   value: _safetyGear,
-                  onChanged: (v) { setState(() => _safetyGear = v); _onCheckChanged(); },
+                  onChanged: (v) { setState(() => _safetyGear = v); _touchField('safety_gear'); _onCheckChanged(); },
                   activeColor: _primary,
                 ),
               ],
@@ -2321,6 +2495,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               enabled: !_loadingComplete,
               unitNotifier: _emptyWeightUnit,
             ),
+            _FieldAttribution(username: _attrOf('empty_truck_weight')),
             const SizedBox(height: 20),
           ],
 
@@ -2373,6 +2548,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               enabled: true,
               unitNotifier: _loadedWeightUnit,
             ),
+            _FieldAttribution(username: _attrOf('loaded_truck_weight')),
             const SizedBox(height: 20),
 
             // ── Bilty Upload ──────────────────────────────────────────
@@ -2383,8 +2559,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               bytes: _biltyData?.bytes,
               fileName: _biltyData?.name,
               onPickSource: _pickBilty,
-              onRemove: () => setState(() => _biltyData = null),
+              onRemove: () { setState(() => _biltyData = null); _touchField('bilty_doc'); _saveDraft(); },
             ),
+            _FieldAttribution(username: _attrOf('bilty_doc')),
             const SizedBox(height: 20),
 
             // ── Material Documents Upload ─────────────────────────────
@@ -2396,6 +2573,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               onPickSource: _pickMaterialDocs,
               onRemove: _removeMaterialDoc,
             ),
+            _FieldAttribution(username: _attrOf('material_docs')),
             const SizedBox(height: 28),
 
             if (_lastSaved != null)
@@ -2586,6 +2764,68 @@ class _DocPairSection extends StatelessWidget {
           ),
           frontTile,
           backTile,
+        ],
+      ),
+    );
+  }
+}
+
+/// Tiny per-field attribution tag shown directly below each field/upload box.
+/// Shows "@username" only when [username] is non-null.
+class _FieldAttribution extends StatelessWidget {
+  final String? username;
+  const _FieldAttribution({this.username});
+
+  @override
+  Widget build(BuildContext context) {
+    if (username == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 2, bottom: 8, left: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.person_outline_rounded, size: 11, color: Color(0xFF006B5E)),
+          const SizedBox(width: 3),
+          Text(
+            '@$username',
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF006B5E),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shows a subtle "@username" attribution badge indicating who submitted this stage.
+/// Only rendered when [username] is non-null.
+class _StageAttribution extends StatelessWidget {
+  final String? username;
+  const _StageAttribution({this.username});
+
+  @override
+  Widget build(BuildContext context) {
+    if (username == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: _success.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _success.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.person_outline_rounded, size: 14, color: _success),
+          const SizedBox(width: 6),
+          Text(
+            'Submitted by @$username',
+            style: _inter(size: 12, weight: FontWeight.w600, color: _success),
+          ),
         ],
       ),
     );
@@ -3470,32 +3710,54 @@ class _PickerOption extends StatelessWidget {
 
 class _Stage4Form extends ConsumerStatefulWidget {
   final TripModel trip;
-  final VoidCallback onComplete;
-  const _Stage4Form({required this.trip, required this.onComplete});
+  final void Function(TripModel updated) onComplete;
+  const _Stage4Form({super.key, required this.trip, required this.onComplete});
 
   @override
   ConsumerState<_Stage4Form> createState() => _Stage4FormState();
 }
 
 class _Stage4FormState extends ConsumerState<_Stage4Form> {
-  bool _truckMoved    = false;
-  bool _securityCheck = false;
-  bool _biltyChecked  = false;
-  bool _weightChecked = false;
+  // ── Phase 1: Exit checklist ───────────────────────────────────────────────
+  bool _truckMoved      = false;
+  bool _securityCheck   = false;
+  bool _biltyChecked    = false;
+  bool _weightChecked   = false;
   bool _materialChecked = false;
-  bool _submitting = false;
+  bool _checklistSubmitting = false;
 
+  // ── Phase 2: Diesel receipt ───────────────────────────────────────────────
+  bool _showDiesel    = false;   // true after checklist submitted or if re-editing
+  ({Uint8List bytes, String name})? _dieselFile;
+  bool _dieselUploading = false;
+  String? _dieselError;
+
+  // ── Per-field attribution ─────────────────────────────────────────────────
+  final Map<String, String> _fieldAttributions = {};
+  final Set<String> _touchedByMe = {};
+  void _touchField(String key) => _touchedByMe.add(key);
+  String? _attrOf(String key) => _fieldAttributions[key];
+
+  final _picker = ImagePicker();
   Timer? _debounce;
   DateTime? _lastSaved;
 
   @override
   void initState() {
     super.initState();
+    // If checklist already submitted, go straight to diesel phase
+    if (widget.trip.currentStage >= 4) _showDiesel = true;
     _prefillFromDraft();
   }
 
   void _prefillFromDraft() {
     final trip = widget.trip;
+
+    // Always load persistent field attributions first
+    trip.fieldAttributions?.forEach((k, v) {
+      if (v is String) _fieldAttributions[k] = v;
+    });
+
     final draft = trip.draftData;
     if (draft == null || draft['stage'] != 4) {
       // No draft — prefill from committed trip data when re-editing
@@ -3509,11 +3771,22 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
       return;
     }
     final d = draft['data'] as Map<String, dynamic>? ?? {};
-    _truckMoved     = d['truck_moved']      as bool? ?? false;
-    _securityCheck  = d['security_check']   as bool? ?? false;
-    _biltyChecked   = d['bilty_checked']    as bool? ?? false;
-    _weightChecked  = d['weight_checked']   as bool? ?? false;
+    _truckMoved      = d['truck_moved']      as bool? ?? false;
+    _securityCheck   = d['security_check']   as bool? ?? false;
+    _biltyChecked    = d['bilty_checked']    as bool? ?? false;
+    _weightChecked   = d['weight_checked']   as bool? ?? false;
     _materialChecked = d['material_checked'] as bool? ?? false;
+    // Restore diesel bytes if saved in draft
+    final b64  = d['diesel_bytes'] as String?;
+    final name = d['diesel_name']  as String? ?? 'diesel_receipt.jpg';
+    if (b64 != null && b64.isNotEmpty) {
+      try { _dieselFile = (bytes: base64Decode(b64), name: name); } catch (_) {}
+    }
+    // Draft attributions override persistent ones
+    final attrs = draft['attributions'] as Map<String, dynamic>?;
+    if (attrs != null) {
+      attrs.forEach((k, v) { if (v is String) _fieldAttributions[k] = v; });
+    }
     if (draft['saved_at'] != null) {
       _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
     }
@@ -3536,7 +3809,11 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           'bilty_checked':    _biltyChecked,
           'weight_checked':   _weightChecked,
           'material_checked': _materialChecked,
+          if (_dieselFile != null) 'diesel_bytes': base64Encode(_dieselFile!.bytes),
+          if (_dieselFile != null) 'diesel_name':  _dieselFile!.name,
         },
+        if (_touchedByMe.isNotEmpty)
+          'attributions': {for (final k in _touchedByMe) k: true},
       });
       if (mounted) setState(() => _lastSaved = DateTime.now());
     } catch (_) {}
@@ -3548,31 +3825,26 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     super.dispose();
   }
 
-  bool get _allDone =>
+  bool get _allChecklistDone =>
       _truckMoved && _securityCheck && _biltyChecked && _weightChecked && _materialChecked;
 
-  Future<void> _submit() async {
-    if (!_allDone || _submitting) return;
-    setState(() => _submitting = true);
+  // ── Phase 1 submit: checklist only ────────────────────────────────────────
+  Future<void> _submitChecklist() async {
+    if (!_allChecklistDone || _checklistSubmitting) return;
+    setState(() => _checklistSubmitting = true);
     try {
       final dio = ref.read(dioProvider);
-      final resp = await dio.post('/api/trips/${widget.trip.id}/stage/4', data: {
+      await dio.post('/api/trips/${widget.trip.id}/stage/4', data: {
         'truck_moved':        _truckMoved,
         'security_verified':  _securityCheck,
         'bilty_checked':      _biltyChecked,
         'weight_checked':     _weightChecked,
         'material_checked':   _materialChecked,
       });
-      // Immediately patch the in-memory trip so currentStage: 4 is reflected
-      try {
-        final tripJson = (resp.data as Map<String, dynamic>?)?['trip'] as Map<String, dynamic>?;
-        if (tripJson != null) {
-          ref.read(tripProvider.notifier).patchTrip(TripModel.fromJson(tripJson));
-        }
-      } catch (_) {}
-      widget.onComplete();
+      if (mounted) setState(() { _checklistSubmitting = false; _showDiesel = true; });
     } catch (e) {
       if (mounted) {
+        setState(() => _checklistSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Failed: $e', style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
@@ -3580,8 +3852,76 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
       }
-    } finally {
-      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  // ── Phase 2: diesel receipt pick + upload ────────────────────────────────
+  Future<void> _pickDiesel(ImageSource source) async {
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    setState(() { _dieselFile = (bytes: bytes, name: picked.name); _dieselError = null; });
+    _touchField('diesel_receipt');
+    _saveDraft();
+  }
+
+  void _showDieselPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Upload Diesel Receipt', style: _manrope(size: 16, weight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('Choose how to add the receipt image',
+                  style: _inter(size: 12, color: _secondary)),
+              const SizedBox(height: 20),
+              Row(children: [
+                Expanded(child: _PickerOption(
+                  icon: Icons.camera_alt_rounded, label: 'Camera', color: _primary,
+                  onTap: () { Navigator.pop(context); _pickDiesel(ImageSource.camera); },
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _PickerOption(
+                  icon: Icons.photo_library_rounded, label: 'Gallery', color: _secondary,
+                  onTap: () { Navigator.pop(context); _pickDiesel(ImageSource.gallery); },
+                )),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _uploadDiesel() async {
+    if (_dieselFile == null || _dieselUploading) return;
+    setState(() { _dieselUploading = true; _dieselError = null; });
+    try {
+      final dio = ref.read(dioProvider);
+      final formData = FormData.fromMap({
+        'receipt': MultipartFile.fromBytes(_dieselFile!.bytes, filename: _dieselFile!.name),
+      });
+      final resp = await dio.post(
+        '/api/trips/${widget.trip.id}/stage/4/diesel',
+        data: formData,
+      );
+      final updated = TripModel.fromJson(
+        (resp.data as Map<String, dynamic>)['trip'] as Map<String, dynamic>,
+      );
+      if (mounted) widget.onComplete(updated);
+    } catch (e) {
+      final msg = e is DioException
+          ? (e.response?.data?['detail'] as String? ?? 'Upload failed')
+          : e.toString();
+      if (mounted) setState(() { _dieselUploading = false; _dieselError = msg; });
     }
   }
 
@@ -3641,39 +3981,62 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
 
   @override
   Widget build(BuildContext context) {
+    final existingDieselUrl = widget.trip.s4DieselReceiptUrl;
+    final showExistingDiesel = existingDieselUrl != null && _dieselFile == null;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          _StageAttribution(username: widget.trip.s4SubmittedByUsername),
+
+          // ── Header ────────────────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _primary.withValues(alpha: 0.06),
+              color: _showDiesel
+                  ? _success.withValues(alpha: 0.06)
+                  : _primary.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _primary.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: _showDiesel
+                    ? _success.withValues(alpha: 0.2)
+                    : _primary.withValues(alpha: 0.2),
+              ),
             ),
             child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: _primary.withValues(alpha: 0.12),
+                    color: (_showDiesel ? _success : _primary).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.exit_to_app_rounded, color: _primary, size: 22),
+                  child: Icon(
+                    _showDiesel
+                        ? Icons.local_gas_station_rounded
+                        : Icons.exit_to_app_rounded,
+                    color: _showDiesel ? _success : _primary,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Truck Exit From Factory',
-                          style: _manrope(size: 15, weight: FontWeight.w800)),
+                      Text(
+                        _showDiesel ? 'Upload Diesel Receipt' : 'Truck Exit From Factory',
+                        style: _manrope(size: 15, weight: FontWeight.w800),
+                      ),
                       const SizedBox(height: 2),
-                      Text('Verify all exit procedures before releasing truck',
-                          style: _inter(size: 12)),
+                      Text(
+                        _showDiesel
+                            ? 'Upload the diesel receipt to complete Stage 4'
+                            : 'Verify all exit procedures before releasing truck',
+                        style: _inter(size: 12),
+                      ),
                     ],
                   ),
                 ),
@@ -3682,92 +4045,743 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           ),
           const SizedBox(height: 24),
 
-          // Arrival steps section
-          _SectionHeader(icon: Icons.directions_car_outlined, title: 'Exit Procedure'),
-          const SizedBox(height: 8),
-          _buildCheckTile(
-            value: _truckMoved,
-            label: 'Truck moves to factory exit gate',
-            onChanged: (v) { setState(() => _truckMoved = v ?? false); _onCheckChanged(); },
-          ),
-          _buildCheckTile(
-            value: _securityCheck,
-            label: 'Security verifies documents',
-            onChanged: (v) { setState(() => _securityCheck = v ?? false); _onCheckChanged(); },
-          ),
-          const SizedBox(height: 16),
+          if (!_showDiesel) ...[ // ── Phase 1: Checklist ──────────────────────
+            _SectionHeader(icon: Icons.directions_car_outlined, title: 'Exit Procedure'),
+            const SizedBox(height: 8),
+            _buildCheckTile(
+              value: _truckMoved,
+              label: 'Truck moves to factory exit gate',
+              onChanged: (v) { setState(() => _truckMoved = v ?? false); _touchField('truck_moved'); _onCheckChanged(); },
+            ),
+            _buildCheckTile(
+              value: _securityCheck,
+              label: 'Security verifies documents',
+              onChanged: (v) { setState(() => _securityCheck = v ?? false); _touchField('security_check'); _onCheckChanged(); },
+            ),
+            const SizedBox(height: 16),
 
-          // Documents checked section
-          _SectionHeader(icon: Icons.description_outlined, title: 'Documents Checked'),
-          const SizedBox(height: 8),
-          _buildCheckTile(
-            value: _biltyChecked,
-            label: 'Bilty',
-            onChanged: (v) { setState(() => _biltyChecked = v ?? false); _onCheckChanged(); },
-          ),
-          _buildCheckTile(
-            value: _weightChecked,
-            label: 'Loaded Weight Slip',
-            onChanged: (v) { setState(() => _weightChecked = v ?? false); _onCheckChanged(); },
-          ),
-          _buildCheckTile(
-            value: _materialChecked,
-            label: 'Material Documents',
-            onChanged: (v) { setState(() => _materialChecked = v ?? false); _onCheckChanged(); },
-          ),
-          const SizedBox(height: 32),
+            _SectionHeader(icon: Icons.description_outlined, title: 'Documents Checked'),
+            const SizedBox(height: 8),
+            _buildCheckTile(
+              value: _biltyChecked,
+              label: 'Bilty',
+              onChanged: (v) { setState(() => _biltyChecked = v ?? false); _touchField('bilty_checked'); _onCheckChanged(); },
+            ),
+            _buildCheckTile(
+              value: _weightChecked,
+              label: 'Loaded Weight Slip',
+              onChanged: (v) { setState(() => _weightChecked = v ?? false); _touchField('weight_checked'); _onCheckChanged(); },
+            ),
+            _buildCheckTile(
+              value: _materialChecked,
+              label: 'Material Documents',
+              onChanged: (v) { setState(() => _materialChecked = v ?? false); _touchField('material_checked'); _onCheckChanged(); },
+            ),
+            const SizedBox(height: 24),
 
-          // Complete button
-          if (!_allDone)
+            if (!_allChecklistDone)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, color: Color(0xFFE65100), size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Please confirm all items above before proceeding',
+                        style: _inter(size: 12, color: const Color(0xFFE65100)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            if (!_allChecklistDone) const SizedBox(height: 12),
+            if (_lastSaved != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
+                    const SizedBox(width: 4),
+                    Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                        style: _inter(size: 11, color: _success)),
+                  ],
+                ),
+              ),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: (_allChecklistDone && !_checklistSubmitting) ? _submitChecklist : null,
+                icon: _checklistSubmitting
+                    ? const SizedBox(width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.logout_rounded, size: 18),
+                label: Text(_checklistSubmitting ? 'Saving…' : 'Truck Exits Factory'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _primary,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: _border,
+                  disabledForegroundColor: _secondary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ] else ...[ // ── Phase 2: Diesel Receipt ───────────────────────────
+
+            // Checklist done banner
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
+                color: _success.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _success.withValues(alpha: 0.25)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded, color: Color(0xFFE65100), size: 16),
+                  const Icon(Icons.check_circle_rounded, color: _success, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'Please confirm all items above before proceeding',
-                      style: _inter(size: 12, color: const Color(0xFFE65100)),
-                    ),
+                    child: Text('Exit checklist complete. Now upload diesel receipt.',
+                        style: _inter(size: 12, color: _success, weight: FontWeight.w600)),
                   ),
                 ],
               ),
             ),
-          if (!_allDone) const SizedBox(height: 12),
-          if (_lastSaved != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
+            const SizedBox(height: 20),
+
+            _SectionHeader(icon: Icons.local_gas_station_rounded, title: 'Diesel Receipt'),
+            const SizedBox(height: 12),
+
+            GestureDetector(
+              onTap: _showDieselPicker,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: _surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: _dieselFile != null
+                        ? _success.withValues(alpha: 0.50)
+                        : showExistingDiesel
+                            ? _success.withValues(alpha: 0.30)
+                            : _border,
+                    width: (_dieselFile != null || showExistingDiesel) ? 1.5 : 1,
+                  ),
+                ),
+                child: _dieselFile != null
+                    ? Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: Image.memory(_dieselFile!.bytes,
+                                height: 200, width: double.infinity, fit: BoxFit.cover),
+                          ),
+                          Positioned(
+                            top: 8, right: 8,
+                            child: GestureDetector(
+                              onTap: () { setState(() => _dieselFile = null); _saveDraft(); },
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                                child: Icon(Icons.close_rounded, size: 16, color: _error),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 8, right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(20)),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+                                const SizedBox(width: 4),
+                                Text('Ready to Upload',
+                                    style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+                              ]),
+                            ),
+                          ),
+                        ],
+                      )
+                    : showExistingDiesel
+                        ? Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(13),
+                                child: Image.network(
+                                  '${AppConfig.apiBaseUrl}$existingDieselUrl',
+                                  height: 200, width: double.infinity, fit: BoxFit.cover,
+                                  loadingBuilder: (_, child, prog) => prog == null
+                                      ? child
+                                      : const SizedBox(height: 200,
+                                          child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                                  errorBuilder: (_, __, ___) => const SizedBox(height: 120,
+                                      child: Center(child: Icon(Icons.broken_image_rounded))),
+                                ),
+                              ),
+                              Positioned(
+                                top: 8, left: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(20)),
+                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+                                    const SizedBox(width: 4),
+                                    Text('Uploaded', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+                                  ]),
+                                ),
+                              ),
+                              Positioned(
+                                bottom: 8, right: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                    const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 12),
+                                    const SizedBox(width: 4),
+                                    Text('Tap to replace', style: _inter(size: 11, color: Colors.white)),
+                                  ]),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 36),
+                            child: Column(
+                              children: [
+                                Icon(Icons.add_photo_alternate_rounded,
+                                    size: 40, color: _secondary.withValues(alpha: 0.5)),
+                                const SizedBox(height: 10),
+                                Text('Tap to upload diesel receipt',
+                                    style: _inter(size: 13, weight: FontWeight.w600, color: _secondary)),
+                                const SizedBox(height: 4),
+                                Text('Camera or Gallery',
+                                    style: _inter(size: 11, color: _secondary.withValues(alpha: 0.7))),
+                              ],
+                            ),
+                          ),
+              ),
+            ),
+            _FieldAttribution(username: _attrOf('diesel_receipt')),
+
+            if (_dieselError != null) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                    color: const Color(0xFFFFDAD6), borderRadius: BorderRadius.circular(8)),
+                child: Row(
+                  children: [
+                    Icon(Icons.error_outline_rounded, color: _error, size: 15),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(_dieselError!, style: _inter(size: 12, color: _error))),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+
+            if (_lastSaved != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(children: [
                   const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
                   const SizedBox(width: 4),
                   Text('Last saved: ${_formatSaved(_lastSaved!)}',
                       style: _inter(size: 11, color: _success)),
-                ],
+                ]),
+              ),
+
+            if (_dieselFile != null || !showExistingDiesel)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: (_dieselFile != null && !_dieselUploading) ? _uploadDiesel : null,
+                  icon: _dieselUploading
+                      ? const SizedBox(width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.upload_rounded, size: 20),
+                  label: Text(_dieselUploading ? 'Uploading…' : 'Submit Diesel Receipt'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: const Color(0xFFDDE0E2),
+                    disabledForegroundColor: _secondary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Stage 5: Unloading (POD + Halting Charge) ────────────────────────────────
+
+class _Stage5Form extends ConsumerStatefulWidget {
+  final TripModel trip;
+  final void Function(TripModel updated) onComplete;
+  const _Stage5Form({super.key, required this.trip, required this.onComplete});
+
+  @override
+  ConsumerState<_Stage5Form> createState() => _Stage5FormState();
+}
+
+class _Stage5FormState extends ConsumerState<_Stage5Form> {
+  ({Uint8List bytes, String name})? _podFile;
+  final _haltingChargeCtrl = TextEditingController();
+  bool _uploading = false;
+  String? _errorMsg;
+  DateTime? _lastSaved;
+
+  // ── Per-field attribution ─────────────────────────────────────────────────
+  final Map<String, String> _fieldAttributions = {};
+  final Set<String> _touchedByMe = {};
+  void _touchField(String key) => _touchedByMe.add(key);
+  String? _attrOf(String key) => _fieldAttributions[key];
+
+  final _picker = ImagePicker();
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _haltingChargeCtrl.addListener(() {
+      _touchField('halting_charge');
+      _debounce?.cancel();
+      _debounce = Timer(const Duration(milliseconds: 1200), _saveDraft);
+    });
+    _prefillFromDraft();
+  }
+
+  @override
+  void dispose() {
+    _haltingChargeCtrl.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _prefillFromDraft() {
+    final trip = widget.trip;
+
+    // Always load persistent field attributions first
+    trip.fieldAttributions?.forEach((k, v) {
+      if (v is String) _fieldAttributions[k] = v;
+    });
+
+    final draft = trip.draftData;
+    if (draft == null || draft['stage'] != 5) {
+      if (trip.currentStage >= 5 && trip.s5HaltingCharge != null) {
+        final hc = trip.s5HaltingCharge!;
+        _haltingChargeCtrl.text =
+            hc % 1 == 0 ? hc.toInt().toString() : hc.toStringAsFixed(2);
+      }
+      return;
+    }
+    final data = draft['data'] as Map<String, dynamic>? ?? {};
+    final b64  = data['pod_bytes'] as String?;
+    final name = data['pod_name']  as String? ?? 'pod.jpg';
+    if (b64 != null && b64.isNotEmpty) {
+      try { _podFile = (bytes: base64Decode(b64), name: name); } catch (_) {}
+    }
+    _haltingChargeCtrl.text = data['halting_charge'] as String? ?? '';
+    // Draft attributions override persistent ones
+    final attrs = draft['attributions'] as Map<String, dynamic>?;
+    if (attrs != null) {
+      attrs.forEach((k, v) { if (v is String) _fieldAttributions[k] = v; });
+    }
+    if (draft['saved_at'] != null) {
+      _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
+    }
+  }
+
+  Future<void> _saveDraft() async {
+    if (!mounted) return;
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
+        'stage': 5,
+        'data': {
+          if (_podFile != null) 'pod_bytes': base64Encode(_podFile!.bytes),
+          if (_podFile != null) 'pod_name':  _podFile!.name,
+          if (_haltingChargeCtrl.text.isNotEmpty) 'halting_charge': _haltingChargeCtrl.text,
+        },
+        if (_touchedByMe.isNotEmpty)
+          'attributions': {for (final k in _touchedByMe) k: true},
+      });
+      if (mounted) setState(() => _lastSaved = DateTime.now());
+    } catch (_) {}
+  }
+
+  Future<void> _pickPod(ImageSource source) async {
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    setState(() { _podFile = (bytes: bytes, name: picked.name); _errorMsg = null; });
+    _touchField('pod_doc');
+    _saveDraft();
+  }
+
+  void _showPodPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Upload Proof of Delivery',
+                  style: _manrope(size: 16, weight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('Choose how to add the POD document',
+                  style: _inter(size: 12, color: _secondary)),
+              const SizedBox(height: 20),
+              Row(children: [
+                Expanded(child: _PickerOption(
+                  icon: Icons.camera_alt_rounded, label: 'Camera', color: _primary,
+                  onTap: () { Navigator.pop(context); _pickPod(ImageSource.camera); },
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _PickerOption(
+                  icon: Icons.photo_library_rounded, label: 'Gallery', color: _secondary,
+                  onTap: () { Navigator.pop(context); _pickPod(ImageSource.gallery); },
+                )),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submit() async {
+    if (_podFile == null && widget.trip.s5PodUrl == null) {
+      setState(() => _errorMsg = 'Please upload the Proof of Delivery document');
+      return;
+    }
+    setState(() { _uploading = true; _errorMsg = null; });
+    try {
+      final dio = ref.read(dioProvider);
+      final formData = FormData.fromMap({
+        if (_podFile != null)
+          'pod': MultipartFile.fromBytes(_podFile!.bytes, filename: _podFile!.name),
+        if (_haltingChargeCtrl.text.trim().isNotEmpty)
+          'halting_charge': _haltingChargeCtrl.text.trim(),
+      });
+      final resp = await dio.post(
+          '/api/trips/${widget.trip.id}/stage/5', data: formData);
+      final updated = TripModel.fromJson(
+          (resp.data as Map<String, dynamic>)['trip'] as Map<String, dynamic>);
+      if (mounted) widget.onComplete(updated);
+    } catch (e) {
+      final msg = e is DioException
+          ? (e.response?.data?['detail'] as String? ?? 'Upload failed')
+          : e.toString();
+      if (mounted) setState(() { _uploading = false; _errorMsg = msg; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final existingPodUrl = widget.trip.s5PodUrl;
+    final showExisting   = existingPodUrl != null && _podFile == null;
+    final podImageUrl    = existingPodUrl != null
+        ? '${AppConfig.apiBaseUrl}$existingPodUrl'
+        : null;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _StageAttribution(
+            username: widget.trip.currentStage >= 5
+                ? widget.trip.s5SubmittedByUsername
+                : null,
+          ),
+          // Header
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: showExisting
+                  ? _success.withValues(alpha: 0.07)
+                  : _primary.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: showExisting
+                    ? _success.withValues(alpha: 0.25)
+                    : _primary.withValues(alpha: 0.20),
               ),
             ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: (showExisting ? _success : _primary).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    showExisting
+                        ? Icons.check_circle_rounded
+                        : Icons.inventory_2_rounded,
+                    color: showExisting ? _success : _primary,
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        showExisting ? 'Unloading Stage Complete' : 'Unloading Stage',
+                        style: _manrope(size: 15, weight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        showExisting
+                            ? 'POD uploaded. Tap to replace if needed.'
+                            : 'Upload POD and enter halting charge if applicable.',
+                        style: _inter(size: 12, color: _secondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── POD Upload ────────────────────────────────────────────────────
+          _SectionHeader(icon: Icons.receipt_long_rounded, title: 'Proof of Delivery (POD)'),
+          const SizedBox(height: 12),
+
+          GestureDetector(
+            onTap: _showPodPicker,
+            child: Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _podFile != null
+                      ? _success.withValues(alpha: 0.50)
+                      : showExisting
+                          ? _success.withValues(alpha: 0.30)
+                          : _border,
+                  width: (_podFile != null || showExisting) ? 1.5 : 1,
+                ),
+              ),
+              child: _podFile != null
+                  ? Stack(children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(13),
+                        child: Image.memory(_podFile!.bytes,
+                            height: 200, width: double.infinity, fit: BoxFit.cover),
+                      ),
+                      Positioned(
+                        top: 8, right: 8,
+                        child: GestureDetector(
+                          onTap: () { setState(() => _podFile = null); _saveDraft(); },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                                color: Colors.white, shape: BoxShape.circle),
+                            child: Icon(Icons.close_rounded, size: 16, color: _error),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 8, right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: _success, borderRadius: BorderRadius.circular(20)),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+                            const SizedBox(width: 4),
+                            Text('Ready to Upload',
+                                style: _inter(size: 11, color: Colors.white,
+                                    weight: FontWeight.w600)),
+                          ]),
+                        ),
+                      ),
+                    ])
+                  : showExisting
+                      ? Stack(children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: Image.network(
+                              podImageUrl!,
+                              height: 220, width: double.infinity, fit: BoxFit.cover,
+                              loadingBuilder: (_, child, prog) => prog == null
+                                  ? child
+                                  : const SizedBox(height: 220,
+                                      child: Center(
+                                          child: CircularProgressIndicator(strokeWidth: 2))),
+                              errorBuilder: (_, __, ___) => const SizedBox(
+                                  height: 120,
+                                  child: Center(
+                                      child: Icon(Icons.broken_image_rounded))),
+                            ),
+                          ),
+                          Positioned(
+                            top: 8, left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                  color: _success,
+                                  borderRadius: BorderRadius.circular(20)),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                const Icon(Icons.check_circle_rounded,
+                                    color: Colors.white, size: 12),
+                                const SizedBox(width: 4),
+                                Text('POD Uploaded',
+                                    style: _inter(size: 11, color: Colors.white,
+                                        weight: FontWeight.w600)),
+                              ]),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 8, right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(20)),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                const Icon(Icons.swap_horiz_rounded,
+                                    color: Colors.white, size: 12),
+                                const SizedBox(width: 4),
+                                Text('Tap to replace',
+                                    style: _inter(size: 11, color: Colors.white)),
+                              ]),
+                            ),
+                          ),
+                        ])
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 36),
+                          child: Column(children: [
+                            Icon(Icons.add_photo_alternate_rounded,
+                                size: 40, color: _secondary.withValues(alpha: 0.5)),
+                            const SizedBox(height: 10),
+                            Text('Tap to upload POD document',
+                                style: _inter(size: 13, weight: FontWeight.w600,
+                                    color: _secondary)),
+                            const SizedBox(height: 4),
+                            Text('Camera or Gallery',
+                                style: _inter(
+                                    size: 11,
+                                    color: _secondary.withValues(alpha: 0.7))),
+                          ]),
+                        ),
+            ),
+          ),
+          _FieldAttribution(username: _attrOf('pod_doc')),
+          const SizedBox(height: 24),
+
+          // ── Halting Charge ────────────────────────────────────────────────
+          _SectionHeader(
+              icon: Icons.currency_rupee_rounded,
+              title: 'Halting Charge (Optional)'),
+          const SizedBox(height: 8),
+          TextFormField(
+            controller: _haltingChargeCtrl,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              hintText: 'Enter amount in \u20b9 (e.g. 500)',
+              hintStyle:
+                  _inter(size: 13, color: _secondary.withValues(alpha: 0.6)),
+              prefixIcon: const Icon(Icons.currency_rupee_rounded,
+                  size: 18, color: _secondary),
+              filled: true,
+              fillColor: _surface,
+              contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _border),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _border),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _primary, width: 1.5),
+              ),
+            ),
+          ),
+          _FieldAttribution(username: _attrOf('halting_charge')),
+          const SizedBox(height: 24),
+
+          if (_errorMsg != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                  color: const Color(0xFFFFDAD6),
+                  borderRadius: BorderRadius.circular(8)),
+              child: Row(children: [
+                Icon(Icons.error_outline_rounded, color: _error, size: 15),
+                const SizedBox(width: 8),
+                Expanded(
+                    child: Text(_errorMsg!,
+                        style: _inter(size: 12, color: _error))),
+              ]),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          if (_lastSaved != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(children: [
+                const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
+                const SizedBox(width: 4),
+                Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                    style: _inter(size: 11, color: _success)),
+              ]),
+            ),
+
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: (_allDone && !_submitting) ? _submit : null,
-              icon: _submitting
-                  ? const SizedBox(width: 18, height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.logout_rounded, size: 18),
-              label: Text(_submitting ? 'Saving…' : 'Truck Exits Factory'),
+              onPressed: !_uploading ? _submit : null,
+              icon: _uploading
+                  ? const SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.check_circle_outline_rounded, size: 20),
+              label: Text(_uploading ? 'Submitting\u2026' : 'Complete Unloading Stage'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primary,
                 foregroundColor: Colors.white,
-                disabledBackgroundColor: _border,
+                disabledBackgroundColor: const Color(0xFFDDE0E2),
                 disabledForegroundColor: _secondary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
+                textStyle: GoogleFonts.manrope(
+                    fontSize: 15, fontWeight: FontWeight.w700),
               ),
             ),
           ),
@@ -3935,7 +4949,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
             child: const Icon(Icons.local_shipping_rounded, color: _primary, size: 56),
           ),
           const SizedBox(height: 24),
-          Text('Truck Exits Factory!',
+          Text('All Stages Completed!',
               style: _manrope(size: 22, weight: FontWeight.w800, color: _primary),
               textAlign: TextAlign.center),
           const SizedBox(height: 10),
@@ -3970,7 +4984,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                 ),
                 const SizedBox(width: 8),
                 Flexible(child: Text(
-                  _completed ? 'Trip Completed' : 'Factory Exit Done — Awaiting Completion',
+                  _completed ? 'Trip Completed' : 'All Stages Done — Ready to Complete',
                   style: _manrope(size: 13, weight: FontWeight.w700,
                       color: _completed ? _primary : _success),
                 )),
@@ -3979,7 +4993,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
           ),
           const SizedBox(height: 12),
           Text(
-            'All factory exit procedures have been completed.\nThe truck is now on its way.',
+            'All stages completed including unloading.\nThe trip is ready to be marked as done.',
             textAlign: TextAlign.center,
             style: _inter(size: 13, color: _secondary),
           ),
@@ -4072,6 +5086,35 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
           ),
           const SizedBox(height: 12),
 
+          // ── Complete Trip button (LP owner only) ──
+          if (ref.watch(authProvider).user?.isLogisticPartnerWorker != true) ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: (_completing || _completed) ? null : _completeTrip,
+                icon: _completing
+                    ? const SizedBox(width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Icon(_completed ? Icons.check_circle_rounded : Icons.flag_rounded,
+                        size: 18),
+                label: Text(_completed
+                    ? 'Trip Completed'
+                    : _completing
+                        ? 'Completing…'
+                        : 'Complete Trip'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _completed ? _success.withValues(alpha: 0.7) : _success,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: _success.withValues(alpha: 0.7),
+                  disabledForegroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // Back to Dashboard — secondary
           SizedBox(

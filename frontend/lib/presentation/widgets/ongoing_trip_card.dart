@@ -218,7 +218,7 @@ class OngoingTripCard extends ConsumerWidget {
                   const SizedBox(height: 8),
                   _CompleteBtn(
                     onComplete: onComplete!,
-                    enabled: trip.currentStage >= 4,
+                    enabled: trip.currentStage >= 5,
                   ),
                 ],
 
@@ -383,7 +383,7 @@ class _CompleteBtnState extends State<_CompleteBtn> {
         ? [const Color(0xFF2E7D32), const Color(0xFF388E3C)]
         : [const Color(0xFFBDBDBD), const Color(0xFF9E9E9E)];
     return Tooltip(
-      message: widget.enabled ? '' : 'Complete Trip is only available at Stage 4',
+      message: widget.enabled ? '' : 'Complete Trip is only available after Stage 5',
       child: GestureDetector(
         onTap: canTap ? _confirm : null,
         child: Container(
@@ -657,13 +657,14 @@ class _StatusBadge extends StatelessWidget {
   return ('PENDING', const Color(0xFFFFF3E0), const Color(0xFFE65100));
 }
 
-/// Maps a trip to a display label for the current stage (1, 2, LS, 3, 4).
+/// Maps a trip to a display label for the current stage (1, 2, LS, 3, 4, 5).
 String _visualStageLabel(TripModel trip) {
   if (trip.currentStage == 0) return '1';
   if (trip.currentStage == 1) return '2';
   if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 'LS';
   if (trip.currentStage == 2) return '3';
-  return '4'; // stage 3 → Exit
+  if (trip.currentStage == 3) return '4';
+  return '5'; // stage 4 → Diesel Receipt
 }
 
 /// 0-based visual stage index used for the strip indicator.
@@ -672,7 +673,8 @@ int _visualStageIndex(TripModel trip) {
   if (trip.currentStage == 1) return 1;
   if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 2;
   if (trip.currentStage == 2) return 3;
-  return 4;
+  if (trip.currentStage == 3) return 4;
+  return 5;
 }
 
 String _stageName(TripModel trip) {
@@ -681,7 +683,9 @@ String _stageName(TripModel trip) {
     0 => 'Truck Registration',
     1 => 'Compliance Check',
     2 => 'Factory Arrival',
-    _ => 'Exit & Complete',
+    3 => 'Exit Check',
+    4 => 'Diesel Receipt',
+    _ => 'Unloading',
   };
 }
 
@@ -826,24 +830,38 @@ class _StageSlidingPanel extends StatelessWidget {
   final VoidCallback onRefresh;
   const _StageSlidingPanel({required this.trip, required this.onRefresh});
 
-  static const _shortLabels = ['1', '2', 'LS', '3', '4'];
-  static const _names = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit'];
+  static const _shortLabels = ['1', '2', 'LS', '3', '4', '5'];
+  static const _names = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit', 'Unloading'];
   static const _green = Color(0xFF2E7D32);
+
+  /// Maps a visual stage index (0–5) to the relevant submitted-by username.
+  String? _usernameForStage(int i) {
+    switch (i) {
+      case 0: return trip.s1SubmittedByUsername;
+      case 1: return trip.s2SubmittedByUsername;
+      case 2: return trip.s2SubmittedByUsername; // Loading slip (part of stage 2)
+      case 3: return trip.s3SubmittedByUsername;
+      case 4: return trip.s4SubmittedByUsername;
+      case 5: return trip.s5SubmittedByUsername;
+      default: return null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final currentVisual = _visualStageIndex(trip);
 
     return SizedBox(
-      height: 80,
+      height: 92,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.zero,
-        itemCount: 5,
+        itemCount: 6,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
           final isDone    = currentVisual > i;
           final isActive  = currentVisual == i;
+          final submitter = isDone ? _usernameForStage(i) : null;
 
           final bg = isDone
               ? _green.withValues(alpha: 0.08)
@@ -868,7 +886,7 @@ class _StageSlidingPanel extends StatelessWidget {
                 .then((_) => onRefresh()),
             child: Container(
               width: 78,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               decoration: BoxDecoration(
                 color: bg,
                 borderRadius: BorderRadius.circular(10),
@@ -902,7 +920,7 @@ class _StageSlidingPanel extends StatelessWidget {
                             ),
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  const SizedBox(height: 4),
                   Text(
                     _names[i],
                     style: _inter(
@@ -917,6 +935,19 @@ class _StageSlidingPanel extends StatelessWidget {
                     style: _inter(
                         size: 8, weight: FontWeight.w500, color: labelColor),
                   ),
+                  if (submitter != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '@$submitter',
+                      style: _inter(
+                          size: 7,
+                          weight: FontWeight.w600,
+                          color: _green),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ],
               ),
             ),

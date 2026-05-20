@@ -28,6 +28,36 @@ router = APIRouter()
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
+def _apply_attributions(trip, touched_keys, current_user, role_key: str) -> None:
+    """Persist per-field attributions on the trip row.
+
+    LP worker → sets field_key → username for every touched field.
+    LP owner / super_admin → removes attribution for every touched field
+                             (they're correcting work, so no worker credit shown).
+    """
+    keys = list(touched_keys) if not isinstance(touched_keys, list) else touched_keys
+    if not keys:
+        return
+    existing = dict(trip.field_attributions or {})
+    if role_key in ('logistic_partner', 'super_admin'):
+        for key in keys:
+            existing.pop(key, None)
+    else:
+        for key in keys:
+            existing[key] = current_user.username
+    trip.field_attributions = existing
+
+
+def _draft_flush_attributions(trip, current_user, role_key: str) -> None:
+    """Before clearing draft_data on submit, flush its attributions into field_attributions."""
+    draft = trip.draft_data
+    if not draft or not isinstance(draft, dict):
+        return
+    draft_attrs = draft.get('attributions', {})
+    if draft_attrs:
+        _apply_attributions(trip, list(draft_attrs.keys()), current_user, role_key)
+
+
 def _get_user_org(current_user: User, db: Session) -> UserOrganization:
     user_org = db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id,
@@ -446,6 +476,28 @@ async def submit_stage1(
     if new_chq     is not None: trip.s1_cancelled_cheque    = new_chq
 
     was_already_submitted = trip.current_stage >= 1
+
+    # Flush draft attributions into persistent field_attributions before clearing draft
+    _draft_flush_attributions(trip, current_user, role_key)
+    # Also auto-attribute any files uploaded right now
+    just_uploaded = [
+        k for k, v in [
+            ('dl_doc',                new_dl),
+            ('dl_back_doc',           new_dl_back),
+            ('aadhaar_doc',           new_aadhaar),
+            ('aadhaar_back_doc',      new_aadhaar_back),
+            ('rc_doc',                new_rc),
+            ('insurance_doc',         new_ins),
+            ('pollution_doc',         new_pol),
+            ('fitness_doc',           new_fit),
+            ('pan_doc',               new_pan),
+            ('tax_declaration_doc',   new_tax),
+            ('cancelled_cheque_doc',  new_chq),
+        ] if v is not None
+    ]
+    if just_uploaded:
+        _apply_attributions(trip, just_uploaded, current_user, role_key)
+
     trip.s1_submitted_by = current_user.id
     trip.s1_claimed_by   = None  # release claim on submit
     trip.s1_claimed_at   = None
@@ -504,6 +556,9 @@ def submit_stage2(
             status_code=400,
             detail="Entry permission must be issued to proceed"
         )
+
+    # Flush draft attributions before clearing
+    _draft_flush_attributions(trip, current_user, role_key)
 
     trip.s2_specs_verified    = body.specs_verified
     trip.s2_docs_verified     = body.docs_verified
@@ -573,6 +628,7 @@ async def upload_loading_slip(
     file_path.write_bytes(content)
 
     trip.s2_loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
+    _apply_attributions(trip, ['loading_slip'], current_user, role_key)
     trip.draft_data = None   # clear loading slip draft on successful upload
     db.commit()
     db.refresh(trip)
@@ -641,6 +697,16 @@ async def submit_stage3(
                 with open(trip_dir / filename, "wb") as f:
                     f.write(await doc.read())
                 material_urls.append(f"/uploads/trips/{trip_id}/{filename}")
+
+    # Flush draft attributions + auto-attribute newly uploaded files
+    _draft_flush_attributions(trip, current_user, role_key)
+    s3_uploaded = []
+    if bilty_url:
+        s3_uploaded.append('bilty_doc')
+    if material_urls:
+        s3_uploaded.append('material_docs')
+    if s3_uploaded:
+        _apply_attributions(trip, s3_uploaded, current_user, role_key)
 
     trip.s3_driver_parked            = _form_bool(driver_parked)
     trip.s3_docs_submitted           = _form_bool(docs_submitted)
@@ -719,6 +785,8 @@ def submit_stage4(
 
     was_already_submitted = trip.current_stage >= 4
 
+    _draft_flush_attributions(trip, current_user, role_key)
+
     trip.s4_truck_moved       = body.truck_moved
     trip.s4_security_verified = body.security_verified
     trip.s4_bilty_checked     = body.bilty_checked
@@ -742,6 +810,97 @@ class DraftPayload(BaseModel):
     stage: Union[int, str]   # int for stages 1-3, 'loading_slip' for the mini-stage
     data: dict
     saved_at: Optional[str] = None
+    # Keys the current user actually touched this session (True = "this user changed this field").
+    # Backend resolves them to current_user.username and merges with existing per-field attributions.
+    attributions: Optional[dict] = None
+
+
+@router.post("/trips/{trip_id}/stage/4/diesel", status_code=200)
+async def submit_stage4_diesel(
+    trip_id: str,
+    receipt: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stage 4 Diesel — Upload diesel receipt after truck exits factory. Does not advance currentStage."""
+    from app.config import settings
+
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
+        raise HTTPException(status_code=403, detail="Fleet managers only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.current_stage < 4:
+        raise HTTPException(status_code=409, detail="Complete exit checklist first")
+
+    trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+    trip_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(receipt.filename).suffix if receipt.filename else '.jpg'
+    filename = f"diesel_receipt_{_uuid_module.uuid4().hex}{ext}"
+    content = await receipt.read()
+    (trip_dir / filename).write_bytes(content)
+
+    trip.s4_diesel_receipt_url = f"/uploads/trips/{trip_id}/{filename}"
+    _apply_attributions(trip, ['diesel_receipt'], current_user, role_key)
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "message": "Diesel receipt uploaded.", "trip": _enrich(trip, db)}
+
+
+@router.post("/trips/{trip_id}/stage/5", status_code=200)
+async def submit_stage5(
+    trip_id: str,
+    pod: UploadFile = File(...),
+    halting_charge: Optional[str] = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Stage 5 — Unloading. Proof of Delivery document + optional halting charge. Advances currentStage to 5."""
+    from datetime import datetime, timezone
+    from app.config import settings
+    import decimal
+
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
+        raise HTTPException(status_code=403, detail="Fleet managers only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.current_stage < 4:
+        raise HTTPException(status_code=409, detail="Complete Stage 4 first")
+    if not trip.s4_diesel_receipt_url:
+        raise HTTPException(status_code=409, detail="Upload diesel receipt in Stage 4 first")
+
+    trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+    trip_dir.mkdir(parents=True, exist_ok=True)
+    ext = Path(pod.filename).suffix if pod.filename else '.jpg'
+    filename = f"pod_{_uuid_module.uuid4().hex}{ext}"
+    content = await pod.read()
+    (trip_dir / filename).write_bytes(content)
+
+    was_already_submitted = trip.current_stage >= 5
+
+    # Flush draft attributions + auto-attribute the POD upload
+    _draft_flush_attributions(trip, current_user, role_key)
+    _apply_attributions(trip, ['pod_doc'], current_user, role_key)
+
+    trip.s5_pod_url      = f"/uploads/trips/{trip_id}/{filename}"
+    if halting_charge and halting_charge.strip():
+        try:
+            trip.s5_halting_charge = decimal.Decimal(halting_charge.strip())
+        except decimal.InvalidOperation:
+            pass
+    trip.s5_submitted_by = current_user.id
+    trip.s5_completed_at = datetime.now(timezone.utc)
+    trip.draft_data      = None
+    if trip.current_stage < 5:
+        trip.current_stage = 5
+
+    db.commit()
+    db.refresh(trip)
+    msg = "Unloading stage updated." if was_already_submitted else "Unloading stage completed."
+    return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
 
 @router.patch("/trips/{trip_id}/draft", status_code=200)
@@ -755,13 +914,38 @@ def save_draft(
     from datetime import datetime, timezone
 
     user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
     trip = _get_fleet_trip(trip_id, user_org, db)
+
+    # Merge per-field attributions in draft (field_key → resolved username)
+    existing_draft = trip.draft_data or {}
+    existing_attributions = (
+        existing_draft.get('attributions', {})
+        if isinstance(existing_draft, dict)
+        else {}
+    )
+    merged_attributions = dict(existing_attributions)
+    if body.attributions:
+        if role_key in ('logistic_partner', 'super_admin'):
+            # Owner overrides: remove attribution for touched fields in draft too
+            for field_key in body.attributions:
+                merged_attributions.pop(field_key, None)
+        else:
+            for field_key in body.attributions:
+                merged_attributions[field_key] = current_user.username
 
     trip.draft_data = {
         "stage": body.stage,
         "data": body.data,
+        "attributions": merged_attributions,
         "saved_at": body.saved_at or datetime.now(timezone.utc).isoformat(),
     }
+
+    # Also persist to the dedicated field_attributions column immediately so the
+    # attributions survive stage submission (which clears draft_data).
+    if body.attributions:
+        _apply_attributions(trip, list(body.attributions.keys()), current_user, role_key)
+
     db.commit()
     return {"success": True}
 
@@ -1121,8 +1305,8 @@ async def complete_trip(
         raise HTTPException(status_code=409, detail="Trip is already completed.")
     if trip.status == 'cancelled':
         raise HTTPException(status_code=409, detail="Cancelled trips cannot be completed.")
-    if (trip.current_stage or 0) < 4:
-        raise HTTPException(status_code=400, detail="Trip can only be completed after all 4 stages are done.")
+    if (trip.current_stage or 0) < 5:
+        raise HTTPException(status_code=400, detail="Trip can only be completed after all 5 stages are done.")
 
     trip.status = 'completed'
     db.commit()
@@ -1369,10 +1553,19 @@ def _enrich_bulk(trips: list, db: Session) -> list:
     org_ids     = {t.organization_id for t in trips if t.organization_id} | \
                   {t.load_owner_org_id for t in trips if t.load_owner_org_id}
 
+    # Collect submitted_by user IDs for stage attribution
+    submitter_ids = set()
+    for t in trips:
+        for attr in ['s1_submitted_by', 's2_submitted_by', 's3_submitted_by', 's4_submitted_by', 's5_submitted_by']:
+            uid = getattr(t, attr, None)
+            if uid:
+                submitter_ids.add(uid)
+
     # Single query per type
-    vehicles = {v.id: v for v in db.query(Vehicle).filter(Vehicle.id.in_(vehicle_ids)).all()} if vehicle_ids else {}
-    drivers  = {d.id: d for d in db.query(Driver).filter(Driver.id.in_(driver_ids)).all()}   if driver_ids  else {}
-    orgs     = {o.id: o for o in db.query(Organization).filter(Organization.id.in_(org_ids)).all()} if org_ids else {}
+    vehicles  = {v.id: v for v in db.query(Vehicle).filter(Vehicle.id.in_(vehicle_ids)).all()} if vehicle_ids else {}
+    drivers   = {d.id: d for d in db.query(Driver).filter(Driver.id.in_(driver_ids)).all()}   if driver_ids  else {}
+    orgs      = {o.id: o for o in db.query(Organization).filter(Organization.id.in_(org_ids)).all()} if org_ids else {}
+    submitters = {u.id: u for u in db.query(User).filter(User.id.in_(submitter_ids)).all()} if submitter_ids else {}
 
     result = []
     for trip in trips:
@@ -1390,6 +1583,11 @@ def _enrich_bulk(trips: list, db: Session) -> list:
         data["lp_org_name"] = lp_org.company_name if lp_org else None
         lo_org = orgs.get(trip.load_owner_org_id)
         data["load_owner_org_name"] = lo_org.company_name if lo_org else None
+        # Stage submitter usernames
+        for i, attr in enumerate(['s1_submitted_by', 's2_submitted_by', 's3_submitted_by', 's4_submitted_by', 's5_submitted_by'], 1):
+            uid = getattr(trip, attr, None)
+            u = submitters.get(uid) if uid else None
+            data[f's{i}_submitted_by_username'] = u.username if u else None
         result.append(data)
 
     return result
@@ -1450,5 +1648,19 @@ def _enrich(trip: Trip, db: Session) -> dict:
     else:
         data["transporter_name"] = None
         data["transporter_phone"] = None
+
+    # Stage submitter usernames
+    submitter_ids = [
+        getattr(trip, f's{i}_submitted_by', None)
+        for i in range(1, 6)
+    ]
+    unique_ids = {uid for uid in submitter_ids if uid}
+    if unique_ids:
+        users_map = {u.id: u for u in db.query(User).filter(User.id.in_(unique_ids)).all()}
+    else:
+        users_map = {}
+    for i, uid in enumerate(submitter_ids, 1):
+        u = users_map.get(uid) if uid else None
+        data[f's{i}_submitted_by_username'] = u.username if u else None
 
     return data
