@@ -99,10 +99,8 @@ services:
       - ./firebase-service-account.json:/app/firebase-service-account.json:ro
 
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      - postgres
+      - redis
 
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -148,13 +146,8 @@ services:
 networks:
   fleet-network:
     driver: bridge
-    name: fleet_network
 
 volumes:
   postgres_data:
-    name: fleet_postgres_data
-
   redis_data:
-    name: fleet_redis_data
-
   pgadmin_data:
