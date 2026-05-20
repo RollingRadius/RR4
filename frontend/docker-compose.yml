@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
       args:
         # Override to point at a different backend
-        API_BASE_URL: http://34.127.125.215:8000
+        API_BASE_URL: http://35.244.19.78:8000
     ports:
       - "80:80"
     restart: unless-stopped
