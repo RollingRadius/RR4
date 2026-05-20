@@ -410,6 +410,7 @@ async def submit_stage1(
     insurance_doc:        Optional[UploadFile] = File(None),
     pollution_doc:        Optional[UploadFile] = File(None),
     fitness_doc:          Optional[UploadFile] = File(None),
+    permit_doc:           Optional[UploadFile] = File(None),
     pan_doc:              Optional[UploadFile] = File(None),
     tax_declaration_doc:  Optional[UploadFile] = File(None),
     cancelled_cheque_doc: Optional[UploadFile] = File(None),
@@ -459,6 +460,7 @@ async def submit_stage1(
     new_ins     = await _save_doc(insurance_doc,        "insurance")
     new_pol     = await _save_doc(pollution_doc,        "pollution")
     new_fit     = await _save_doc(fitness_doc,          "fitness")
+    new_permit  = await _save_doc(permit_doc,           "permit")
     new_pan     = await _save_doc(pan_doc,              "pan")
     new_tax     = await _save_doc(tax_declaration_doc,  "tax_decl")
     new_chq     = await _save_doc(cancelled_cheque_doc, "cheque")
@@ -471,6 +473,7 @@ async def submit_stage1(
     if new_ins     is not None: trip.s1_insurance           = new_ins
     if new_pol     is not None: trip.s1_pollution           = new_pol
     if new_fit     is not None: trip.s1_fitness             = new_fit
+    if new_permit  is not None: trip.s1_permit              = new_permit
     if new_pan     is not None: trip.s1_pan                 = new_pan
     if new_tax     is not None: trip.s1_tax_declaration     = new_tax
     if new_chq     is not None: trip.s1_cancelled_cheque    = new_chq
@@ -490,6 +493,7 @@ async def submit_stage1(
             ('insurance_doc',         new_ins),
             ('pollution_doc',         new_pol),
             ('fitness_doc',           new_fit),
+            ('permit_doc',            new_permit),
             ('pan_doc',               new_pan),
             ('tax_declaration_doc',   new_tax),
             ('cancelled_cheque_doc',  new_chq),

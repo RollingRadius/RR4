@@ -596,6 +596,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   ({Uint8List bytes, String name})? _insuranceDoc;
   ({Uint8List bytes, String name})? _pollutionDoc;
   ({Uint8List bytes, String name})? _fitnessDoc;
+  ({Uint8List bytes, String name})? _permitDoc;
   ({Uint8List bytes, String name})? _panDoc;
   ({Uint8List bytes, String name})? _taxDeclDoc;
   ({Uint8List bytes, String name})? _cancelledChequeDoc;
@@ -642,6 +643,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       _insuranceDoc       = _restoreFile(d, 'insurance_doc');
       _pollutionDoc       = _restoreFile(d, 'pollution_doc');
       _fitnessDoc         = _restoreFile(d, 'fitness_doc');
+      _permitDoc          = _restoreFile(d, 'permit_doc');
       _panDoc             = _restoreFile(d, 'pan_doc');
       _taxDeclDoc         = _restoreFile(d, 'tax_decl_doc');
       _cancelledChequeDoc = _restoreFile(d, 'cancelled_cheque_doc');
@@ -710,6 +712,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
           ..._fileDraftEntry(_insuranceDoc,       'insurance_doc'),
           ..._fileDraftEntry(_pollutionDoc,       'pollution_doc'),
           ..._fileDraftEntry(_fitnessDoc,         'fitness_doc'),
+          ..._fileDraftEntry(_permitDoc,          'permit_doc'),
           ..._fileDraftEntry(_panDoc,             'pan_doc'),
           ..._fileDraftEntry(_taxDeclDoc,         'tax_decl_doc'),
           ..._fileDraftEntry(_cancelledChequeDoc, 'cancelled_cheque_doc'),
@@ -844,6 +847,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     _addFile('insurance_doc',        _insuranceDoc);
     _addFile('pollution_doc',        _pollutionDoc);
     _addFile('fitness_doc',          _fitnessDoc);
+    _addFile('permit_doc',           _permitDoc);
     _addFile('pan_doc',              _panDoc);
     _addFile('tax_declaration_doc',  _taxDeclDoc);
     _addFile('cancelled_cheque_doc', _cancelledChequeDoc);
@@ -1096,6 +1100,10 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               _fitnessDoc, (f) => _fitnessDoc = f,
               () { setState(() => _fitnessDoc = null); _onUploadChanged(); },
               existingUrl: widget.trip.s1Fitness, fieldKey: 'fitness_doc'),
+            _uploadTile('Permit', 'Upload permit document',
+              _permitDoc, (f) => _permitDoc = f,
+              () { setState(() => _permitDoc = null); _onUploadChanged(); },
+              existingUrl: widget.trip.s1Permit, fieldKey: 'permit_doc'),
             const SizedBox(height: 8),
 
             // ── Owner Documents ────────────────────────────────────────────────

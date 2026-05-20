@@ -41,6 +41,7 @@ class TripModel {
   final String? s1Insurance;
   final String? s1Pollution;
   final String? s1Fitness;
+  final String? s1Permit;
   final String? s1Pan;
   final String? s1TaxDeclaration;
   final String? s1CancelledCheque;
@@ -151,6 +152,7 @@ class TripModel {
     this.s1Insurance,
     this.s1Pollution,
     this.s1Fitness,
+    this.s1Permit,
     this.s1Pan,
     this.s1TaxDeclaration,
     this.s1CancelledCheque,
@@ -247,6 +249,7 @@ class TripModel {
       s1Insurance: json['s1_insurance'] as String?,
       s1Pollution: json['s1_pollution'] as String?,
       s1Fitness: json['s1_fitness'] as String?,
+      s1Permit: json['s1_permit'] as String?,
       s1Pan: json['s1_pan'] as String?,
       s1TaxDeclaration: json['s1_tax_declaration'] as String?,
       s1CancelledCheque: json['s1_cancelled_cheque'] as String?,

@@ -74,6 +74,7 @@ class Trip(Base):
     s1_insurance            = Column(Text, nullable=True)
     s1_pollution            = Column(Text, nullable=True)
     s1_fitness              = Column(Text, nullable=True)
+    s1_permit               = Column(Text, nullable=True)
     s1_pan                  = Column(Text, nullable=True)
     s1_tax_declaration      = Column(Text, nullable=True)
     s1_cancelled_cheque     = Column(Text, nullable=True)
@@ -183,6 +184,7 @@ class Trip(Base):
             "s1_insurance": self.s1_insurance,
             "s1_pollution": self.s1_pollution,
             "s1_fitness": self.s1_fitness,
+            "s1_permit": self.s1_permit,
             "s1_pan": self.s1_pan,
             "s1_tax_declaration": self.s1_tax_declaration,
             "s1_cancelled_cheque": self.s1_cancelled_cheque,
