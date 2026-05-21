@@ -872,7 +872,7 @@ async def submit_stage4_diesel(
 @router.post("/trips/{trip_id}/stage/5", status_code=200)
 async def submit_stage5(
     trip_id: str,
-    pod: UploadFile = File(...),
+    pod: Optional[UploadFile] = File(None),
     halting_charge: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -893,20 +893,24 @@ async def submit_stage5(
     if not trip.s4_diesel_receipt_url:
         raise HTTPException(status_code=409, detail="Upload diesel receipt in Stage 4 first")
 
-    trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
-    trip_dir.mkdir(parents=True, exist_ok=True)
-    ext = Path(pod.filename).suffix if pod.filename else '.jpg'
-    filename = f"pod_{_uuid_module.uuid4().hex}{ext}"
-    content = await pod.read()
-    (trip_dir / filename).write_bytes(content)
+    # Require POD on first submission; allow re-edit without re-uploading
+    if pod is None and not trip.s5_pod_url:
+        raise HTTPException(status_code=422, detail="Proof of Delivery document is required")
 
     was_already_submitted = trip.current_stage >= 5
 
     # Flush draft attributions + auto-attribute the POD upload
     _draft_flush_attributions(trip, current_user, role_key)
-    _apply_attributions(trip, ['pod_doc'], current_user, role_key)
 
-    trip.s5_pod_url      = f"/uploads/trips/{trip_id}/{filename}"
+    if pod is not None:
+        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+        trip_dir.mkdir(parents=True, exist_ok=True)
+        ext = Path(pod.filename).suffix if pod.filename else '.jpg'
+        filename = f"pod_{_uuid_module.uuid4().hex}{ext}"
+        content = await pod.read()
+        (trip_dir / filename).write_bytes(content)
+        _apply_attributions(trip, ['pod_doc'], current_user, role_key)
+        trip.s5_pod_url = f"/uploads/trips/{trip_id}/{filename}"
     if halting_charge and halting_charge.strip():
         try:
             trip.s5_halting_charge = decimal.Decimal(halting_charge.strip())

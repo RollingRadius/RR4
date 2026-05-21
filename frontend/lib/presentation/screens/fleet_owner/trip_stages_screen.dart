@@ -1886,13 +1886,16 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                   // ── Newly picked local file preview ──────────────────────
                   ? Stack(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(13),
-                          child: Image.memory(
-                            _slipFile!.bytes,
-                            height: 200,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
+                        GestureDetector(
+                          onTap: () => _showImagePreview(context, bytes: _slipFile!.bytes),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: Image.memory(
+                              _slipFile!.bytes,
+                              height: 200,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                         Positioned(
@@ -1907,6 +1910,17 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                               ),
                               child: Icon(Icons.close_rounded, size: 16, color: _error),
                             ),
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 8, left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
                           ),
                         ),
                         Positioned(
@@ -1933,10 +1947,12 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                   // ── Existing server-uploaded slip ─────────────────────────
                   ? Stack(
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(13),
-                          child: Image.network(
-                            imageUrl!,
+                        GestureDetector(
+                          onTap: () => _showImagePreview(context, url: imageUrl!),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(13),
+                            child: Image.network(
+                              imageUrl!,
                             height: 220,
                             width: double.infinity,
                             fit: BoxFit.cover,
@@ -1970,6 +1986,19 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                                 ),
                               ),
                             ),
+                          ),
+                        ),
+                        ),
+                        // Zoom icon
+                        Positioned(
+                          top: 8, right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(5),
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
                           ),
                         ),
                         // Uploaded badge
@@ -3378,6 +3407,57 @@ Future<ImageSource?> _showSourcePicker(BuildContext context) {
   );
 }
 
+// ─── Full-screen Image Preview ────────────────────────────────────────────────
+
+void _showImagePreview(BuildContext context, {Uint8List? bytes, String? url}) {
+  final Widget image = bytes != null
+      ? Image.memory(bytes, fit: BoxFit.contain)
+      : Image.network(
+          url!,
+          fit: BoxFit.contain,
+          loadingBuilder: (_, child, prog) => prog == null
+              ? child
+              : const Center(child: CircularProgressIndicator(color: Colors.white)),
+          errorBuilder: (_, __, ___) =>
+              const Center(child: Icon(Icons.broken_image_rounded, color: Colors.white54, size: 48)),
+        );
+
+  showDialog(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.92),
+    builder: (_) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 5.0,
+              child: image,
+            ),
+          ),
+          Positioned(
+            top: 40,
+            right: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 // ─── Single-file Document Upload Tile ────────────────────────────────────────
 
 class _DocUploadTile extends StatelessWidget {
@@ -3417,13 +3497,30 @@ class _DocUploadTile extends StatelessWidget {
         ),
         child: Column(
           children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(13)),
-              child: Image.memory(bytes!,
-                  width: double.infinity,
-                  height: 160,
-                  fit: BoxFit.cover),
+            GestureDetector(
+              onTap: () => _showImagePreview(context, bytes: bytes),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                    child: Image.memory(bytes!,
+                        width: double.infinity,
+                        height: 160,
+                        fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
             ),
             Padding(
               padding:
@@ -3485,21 +3582,36 @@ class _DocUploadTile extends StatelessWidget {
         child: Column(
           children: [
             GestureDetector(
-              onTap: () => _pick(context),
-              child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
-                child: Image.network(
-                  fullUrl,
-                  width: double.infinity,
-                  height: 160,
-                  fit: BoxFit.cover,
-                  loadingBuilder: (_, child, prog) => prog == null
-                      ? child
-                      : const SizedBox(height: 160,
-                          child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-                  errorBuilder: (_, __, ___) => const SizedBox(height: 80,
-                      child: Center(child: Icon(Icons.broken_image_rounded, color: _secondary))),
-                ),
+              onTap: () => _showImagePreview(context, url: fullUrl),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                    child: Image.network(
+                      fullUrl,
+                      width: double.infinity,
+                      height: 160,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (_, child, prog) => prog == null
+                          ? child
+                          : const SizedBox(height: 160,
+                              child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                      errorBuilder: (_, __, ___) => const SizedBox(height: 80,
+                          child: Center(child: Icon(Icons.broken_image_rounded, color: _secondary))),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
               ),
             ),
             Padding(
@@ -3622,13 +3734,16 @@ class _MultiDocUploadTile extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (_, i) {
                 if (hasLocal) {
-                  // Locally picked — show memory image with remove button
+                  // Locally picked — show memory image with remove button + preview
                   return Stack(
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.memory(bytesList[i],
-                            width: 90, height: 100, fit: BoxFit.cover),
+                      GestureDetector(
+                        onTap: () => _showImagePreview(context, bytes: bytesList[i]),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.memory(bytesList[i],
+                              width: 90, height: 100, fit: BoxFit.cover),
+                        ),
                       ),
                       Positioned(
                         top: 4, right: 4,
@@ -3645,45 +3760,72 @@ class _MultiDocUploadTile extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ],
-                  );
-                } else {
-                  // Server-uploaded — show network image with "Uploaded" badge
-                  final url = existingUrls[i].startsWith('http')
-                      ? existingUrls[i]
-                      : '${AppConfig.apiBaseUrl}${existingUrls[i]}';
-                  return Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.network(url,
-                            width: 90, height: 100, fit: BoxFit.cover,
-                            loadingBuilder: (_, child, prog) => prog == null
-                                ? child
-                                : const SizedBox(width: 90, height: 100,
-                                    child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-                            errorBuilder: (_, __, ___) => Container(
-                                width: 90, height: 100,
-                                decoration: BoxDecoration(
-                                  color: _border,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(Icons.broken_image_rounded,
-                                    color: _secondary, size: 24))),
-                      ),
                       Positioned(
                         bottom: 4, left: 4,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
-                            color: _success,
+                            color: Colors.black45,
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Icon(Icons.cloud_done_rounded,
-                              color: Colors.white, size: 10),
+                          child: const Icon(Icons.zoom_in_rounded,
+                              color: Colors.white, size: 12),
                         ),
                       ),
                     ],
+                  );
+                } else {
+                  // Server-uploaded — show network image with preview + uploaded badge
+                  final url = existingUrls[i].startsWith('http')
+                      ? existingUrls[i]
+                      : '${AppConfig.apiBaseUrl}${existingUrls[i]}';
+                  return GestureDetector(
+                    onTap: () => _showImagePreview(context, url: url),
+                    child: Stack(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(url,
+                              width: 90, height: 100, fit: BoxFit.cover,
+                              loadingBuilder: (_, child, prog) => prog == null
+                                  ? child
+                                  : const SizedBox(width: 90, height: 100,
+                                      child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                              errorBuilder: (_, __, ___) => Container(
+                                  width: 90, height: 100,
+                                  decoration: BoxDecoration(
+                                    color: _border,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.broken_image_rounded,
+                                      color: _secondary, size: 24))),
+                        ),
+                        Positioned(
+                          bottom: 4, left: 4,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: _success,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.cloud_done_rounded,
+                                color: Colors.white, size: 10),
+                          ),
+                        ),
+                        Positioned(
+                          top: 4, right: 4,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(Icons.zoom_in_rounded,
+                                color: Colors.white, size: 12),
+                          ),
+                        ),
+                      ],
+                    ),
                   );
                 }
               },
@@ -3972,13 +4114,18 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     setState(() => _checklistSubmitting = true);
     try {
       final dio = ref.read(dioProvider);
-      await dio.post('/api/trips/${widget.trip.id}/stage/4', data: {
+      final resp = await dio.post('/api/trips/${widget.trip.id}/stage/4', data: {
         'truck_moved':        _truckMoved,
         'security_verified':  _securityCheck,
         'bilty_checked':      _biltyChecked,
         'weight_checked':     _weightChecked,
         'material_checked':   _materialChecked,
       });
+      // Patch the trip in provider so currentStage=4 is reflected even before diesel upload
+      final tripJson = (resp.data as Map<String, dynamic>)['trip'] as Map<String, dynamic>?;
+      if (tripJson != null) {
+        ref.read(tripProvider.notifier).patchTrip(TripModel.fromJson(tripJson));
+      }
       if (mounted) setState(() { _checklistSubmitting = false; _showDiesel = true; });
     } catch (e) {
       if (mounted) {
@@ -4309,10 +4456,13 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                 child: _dieselFile != null
                     ? Stack(
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(13),
-                            child: Image.memory(_dieselFile!.bytes,
-                                height: 200, width: double.infinity, fit: BoxFit.cover),
+                          GestureDetector(
+                            onTap: () => _showImagePreview(context, bytes: _dieselFile!.bytes),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(13),
+                              child: Image.memory(_dieselFile!.bytes,
+                                  height: 200, width: double.infinity, fit: BoxFit.cover),
+                            ),
                           ),
                           Positioned(
                             top: 8, right: 8,
@@ -4323,6 +4473,14 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                                 decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                                 child: Icon(Icons.close_rounded, size: 16, color: _error),
                               ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 8, left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8)),
+                              child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
                             ),
                           ),
                           Positioned(
@@ -4343,17 +4501,29 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                     : showExistingDiesel
                         ? Stack(
                             children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(13),
-                                child: Image.network(
-                                  '${AppConfig.apiBaseUrl}$existingDieselUrl',
-                                  height: 200, width: double.infinity, fit: BoxFit.cover,
-                                  loadingBuilder: (_, child, prog) => prog == null
-                                      ? child
-                                      : const SizedBox(height: 200,
-                                          child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
-                                  errorBuilder: (_, __, ___) => const SizedBox(height: 120,
-                                      child: Center(child: Icon(Icons.broken_image_rounded))),
+                              GestureDetector(
+                                onTap: () => _showImagePreview(context,
+                                    url: '${AppConfig.apiBaseUrl}$existingDieselUrl'),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(13),
+                                  child: Image.network(
+                                    '${AppConfig.apiBaseUrl}$existingDieselUrl',
+                                    height: 200, width: double.infinity, fit: BoxFit.cover,
+                                    loadingBuilder: (_, child, prog) => prog == null
+                                        ? child
+                                        : const SizedBox(height: 200,
+                                            child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                                    errorBuilder: (_, __, ___) => const SizedBox(height: 120,
+                                        child: Center(child: Icon(Icons.broken_image_rounded))),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                top: 8, right: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.all(5),
+                                  decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8)),
+                                  child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
                                 ),
                               ),
                               Positioned(
@@ -4721,10 +4891,13 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
               ),
               child: _podFile != null
                   ? Stack(children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(13),
-                        child: Image.memory(_podFile!.bytes,
-                            height: 200, width: double.infinity, fit: BoxFit.cover),
+                      GestureDetector(
+                        onTap: () => _showImagePreview(context, bytes: _podFile!.bytes),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(13),
+                          child: Image.memory(_podFile!.bytes,
+                              height: 200, width: double.infinity, fit: BoxFit.cover),
+                        ),
                       ),
                       Positioned(
                         top: 8, right: 8,
@@ -4736,6 +4909,14 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                                 color: Colors.white, shape: BoxShape.circle),
                             child: Icon(Icons.close_rounded, size: 16, color: _error),
                           ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 8, left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8)),
+                          child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
                         ),
                       ),
                       Positioned(
@@ -4756,20 +4937,31 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                     ])
                   : showExisting
                       ? Stack(children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(13),
-                            child: Image.network(
-                              podImageUrl!,
-                              height: 220, width: double.infinity, fit: BoxFit.cover,
-                              loadingBuilder: (_, child, prog) => prog == null
-                                  ? child
-                                  : const SizedBox(height: 220,
-                                      child: Center(
-                                          child: CircularProgressIndicator(strokeWidth: 2))),
-                              errorBuilder: (_, __, ___) => const SizedBox(
-                                  height: 120,
-                                  child: Center(
-                                      child: Icon(Icons.broken_image_rounded))),
+                          GestureDetector(
+                            onTap: () => _showImagePreview(context, url: podImageUrl!),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(13),
+                              child: Image.network(
+                                podImageUrl!,
+                                height: 220, width: double.infinity, fit: BoxFit.cover,
+                                loadingBuilder: (_, child, prog) => prog == null
+                                    ? child
+                                    : const SizedBox(height: 220,
+                                        child: Center(
+                                            child: CircularProgressIndicator(strokeWidth: 2))),
+                                errorBuilder: (_, __, ___) => const SizedBox(
+                                    height: 120,
+                                    child: Center(
+                                        child: Icon(Icons.broken_image_rounded))),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 8, right: 8,
+                            child: Container(
+                              padding: const EdgeInsets.all(5),
+                              decoration: BoxDecoration(color: Colors.black45, borderRadius: BorderRadius.circular(8)),
+                              child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
                             ),
                           ),
                           Positioned(
