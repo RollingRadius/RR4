@@ -585,6 +585,7 @@ def submit_stage2(
 
     if trip.current_stage < 2:
         trip.current_stage = 2
+    trip.draft_data = None  # clear draft on submit
 
     db.commit()
     db.refresh(trip)
@@ -654,6 +655,7 @@ async def submit_stage3(
     loaded_truck_weight_unit: Optional[str] = Form('tons'),
     bilty:                   Optional[UploadFile] = File(None),
     material_docs:           Optional[List[UploadFile]] = File(None),
+    e_way_bill:              Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -702,6 +704,17 @@ async def submit_stage3(
                     f.write(await doc.read())
                 material_urls.append(f"/uploads/trips/{trip_id}/{filename}")
 
+    # Save e-way bill file
+    e_way_bill_url = None
+    if e_way_bill and e_way_bill.filename:
+        ext = Path(e_way_bill.filename).suffix or '.jpg'
+        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+        trip_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"eway_{_uuid_module.uuid4().hex}{ext}"
+        with open(trip_dir / filename, "wb") as f:
+            f.write(await e_way_bill.read())
+        e_way_bill_url = f"/uploads/trips/{trip_id}/{filename}"
+
     # Flush draft attributions + auto-attribute newly uploaded files
     _draft_flush_attributions(trip, current_user, role_key)
     s3_uploaded = []
@@ -709,6 +722,8 @@ async def submit_stage3(
         s3_uploaded.append('bilty_doc')
     if material_urls:
         s3_uploaded.append('material_docs')
+    if e_way_bill_url:
+        s3_uploaded.append('e_way_bill')
     if s3_uploaded:
         _apply_attributions(trip, s3_uploaded, current_user, role_key)
 
@@ -726,6 +741,8 @@ async def submit_stage3(
         trip.s3_bilty_url = bilty_url
     if material_urls:
         trip.s3_material_doc_urls = json.dumps(material_urls)
+    if e_way_bill_url:
+        trip.s3_e_way_bill_url = e_way_bill_url
     trip.s3_submitted_by             = current_user.id
     trip.s3_claimed_by               = None  # release claim on submit
     trip.s3_claimed_at               = None

@@ -57,12 +57,19 @@ class TripModel {
   final String? s2EmptyWeightUnit;
 
   // ── Stage 3 fields ───────────────────────────────────────────────────────────
+  final bool? s3DriverParked;
+  final bool? s3DocsSubmitted;
+  final bool? s3SecurityVerified;
+  final bool? s3DriverExitedCabin;
+  final bool? s3WheelStoppers;
+  final bool? s3SafetyGear;
   final String? s3EmptyTruckWeightKg;
   final String? s3EmptyTruckWeightUnit;
   final String? s3LoadedTruckWeightKg;
   final String? s3LoadedTruckWeightUnit;
   final String? s3BiltyUrl;
   final List<String>? s3MaterialDocUrls;
+  final String? s3EWayBillUrl;
 
   // ── Stage 4 fields ───────────────────────────────────────────────────────────
   final bool? s4TruckMoved;
@@ -164,12 +171,19 @@ class TripModel {
     this.s2DharamKantaLoc,
     this.s2EmptyWeightKg,
     this.s2EmptyWeightUnit,
+    this.s3DriverParked,
+    this.s3DocsSubmitted,
+    this.s3SecurityVerified,
+    this.s3DriverExitedCabin,
+    this.s3WheelStoppers,
+    this.s3SafetyGear,
     this.s3EmptyTruckWeightKg,
     this.s3EmptyTruckWeightUnit,
     this.s3LoadedTruckWeightKg,
     this.s3LoadedTruckWeightUnit,
     this.s3BiltyUrl,
     this.s3MaterialDocUrls,
+    this.s3EWayBillUrl,
     this.s4TruckMoved,
     this.s4SecurityVerified,
     this.s4BiltyChecked,
@@ -261,12 +275,19 @@ class TripModel {
       s2DharamKantaLoc: json['s2_dharam_kanta_loc'] as String?,
       s2EmptyWeightKg: json['s2_empty_weight_kg'] as String?,
       s2EmptyWeightUnit: json['s2_empty_weight_unit'] as String?,
+      s3DriverParked:       json['s3_driver_parked']        as bool?,
+      s3DocsSubmitted:      json['s3_docs_submitted']        as bool?,
+      s3SecurityVerified:   json['s3_security_verified']     as bool?,
+      s3DriverExitedCabin:  json['s3_driver_exited_cabin']   as bool?,
+      s3WheelStoppers:      json['s3_wheel_stoppers']        as bool?,
+      s3SafetyGear:         json['s3_safety_gear']           as bool?,
       s3EmptyTruckWeightKg: json['s3_empty_truck_weight_kg'] as String?,
       s3EmptyTruckWeightUnit: json['s3_empty_truck_weight_unit'] as String?,
       s3LoadedTruckWeightKg: json['s3_loaded_truck_weight_kg'] as String?,
       s3LoadedTruckWeightUnit: json['s3_loaded_truck_weight_unit'] as String?,
       s3BiltyUrl: json['s3_bilty_url'] as String?,
       s3MaterialDocUrls: _parseUrlList(json['s3_material_doc_urls']),
+      s3EWayBillUrl: json['s3_e_way_bill_url'] as String?,
       s4TruckMoved:       json['s4_truck_moved']       as bool?,
       s4SecurityVerified: json['s4_security_verified'] as bool?,
       s4BiltyChecked:     json['s4_bilty_checked']     as bool?,

@@ -1298,7 +1298,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           'specs_verified':             _specsVerified,
           'docs_verified':              _docsVerified,
           'driver_docs_valid':          _driverDocsValid,
-          'entry_permission':           _entryPermission,
+          'entry_permission':           _entryPermissionChecked,
           'dharam_kanta_location':      _dharamKantaLoc ?? '',
           'empty_weight_before_loading': _emptyWeightCtrl.text.trim(),
           'empty_weight_unit':          _emptyWeightUnit.value,
@@ -2130,6 +2130,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
   // Document uploads — stored as (bytes, filename) tuples for web compatibility
   ({Uint8List bytes, String name})? _biltyData;
+  ({Uint8List bytes, String name})? _eWayBillData;
   List<({Uint8List bytes, String name})> _materialDocs = [];
 
   Timer? _debounce;
@@ -2163,12 +2164,19 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
     final draft = trip.draftData;
     if (draft == null || draft['stage'] != 3) {
-      // No draft — prefill weights from committed trip data when re-editing
+      // No draft — prefill all committed stage 3 data when re-editing
       if (trip.currentStage >= 3) {
+        _driverParked       = trip.s3DriverParked       ?? false;
+        _docsSubmitted      = trip.s3DocsSubmitted      ?? false;
+        _securityVerified   = trip.s3SecurityVerified   ?? false;
+        _driverExitedCabin  = trip.s3DriverExitedCabin  ?? false;
+        _wheelStoppers      = trip.s3WheelStoppers      ?? false;
+        _safetyGear         = trip.s3SafetyGear         ?? false;
         _emptyTruckWeight.text  = trip.s3EmptyTruckWeightKg  ?? '';
         _loadedTruckWeight.text = trip.s3LoadedTruckWeightKg ?? '';
         _emptyWeightUnit.value  = trip.s3EmptyTruckWeightUnit ?? 'tons';
         _loadedWeightUnit.value = trip.s3LoadedTruckWeightUnit ?? 'tons';
+        _loadingComplete = true; // show Phase 2 (weight, bilty, e-way bill, material docs)
       }
       return;
     }
@@ -2193,6 +2201,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     final biltyName = d['bilty_name'] as String?;
     if (biltyB64 != null && biltyName != null) {
       _biltyData = (bytes: base64Decode(biltyB64), name: biltyName);
+    }
+    // Restore e-way bill upload
+    final ewayB64 = d['eway_b64'] as String?;
+    final ewayName = d['eway_name'] as String?;
+    if (ewayB64 != null && ewayName != null) {
+      _eWayBillData = (bytes: base64Decode(ewayB64), name: ewayName);
     }
     // Restore material doc uploads
     final matList = d['material_docs'] as List<dynamic>?;
@@ -2258,6 +2272,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             'bilty_b64':  base64Encode(_biltyData!.bytes),
             'bilty_name': _biltyData!.name,
           },
+          // E-way bill upload
+          if (_eWayBillData != null) ...{
+            'eway_b64':  base64Encode(_eWayBillData!.bytes),
+            'eway_name': _eWayBillData!.name,
+          },
           // Material doc uploads
           'material_docs': _materialDocs
               .map((f) => {'b64': base64Encode(f.bytes), 'name': f.name})
@@ -2288,6 +2307,15 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     final bytes = await picked.readAsBytes();
     setState(() => _biltyData = (bytes: bytes, name: picked.name));
     _touchField('bilty_doc');
+    _saveDraft();
+  }
+
+  Future<void> _pickEWayBill(ImageSource source) async {
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    setState(() => _eWayBillData = (bytes: bytes, name: picked.name));
+    _touchField('e_way_bill');
     _saveDraft();
   }
 
@@ -2392,6 +2420,13 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       fields['bilty'] = MultipartFile.fromBytes(
         _biltyData!.bytes,
         filename: _biltyData!.name,
+      );
+    }
+
+    if (_eWayBillData != null) {
+      fields['e_way_bill'] = MultipartFile.fromBytes(
+        _eWayBillData!.bytes,
+        filename: _eWayBillData!.name,
       );
     }
 
@@ -2566,10 +2601,25 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               subtitle: 'Attach the lorry receipt / bilty document',
               bytes: _biltyData?.bytes,
               fileName: _biltyData?.name,
+              existingUrl: _biltyData == null ? widget.trip.s3BiltyUrl : null,
               onPickSource: _pickBilty,
               onRemove: () { setState(() => _biltyData = null); _touchField('bilty_doc'); _saveDraft(); },
             ),
             _FieldAttribution(username: _attrOf('bilty_doc')),
+            const SizedBox(height: 20),
+
+            // ── E-Way Bill Upload ─────────────────────────────────────
+            _SectionHeader(icon: Icons.receipt_rounded, title: 'E-Way Bill'),
+            _DocUploadTile(
+              label: 'Upload E-Way Bill',
+              subtitle: 'Attach the e-way bill document for this shipment',
+              bytes: _eWayBillData?.bytes,
+              fileName: _eWayBillData?.name,
+              existingUrl: widget.trip.s3EWayBillUrl,
+              onPickSource: _pickEWayBill,
+              onRemove: () { setState(() => _eWayBillData = null); _touchField('e_way_bill'); _saveDraft(); },
+            ),
+            _FieldAttribution(username: _attrOf('e_way_bill')),
             const SizedBox(height: 20),
 
             // ── Material Documents Upload ─────────────────────────────
@@ -2578,6 +2628,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               label: 'Upload Material Documents',
               subtitle: 'Attach invoices, packing lists, or other material docs',
               bytesList: _materialDocs.map((d) => d.bytes).toList(),
+              existingUrls: _materialDocs.isEmpty
+                  ? (widget.trip.s3MaterialDocUrls ?? [])
+                  : [],
               onPickSource: _pickMaterialDocs,
               onRemove: _removeMaterialDoc,
             ),
@@ -3418,39 +3471,59 @@ class _DocUploadTile extends StatelessWidget {
       );
     }
 
-    // File saved on server (returning to edit) — show compact "saved" row
+    // File saved on server (returning to edit) — show image preview
     if (existingUrl != null) {
-      final docName = existingUrl!.split('/').last;
+      final fullUrl = existingUrl!.startsWith('http')
+          ? existingUrl!
+          : '${AppConfig.apiBaseUrl}$existingUrl';
       return Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
         decoration: BoxDecoration(
           color: _success.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _success.withValues(alpha: 0.30)),
         ),
-        child: Row(
+        child: Column(
           children: [
-            const Icon(Icons.cloud_done_rounded, size: 20, color: _success),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
-                      style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: _success)),
-                  const SizedBox(height: 2),
-                  Text(docName,
-                      style: GoogleFonts.inter(fontSize: 11, color: _secondary),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
             GestureDetector(
               onTap: () => _pick(context),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Text('Replace',
-                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                child: Image.network(
+                  fullUrl,
+                  width: double.infinity,
+                  height: 160,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (_, child, prog) => prog == null
+                      ? child
+                      : const SizedBox(height: 160,
+                          child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                  errorBuilder: (_, __, ___) => const SizedBox(height: 80,
+                      child: Center(child: Icon(Icons.broken_image_rounded, color: _secondary))),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_done_rounded, size: 16, color: _success),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(label,
+                        style: GoogleFonts.manrope(
+                            fontSize: 12, fontWeight: FontWeight.w700, color: _success),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  GestureDetector(
+                    onTap: () => _pick(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('Replace',
+                          style: GoogleFonts.manrope(
+                              fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -3511,6 +3584,8 @@ class _MultiDocUploadTile extends StatelessWidget {
   final String label;
   final String subtitle;
   final List<Uint8List> bytesList;
+  /// Server URLs of already-uploaded docs. Shown as previews when bytesList is empty.
+  final List<String> existingUrls;
   final Future<void> Function(ImageSource) onPickSource;
   final void Function(int) onRemove;
 
@@ -3518,6 +3593,7 @@ class _MultiDocUploadTile extends StatelessWidget {
     required this.label,
     required this.subtitle,
     required this.bytesList,
+    this.existingUrls = const [],
     required this.onPickSource,
     required this.onRemove,
   });
@@ -3529,45 +3605,98 @@ class _MultiDocUploadTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Show locally picked files if any, otherwise show server-uploaded previews
+    final hasLocal    = bytesList.isNotEmpty;
+    final hasExisting = existingUrls.isNotEmpty;
+    final totalCount  = hasLocal ? bytesList.length : existingUrls.length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (bytesList.isNotEmpty) ...[
+        if (hasLocal || hasExisting) ...[
           SizedBox(
             height: 100,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              itemCount: bytesList.length,
+              itemCount: totalCount,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) => Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.memory(bytesList[i],
-                        width: 90,
-                        height: 100,
-                        fit: BoxFit.cover),
-                  ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: GestureDetector(
-                      onTap: () => onRemove(i),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          shape: BoxShape.circle,
-                        ),
-                        padding: const EdgeInsets.all(3),
-                        child: const Icon(Icons.close_rounded,
-                            size: 12, color: Colors.white),
+              itemBuilder: (_, i) {
+                if (hasLocal) {
+                  // Locally picked — show memory image with remove button
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.memory(bytesList[i],
+                            width: 90, height: 100, fit: BoxFit.cover),
                       ),
-                    ),
-                  ),
-                ],
-              ),
+                      Positioned(
+                        top: 4, right: 4,
+                        child: GestureDetector(
+                          onTap: () => onRemove(i),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.55),
+                              shape: BoxShape.circle,
+                            ),
+                            padding: const EdgeInsets.all(3),
+                            child: const Icon(Icons.close_rounded,
+                                size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                } else {
+                  // Server-uploaded — show network image with "Uploaded" badge
+                  final url = existingUrls[i].startsWith('http')
+                      ? existingUrls[i]
+                      : '${AppConfig.apiBaseUrl}${existingUrls[i]}';
+                  return Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(url,
+                            width: 90, height: 100, fit: BoxFit.cover,
+                            loadingBuilder: (_, child, prog) => prog == null
+                                ? child
+                                : const SizedBox(width: 90, height: 100,
+                                    child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                            errorBuilder: (_, __, ___) => Container(
+                                width: 90, height: 100,
+                                decoration: BoxDecoration(
+                                  color: _border,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.broken_image_rounded,
+                                    color: _secondary, size: 24))),
+                      ),
+                      Positioned(
+                        bottom: 4, left: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _success,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Icon(Icons.cloud_done_rounded,
+                              color: Colors.white, size: 10),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+              },
             ),
           ),
+          if (hasExisting && !hasLocal)
+            Padding(
+              padding: const EdgeInsets.only(top: 6, bottom: 2),
+              child: Text(
+                'Tap below to replace all with new uploads',
+                style: GoogleFonts.inter(fontSize: 11, color: _secondary),
+              ),
+            ),
           const SizedBox(height: 10),
         ],
         GestureDetector(
@@ -3597,18 +3726,19 @@ class _MultiDocUploadTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        bytesList.isEmpty
-                            ? label
-                            : '${bytesList.length} file${bytesList.length > 1 ? 's' : ''} selected — tap to add more',
+                        hasLocal
+                            ? '${bytesList.length} file${bytesList.length > 1 ? 's' : ''} selected — tap to add more'
+                            : hasExisting
+                                ? '${existingUrls.length} uploaded — tap to replace'
+                                : label,
                         style: GoogleFonts.manrope(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
-                            color: bytesList.isEmpty ? _onSurface : _success),
+                            color: (hasLocal || hasExisting) ? _success : _onSurface),
                       ),
                       const SizedBox(height: 2),
                       Text(subtitle,
-                          style: GoogleFonts.inter(
-                              fontSize: 11, color: _secondary)),
+                          style: GoogleFonts.inter(fontSize: 11, color: _secondary)),
                     ],
                   ),
                 ),
@@ -4038,13 +4168,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                         _showDiesel ? 'Upload Diesel Receipt' : 'Truck Exit From Factory',
                         style: _manrope(size: 15, weight: FontWeight.w800),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _showDiesel
-                            ? 'Upload the diesel receipt to complete Stage 4'
-                            : 'Verify all exit procedures before releasing truck',
-                        style: _inter(size: 12),
-                      ),
+
                     ],
                   ),
                 ),
