@@ -1194,6 +1194,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   bool _s2WeightConfirmed   = false;
   final _emptyWeightCtrl    = TextEditingController();
   final _emptyWeightUnit    = ValueNotifier<String>('tons');
+  XFile? _loadingSlipFile;   // optional loading slip — uploaded with Stage 2
 
   // ── Per-field attribution ─────────────────────────────────────────────────
   final Map<String, String> _fieldAttributions = {};
@@ -1311,6 +1312,49 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
     } catch (_) {}
   }
 
+  Future<void> _pickLoadingSlip(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    setState(() => _loadingSlipFile = picked);
+  }
+
+  void _showSlipPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Upload Loading Slip', style: _manrope(size: 16, weight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('Attach the loading slip image', style: _inter(size: 12, color: _secondary)),
+              const SizedBox(height: 20),
+              Row(children: [
+                Expanded(child: _PickerOption(
+                  icon: Icons.camera_alt_rounded, label: 'Camera', color: _primary,
+                  onTap: () { Navigator.pop(context); _pickLoadingSlip(ImageSource.camera); },
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _PickerOption(
+                  icon: Icons.photo_library_rounded, label: 'Gallery', color: _secondary,
+                  onTap: () { Navigator.pop(context); _pickLoadingSlip(ImageSource.gallery); },
+                )),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _scrollToKey(GlobalKey key) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = key.currentContext;
@@ -1378,17 +1422,25 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim(), _emptyWeightUnit.value);
     }
 
-    final ok = await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage2({
-      'specs_verified':          _specsVerified,
-      'docs_verified':           _docsVerified,
-      'driver_docs_valid':       _driverDocsValid,
-      'entry_permission':        _entryPermission,
+    final formData = FormData.fromMap({
+      'specs_verified':          _specsVerified.toString(),
+      'docs_verified':           _docsVerified.toString(),
+      'driver_docs_valid':       _driverDocsValid.toString(),
+      'entry_permission':        _entryPermission.toString(),
       'dharam_kanta_location':   _dharamKantaLoc ?? '',
       if (_dharamKantaLoc == 'outside' && _emptyWeightCtrl.text.trim().isNotEmpty) ...{
         'empty_weight_before_loading': _emptyWeightCtrl.text.trim(),
         'empty_weight_unit':           _emptyWeightUnit.value,
       },
     });
+    if (_loadingSlipFile != null) {
+      final bytes = await _loadingSlipFile!.readAsBytes();
+      formData.files.add(MapEntry(
+        'loading_slip',
+        MultipartFile.fromBytes(bytes, filename: _loadingSlipFile!.name),
+      ));
+    }
+    final ok = await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage2(formData);
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1617,6 +1669,57 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
             ),
           ),
           const SizedBox(height: 28),
+
+          // ── Loading Slip (optional — can also be uploaded after Stage 2) ──
+          GestureDetector(
+            onTap: _showSlipPicker,
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+              decoration: BoxDecoration(
+                color: _loadingSlipFile != null
+                    ? _success.withValues(alpha: 0.07)
+                    : const Color(0xFFF1F4F8),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _loadingSlipFile != null ? _success : const Color(0xFFDDE0E2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _loadingSlipFile != null
+                        ? Icons.check_circle_rounded
+                        : Icons.upload_file_rounded,
+                    color: _loadingSlipFile != null ? _success : _secondary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Loading Slip',
+                            style: _manrope(size: 13, weight: FontWeight.w700,
+                                color: _loadingSlipFile != null ? _success : _onSurface)),
+                        Text(
+                          _loadingSlipFile != null
+                              ? _loadingSlipFile!.name
+                              : 'Optional — tap to attach slip image',
+                          style: _inter(size: 11, color: _secondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_loadingSlipFile != null)
+                    GestureDetector(
+                      onTap: () => setState(() => _loadingSlipFile = null),
+                      child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF546067)),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
 
           if (_lastSaved != null)
             Padding(
