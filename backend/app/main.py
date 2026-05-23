@@ -92,6 +92,9 @@ def internal_error_handler(request, exc):
 @app.on_event("startup")
 async def startup_event():
     """Initialize application on startup"""
+    from app.services import rr_token_service
+    rr_token_service.start_token_refresh()
+
     print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     print(f"Environment: {settings.ENVIRONMENT}")
     print(f"Debug mode: {settings.DEBUG}")
@@ -129,6 +132,8 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
+    from app.services import rr_token_service
+    rr_token_service.stop_token_refresh()
     print(f"Shutting down {settings.APP_NAME}")
 
 
@@ -137,7 +142,7 @@ from app.api.v1 import (
     auth, company, driver, user, organization, reports, capabilities,
     custom_roles, templates, vehicles, profile, roles, organization_management,
     tracking, expenses, invoices, payments, budgets, branding, loads, trips,
-    notifications, workers,
+    notifications, workers, rr_sync,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -164,6 +169,7 @@ app.include_router(budgets.router, prefix="/api/budgets", tags=["Budgets"])
 app.include_router(loads.router, prefix="/api/loads", tags=["Loads"])
 app.include_router(trips.router, prefix="/api", tags=["Trips"])
 app.include_router(workers.router, prefix="/api", tags=["Workers"])
+app.include_router(rr_sync.router, prefix="/api/rr", tags=["RR Sync"])
 # Notifications — prefix="" so the router's own full paths (/ws/notifications,
 # /api/notifications, etc.) are used unchanged.
 app.include_router(notifications.router, prefix="", tags=["Notifications"])
