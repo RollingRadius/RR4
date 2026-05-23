@@ -134,6 +134,35 @@ class Trip(Base):
 
     # Stage claim columns removed (claim system disabled)
 
+    # ── RR Sync ──────────────────────────────────────────────────────────────────
+    # City ObjectIds resolved via RR city proxy at form-fill time
+    origin_rr_city_id      = Column(String(24), nullable=True)
+    destination_rr_city_id = Column(String(24), nullable=True)
+
+    # Material ObjectId resolved from local material_types table
+    material_rr_id = Column(String(24), nullable=True)
+
+    # Structured weight (old free-text `weight` column kept for compatibility)
+    weight_value = Column(Numeric(10, 3), nullable=True)
+    weight_unit  = Column(String(10),     nullable=True)   # KG | TONS | QUINTAL
+
+    # Required by RR, not yet in RR4 form (short-term: defaults to trip_amount)
+    invoice_value = Column(Numeric(12, 2), nullable=True)
+
+    # RR trip cross-reference
+    rr_trip_id     = Column(String(24), nullable=True)   # RR MongoDB trip _id
+    rr_trip_number = Column(String(30), nullable=True)   # RR generated number e.g. "rr1235"
+
+    # RR parcel reference (auto-created by RR alongside trip)
+    rr_parcel_id   = Column(String(24),  nullable=True)
+    rr_parcel_etag = Column(String(100), nullable=True)  # must be sent with every PATCH
+
+    # Sync state
+    rr_sync_status = Column(String(30), nullable=True, default='not_synced')
+    # Values: not_synced | trip_created | loading_slip_synced | bilty_synced | pod_synced | failed
+    rr_sync_error  = Column(Text,                        nullable=True)
+    rr_synced_at   = Column(TIMESTAMP(timezone=True),    nullable=True)
+
     # ── Draft (cross-device in-progress form data) ───────────────────────────────
     draft_data = Column(JSONB, nullable=True)
 
