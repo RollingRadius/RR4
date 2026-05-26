@@ -61,6 +61,7 @@ class TripModel {
   final String? s3EmptyTruckWeightUnit;
   final String? s3LoadedTruckWeightKg;
   final String? s3LoadedTruckWeightUnit;
+  final String? s3LoadedWeightSlipUrl;
   final String? s3BiltyUrl;
   final List<String>? s3MaterialDocUrls;
 
@@ -168,6 +169,7 @@ class TripModel {
     this.s3EmptyTruckWeightUnit,
     this.s3LoadedTruckWeightKg,
     this.s3LoadedTruckWeightUnit,
+    this.s3LoadedWeightSlipUrl,
     this.s3BiltyUrl,
     this.s3MaterialDocUrls,
     this.s4TruckMoved,
@@ -265,6 +267,7 @@ class TripModel {
       s3EmptyTruckWeightUnit: json['s3_empty_truck_weight_unit'] as String?,
       s3LoadedTruckWeightKg: json['s3_loaded_truck_weight_kg'] as String?,
       s3LoadedTruckWeightUnit: json['s3_loaded_truck_weight_unit'] as String?,
+      s3LoadedWeightSlipUrl: json['s3_loaded_weight_slip_url'] as String?,
       s3BiltyUrl: json['s3_bilty_url'] as String?,
       s3MaterialDocUrls: _parseUrlList(json['s3_material_doc_urls']),
       s4TruckMoved:       json['s4_truck_moved']       as bool?,
