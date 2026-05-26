@@ -15,6 +15,7 @@ Flow:
 """
 
 import logging
+import mimetypes
 from datetime import datetime
 from pathlib import Path
 
@@ -58,13 +59,14 @@ async def _sync_loading_slip(trip, client: httpx.AsyncClient, token: str, db) ->
         return
 
     filename = local_path.name
+    mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
 
     # Upload file bytes to RR
     try:
         with open(local_path, "rb") as f:
             file_resp = await client.post(
                 f"{settings.RR_API_BASE}/files",
-                files={"file": (filename, f, "image/jpeg")},
+                files={"file": (filename, f, mime_type)},
                 data={"file_name": filename},
                 headers=_auth_header(token),
             )

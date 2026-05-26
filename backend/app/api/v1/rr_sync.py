@@ -128,7 +128,7 @@ def get_sync_status(
 @router.post("/sync/trip/{trip_id}", summary="Manually trigger RR sync for a trip")
 async def trigger_sync(
     trip_id: str,
-    background_tasks: BackgroundTasks = BackgroundTasks(),
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -287,7 +287,7 @@ class BulkSyncRequest(BaseModel):
 @router.post("/sync/bulk", summary="Trigger RR sync for multiple trips")
 async def trigger_bulk_sync(
     body: BulkSyncRequest,
-    background_tasks: BackgroundTasks = BackgroundTasks(),
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

@@ -12,7 +12,7 @@ import json
 import uuid as _uuid_module
 from pathlib import Path
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 

@@ -8,6 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/rr_sync_provider.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/rr_sync_screen.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/available_loads_provider.dart';
@@ -180,6 +182,7 @@ class _TopBar extends ConsumerWidget {
     final unread = notifState.items
         .where((n) => !n.isRead && (n.type == 'worker_request' || n.type == 'trip_complete' || n.type == 'trip_cancelled' || n.type == 'load_cancelled'))
         .length;
+    final syncReadyCount = ref.watch(rrSyncProvider.select((s) => s.readyCount));
 
     return SafeArea(
       bottom: false,
@@ -203,6 +206,39 @@ class _TopBar extends ConsumerWidget {
                 ).copyWith(letterSpacing: 1.0),
               ),
             ),
+            GestureDetector(
+              onTap: () => showRrSyncSheet(context),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.sync_rounded, color: _secondary, size: 24),
+                  if (syncReadyCount > 0)
+                    Positioned(
+                      top: -4,
+                      right: -4,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: _primary,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints:
+                            const BoxConstraints(minWidth: 16, minHeight: 16),
+                        child: Text(
+                          syncReadyCount > 99 ? '99+' : '$syncReadyCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
             GestureDetector(
               onTap: () => _showNotificationsSheet(context),
               child: Stack(
