@@ -2333,6 +2333,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   final _loadedTruckWeight = TextEditingController();
   final _emptyWeightUnit   = ValueNotifier<String>('tons');
   final _loadedWeightUnit  = ValueNotifier<String>('tons');
+  ({Uint8List bytes, String name})? _weightSlipData;
 
   // Two-phase: first "Loading Complete", then "Complete Stage"
   bool _loadingComplete = false;
@@ -2402,6 +2403,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _s2DharamKantaLoc   = d['s2_dharam_kanta_loc']    as String?;
     _s2EmptyWeight      = d['s2_empty_weight']         as String?;
     _s2EmptyWeightUnit  = d['s2_empty_weight_unit_s2'] as String?;
+    // Restore loaded weight slip upload
+    final slipB64  = d['weight_slip_b64']  as String?;
+    final slipName = d['weight_slip_name'] as String?;
+    if (slipB64 != null && slipName != null) {
+      _weightSlipData = (bytes: base64Decode(slipB64), name: slipName);
+    }
     // Restore bilty upload
     final biltyB64 = d['bilty_b64'] as String?;
     final biltyName = d['bilty_name'] as String?;
@@ -2467,6 +2474,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             's2_empty_weight':        s2Weight ?? '',
             's2_empty_weight_unit_s2': s2Unit ?? 'tons',
           },
+          // Loaded weight slip upload
+          if (_weightSlipData != null) ...{
+            'weight_slip_b64':  base64Encode(_weightSlipData!.bytes),
+            'weight_slip_name': _weightSlipData!.name,
+          },
           // Bilty upload
           if (_biltyData != null) ...{
             'bilty_b64':  base64Encode(_biltyData!.bytes),
@@ -2494,6 +2506,15 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _emptyWeightUnit.dispose();
     _loadedWeightUnit.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickWeightSlip(ImageSource source) async {
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    setState(() => _weightSlipData = (bytes: bytes, name: picked.name));
+    _touchField('loaded_weight_slip');
+    _saveDraft();
   }
 
   Future<void> _pickBilty(ImageSource source) async {
@@ -2602,6 +2623,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       // draft is cleared by server on submit — nothing extra needed
     }
 
+    if (_weightSlipData != null) {
+      fields['loaded_weight_slip'] = MultipartFile.fromBytes(
+        _weightSlipData!.bytes,
+        filename: _weightSlipData!.name,
+      );
+    }
     if (_biltyData != null) {
       fields['bilty'] = MultipartFile.fromBytes(
         _biltyData!.bytes,
@@ -2771,6 +2798,20 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               unitNotifier: _loadedWeightUnit,
             ),
             _FieldAttribution(username: _attrOf('loaded_truck_weight')),
+            const SizedBox(height: 16),
+
+            // ── Loaded Weight Slip (Kanta Parchi) ─────────────────────
+            _SectionHeader(icon: Icons.receipt_rounded, title: 'Loaded Weight Slip'),
+            _DocUploadTile(
+              label: 'Kanta Parchi',
+              subtitle: 'Photo of the weight receipt after loading',
+              bytes: _weightSlipData?.bytes,
+              fileName: _weightSlipData?.name,
+              existingUrl: _weightSlipData == null ? widget.trip.s3LoadedWeightSlipUrl : null,
+              onPickSource: _pickWeightSlip,
+              onRemove: () { setState(() => _weightSlipData = null); _touchField('loaded_weight_slip'); _saveDraft(); },
+            ),
+            _FieldAttribution(username: _attrOf('loaded_weight_slip')),
             const SizedBox(height: 20),
 
             // ── Bilty Upload ──────────────────────────────────────────
@@ -2780,6 +2821,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               subtitle: 'Attach the lorry receipt / bilty document',
               bytes: _biltyData?.bytes,
               fileName: _biltyData?.name,
+              existingUrl: _biltyData == null ? widget.trip.s3BiltyUrl : null,
               onPickSource: _pickBilty,
               onRemove: () { setState(() => _biltyData = null); _touchField('bilty_doc'); _saveDraft(); },
             ),

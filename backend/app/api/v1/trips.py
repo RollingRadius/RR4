@@ -631,6 +631,7 @@ async def submit_stage3(
     empty_truck_weight_unit: Optional[str] = Form('tons'),
     loaded_truck_weight_kg:  Optional[str] = Form(None),
     loaded_truck_weight_unit: Optional[str] = Form('tons'),
+    loaded_weight_slip:      Optional[UploadFile] = File(None),
     bilty:                   Optional[UploadFile] = File(None),
     material_docs:           Optional[List[UploadFile]] = File(None),
     current_user: User = Depends(get_current_user),
@@ -656,6 +657,17 @@ async def submit_stage3(
             raise HTTPException(status_code=409, detail="Stage 3 has already been completed by another worker.")
 
     was_already_submitted = trip.current_stage >= 3
+
+    # Save loaded weight slip file
+    loaded_weight_slip_url = None
+    if loaded_weight_slip and loaded_weight_slip.filename:
+        ext = Path(loaded_weight_slip.filename).suffix or '.jpg'
+        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+        trip_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"weight_slip_{_uuid_module.uuid4().hex}{ext}"
+        with open(trip_dir / filename, "wb") as f:
+            f.write(await loaded_weight_slip.read())
+        loaded_weight_slip_url = f"/uploads/trips/{trip_id}/{filename}"
 
     # Save bilty file
     bilty_url = None
@@ -684,6 +696,8 @@ async def submit_stage3(
     # Flush draft attributions + auto-attribute newly uploaded files
     _draft_flush_attributions(trip, current_user, role_key)
     s3_uploaded = []
+    if loaded_weight_slip_url:
+        s3_uploaded.append('loaded_weight_slip')
     if bilty_url:
         s3_uploaded.append('bilty_doc')
     if material_urls:
@@ -701,6 +715,8 @@ async def submit_stage3(
     trip.s3_empty_truck_weight_unit  = empty_truck_weight_unit or 'tons'
     trip.s3_loaded_truck_weight_kg   = loaded_truck_weight_kg
     trip.s3_loaded_truck_weight_unit = loaded_truck_weight_unit or 'tons'
+    if loaded_weight_slip_url:
+        trip.s3_loaded_weight_slip_url = loaded_weight_slip_url
     if bilty_url:
         trip.s3_bilty_url = bilty_url
     if material_urls:
