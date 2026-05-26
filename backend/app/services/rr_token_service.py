@@ -3,8 +3,9 @@ RR Token Service
 Manages the RR API access token via refresh token rotation.
 
 On startup: loads RR_REFRESH_TOKEN from config.
-Background task: calls POST /persons/refresh every 14 minutes to keep
-access_token alive. All RR API calls must go through get_access_token().
+Background task: calls POST /persons/refresh every 10 minutes to keep
+access_token alive (RR token expires in 15 min — 5-min safety buffer).
+Retries once after 60s if refresh fails. All RR API calls must go through get_access_token().
 """
 
 import asyncio
@@ -22,7 +23,7 @@ _access_token: str | None = None
 _last_refreshed: datetime | None = None
 _refresh_task: asyncio.Task | None = None
 
-_REFRESH_INTERVAL_SECONDS = 14 * 60  # 14 minutes
+_REFRESH_INTERVAL_SECONDS = 10 * 60  # 10 minutes — 5-min buffer before 15-min RR token expiry
 
 
 def get_access_token() -> str | None:
@@ -56,13 +57,18 @@ async def _do_refresh() -> bool:
 
 
 async def _refresh_loop():
-    """Background loop — refresh every 14 minutes."""
+    """Background loop — refresh every 10 minutes with retry on failure."""
     # Initial refresh on startup
     await _do_refresh()
 
     while True:
         await asyncio.sleep(_REFRESH_INTERVAL_SECONDS)
-        await _do_refresh()
+        success = await _do_refresh()
+        if not success:
+            # Retry once after 60s rather than waiting another full interval
+            logger.warning("RR token refresh failed — retrying in 60s")
+            await asyncio.sleep(60)
+            await _do_refresh()
 
 
 def start_token_refresh():
@@ -72,7 +78,7 @@ def start_token_refresh():
         logger.info("RR sync disabled (RR_SYNC_ENABLED=false) — token refresh skipped")
         return
     _refresh_task = asyncio.create_task(_refresh_loop())
-    logger.info("RR token refresh background task started")
+    logger.info("RR token refresh background task started (interval: 10 min, retry on failure: 60s)")
 
 
 def stop_token_refresh():

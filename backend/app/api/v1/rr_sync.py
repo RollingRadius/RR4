@@ -7,7 +7,7 @@ All endpoints require authentication — RR details are never exposed to the cli
 import logging
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -121,21 +121,35 @@ def get_sync_status(
 # ── Manual sync trigger (stub — wired in Phase 4) ────────────────────────────
 
 @router.post("/sync/trip/{trip_id}", summary="Manually trigger RR sync for a trip")
-def trigger_sync(
+async def trigger_sync(
     trip_id: str,
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Manually trigger sync of a trip to RR.
-    Stub endpoint — full implementation in Phase 4.
-    """
+    """Manually trigger sync of a trip to RR (runs as background task)."""
+    from app.services import rr_sync_service
+
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
 
+    if not trip.s2_loading_slip_url:
+        raise HTTPException(
+            status_code=400,
+            detail="Loading slip must be uploaded before sync can be triggered"
+        )
+
+    # Reset failed status so sync will retry
+    if trip.rr_sync_status == "failed":
+        trip.rr_sync_status = "not_synced"
+        trip.rr_sync_error = None
+        db.commit()
+
+    background_tasks.add_task(rr_sync_service.sync_trip_to_rr, trip_id)
+
     return {
-        "message": "Sync trigger not yet implemented — coming in Phase 4",
+        "message": "Sync triggered — check status in a few seconds",
         "trip_id": str(trip.id),
-        "current_status": trip.rr_sync_status,
+        "trip_number": trip.trip_number,
     }

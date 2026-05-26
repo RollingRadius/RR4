@@ -12,7 +12,7 @@ import json
 import uuid as _uuid_module
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query, UploadFile, File, Form
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -533,6 +533,7 @@ async def submit_stage2(
     empty_weight_before_loading: Optional[str] = Form(None),
     empty_weight_unit:           Optional[str] = Form(None),
     loading_slip:                Optional[UploadFile] = File(None),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -613,6 +614,11 @@ async def submit_stage2(
             )
         except Exception:
             pass
+
+    # RR sync — trigger when loading slip is present
+    if trip.s2_loading_slip_url and settings.RR_SYNC_ENABLED:
+        from app.services import rr_sync_service
+        background_tasks.add_task(rr_sync_service.sync_trip_to_rr, str(trip.id))
 
     msg = "Stage 2 updated." if was_already_submitted else "Entry permission issued. Coordinate truck arrival."
     return {"success": True, "message": msg, "trip": _enrich(trip, db)}
@@ -1420,6 +1426,7 @@ def get_transporter_trips(
 async def transporter_upload_loading_slip(
     trip_id: str,
     slip: UploadFile = File(...),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -1459,6 +1466,12 @@ async def transporter_upload_loading_slip(
     trip.s2_loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
     db.commit()
     db.refresh(trip)
+
+    # RR sync — trigger now that loading slip is available
+    if settings.RR_SYNC_ENABLED:
+        from app.services import rr_sync_service
+        background_tasks.add_task(rr_sync_service.sync_trip_to_rr, str(trip.id))
+
     return {"success": True, "message": "Loading slip uploaded successfully.", "trip": _enrich(trip, db)}
 
 
