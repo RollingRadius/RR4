@@ -167,25 +167,13 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
           onEditDone: _exitEditMode,
         );
       case 2:
-        return _LoadingSlipMini(
-          key: ValueKey('edit_slip_${_trip.id}'),
-          trip: _trip,
-          onUploaded: (updated) {
-            setState(() {
-              _trip = updated;
-              ref.read(tripProvider.notifier).patchTrip(updated);
-            });
-            _exitEditMode();
-          },
-        );
-      case 3:
         return _Stage3Form(
           key: ValueKey('edit_s3_${_trip.id}_$_tripFreshness'),
           providerKey: _providerKey,
           trip: _trip,
           onEditDone: _exitEditMode,
         );
-      case 4:
+      case 3:
         return _Stage4Form(
           key: ValueKey('edit_s4_${_trip.id}_$_tripFreshness'),
           trip: _trip,
@@ -198,7 +186,7 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
             _exitEditMode();
           },
         );
-      case 5:
+      case 4:
       default:
         return _Stage5Form(
           key: ValueKey('edit_s5_${_trip.id}_$_tripFreshness'),
@@ -329,18 +317,7 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                                             providerKey: _providerKey,
                                             trip: _trip,
                                           )
-                                        : _trip.s2LoadingSlipUrl == null
-                                            ? _LoadingSlipMini(
-                                                key: ValueKey('slip_${_trip.id}'),
-                                                trip: _trip,
-                                                onUploaded: (updated) {
-                                                  setState(() {
-                                                    _trip = updated;
-                                                    ref.read(tripProvider.notifier).patchTrip(updated);
-                                                  });
-                                                },
-                                              )
-                                            : _Stage3Form(
+                                        : _Stage3Form(
                                                 key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
                                                 providerKey: _providerKey,
                                                 trip: _trip,
@@ -389,16 +366,16 @@ class _StepIndicator extends StatefulWidget {
   final Function(int)? onStepTap;
   const _StepIndicator({required this.trip, required this.stage4Done, required this.stage5Done, this.onStepTap});
 
-  static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit', 'Unloading'];
+  static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit', 'Unloading'];
 
   int visualIndex() {
-    if (stage5Done) return 6;
-    if (stage4Done) return 5;
+    if (stage5Done) return 5;
+    if (stage4Done) return 4;
     final s = trip.currentStage;
-    if (s == 0) return 0;
+    if (s <= 0) return 0;
     if (s == 1) return 1;
-    if (s == 2 && trip.s2LoadingSlipUrl == null) return 2;
-    if (s == 2) return 3;
+    if (s == 2) return 2;
+    if (s == 3) return 3;
     return 4;
   }
 
@@ -434,8 +411,8 @@ class _StepIndicatorState extends State<_StepIndicator>
       color: _surface,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Row(
-        children: List.generate(6, (i) {
-          final stepLabel = i < 2 ? '${i + 1}' : i == 2 ? 'LS' : '$i';
+        children: List.generate(5, (i) {
+          final stepLabel = '${i + 1}';
           final isDone   = visualIdx > i;
           final isActive = visualIdx == i;
           final color   = isDone ? _success : isActive ? _primary : _secondary;
@@ -474,7 +451,7 @@ class _StepIndicatorState extends State<_StepIndicator>
                         child: Center(
                           child: Text(stepLabel,
                               style: _manrope(
-                                  size: i == 2 ? 9 : 11,
+                                  size: 11,
                                   weight: FontWeight.w800,
                                   color: _primary)),
                         ),
@@ -494,7 +471,7 @@ class _StepIndicatorState extends State<_StepIndicator>
                             ? Icon(Icons.check_rounded, color: _success, size: 14)
                             : Text(stepLabel,
                                 style: _manrope(
-                                    size: i == 2 ? 9 : 11,
+                                    size: 11,
                                     weight: FontWeight.w800,
                                     color: color)),
                       ),
@@ -518,7 +495,7 @@ class _StepIndicatorState extends State<_StepIndicator>
                 )
               : dot;
 
-          if (i == 5) return dotWidget;
+          if (i == 4) return dotWidget;
 
           return Expanded(
             child: Row(
@@ -1355,6 +1332,187 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
     );
   }
 
+  Widget _buildLoadingSlipTile() {
+    final existingUrl = widget.trip.s2LoadingSlipUrl;
+
+    // New file just picked — show thumbnail via FutureBuilder
+    if (_loadingSlipFile != null) {
+      return Container(
+        decoration: BoxDecoration(
+          color: _success.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _success.withValues(alpha: 0.30)),
+        ),
+        child: Column(
+          children: [
+            FutureBuilder<Uint8List>(
+              future: _loadingSlipFile!.readAsBytes(),
+              builder: (context, snap) {
+                if (!snap.hasData) {
+                  return const SizedBox(height: 140,
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+                }
+                final bytes = snap.data!;
+                return GestureDetector(
+                  onTap: () => _showImagePreview(context, bytes: bytes),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                        child: Image.memory(bytes,
+                            width: double.infinity, height: 140, fit: BoxFit.cover),
+                      ),
+                      Positioned(
+                        top: 8, right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: Colors.black45,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, size: 16, color: _success),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(_loadingSlipFile!.name,
+                        style: _inter(size: 12, color: _success),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  GestureDetector(
+                    onTap: _showSlipPicker,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('Retake',
+                          style: _manrope(size: 11, weight: FontWeight.w700, color: _primary)),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _loadingSlipFile = null),
+                    child: const Icon(Icons.delete_outline_rounded, size: 18, color: _error),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Already uploaded to server — show thumbnail preview
+    if (existingUrl != null) {
+      final fullUrl = existingUrl.startsWith('http')
+          ? existingUrl
+          : '${AppConfig.apiBaseUrl}$existingUrl';
+      return Container(
+        decoration: BoxDecoration(
+          color: _success.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _success.withValues(alpha: 0.30)),
+        ),
+        child: Column(
+          children: [
+            GestureDetector(
+              onTap: () => _showImagePreview(context, url: fullUrl),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                    child: Image.network(
+                      fullUrl,
+                      width: double.infinity,
+                      height: 140,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (_, child, prog) => prog == null
+                          ? child
+                          : const SizedBox(height: 140,
+                              child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                      errorBuilder: (_, __, ___) => const SizedBox(height: 80,
+                          child: Center(child: Icon(Icons.broken_image_rounded, color: _secondary))),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_done_rounded, size: 16, color: _success),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('Loading Slip',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                            color: _success, fontFamily: 'Manrope')),
+                  ),
+                  GestureDetector(
+                    onTap: _showSlipPicker,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('Replace',
+                          style: _manrope(size: 11, weight: FontWeight.w700, color: _primary)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Nothing uploaded yet
+    return GestureDetector(
+      onTap: _showSlipPicker,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F4F8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFDDE0E2)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.upload_file_rounded, color: _secondary, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Loading Slip',
+                      style: _manrope(size: 13, weight: FontWeight.w700, color: _onSurface)),
+                  Text('Optional — tap to attach slip image',
+                      style: _inter(size: 11, color: _secondary)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _scrollToKey(GlobalKey key) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = key.currentContext;
@@ -1671,54 +1829,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           const SizedBox(height: 28),
 
           // ── Loading Slip (optional — can also be uploaded after Stage 2) ──
-          GestureDetector(
-            onTap: _showSlipPicker,
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-              decoration: BoxDecoration(
-                color: _loadingSlipFile != null
-                    ? _success.withValues(alpha: 0.07)
-                    : const Color(0xFFF1F4F8),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _loadingSlipFile != null ? _success : const Color(0xFFDDE0E2),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    _loadingSlipFile != null
-                        ? Icons.check_circle_rounded
-                        : Icons.upload_file_rounded,
-                    color: _loadingSlipFile != null ? _success : _secondary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Loading Slip',
-                            style: _manrope(size: 13, weight: FontWeight.w700,
-                                color: _loadingSlipFile != null ? _success : _onSurface)),
-                        Text(
-                          _loadingSlipFile != null
-                              ? _loadingSlipFile!.name
-                              : 'Optional — tap to attach slip image',
-                          style: _inter(size: 11, color: _secondary),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (_loadingSlipFile != null)
-                    GestureDetector(
-                      onTap: () => setState(() => _loadingSlipFile = null),
-                      child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF546067)),
-                    ),
-                ],
-              ),
-            ),
-          ),
+          _buildLoadingSlipTile(),
           const SizedBox(height: 16),
 
           if (_lastSaved != null)
@@ -3428,6 +3539,57 @@ Future<ImageSource?> _showSourcePicker(BuildContext context) {
   );
 }
 
+// ─── Full-screen image preview ────────────────────────────────────────────────
+
+void _showImagePreview(BuildContext context, {Uint8List? bytes, String? url}) {
+  final Widget image = bytes != null
+      ? Image.memory(bytes, fit: BoxFit.contain)
+      : Image.network(
+          url!,
+          fit: BoxFit.contain,
+          loadingBuilder: (_, child, prog) => prog == null
+              ? child
+              : const Center(child: CircularProgressIndicator(color: Colors.white)),
+          errorBuilder: (_, __, ___) =>
+              const Center(child: Icon(Icons.broken_image_rounded, color: Colors.white54, size: 48)),
+        );
+
+  showDialog(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.92),
+    builder: (_) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 5.0,
+              child: image,
+            ),
+          ),
+          Positioned(
+            top: 40,
+            right: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 // ─── Single-file Document Upload Tile ────────────────────────────────────────
 
 class _DocUploadTile extends StatelessWidget {
@@ -3457,7 +3619,7 @@ class _DocUploadTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Newly picked local file — show preview
+    // Newly picked local file — show thumbnail preview
     if (bytes != null) {
       return Container(
         decoration: BoxDecoration(
@@ -3467,29 +3629,40 @@ class _DocUploadTile extends StatelessWidget {
         ),
         child: Column(
           children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(13)),
-              child: Image.memory(bytes!,
-                  width: double.infinity,
-                  height: 160,
-                  fit: BoxFit.cover),
+            GestureDetector(
+              onTap: () => _showImagePreview(context, bytes: bytes),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                    child: Image.memory(bytes!,
+                        width: double.infinity, height: 160, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
             ),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded,
-                      size: 16, color: _success),
+                  const Icon(Icons.check_circle_rounded, size: 16, color: _success),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       fileName ?? 'Image selected',
                       style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: _success),
+                          fontSize: 12, fontWeight: FontWeight.w500, color: _success),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -3500,15 +3673,12 @@ class _DocUploadTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Text('Retake',
                           style: GoogleFonts.manrope(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: _primary)),
+                              fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
                     ),
                   ),
                   IconButton(
                     onPressed: onRemove,
-                    icon: const Icon(Icons.delete_outline_rounded,
-                        size: 18, color: _error),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: _error),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -3521,39 +3691,74 @@ class _DocUploadTile extends StatelessWidget {
       );
     }
 
-    // File saved on server (returning to edit) — show compact "saved" row
+    // File saved on server (returning to edit) — show image thumbnail preview
     if (existingUrl != null) {
-      final docName = existingUrl!.split('/').last;
+      final fullUrl = existingUrl!.startsWith('http')
+          ? existingUrl!
+          : '${AppConfig.apiBaseUrl}$existingUrl';
       return Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
         decoration: BoxDecoration(
           color: _success.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _success.withValues(alpha: 0.30)),
         ),
-        child: Row(
+        child: Column(
           children: [
-            const Icon(Icons.cloud_done_rounded, size: 20, color: _success),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            GestureDetector(
+              onTap: () => _showImagePreview(context, url: fullUrl),
+              child: Stack(
                 children: [
-                  Text(label,
-                      style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: _success)),
-                  const SizedBox(height: 2),
-                  Text(docName,
-                      style: GoogleFonts.inter(fontSize: 11, color: _secondary),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                    child: Image.network(
+                      fullUrl,
+                      width: double.infinity,
+                      height: 160,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (_, child, prog) => prog == null
+                          ? child
+                          : const SizedBox(height: 160,
+                              child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                      errorBuilder: (_, __, ___) => const SizedBox(height: 80,
+                          child: Center(child: Icon(Icons.broken_image_rounded, color: _secondary))),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
                 ],
               ),
             ),
-            GestureDetector(
-              onTap: () => _pick(context),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Text('Replace',
-                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_done_rounded, size: 16, color: _success),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(label,
+                        style: GoogleFonts.manrope(
+                            fontSize: 12, fontWeight: FontWeight.w700, color: _success),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  GestureDetector(
+                    onTap: () => _pick(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('Replace',
+                          style: GoogleFonts.manrope(
+                              fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

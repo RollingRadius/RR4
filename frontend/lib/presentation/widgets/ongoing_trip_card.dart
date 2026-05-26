@@ -657,28 +657,25 @@ class _StatusBadge extends StatelessWidget {
   return ('PENDING', const Color(0xFFFFF3E0), const Color(0xFFE65100));
 }
 
-/// Maps a trip to a display label for the current stage (1, 2, LS, 3, 4, 5).
+/// Maps a trip to a display label for the current stage (1–5).
 String _visualStageLabel(TripModel trip) {
   if (trip.currentStage == 0) return '1';
   if (trip.currentStage == 1) return '2';
-  if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 'LS';
   if (trip.currentStage == 2) return '3';
   if (trip.currentStage == 3) return '4';
-  return '5'; // stage 4 → Diesel Receipt
+  return '5';
 }
 
 /// 0-based visual stage index used for the strip indicator.
 int _visualStageIndex(TripModel trip) {
   if (trip.currentStage == 0) return 0;
   if (trip.currentStage == 1) return 1;
-  if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 2;
-  if (trip.currentStage == 2) return 3;
-  if (trip.currentStage == 3) return 4;
-  return 5;
+  if (trip.currentStage == 2) return 2;
+  if (trip.currentStage == 3) return 3;
+  return 4;
 }
 
 String _stageName(TripModel trip) {
-  if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 'Loading Slip';
   return switch (trip.currentStage) {
     0 => 'Truck Registration',
     1 => 'Compliance Check',
@@ -695,7 +692,7 @@ class _StageStrip extends StatefulWidget {
   final TripModel trip;
   const _StageStrip({required this.trip});
 
-  static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit'];
+  static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit', 'Unloading'];
   static const _green  = Color(0xFF2E7D32);
 
   @override
@@ -756,8 +753,8 @@ class _StageStripState extends State<_StageStrip>
                       ),
                       child: Center(
                         child: Text(
-                          i < 2 ? '${i + 1}' : i == 2 ? 'LS' : '$i',
-                          style: _inter(size: i == 2 ? 6 : 8, weight: FontWeight.w700, color: _primary),
+                          '${i + 1}',
+                          style: _inter(size: 8, weight: FontWeight.w700, color: _primary),
                         ),
                       ),
                     ),
@@ -779,8 +776,8 @@ class _StageStripState extends State<_StageStrip>
                       child: isDone
                           ? const Icon(Icons.check_rounded, size: 10, color: _StageStrip._green)
                           : Text(
-                              i < 2 ? '${i + 1}' : i == 2 ? 'LS' : '$i',
-                              style: _inter(size: i == 2 ? 6 : 8, weight: FontWeight.w700, color: textColor),
+                              '${i + 1}',
+                              style: _inter(size: 8, weight: FontWeight.w700, color: textColor),
                             ),
                     ),
                   ),
@@ -830,8 +827,8 @@ class _StageSlidingPanel extends StatelessWidget {
   final VoidCallback onRefresh;
   const _StageSlidingPanel({required this.trip, required this.onRefresh});
 
-  static const _shortLabels = ['1', '2', 'LS', '3', '4', '5'];
-  static const _names = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit', 'Unloading'];
+  static const _shortLabels = ['1', '2', '3', '4', '5'];
+  static const _names = ['Details', 'Compliance', 'Arrival', 'Exit', 'Unloading'];
   static const _green = Color(0xFF2E7D32);
 
   /// Maps a visual stage index (0–5) to the relevant submitted-by username.
@@ -839,10 +836,9 @@ class _StageSlidingPanel extends StatelessWidget {
     switch (i) {
       case 0: return trip.s1SubmittedByUsername;
       case 1: return trip.s2SubmittedByUsername;
-      case 2: return trip.s2SubmittedByUsername; // Loading slip (part of stage 2)
-      case 3: return trip.s3SubmittedByUsername;
-      case 4: return trip.s4SubmittedByUsername;
-      case 5: return trip.s5SubmittedByUsername;
+      case 2: return trip.s3SubmittedByUsername;
+      case 3: return trip.s4SubmittedByUsername;
+      case 4: return trip.s5SubmittedByUsername;
       default: return null;
     }
   }
@@ -856,7 +852,7 @@ class _StageSlidingPanel extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.zero,
-        itemCount: 6,
+        itemCount: 5,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
           final isDone    = currentVisual > i;
@@ -914,7 +910,7 @@ class _StageSlidingPanel extends StatelessWidget {
                           : Text(
                               _shortLabels[i],
                               style: _inter(
-                                  size: i == 2 ? 7 : 9,
+                                  size: 9,
                                   weight: FontWeight.w700,
                                   color: Colors.white),
                             ),
