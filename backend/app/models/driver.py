@@ -79,6 +79,9 @@ class Driver(Base):
     photo = Column(LargeBinary, nullable=True)
     photo_content_type = Column(String(50), nullable=True)
 
+    # RR Sync
+    rr_user_id = Column(String(24), nullable=True)  # MongoDB user ObjectId in RR — looked up by phone
+
     # GPS Tracking
     tracking_enabled = Column(Boolean, nullable=False, default=False, server_default='false')
 

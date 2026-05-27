@@ -45,6 +45,9 @@ class Organization(Base):
     pincode = Column(String(10), nullable=False)
     country = Column(String(100), nullable=False, default='India')
 
+    # RR Sync
+    rr_company_id = Column(String(24), nullable=True)  # MongoDB ObjectId in RR — set once by admin
+
     # Status
     status = Column(String(20), nullable=False, default='active')
 

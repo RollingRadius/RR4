@@ -61,6 +61,7 @@ class TripModel {
   final String? s3EmptyTruckWeightUnit;
   final String? s3LoadedTruckWeightKg;
   final String? s3LoadedTruckWeightUnit;
+  final String? s3LoadedWeightSlipUrl;
   final String? s3BiltyUrl;
   final List<String>? s3MaterialDocUrls;
 
@@ -106,6 +107,14 @@ class TripModel {
   final String? transporterUserId;
   final String? transporterName;
   final String? transporterPhone;
+
+  // ── RR sync fields ────────────────────────────────────────────────────────────
+  final String? originRrCityId;
+  final String? destinationRrCityId;
+  final String? materialRrId;
+  final double? weightValue;
+  final String? weightUnit;
+  final double? invoiceValue;
 
   // ── Draft (cross-device in-progress form data) ────────────────────────────────
   final Map<String, dynamic>? draftData;
@@ -168,6 +177,7 @@ class TripModel {
     this.s3EmptyTruckWeightUnit,
     this.s3LoadedTruckWeightKg,
     this.s3LoadedTruckWeightUnit,
+    this.s3LoadedWeightSlipUrl,
     this.s3BiltyUrl,
     this.s3MaterialDocUrls,
     this.s4TruckMoved,
@@ -199,6 +209,12 @@ class TripModel {
     this.transporterUserId,
     this.transporterName,
     this.transporterPhone,
+    this.originRrCityId,
+    this.destinationRrCityId,
+    this.materialRrId,
+    this.weightValue,
+    this.weightUnit,
+    this.invoiceValue,
     this.draftData,
     this.fieldAttributions,
   });
@@ -265,6 +281,7 @@ class TripModel {
       s3EmptyTruckWeightUnit: json['s3_empty_truck_weight_unit'] as String?,
       s3LoadedTruckWeightKg: json['s3_loaded_truck_weight_kg'] as String?,
       s3LoadedTruckWeightUnit: json['s3_loaded_truck_weight_unit'] as String?,
+      s3LoadedWeightSlipUrl: json['s3_loaded_weight_slip_url'] as String?,
       s3BiltyUrl: json['s3_bilty_url'] as String?,
       s3MaterialDocUrls: _parseUrlList(json['s3_material_doc_urls']),
       s4TruckMoved:       json['s4_truck_moved']       as bool?,
@@ -296,8 +313,14 @@ class TripModel {
       transporterUserId:  json['transporter_user_id']   as String?,
       transporterName:    json['transporter_name']       as String?,
       transporterPhone:   json['transporter_phone']      as String?,
-      draftData:          json['draft_data'] as Map<String, dynamic>?,
-      fieldAttributions:  json['field_attributions'] as Map<String, dynamic>?,
+      originRrCityId:       json['origin_rr_city_id']       as String?,
+      destinationRrCityId:  json['destination_rr_city_id']  as String?,
+      materialRrId:         json['material_rr_id']          as String?,
+      weightValue:          (json['weight_value'] as num?)?.toDouble(),
+      weightUnit:           json['weight_unit']             as String?,
+      invoiceValue:         (json['invoice_value'] as num?)?.toDouble(),
+      draftData:            json['draft_data'] as Map<String, dynamic>?,
+      fieldAttributions:    json['field_attributions'] as Map<String, dynamic>?,
     );
   }
 

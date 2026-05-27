@@ -50,6 +50,7 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
   bool _showStage4 = false;
   bool _stage4Done = false;
   bool _stage5Done = false;
+  bool _syncing = false;
   /// Non-null when re-editing a completed stage (visual dot index 0-5).
   int? _editingStage;
 
@@ -142,6 +143,51 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
   /// No-op: claim blocking is disabled — nothing to release.
   Future<void> _releaseStage(int visualStage) async {}
 
+  /// Trigger a full RR sync for this trip (all available stages).
+  /// Shows an RR login dialog first to obtain a fresh token.
+  Future<void> _triggerRrSync() async {
+    if (_syncing) return;
+
+    // Step 1: show RR login dialog — returns token or null if cancelled
+    final dio = ref.read(dioProvider);
+    final token = await showDialog<String?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _RrLoginDialog(dio: dio),
+    );
+    if (token == null || !mounted) return;
+
+    // Step 2: trigger sync with the obtained token
+    setState(() => _syncing = true);
+    try {
+      await dio.post(
+        '/api/rr/sync/trip/${_trip.id}',
+        data: {'rr_token': token},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sync started — check back shortly',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _success,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sync failed: ${e.toString().split(':').last.trim()}',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
   /// Returns a tap handler for the step indicator.
   /// LP workers get null — they cannot freely switch stages.
   Function(int)? _buildStepTapHandler() {
@@ -167,25 +213,13 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
           onEditDone: _exitEditMode,
         );
       case 2:
-        return _LoadingSlipMini(
-          key: ValueKey('edit_slip_${_trip.id}'),
-          trip: _trip,
-          onUploaded: (updated) {
-            setState(() {
-              _trip = updated;
-              ref.read(tripProvider.notifier).patchTrip(updated);
-            });
-            _exitEditMode();
-          },
-        );
-      case 3:
         return _Stage3Form(
           key: ValueKey('edit_s3_${_trip.id}_$_tripFreshness'),
           providerKey: _providerKey,
           trip: _trip,
           onEditDone: _exitEditMode,
         );
-      case 4:
+      case 3:
         return _Stage4Form(
           key: ValueKey('edit_s4_${_trip.id}_$_tripFreshness'),
           trip: _trip,
@@ -198,7 +232,7 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
             _exitEditMode();
           },
         );
-      case 5:
+      case 4:
       default:
         return _Stage5Form(
           key: ValueKey('edit_s5_${_trip.id}_$_tripFreshness'),
@@ -240,7 +274,22 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
         ),
         actions: [
           _TripStateBadge(trip: _trip),
-          const SizedBox(width: 16),
+          const SizedBox(width: 4),
+          _syncing
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  child: SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: _primary),
+                  ),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.sync_rounded, color: _primary, size: 22),
+                  tooltip: 'Sync to RR',
+                  onPressed: _triggerRrSync,
+                ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
@@ -329,18 +378,7 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                                             providerKey: _providerKey,
                                             trip: _trip,
                                           )
-                                        : _trip.s2LoadingSlipUrl == null
-                                            ? _LoadingSlipMini(
-                                                key: ValueKey('slip_${_trip.id}'),
-                                                trip: _trip,
-                                                onUploaded: (updated) {
-                                                  setState(() {
-                                                    _trip = updated;
-                                                    ref.read(tripProvider.notifier).patchTrip(updated);
-                                                  });
-                                                },
-                                              )
-                                            : _Stage3Form(
+                                        : _Stage3Form(
                                                 key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
                                                 providerKey: _providerKey,
                                                 trip: _trip,
@@ -389,16 +427,16 @@ class _StepIndicator extends StatefulWidget {
   final Function(int)? onStepTap;
   const _StepIndicator({required this.trip, required this.stage4Done, required this.stage5Done, this.onStepTap});
 
-  static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit', 'Unloading'];
+  static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit', 'Unloading'];
 
   int visualIndex() {
-    if (stage5Done) return 6;
-    if (stage4Done) return 5;
+    if (stage5Done) return 5;
+    if (stage4Done) return 4;
     final s = trip.currentStage;
-    if (s == 0) return 0;
+    if (s <= 0) return 0;
     if (s == 1) return 1;
-    if (s == 2 && trip.s2LoadingSlipUrl == null) return 2;
-    if (s == 2) return 3;
+    if (s == 2) return 2;
+    if (s == 3) return 3;
     return 4;
   }
 
@@ -434,8 +472,8 @@ class _StepIndicatorState extends State<_StepIndicator>
       color: _surface,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Row(
-        children: List.generate(6, (i) {
-          final stepLabel = i < 2 ? '${i + 1}' : i == 2 ? 'LS' : '$i';
+        children: List.generate(5, (i) {
+          final stepLabel = '${i + 1}';
           final isDone   = visualIdx > i;
           final isActive = visualIdx == i;
           final color   = isDone ? _success : isActive ? _primary : _secondary;
@@ -474,7 +512,7 @@ class _StepIndicatorState extends State<_StepIndicator>
                         child: Center(
                           child: Text(stepLabel,
                               style: _manrope(
-                                  size: i == 2 ? 9 : 11,
+                                  size: 11,
                                   weight: FontWeight.w800,
                                   color: _primary)),
                         ),
@@ -494,7 +532,7 @@ class _StepIndicatorState extends State<_StepIndicator>
                             ? Icon(Icons.check_rounded, color: _success, size: 14)
                             : Text(stepLabel,
                                 style: _manrope(
-                                    size: i == 2 ? 9 : 11,
+                                    size: 11,
                                     weight: FontWeight.w800,
                                     color: color)),
                       ),
@@ -518,7 +556,7 @@ class _StepIndicatorState extends State<_StepIndicator>
                 )
               : dot;
 
-          if (i == 5) return dotWidget;
+          if (i == 4) return dotWidget;
 
           return Expanded(
             child: Row(
@@ -1194,6 +1232,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   bool _s2WeightConfirmed   = false;
   final _emptyWeightCtrl    = TextEditingController();
   final _emptyWeightUnit    = ValueNotifier<String>('tons');
+  XFile? _loadingSlipFile;   // optional loading slip — uploaded with Stage 2
 
   // ── Per-field attribution ─────────────────────────────────────────────────
   final Map<String, String> _fieldAttributions = {};
@@ -1311,6 +1350,230 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
     } catch (_) {}
   }
 
+  Future<void> _pickLoadingSlip(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    setState(() => _loadingSlipFile = picked);
+  }
+
+  void _showSlipPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Upload Loading Slip', style: _manrope(size: 16, weight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('Attach the loading slip image', style: _inter(size: 12, color: _secondary)),
+              const SizedBox(height: 20),
+              Row(children: [
+                Expanded(child: _PickerOption(
+                  icon: Icons.camera_alt_rounded, label: 'Camera', color: _primary,
+                  onTap: () { Navigator.pop(context); _pickLoadingSlip(ImageSource.camera); },
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _PickerOption(
+                  icon: Icons.photo_library_rounded, label: 'Gallery', color: _secondary,
+                  onTap: () { Navigator.pop(context); _pickLoadingSlip(ImageSource.gallery); },
+                )),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingSlipTile() {
+    final existingUrl = widget.trip.s2LoadingSlipUrl;
+
+    // New file just picked — show thumbnail via FutureBuilder
+    if (_loadingSlipFile != null) {
+      return Container(
+        decoration: BoxDecoration(
+          color: _success.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _success.withValues(alpha: 0.30)),
+        ),
+        child: Column(
+          children: [
+            FutureBuilder<Uint8List>(
+              future: _loadingSlipFile!.readAsBytes(),
+              builder: (context, snap) {
+                if (!snap.hasData) {
+                  return const SizedBox(height: 140,
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+                }
+                final bytes = snap.data!;
+                return GestureDetector(
+                  onTap: () => _showImagePreview(context, bytes: bytes),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                        child: Image.memory(bytes,
+                            width: double.infinity, height: 140, fit: BoxFit.cover),
+                      ),
+                      Positioned(
+                        top: 8, right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: Colors.black45,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, size: 16, color: _success),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(_loadingSlipFile!.name,
+                        style: _inter(size: 12, color: _success),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  GestureDetector(
+                    onTap: _showSlipPicker,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('Retake',
+                          style: _manrope(size: 11, weight: FontWeight.w700, color: _primary)),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _loadingSlipFile = null),
+                    child: const Icon(Icons.delete_outline_rounded, size: 18, color: _error),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Already uploaded to server — show thumbnail preview
+    if (existingUrl != null) {
+      final fullUrl = existingUrl.startsWith('http')
+          ? existingUrl
+          : '${AppConfig.apiBaseUrl}$existingUrl';
+      return Container(
+        decoration: BoxDecoration(
+          color: _success.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _success.withValues(alpha: 0.30)),
+        ),
+        child: Column(
+          children: [
+            GestureDetector(
+              onTap: () => _showImagePreview(context, url: fullUrl),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                    child: Image.network(
+                      fullUrl,
+                      width: double.infinity,
+                      height: 140,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (_, child, prog) => prog == null
+                          ? child
+                          : const SizedBox(height: 140,
+                              child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                      errorBuilder: (_, __, ___) => const SizedBox(height: 80,
+                          child: Center(child: Icon(Icons.broken_image_rounded, color: _secondary))),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_done_rounded, size: 16, color: _success),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('Loading Slip',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                            color: _success, fontFamily: 'Manrope')),
+                  ),
+                  GestureDetector(
+                    onTap: _showSlipPicker,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('Replace',
+                          style: _manrope(size: 11, weight: FontWeight.w700, color: _primary)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Nothing uploaded yet
+    return GestureDetector(
+      onTap: _showSlipPicker,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F4F8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFDDE0E2)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.upload_file_rounded, color: _secondary, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Loading Slip',
+                      style: _manrope(size: 13, weight: FontWeight.w700, color: _onSurface)),
+                  Text('Optional — tap to attach slip image',
+                      style: _inter(size: 11, color: _secondary)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _scrollToKey(GlobalKey key) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = key.currentContext;
@@ -1378,17 +1641,25 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim(), _emptyWeightUnit.value);
     }
 
-    final ok = await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage2({
-      'specs_verified':          _specsVerified,
-      'docs_verified':           _docsVerified,
-      'driver_docs_valid':       _driverDocsValid,
-      'entry_permission':        _entryPermission,
+    final formData = FormData.fromMap({
+      'specs_verified':          _specsVerified.toString(),
+      'docs_verified':           _docsVerified.toString(),
+      'driver_docs_valid':       _driverDocsValid.toString(),
+      'entry_permission':        _entryPermission.toString(),
       'dharam_kanta_location':   _dharamKantaLoc ?? '',
       if (_dharamKantaLoc == 'outside' && _emptyWeightCtrl.text.trim().isNotEmpty) ...{
         'empty_weight_before_loading': _emptyWeightCtrl.text.trim(),
         'empty_weight_unit':           _emptyWeightUnit.value,
       },
     });
+    if (_loadingSlipFile != null) {
+      final bytes = await _loadingSlipFile!.readAsBytes();
+      formData.files.add(MapEntry(
+        'loading_slip',
+        MultipartFile.fromBytes(bytes, filename: _loadingSlipFile!.name),
+      ));
+    }
+    final ok = await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage2(formData);
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1617,6 +1888,10 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
             ),
           ),
           const SizedBox(height: 28),
+
+          // ── Loading Slip (optional — can also be uploaded after Stage 2) ──
+          _buildLoadingSlipTile(),
+          const SizedBox(height: 16),
 
           if (_lastSaved != null)
             Padding(
@@ -2119,6 +2394,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   final _loadedTruckWeight = TextEditingController();
   final _emptyWeightUnit   = ValueNotifier<String>('tons');
   final _loadedWeightUnit  = ValueNotifier<String>('tons');
+  ({Uint8List bytes, String name})? _weightSlipData;
 
   // Two-phase: first "Loading Complete", then "Complete Stage"
   bool _loadingComplete = false;
@@ -2188,6 +2464,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _s2DharamKantaLoc   = d['s2_dharam_kanta_loc']    as String?;
     _s2EmptyWeight      = d['s2_empty_weight']         as String?;
     _s2EmptyWeightUnit  = d['s2_empty_weight_unit_s2'] as String?;
+    // Restore loaded weight slip upload
+    final slipB64  = d['weight_slip_b64']  as String?;
+    final slipName = d['weight_slip_name'] as String?;
+    if (slipB64 != null && slipName != null) {
+      _weightSlipData = (bytes: base64Decode(slipB64), name: slipName);
+    }
     // Restore bilty upload
     final biltyB64 = d['bilty_b64'] as String?;
     final biltyName = d['bilty_name'] as String?;
@@ -2252,6 +2534,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             's2_dharam_kanta_loc':    s2Loc,
             's2_empty_weight':        s2Weight ?? '',
             's2_empty_weight_unit_s2': s2Unit ?? 'tons',
+          },
+          // Loaded weight slip upload
+          if (_weightSlipData != null) ...{
+            'weight_slip_b64':  base64Encode(_weightSlipData!.bytes),
+            'weight_slip_name': _weightSlipData!.name,
           },
           // Bilty upload
           if (_biltyData != null) ...{
@@ -2388,6 +2675,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       // draft is cleared by server on submit — nothing extra needed
     }
 
+    if (_weightSlipData != null) {
+      fields['loaded_weight_slip'] = MultipartFile.fromBytes(
+        _weightSlipData!.bytes,
+        filename: _weightSlipData!.name,
+      );
+    }
     if (_biltyData != null) {
       fields['bilty'] = MultipartFile.fromBytes(
         _biltyData!.bytes,
@@ -2555,8 +2848,21 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               note: 'Record the truck weight after loading is done.',
               enabled: true,
               unitNotifier: _loadedWeightUnit,
+              existingSlipUrl: _weightSlipData == null ? widget.trip.s3LoadedWeightSlipUrl : null,
+              initialSlipBytes: _weightSlipData?.bytes,
+              onSlipPicked: (bytes, name) {
+                setState(() => _weightSlipData = (bytes: bytes, name: name));
+                _touchField('loaded_weight_slip');
+                _saveDraft();
+              },
+              onSlipRemoved: () {
+                setState(() => _weightSlipData = null);
+                _touchField('loaded_weight_slip');
+                _saveDraft();
+              },
             ),
             _FieldAttribution(username: _attrOf('loaded_truck_weight')),
+            _FieldAttribution(username: _attrOf('loaded_weight_slip')),
             const SizedBox(height: 20),
 
             // ── Bilty Upload ──────────────────────────────────────────
@@ -2566,6 +2872,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               subtitle: 'Attach the lorry receipt / bilty document',
               bytes: _biltyData?.bytes,
               fileName: _biltyData?.name,
+              existingUrl: _biltyData == null ? widget.trip.s3BiltyUrl : null,
               onPickSource: _pickBilty,
               onRemove: () { setState(() => _biltyData = null); _touchField('bilty_doc'); _saveDraft(); },
             ),
@@ -2986,6 +3293,10 @@ class _WeighField extends StatefulWidget {
   final String note;
   final bool enabled;
   final ValueNotifier<String>? unitNotifier;
+  final void Function(Uint8List bytes, String name)? onSlipPicked;
+  final VoidCallback? onSlipRemoved;
+  final String? existingSlipUrl;
+  final Uint8List? initialSlipBytes;
 
   const _WeighField({
     super.key,
@@ -2995,6 +3306,10 @@ class _WeighField extends StatefulWidget {
     required this.note,
     this.enabled = true,
     this.unitNotifier,
+    this.onSlipPicked,
+    this.onSlipRemoved,
+    this.existingSlipUrl,
+    this.initialSlipBytes,
   });
 
   @override
@@ -3003,7 +3318,14 @@ class _WeighField extends StatefulWidget {
 
 class _WeighFieldState extends State<_WeighField> {
   Uint8List? _slipBytes;
+  bool _existingCleared = false;
   final _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _slipBytes = widget.initialSlipBytes;
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     final picked = await _picker.pickImage(
@@ -3013,7 +3335,11 @@ class _WeighFieldState extends State<_WeighField> {
     );
     if (picked != null && mounted) {
       final bytes = await picked.readAsBytes();
-      setState(() => _slipBytes = bytes);
+      setState(() {
+        _slipBytes = bytes;
+        _existingCleared = false;
+      });
+      widget.onSlipPicked?.call(bytes, picked.name);
     }
   }
 
@@ -3150,112 +3476,193 @@ class _WeighFieldState extends State<_WeighField> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-
           // Slip upload area
-          if (_slipBytes == null)
-            GestureDetector(
-              onTap: widget.enabled ? _showPickerSheet : null,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: widget.enabled
-                      ? _primary.withValues(alpha: 0.05)
-                      : _border.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: widget.enabled
-                        ? _primary.withValues(alpha: 0.30)
-                        : _border.withValues(alpha: 0.4),
-                    style: BorderStyle.solid,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.upload_file_rounded,
-                        color: widget.enabled ? _primary : _secondary,
-                        size: 24),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Upload Weigh Slip',
-                      style: _inter(
-                          size: 12,
-                          weight: FontWeight.w600,
-                          color: widget.enabled ? _primary : _secondary),
+          const SizedBox(height: 12),
+          if (_slipBytes != null)
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.memory(
+                      _slipBytes!,
+                      width: double.infinity,
+                      height: 160,
+                      fit: BoxFit.cover,
                     ),
-                    const SizedBox(height: 2),
-                    Text('Camera or Gallery',
-                        style: _inter(size: 11, color: _secondary)),
-                  ],
+                  ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: GestureDetector(
+                      onTap: _showPickerSheet,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.edit_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _slipBytes = null);
+                        widget.onSlipRemoved?.call();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: _error.withValues(alpha: 0.85),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 10),
+                      decoration: const BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.vertical(
+                            bottom: Radius.circular(10)),
+                      ),
+                      child: Text('Weigh Slip',
+                          style: _inter(
+                              size: 11,
+                              color: Colors.white,
+                              weight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              )
+            else if (widget.existingSlipUrl != null && !_existingCleared)
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      widget.existingSlipUrl!,
+                      width: double.infinity,
+                      height: 160,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 160,
+                        decoration: BoxDecoration(
+                          color: _border.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.broken_image_rounded,
+                              color: _secondary, size: 32),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: GestureDetector(
+                      onTap: _showPickerSheet,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.edit_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _existingCleared = true);
+                        widget.onSlipRemoved?.call();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: _error.withValues(alpha: 0.85),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 10),
+                      decoration: const BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.vertical(
+                            bottom: Radius.circular(10)),
+                      ),
+                      child: Text('Weigh Slip',
+                          style: _inter(
+                              size: 11,
+                              color: Colors.white,
+                              weight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              )
+            else
+              GestureDetector(
+                onTap: widget.enabled ? _showPickerSheet : null,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: widget.enabled
+                        ? _primary.withValues(alpha: 0.05)
+                        : _border.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: widget.enabled
+                          ? _primary.withValues(alpha: 0.30)
+                          : _border.withValues(alpha: 0.4),
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.upload_file_rounded,
+                          color: widget.enabled ? _primary : _secondary,
+                          size: 24),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Upload Weigh Slip',
+                        style: _inter(
+                            size: 12,
+                            weight: FontWeight.w600,
+                            color: widget.enabled ? _primary : _secondary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text('Camera or Gallery',
+                          style: _inter(size: 11, color: _secondary)),
+                    ],
+                  ),
                 ),
               ),
-            )
-          else
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.memory(
-                    _slipBytes!,
-                    width: double.infinity,
-                    height: 160,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: GestureDetector(
-                    onTap: _showPickerSheet,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.edit_rounded,
-                          color: Colors.white, size: 16),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 6,
-                  left: 6,
-                  child: GestureDetector(
-                    onTap: () => setState(() => _slipBytes = null),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: _error.withValues(alpha: 0.85),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.close_rounded,
-                          color: Colors.white, size: 16),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 6, horizontal: 10),
-                    decoration: const BoxDecoration(
-                      color: Colors.black45,
-                      borderRadius: BorderRadius.vertical(
-                          bottom: Radius.circular(10)),
-                    ),
-                    child: Text('Weigh Slip',
-                        style: _inter(
-                            size: 11,
-                            color: Colors.white,
-                            weight: FontWeight.w600)),
-                  ),
-                ),
-              ],
-            ),
         ],
       ),
     );
@@ -3325,6 +3732,57 @@ Future<ImageSource?> _showSourcePicker(BuildContext context) {
   );
 }
 
+// ─── Full-screen image preview ────────────────────────────────────────────────
+
+void _showImagePreview(BuildContext context, {Uint8List? bytes, String? url}) {
+  final Widget image = bytes != null
+      ? Image.memory(bytes, fit: BoxFit.contain)
+      : Image.network(
+          url!,
+          fit: BoxFit.contain,
+          loadingBuilder: (_, child, prog) => prog == null
+              ? child
+              : const Center(child: CircularProgressIndicator(color: Colors.white)),
+          errorBuilder: (_, __, ___) =>
+              const Center(child: Icon(Icons.broken_image_rounded, color: Colors.white54, size: 48)),
+        );
+
+  showDialog(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.92),
+    builder: (_) => Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 5.0,
+              child: image,
+            ),
+          ),
+          Positioned(
+            top: 40,
+            right: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 // ─── Single-file Document Upload Tile ────────────────────────────────────────
 
 class _DocUploadTile extends StatelessWidget {
@@ -3354,7 +3812,7 @@ class _DocUploadTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Newly picked local file — show preview
+    // Newly picked local file — show thumbnail preview
     if (bytes != null) {
       return Container(
         decoration: BoxDecoration(
@@ -3364,29 +3822,40 @@ class _DocUploadTile extends StatelessWidget {
         ),
         child: Column(
           children: [
-            ClipRRect(
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(13)),
-              child: Image.memory(bytes!,
-                  width: double.infinity,
-                  height: 160,
-                  fit: BoxFit.cover),
+            GestureDetector(
+              onTap: () => _showImagePreview(context, bytes: bytes),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                    child: Image.memory(bytes!,
+                        width: double.infinity, height: 160, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
             ),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded,
-                      size: 16, color: _success),
+                  const Icon(Icons.check_circle_rounded, size: 16, color: _success),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       fileName ?? 'Image selected',
                       style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: _success),
+                          fontSize: 12, fontWeight: FontWeight.w500, color: _success),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -3397,15 +3866,12 @@ class _DocUploadTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Text('Retake',
                           style: GoogleFonts.manrope(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: _primary)),
+                              fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
                     ),
                   ),
                   IconButton(
                     onPressed: onRemove,
-                    icon: const Icon(Icons.delete_outline_rounded,
-                        size: 18, color: _error),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: _error),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -3418,39 +3884,74 @@ class _DocUploadTile extends StatelessWidget {
       );
     }
 
-    // File saved on server (returning to edit) — show compact "saved" row
+    // File saved on server (returning to edit) — show image thumbnail preview
     if (existingUrl != null) {
-      final docName = existingUrl!.split('/').last;
+      final fullUrl = existingUrl!.startsWith('http')
+          ? existingUrl!
+          : '${AppConfig.apiBaseUrl}$existingUrl';
       return Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
         decoration: BoxDecoration(
           color: _success.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _success.withValues(alpha: 0.30)),
         ),
-        child: Row(
+        child: Column(
           children: [
-            const Icon(Icons.cloud_done_rounded, size: 20, color: _success),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            GestureDetector(
+              onTap: () => _showImagePreview(context, url: fullUrl),
+              child: Stack(
                 children: [
-                  Text(label,
-                      style: GoogleFonts.manrope(fontSize: 12, fontWeight: FontWeight.w700, color: _success)),
-                  const SizedBox(height: 2),
-                  Text(docName,
-                      style: GoogleFonts.inter(fontSize: 11, color: _secondary),
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                    child: Image.network(
+                      fullUrl,
+                      width: double.infinity,
+                      height: 160,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (_, child, prog) => prog == null
+                          ? child
+                          : const SizedBox(height: 160,
+                              child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                      errorBuilder: (_, __, ___) => const SizedBox(height: 80,
+                          child: Center(child: Icon(Icons.broken_image_rounded, color: _secondary))),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
                 ],
               ),
             ),
-            GestureDetector(
-              onTap: () => _pick(context),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Text('Replace',
-                    style: GoogleFonts.manrope(fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_done_rounded, size: 16, color: _success),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(label,
+                        style: GoogleFonts.manrope(
+                            fontSize: 12, fontWeight: FontWeight.w700, color: _success),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  GestureDetector(
+                    onTap: () => _pick(context),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('Replace',
+                          style: GoogleFonts.manrope(
+                              fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -5161,6 +5662,126 @@ class _SummaryRow extends StatelessWidget {
               style: _manrope(size: 13, weight: FontWeight.w700),
               textAlign: TextAlign.right,
               overflow: TextOverflow.ellipsis),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── RR Login Dialog ──────────────────────────────────────────────────────────
+/// Shown when the LP taps the sync button.
+/// Collects RR credentials, calls POST /api/rr/auth/login, and
+/// returns the obtained token to the caller (or null if cancelled).
+class _RrLoginDialog extends StatefulWidget {
+  final Dio dio;
+  const _RrLoginDialog({required this.dio});
+
+  @override
+  State<_RrLoginDialog> createState() => _RrLoginDialogState();
+}
+
+class _RrLoginDialogState extends State<_RrLoginDialog> {
+  final _usernameCtrl = TextEditingController();
+  final _passwordCtrl = TextEditingController();
+  bool _loading = false;
+  bool _obscure = true;
+  String? _error;
+
+  @override
+  void dispose() {
+    _usernameCtrl.dispose();
+    _passwordCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final username = _usernameCtrl.text.trim();
+    final password = _passwordCtrl.text;
+    if (username.isEmpty || password.isEmpty) {
+      setState(() => _error = 'Enter your RR username and password');
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final resp = await widget.dio.post(
+        '/api/rr/auth/login',
+        data: {'username': username, 'password': password},
+      );
+      final token = (resp.data as Map<String, dynamic>)['token'] as String?;
+      if (token == null || token.isEmpty) {
+        setState(() { _error = 'Login failed — no token received'; _loading = false; });
+        return;
+      }
+      if (mounted) Navigator.of(context).pop(token);
+    } on DioException catch (e) {
+      final msg = (e.response?.data is Map)
+          ? (e.response!.data['detail'] ?? 'Login failed')
+          : 'Login failed';
+      setState(() { _error = msg.toString(); _loading = false; });
+    } catch (e) {
+      setState(() { _error = 'Unexpected error: $e'; _loading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text('Sign in to RR', style: _manrope(size: 16, weight: FontWeight.w800)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Enter your RollingRadius credentials to sync this trip.',
+              style: _inter(size: 13)),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _usernameCtrl,
+            decoration: InputDecoration(
+              labelText: 'Username / Phone',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            keyboardType: TextInputType.text,
+            textInputAction: TextInputAction.next,
+            enabled: !_loading,
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _passwordCtrl,
+            obscureText: _obscure,
+            decoration: InputDecoration(
+              labelText: 'Password',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              suffixIcon: IconButton(
+                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, size: 20),
+                onPressed: () => setState(() => _obscure = !_obscure),
+              ),
+            ),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(),
+            enabled: !_loading,
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 10),
+            Text(_error!, style: _inter(size: 12, color: const Color(0xFFBA1A1A))),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(null),
+          child: Text('Cancel', style: _inter(size: 13, color: _secondary)),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: _primary),
+          onPressed: _loading ? null : _submit,
+          child: _loading
+              ? const SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : Text('Login & Sync', style: _manrope(size: 13, color: Colors.white)),
         ),
       ],
     );

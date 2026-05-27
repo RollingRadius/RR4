@@ -100,11 +100,11 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
     }
   }
 
-  Future<bool> submitStage2(Map<String, dynamic> data) async {
+  Future<bool> submitStage2(FormData formData) async {
     state = state.copyWith(isSubmitting: true, clearError: true);
     try {
       final api = _ref.read(apiServiceProvider);
-      final resp = await api.dio.post('/api/trips/$tripId/stage/2', data: data);
+      final resp = await api.dio.post('/api/trips/$tripId/stage/2', data: formData);
       _patchTripFromResponse(resp.data);
       state = state.copyWith(isSubmitting: false, currentStage: 2);
       return true;

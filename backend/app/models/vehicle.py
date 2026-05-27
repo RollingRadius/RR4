@@ -43,6 +43,9 @@ class Vehicle(Base):
     pollution_certificate_expiry = Column(Date, nullable=True)
     fitness_certificate_expiry = Column(Date, nullable=True)
 
+    # RR Sync
+    rr_vehicle_id = Column(String(24), nullable=True)  # MongoDB ObjectId in RR — cached on first lookup
+
     notes = Column(Text, nullable=True)
     photo = Column(LargeBinary, nullable=True)
     photo_content_type = Column(String(50), nullable=True)

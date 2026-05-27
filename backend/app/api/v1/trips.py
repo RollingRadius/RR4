@@ -103,6 +103,13 @@ class TripCreate(BaseModel):
     load_owner_org_id: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    # RR sync fields
+    origin_rr_city_id: Optional[str] = None
+    destination_rr_city_id: Optional[str] = None
+    material_rr_id: Optional[str] = None
+    weight_value: Optional[float] = None
+    weight_unit: Optional[str] = None
+    invoice_value: Optional[float] = None
 
 
 class TripUpdate(BaseModel):
@@ -120,6 +127,13 @@ class TripUpdate(BaseModel):
     status: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    # RR sync fields
+    origin_rr_city_id: Optional[str] = None
+    destination_rr_city_id: Optional[str] = None
+    material_rr_id: Optional[str] = None
+    weight_value: Optional[float] = None
+    weight_unit: Optional[str] = None
+    invoice_value: Optional[float] = None
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -247,6 +261,12 @@ def create_trip(
         created_by=current_user.id,
         start_date=body.start_date,
         end_date=body.end_date,
+        origin_rr_city_id=body.origin_rr_city_id,
+        destination_rr_city_id=body.destination_rr_city_id,
+        material_rr_id=body.material_rr_id,
+        weight_value=body.weight_value,
+        weight_unit=body.weight_unit,
+        invoice_value=body.invoice_value,
     )
     db.add(trip)
     db.commit()
@@ -359,16 +379,7 @@ def get_trip_vehicle_location(
 # Stage1Payload replaced by Form + File params in the endpoint below.
 
 
-class Stage2Payload(BaseModel):
-    specs_verified:         bool
-    docs_verified:          bool
-    driver_docs_valid:      bool
-    entry_permission:       bool
-    dharam_kanta_location:  str | None = None   # 'inside' | 'outside' | ''
-    empty_weight_before_loading: str | None = None
-    empty_weight_unit:      str | None = None
-
-
+# Stage2Payload removed — Stage 2 now uses multipart/form-data (consistent with S1 and S3).
 # Stage3Payload is replaced by Form fields + UploadFile in the endpoint below.
 # Helper to coerce form string → bool
 def _form_bool(v: str) -> bool:
@@ -532,14 +543,24 @@ async def submit_stage1(
 
 
 @router.post("/trips/{trip_id}/stage/2", status_code=200)
-def submit_stage2(
+async def submit_stage2(
     trip_id: str,
-    body: Stage2Payload,
+    specs_verified:              str           = Form(...),
+    docs_verified:               str           = Form(...),
+    driver_docs_valid:           str           = Form(...),
+    entry_permission:            str           = Form(...),
+    dharam_kanta_location:       Optional[str] = Form(None),
+    empty_weight_before_loading: Optional[str] = Form(None),
+    empty_weight_unit:           Optional[str] = Form(None),
+    loading_slip:                Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Stage 2 — Pre-Arrival Compliance Check."""
+    """Stage 2 — Pre-Arrival Compliance Check + optional Loading Slip upload.
+    Accepts multipart/form-data (consistent with Stage 1 and Stage 3)."""
     from datetime import datetime, timezone
+    from app.config import settings
+
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
     if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
@@ -555,36 +576,47 @@ def submit_stage2(
             raise HTTPException(status_code=409, detail="Stage 2 has already been completed by another worker.")
 
     was_already_submitted = trip.current_stage >= 2
-    if not body.entry_permission:
-        raise HTTPException(
-            status_code=400,
-            detail="Entry permission must be issued to proceed"
-        )
+
+    ep = _form_bool(entry_permission)
+    if not ep:
+        raise HTTPException(status_code=400, detail="Entry permission must be issued to proceed")
+
+    # Save loading slip if provided
+    if loading_slip and loading_slip.filename:
+        ext = Path(loading_slip.filename).suffix or '.jpg'
+        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+        trip_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"loading_slip_{_uuid_module.uuid4().hex}{ext}"
+        with open(trip_dir / filename, "wb") as f:
+            f.write(await loading_slip.read())
+        trip.s2_loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
+        _apply_attributions(trip, ['loading_slip'], current_user, role_key)
 
     # Flush draft attributions before clearing
     _draft_flush_attributions(trip, current_user, role_key)
 
-    trip.s2_specs_verified    = body.specs_verified
-    trip.s2_docs_verified     = body.docs_verified
-    trip.s2_driver_docs_valid = body.driver_docs_valid
-    trip.s2_entry_permission  = body.entry_permission
+    trip.s2_specs_verified    = _form_bool(specs_verified)
+    trip.s2_docs_verified     = _form_bool(docs_verified)
+    trip.s2_driver_docs_valid = _form_bool(driver_docs_valid)
+    trip.s2_entry_permission  = ep
     trip.s2_submitted_by      = current_user.id
-    trip.s2_claimed_by        = None  # release claim on submit
+    trip.s2_claimed_by        = None
     trip.s2_claimed_at        = None
     trip.s2_verified_at       = datetime.now(timezone.utc)
 
     # Persist dharam kanta data so it survives draft clearance
-    dk_loc = (body.dharam_kanta_location or '').strip() or None
+    dk_loc = (dharam_kanta_location or '').strip() or None
     trip.s2_dharam_kanta_loc = dk_loc
-    if dk_loc == 'outside' and body.empty_weight_before_loading:
-        trip.s2_empty_weight_kg   = body.empty_weight_before_loading.strip()
-        trip.s2_empty_weight_unit = (body.empty_weight_unit or 'tons').strip()
+    if dk_loc == 'outside' and empty_weight_before_loading:
+        trip.s2_empty_weight_kg   = empty_weight_before_loading.strip()
+        trip.s2_empty_weight_unit = (empty_weight_unit or 'tons').strip()
     else:
         trip.s2_empty_weight_kg   = None
         trip.s2_empty_weight_unit = None
 
     if trip.current_stage < 2:
         trip.current_stage = 2
+    trip.draft_data = None
 
     db.commit()
     db.refresh(trip)
@@ -606,39 +638,6 @@ def submit_stage2(
     return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
 
-@router.post("/trips/{trip_id}/loading-slip", status_code=200)
-async def upload_loading_slip(
-    trip_id: str,
-    slip: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """Upload loading slip after Stage 2 compliance check, before Stage 3."""
-    user_org = _get_user_org(current_user, db)
-    role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
-        raise HTTPException(status_code=403, detail="Fleet managers only")
-
-    trip = _get_fleet_trip(trip_id, user_org, db)
-    if trip.current_stage < 2:
-        raise HTTPException(status_code=409, detail="Complete Stage 2 first")
-
-    upload_dir = Path(f"uploads/trips/{trip_id}")
-    upload_dir.mkdir(parents=True, exist_ok=True)
-    ext = Path(slip.filename).suffix if slip.filename else '.jpg'
-    filename = f"loading_slip_{_uuid_module.uuid4().hex}{ext}"
-    file_path = upload_dir / filename
-    content = await slip.read()
-    file_path.write_bytes(content)
-
-    trip.s2_loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
-    _apply_attributions(trip, ['loading_slip'], current_user, role_key)
-    trip.draft_data = None   # clear loading slip draft on successful upload
-    db.commit()
-    db.refresh(trip)
-    return {"success": True, "message": "Loading slip uploaded.", "trip": _enrich(trip, db)}
-
-
 @router.post("/trips/{trip_id}/stage/3", status_code=200)
 async def submit_stage3(
     trip_id: str,
@@ -652,6 +651,7 @@ async def submit_stage3(
     empty_truck_weight_unit: Optional[str] = Form('tons'),
     loaded_truck_weight_kg:  Optional[str] = Form(None),
     loaded_truck_weight_unit: Optional[str] = Form('tons'),
+    loaded_weight_slip:      Optional[UploadFile] = File(None),
     bilty:                   Optional[UploadFile] = File(None),
     material_docs:           Optional[List[UploadFile]] = File(None),
     current_user: User = Depends(get_current_user),
@@ -677,6 +677,17 @@ async def submit_stage3(
             raise HTTPException(status_code=409, detail="Stage 3 has already been completed by another worker.")
 
     was_already_submitted = trip.current_stage >= 3
+
+    # Save loaded weight slip file
+    loaded_weight_slip_url = None
+    if loaded_weight_slip and loaded_weight_slip.filename:
+        ext = Path(loaded_weight_slip.filename).suffix or '.jpg'
+        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+        trip_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"weight_slip_{_uuid_module.uuid4().hex}{ext}"
+        with open(trip_dir / filename, "wb") as f:
+            f.write(await loaded_weight_slip.read())
+        loaded_weight_slip_url = f"/uploads/trips/{trip_id}/{filename}"
 
     # Save bilty file
     bilty_url = None
@@ -705,6 +716,8 @@ async def submit_stage3(
     # Flush draft attributions + auto-attribute newly uploaded files
     _draft_flush_attributions(trip, current_user, role_key)
     s3_uploaded = []
+    if loaded_weight_slip_url:
+        s3_uploaded.append('loaded_weight_slip')
     if bilty_url:
         s3_uploaded.append('bilty_doc')
     if material_urls:
@@ -722,6 +735,8 @@ async def submit_stage3(
     trip.s3_empty_truck_weight_unit  = empty_truck_weight_unit or 'tons'
     trip.s3_loaded_truck_weight_kg   = loaded_truck_weight_kg
     trip.s3_loaded_truck_weight_unit = loaded_truck_weight_unit or 'tons'
+    if loaded_weight_slip_url:
+        trip.s3_loaded_weight_slip_url = loaded_weight_slip_url
     if bilty_url:
         trip.s3_bilty_url = bilty_url
     if material_urls:
@@ -1480,6 +1495,7 @@ async def transporter_upload_loading_slip(
     trip.s2_loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
     db.commit()
     db.refresh(trip)
+
     return {"success": True, "message": "Loading slip uploaded successfully.", "trip": _enrich(trip, db)}
 
 
