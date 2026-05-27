@@ -5,7 +5,7 @@ All endpoints require authentication — RR details are never exposed to the cli
 """
 
 import logging
-from typing import List
+from typing import List, Optional
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
@@ -17,26 +17,12 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.company import Organization
 from app.models.driver import Driver
-from app.models.material_type import MaterialType
 from app.models.trip import Trip
 from app.models.user import User
 from app.models.vehicle import Vehicle
-from app.services import rr_token_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _rr_headers() -> dict:
-    token = rr_token_service.get_access_token()
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="RR service not available — token not initialised"
-        )
-    return {"Authorization": f"Bearer {token}"}
 
 
 # ── City proxy ────────────────────────────────────────────────────────────────
@@ -51,9 +37,6 @@ async def get_rr_cities(
     Returns a list of {_id, name} matches for the given prefix.
     Used silently when the user picks a LocationIQ autocomplete result.
     """
-    if not settings.RR_SYNC_ENABLED:
-        return {"items": []}
-
     import json
     where = json.dumps({"name": {"$regex": f"^{q}", "$options": "i"}})
     try:
@@ -61,7 +44,6 @@ async def get_rr_cities(
             resp = await client.get(
                 f"{settings.RR_API_BASE}/cities",
                 params={"where": where, "max_results": 10},
-                headers=_rr_headers(),
             )
             resp.raise_for_status()
             data = resp.json()
@@ -79,23 +61,40 @@ async def get_rr_cities(
         return {"items": []}   # non-fatal — trip still syncs without city link
 
 
-# ── Materials (local DB) ──────────────────────────────────────────────────────
+# ── Materials proxy ───────────────────────────────────────────────────────────
 
-@router.get("/materials", summary="Search local material types")
-def get_materials(
+@router.get("/materials", summary="Search RR material types")
+async def get_materials(
     q: str = Query("", description="Material name prefix to search"),
-    db: Session = Depends(get_db),
     _: User = Depends(get_current_user),
 ):
     """
-    Query local material_types table (seeded from RR).
-    Zero runtime calls to RR — always fast.
+    Proxy to RR GET /material_types endpoint.
+    Returns a list of {rr_material_id, name} matches for the given prefix.
     """
-    query = db.query(MaterialType)
+    import json
+    params: dict = {"max_results": 20}
     if q:
-        query = query.filter(MaterialType.name.ilike(f"{q}%"))
-    items = query.order_by(MaterialType.name).limit(20).all()
-    return {"items": [m.to_dict() for m in items]}
+        params["where"] = json.dumps({"name": {"$regex": f"^{q}", "$options": "i"}})
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/material_types",
+                params=params,
+            )
+            resp.raise_for_status()
+            items = resp.json().get("_items", [])
+            return {
+                "items": [
+                    {"rr_material_id": m["_id"], "name": m.get("name", "")}
+                    for m in items
+                ]
+            }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"RR material_types proxy error: {exc}")
+        return {"items": []}
 
 
 # ── Sync status ───────────────────────────────────────────────────────────────
@@ -107,7 +106,19 @@ def get_sync_status(
     current_user: User = Depends(get_current_user),
 ):
     """Returns the current RR sync state for a given RR4 trip."""
-    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    from app.models import UserOrganization
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.organization_id == user_org.organization_id,
+    ).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
 
@@ -123,27 +134,82 @@ def get_sync_status(
     }
 
 
-# ── Manual sync trigger (stub — wired in Phase 4) ────────────────────────────
+# ── RR Authentication proxy ───────────────────────────────────────────────────
+
+class RrAuthRequest(BaseModel):
+    username: str
+    password: str
+
+
+@router.post("/auth/login", summary="Authenticate with RR and obtain an access token")
+async def rr_auth_login(
+    body: RrAuthRequest,
+    _: User = Depends(get_current_user),
+):
+    """
+    Proxy to RR GET /persons/authenticate (Basic Auth).
+    Returns a short-lived RR access token for use in the sync endpoint.
+    RR credentials are never stored — they are used once to obtain a token.
+    """
+    if not settings.RR_SYNC_ENABLED:
+        raise HTTPException(status_code=503, detail="RR sync is disabled on this server")
+
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/persons/authenticate",
+                auth=(body.username, body.password),
+            )
+    except Exception as exc:
+        logger.error(f"RR auth proxy error: {exc}")
+        raise HTTPException(status_code=503, detail="Could not reach RR server")
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid RR credentials")
+
+    data = resp.json()
+    token = data.get("access_token") or data.get("token")
+    if not token:
+        logger.error(f"RR auth response missing token: {resp.text[:200]}")
+        raise HTTPException(status_code=500, detail="RR auth response missing token")
+
+    return {"token": token}
+
+
+# ── Manual sync trigger ───────────────────────────────────────────────────────
+
+class RrSyncRequest(BaseModel):
+    rr_token: str
+
 
 @router.post("/sync/trip/{trip_id}", summary="Manually trigger RR sync for a trip")
 async def trigger_sync(
     trip_id: str,
+    body: RrSyncRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Manually trigger sync of a trip to RR (runs as background task)."""
+    """
+    Manually trigger sync of a trip to RR (runs as background task).
+    Requires the LP's RR access token obtained from POST /auth/login.
+    """
     from app.services import rr_sync_service
+    from app.models import UserOrganization
 
-    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.organization_id == user_org.organization_id,
+    ).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
-
-    if not trip.s2_loading_slip_url:
-        raise HTTPException(
-            status_code=400,
-            detail="Loading slip must be uploaded before sync can be triggered"
-        )
 
     # Reset failed status so sync will retry
     if trip.rr_sync_status == "failed":
@@ -151,7 +217,7 @@ async def trigger_sync(
         trip.rr_sync_error = None
         db.commit()
 
-    background_tasks.add_task(rr_sync_service.sync_trip_to_rr, trip_id)
+    background_tasks.add_task(rr_sync_service.sync_all_to_rr, trip_id, body.rr_token)
 
     return {
         "message": "Sync triggered — check status in a few seconds",
@@ -166,7 +232,15 @@ def _check_trip_readiness(trip: Trip, db: Session) -> dict:
     """
     Check whether a trip has all required RR IDs for sync.
     Returns {ready: bool, missing: [field_names]}.
+
+    If the trip already has rr_parcel_id, it is already in RR — skip ID checks
+    entirely (create_trip was already called successfully). Only trips not yet
+    in RR need the full pre-flight check.
     """
+    # Trip already created in RR — just needs more data pushed, always ready.
+    if trip.rr_parcel_id:
+        return {"ready": True, "missing": []}
+
     missing = []
 
     if trip.load_owner_org_id:
@@ -183,14 +257,14 @@ def _check_trip_readiness(trip: Trip, db: Session) -> dict:
     if trip.vehicle_id:
         vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
         if not (vehicle and vehicle.rr_vehicle_id):
-            missing.append("vehicle.rr_vehicle_id")
+            missing.append("vehicle.rr_vehicle_id (not yet in RR — will auto-resolve at sync)")
     else:
         missing.append("vehicle.rr_vehicle_id")
 
     if trip.driver_id:
         driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
         if not (driver and driver.rr_user_id):
-            missing.append("driver.rr_user_id")
+            missing.append("driver.rr_user_id (not yet in RR — will auto-resolve at sync)")
     else:
         missing.append("driver.rr_user_id")
 
@@ -225,9 +299,10 @@ def get_sync_ready(
 ):
     """
     Returns two lists:
-    - ready: trips that have a loading slip and all required RR IDs
-    - missing_data: trips that have a loading slip but are missing some RR IDs
-    Excludes trips already fully synced (loading_slip_synced / bilty_synced / pod_synced).
+    - ready: trips that have all required RR IDs and are not yet fully synced
+    - missing_data: trips that are missing some RR IDs
+    Excludes only pod_synced trips (fully complete).
+    loading_slip_synced and bilty_synced are included because S3/S5 may still need pushing.
     """
     from app.models import UserOrganization
 
@@ -238,13 +313,12 @@ def get_sync_ready(
     if not user_org:
         raise HTTPException(status_code=403, detail="User must be in an active organization")
 
-    # Trips belonging to LP's org that have a loading slip and are not yet fully synced
-    syncable_statuses = ("not_synced", "failed", "trip_created")
+    # All ongoing trips in LP's org that aren't fully synced
+    syncable_statuses = ("not_synced", "failed", "trip_created", "loading_slip_synced", "bilty_synced")
     trips = (
         db.query(Trip)
         .filter(
             Trip.organization_id == user_org.organization_id,
-            Trip.s2_loading_slip_url.isnot(None),
             Trip.rr_sync_status.in_(syncable_statuses),
         )
         .order_by(Trip.created_at.desc())
@@ -324,12 +398,7 @@ async def trigger_bulk_sync(
             skipped.append({"trip_id": trip_id, "reason": "not found"})
             continue
 
-        if not trip.s2_loading_slip_url:
-            skipped.append({"trip_id": trip_id, "trip_number": trip.trip_number,
-                            "reason": "no loading slip"})
-            continue
-
-        if trip.rr_sync_status in ("loading_slip_synced", "bilty_synced", "pod_synced"):
+        if trip.rr_sync_status in ("pod_synced",):
             skipped.append({"trip_id": trip_id, "trip_number": trip.trip_number,
                             "reason": f"already synced ({trip.rr_sync_status})"})
             continue
@@ -339,7 +408,7 @@ async def trigger_bulk_sync(
             trip.rr_sync_status = "not_synced"
             trip.rr_sync_error = None
 
-        background_tasks.add_task(rr_sync_service.sync_trip_to_rr, trip_id)
+        background_tasks.add_task(rr_sync_service.sync_all_to_rr, trip_id)
         queued.append({"trip_id": trip_id, "trip_number": trip.trip_number})
 
     db.commit()

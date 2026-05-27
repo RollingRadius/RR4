@@ -17,6 +17,7 @@ import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
+import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/lp_workers_screen.dart';
@@ -917,6 +918,30 @@ class _FleetStatusHeader extends ConsumerWidget {
             ],
           ),
         ),
+        // New Trip button
+        Builder(builder: (context) => GestureDetector(
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const CreateTripScreen()),
+          ),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: _primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _primary.withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add_rounded, size: 14, color: _primary),
+                const SizedBox(width: 4),
+                Text('New Trip',
+                    style: _inter(size: 11, weight: FontWeight.w700, color: _primary)),
+              ],
+            ),
+          ),
+        )),
+        const SizedBox(width: 8),
         if (isLive)
           Container(
             padding:
@@ -985,6 +1010,20 @@ class _EmptyTrips extends StatelessWidget {
             const SizedBox(height: 4),
             Text('Create a trip to track it here in real time',
                 style: _inter(size: 12)),
+            const SizedBox(height: 14),
+            Builder(builder: (context) => FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: _primary,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const CreateTripScreen()),
+              ),
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: Text('Create Trip',
+                  style: _manrope(size: 13, weight: FontWeight.w700, color: Colors.white)),
+            )),
           ],
         ),
       ),
@@ -1819,12 +1858,101 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   String? _transporterError;
   String? _amountError;
 
+  // ── RR Sync fields ──────────────────────────────────────────────────────────
+  final _pickupCityCtrl  = TextEditingController();
+  String? _pickupCityId;
+  List<Map<String, dynamic>> _pickupCityResults = [];
+  bool _pickupCityLoading = false;
+  Timer? _pickupCityDebounce;
+
+  final _dropCityCtrl  = TextEditingController();
+  String? _dropCityId;
+  List<Map<String, dynamic>> _dropCityResults = [];
+  bool _dropCityLoading = false;
+  Timer? _dropCityDebounce;
+
+  final _rrMaterialCtrl = TextEditingController();
+  String? _materialRrId;
+  List<Map<String, dynamic>> _materialResults = [];
+  bool _materialLoading = false;
+  Timer? _materialDebounce;
+
+  final _weightCtrl       = TextEditingController();
+  String _weightUnit      = 'TONS';
+  final _invoiceValueCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-populate city / material fields from the load requirement
+    final load = widget.load;
+    if (load.pickupLocation != null && load.pickupLocation!.isNotEmpty) {
+      _pickupCityCtrl.text = load.pickupLocation!;
+      WidgetsBinding.instance.addPostFrameCallback((_) =>
+          _searchCity(load.pickupLocation!, isPickup: true));
+    }
+    if (load.unloadLocation != null && load.unloadLocation!.isNotEmpty) {
+      _dropCityCtrl.text = load.unloadLocation!;
+      WidgetsBinding.instance.addPostFrameCallback((_) =>
+          _searchCity(load.unloadLocation!, isPickup: false));
+    }
+    if (load.materialType != null && load.materialType!.isNotEmpty) {
+      _rrMaterialCtrl.text = load.materialType!;
+      WidgetsBinding.instance.addPostFrameCallback((_) =>
+          _searchMaterial(load.materialType!));
+    }
+  }
+
   @override
   void dispose() {
     _amountController.dispose();
     _transporterController.dispose();
     _transporterDebounce?.cancel();
+    _pickupCityCtrl.dispose();
+    _dropCityCtrl.dispose();
+    _rrMaterialCtrl.dispose();
+    _weightCtrl.dispose();
+    _invoiceValueCtrl.dispose();
+    _pickupCityDebounce?.cancel();
+    _dropCityDebounce?.cancel();
+    _materialDebounce?.cancel();
     super.dispose();
+  }
+
+  Future<void> _searchCity(String q, {required bool isPickup}) async {
+    if (q.length < 2) return;
+    if (isPickup) setState(() => _pickupCityLoading = true);
+    else          setState(() => _dropCityLoading   = true);
+    try {
+      final dio = ref.read(apiServiceProvider).dio;
+      final resp = await dio.get('/api/rr/cities', queryParameters: {'q': q});
+      final items = (resp.data['items'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() {
+        if (isPickup) { _pickupCityResults = items; _pickupCityLoading = false; }
+        else          { _dropCityResults   = items; _dropCityLoading   = false; }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (isPickup) _pickupCityLoading = false;
+        else          _dropCityLoading   = false;
+      });
+    }
+  }
+
+  Future<void> _searchMaterial(String q) async {
+    setState(() => _materialLoading = true);
+    try {
+      final dio = ref.read(apiServiceProvider).dio;
+      final resp = await dio.get('/api/rr/materials', queryParameters: {'q': q});
+      final items = (resp.data['items'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() { _materialResults = items; _materialLoading = false; });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _materialLoading = false);
+    }
   }
 
   Future<void> _searchTransporters(String q) async {
@@ -1870,6 +1998,8 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     final api = ref.read(apiServiceProvider);
 
     try {
+      final weightVal = double.tryParse(_weightCtrl.text.trim());
+      final invoiceVal = double.tryParse(_invoiceValueCtrl.text.trim());
       final resp = await api.dio.post(
         '/api/loads/${widget.load.id}/fulfill',
         data: {
@@ -1877,6 +2007,12 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
           if (_selectedDriverId != null) 'driver_id': _selectedDriverId,
           if (amount != null) 'trip_amount': amount,
           if (_selectedTransporterId != null) 'transporter_user_id': _selectedTransporterId,
+          if (_pickupCityId != null) 'origin_rr_city_id': _pickupCityId,
+          if (_dropCityId != null) 'destination_rr_city_id': _dropCityId,
+          if (_materialRrId != null) 'material_rr_id': _materialRrId,
+          if (weightVal != null) 'weight_value': weightVal,
+          if (weightVal != null) 'weight_unit': _weightUnit,
+          if (invoiceVal != null) 'invoice_value': invoiceVal,
         },
       );
 
@@ -1968,6 +2104,137 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                   label: 'Capacity',
                   value: widget.load.capacity!,
                 ),
+              const SizedBox(height: 20),
+
+              // ── RR Sync Details ─────────────────────────────────────────
+              Row(children: [
+                Container(width: 3, height: 14, color: _primary,
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(2))),
+                const SizedBox(width: 8),
+                Text('RR Sync Details', style: _manrope(size: 13, weight: FontWeight.w800)),
+              ]),
+              const SizedBox(height: 12),
+
+              // Pickup city
+              Text('Pickup City', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillCityField(
+                controller: _pickupCityCtrl,
+                loading: _pickupCityLoading,
+                confirmed: _pickupCityId != null,
+                results: _pickupCityResults,
+                onChanged: (q) {
+                  setState(() { _pickupCityId = null; _pickupCityResults = []; });
+                  _pickupCityDebounce?.cancel();
+                  if (q.length >= 2) _pickupCityDebounce = Timer(
+                    const Duration(milliseconds: 400),
+                    () => _searchCity(q, isPickup: true),
+                  );
+                },
+                onSelect: (city) => setState(() {
+                  _pickupCityId = city['rr_city_id'] as String;
+                  _pickupCityCtrl.text = city['name'] as String;
+                  _pickupCityResults = [];
+                }),
+                onClear: () => setState(() {
+                  _pickupCityId = null; _pickupCityCtrl.clear(); _pickupCityResults = [];
+                }),
+              ),
+              const SizedBox(height: 12),
+
+              // Drop city
+              Text('Drop City', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillCityField(
+                controller: _dropCityCtrl,
+                loading: _dropCityLoading,
+                confirmed: _dropCityId != null,
+                results: _dropCityResults,
+                onChanged: (q) {
+                  setState(() { _dropCityId = null; _dropCityResults = []; });
+                  _dropCityDebounce?.cancel();
+                  if (q.length >= 2) _dropCityDebounce = Timer(
+                    const Duration(milliseconds: 400),
+                    () => _searchCity(q, isPickup: false),
+                  );
+                },
+                onSelect: (city) => setState(() {
+                  _dropCityId = city['rr_city_id'] as String;
+                  _dropCityCtrl.text = city['name'] as String;
+                  _dropCityResults = [];
+                }),
+                onClear: () => setState(() {
+                  _dropCityId = null; _dropCityCtrl.clear(); _dropCityResults = [];
+                }),
+              ),
+              const SizedBox(height: 12),
+
+              // Material
+              Text('Material', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillCityField(
+                controller: _rrMaterialCtrl,
+                loading: _materialLoading,
+                confirmed: _materialRrId != null,
+                results: _materialResults,
+                onChanged: (q) {
+                  setState(() { _materialRrId = null; _materialResults = []; });
+                  _materialDebounce?.cancel();
+                  _materialDebounce = Timer(
+                    const Duration(milliseconds: 350),
+                    () => _searchMaterial(q),
+                  );
+                },
+                onSelect: (mat) => setState(() {
+                  _materialRrId = mat['rr_material_id'] as String?;
+                  _rrMaterialCtrl.text = mat['name'] as String;
+                  _materialResults = [];
+                }),
+                onClear: () => setState(() {
+                  _materialRrId = null; _rrMaterialCtrl.clear(); _materialResults = [];
+                }),
+              ),
+              const SizedBox(height: 12),
+
+              // Weight + unit
+              Text('Weight', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              Row(children: [
+                Expanded(child: _FulfillTextField(
+                  controller: _weightCtrl,
+                  hint: 'e.g. 20',
+                  inputType: const TextInputType.numberWithOptions(decimal: true),
+                )),
+                const SizedBox(width: 10),
+                Container(
+                  decoration: BoxDecoration(
+                    color: _surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _surfaceContainer),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _weightUnit,
+                      style: _inter(size: 13, color: const Color(0xFF191C1E)),
+                      icon: const Icon(Icons.expand_more_rounded, size: 18),
+                      items: ['KG', 'TONS', 'QUINTAL'].map((u) =>
+                          DropdownMenuItem(value: u, child: Text(u))).toList(),
+                      onChanged: (v) { if (v != null) setState(() => _weightUnit = v); },
+                    ),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 12),
+
+              // Invoice value
+              Text('Invoice Value (₹)', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(
+                controller: _invoiceValueCtrl,
+                hint: 'e.g. 150000',
+                inputType: TextInputType.number,
+              ),
               const SizedBox(height: 20),
 
               // Vehicle selector
@@ -2244,6 +2511,155 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Fulfill sheet helpers ─────────────────────────────────────────────────────
+
+/// Compact search field used inside the fulfill bottom sheet.
+class _FulfillCityField extends StatelessWidget {
+  final TextEditingController controller;
+  final bool loading;
+  final bool confirmed;
+  final List<Map<String, dynamic>> results;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<Map<String, dynamic>> onSelect;
+  final VoidCallback onClear;
+
+  const _FulfillCityField({
+    required this.controller,
+    required this.loading,
+    required this.confirmed,
+    required this.results,
+    required this.onChanged,
+    required this.onSelect,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: _surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: confirmed
+                  ? const Color(0xFF4CAF50).withOpacity(0.6)
+                  : _surfaceContainer,
+              width: confirmed ? 1.5 : 1,
+            ),
+          ),
+          child: Row(children: [
+            const SizedBox(width: 12),
+            Icon(
+              confirmed ? Icons.check_circle_rounded : Icons.search_rounded,
+              size: 16,
+              color: confirmed ? const Color(0xFF2E7D32) : _secondary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                style: _inter(size: 13, color: const Color(0xFF191C1E)),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            if (loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox(width: 14, height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: _primary)),
+              )
+            else if (controller.text.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.close_rounded, size: 16, color: _secondary),
+                onPressed: onClear,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+          ]),
+        ),
+        if (results.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _surfaceContainer),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06),
+                  blurRadius: 6, offset: const Offset(0, 2))],
+            ),
+            constraints: const BoxConstraints(maxHeight: 160),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: results.length,
+                separatorBuilder: (_, __) => Divider(height: 1, color: _surfaceContainer),
+                itemBuilder: (_, i) => InkWell(
+                  onTap: () => onSelect(results[i]),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Text(results[i]['name'] as String? ?? '',
+                        style: _inter(size: 13, color: const Color(0xFF191C1E))),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Compact plain text field used inside the fulfill bottom sheet.
+class _FulfillTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final TextInputType inputType;
+
+  const _FulfillTextField({
+    required this.controller,
+    required this.hint,
+    this.inputType = TextInputType.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: inputType,
+      style: _inter(size: 13, color: const Color(0xFF191C1E)),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: _inter(size: 13, color: _secondary),
+        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        filled: true,
+        fillColor: _surfaceContainerLow,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _surfaceContainer),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _surfaceContainer),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _primary, width: 1.5),
+        ),
+        isDense: true,
       ),
     );
   }

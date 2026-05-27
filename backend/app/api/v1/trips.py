@@ -103,6 +103,13 @@ class TripCreate(BaseModel):
     load_owner_org_id: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    # RR sync fields
+    origin_rr_city_id: Optional[str] = None
+    destination_rr_city_id: Optional[str] = None
+    material_rr_id: Optional[str] = None
+    weight_value: Optional[float] = None
+    weight_unit: Optional[str] = None
+    invoice_value: Optional[float] = None
 
 
 class TripUpdate(BaseModel):
@@ -120,6 +127,13 @@ class TripUpdate(BaseModel):
     status: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    # RR sync fields
+    origin_rr_city_id: Optional[str] = None
+    destination_rr_city_id: Optional[str] = None
+    material_rr_id: Optional[str] = None
+    weight_value: Optional[float] = None
+    weight_unit: Optional[str] = None
+    invoice_value: Optional[float] = None
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -247,6 +261,12 @@ def create_trip(
         created_by=current_user.id,
         start_date=body.start_date,
         end_date=body.end_date,
+        origin_rr_city_id=body.origin_rr_city_id,
+        destination_rr_city_id=body.destination_rr_city_id,
+        material_rr_id=body.material_rr_id,
+        weight_value=body.weight_value,
+        weight_unit=body.weight_unit,
+        invoice_value=body.invoice_value,
     )
     db.add(trip)
     db.commit()

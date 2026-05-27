@@ -8,9 +8,8 @@ class RrSyncState {
   final List<Map<String, dynamic>> readyTrips;
   final List<Map<String, dynamic>> missingDataTrips;
   final int readyCount;
-  final Set<String> selectedIds;
   final bool isLoading;
-  final bool isSyncing;
+  final String? syncingTripId; // which trip is currently being synced
   final String? error;
   final String? successMessage;
 
@@ -18,9 +17,8 @@ class RrSyncState {
     this.readyTrips = const [],
     this.missingDataTrips = const [],
     this.readyCount = 0,
-    this.selectedIds = const {},
     this.isLoading = false,
-    this.isSyncing = false,
+    this.syncingTripId,
     this.error,
     this.successMessage,
   });
@@ -29,9 +27,8 @@ class RrSyncState {
     List<Map<String, dynamic>>? readyTrips,
     List<Map<String, dynamic>>? missingDataTrips,
     int? readyCount,
-    Set<String>? selectedIds,
     bool? isLoading,
-    bool? isSyncing,
+    String? syncingTripId,
     String? error,
     String? successMessage,
   }) =>
@@ -39,9 +36,8 @@ class RrSyncState {
         readyTrips: readyTrips ?? this.readyTrips,
         missingDataTrips: missingDataTrips ?? this.missingDataTrips,
         readyCount: readyCount ?? this.readyCount,
-        selectedIds: selectedIds ?? this.selectedIds,
         isLoading: isLoading ?? this.isLoading,
-        isSyncing: isSyncing ?? this.isSyncing,
+        syncingTripId: syncingTripId,
         error: error,
         successMessage: successMessage,
       );
@@ -68,7 +64,6 @@ class RrSyncNotifier extends StateNotifier<RrSyncState> {
         readyTrips: ready,
         missingDataTrips: missing,
         readyCount: data['ready_count'] as int? ?? ready.length,
-        selectedIds: {},
         isLoading: false,
       );
     } catch (e) {
@@ -79,40 +74,18 @@ class RrSyncNotifier extends StateNotifier<RrSyncState> {
     }
   }
 
-  void toggleSelection(String tripId) {
-    final current = Set<String>.from(state.selectedIds);
-    if (current.contains(tripId)) {
-      current.remove(tripId);
-    } else {
-      current.add(tripId);
-    }
-    state = state.copyWith(selectedIds: current);
-  }
-
-  void selectAll() {
-    final allIds = state.readyTrips.map((t) => t['trip_id'] as String).toSet();
-    state = state.copyWith(selectedIds: allIds);
-  }
-
-  void clearSelection() {
-    state = state.copyWith(selectedIds: {});
-  }
-
-  Future<void> syncSelected() async {
-    if (state.selectedIds.isEmpty) return;
-    state = state.copyWith(isSyncing: true);
+  Future<void> syncTrip(String tripId, String rrToken) async {
+    state = state.copyWith(syncingTripId: tripId);
     try {
-      final result = await _api.triggerBulkSync(state.selectedIds.toList());
-      final queued = (result['queued'] as List? ?? []).length;
-      final skipped = (result['skipped'] as List? ?? []).length;
-      final msg = '$queued trip(s) queued for sync'
-          '${skipped > 0 ? ', $skipped skipped' : ''}';
-      // Reload list to reflect updated statuses
+      await _api.triggerTripSync(tripId, rrToken);
       await loadReadyTrips();
-      state = state.copyWith(isSyncing: false, successMessage: msg);
+      state = state.copyWith(
+        syncingTripId: null,
+        successMessage: 'Sync started — check back shortly',
+      );
     } catch (e) {
       state = state.copyWith(
-        isSyncing: false,
+        syncingTripId: null,
         error: 'Sync failed: $e',
       );
     }

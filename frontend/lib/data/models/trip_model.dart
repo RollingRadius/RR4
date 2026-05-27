@@ -108,6 +108,14 @@ class TripModel {
   final String? transporterName;
   final String? transporterPhone;
 
+  // ── RR sync fields ────────────────────────────────────────────────────────────
+  final String? originRrCityId;
+  final String? destinationRrCityId;
+  final String? materialRrId;
+  final double? weightValue;
+  final String? weightUnit;
+  final double? invoiceValue;
+
   // ── Draft (cross-device in-progress form data) ────────────────────────────────
   final Map<String, dynamic>? draftData;
 
@@ -201,6 +209,12 @@ class TripModel {
     this.transporterUserId,
     this.transporterName,
     this.transporterPhone,
+    this.originRrCityId,
+    this.destinationRrCityId,
+    this.materialRrId,
+    this.weightValue,
+    this.weightUnit,
+    this.invoiceValue,
     this.draftData,
     this.fieldAttributions,
   });
@@ -299,8 +313,14 @@ class TripModel {
       transporterUserId:  json['transporter_user_id']   as String?,
       transporterName:    json['transporter_name']       as String?,
       transporterPhone:   json['transporter_phone']      as String?,
-      draftData:          json['draft_data'] as Map<String, dynamic>?,
-      fieldAttributions:  json['field_attributions'] as Map<String, dynamic>?,
+      originRrCityId:       json['origin_rr_city_id']       as String?,
+      destinationRrCityId:  json['destination_rr_city_id']  as String?,
+      materialRrId:         json['material_rr_id']          as String?,
+      weightValue:          (json['weight_value'] as num?)?.toDouble(),
+      weightUnit:           json['weight_unit']             as String?,
+      invoiceValue:         (json['invoice_value'] as num?)?.toDouble(),
+      draftData:            json['draft_data'] as Map<String, dynamic>?,
+      fieldAttributions:    json['field_attributions'] as Map<String, dynamic>?,
     );
   }
 

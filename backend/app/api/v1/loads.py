@@ -377,11 +377,18 @@ async def create_load_requirement_photo(
 
 
 class FulfillPayload(BaseModel):
-    vehicle_id:          Optional[str]   = None
-    driver_id:           Optional[str]   = None
-    trip_amount:         Optional[float] = None   # Agreed freight amount (₹)
-    notes:               Optional[str]   = None
-    transporter_user_id: Optional[str]   = None   # Transporter to upload loading slip
+    vehicle_id:              Optional[str]   = None
+    driver_id:               Optional[str]   = None
+    trip_amount:             Optional[float] = None   # Agreed freight amount (₹)
+    notes:                   Optional[str]   = None
+    transporter_user_id:     Optional[str]   = None   # Transporter to upload loading slip
+    # RR sync fields
+    origin_rr_city_id:       Optional[str]   = None
+    destination_rr_city_id:  Optional[str]   = None
+    material_rr_id:          Optional[str]   = None
+    weight_value:            Optional[float] = None
+    weight_unit:             Optional[str]   = None
+    invoice_value:           Optional[float] = None
 
 
 # ── Logistic Partner Endpoints ───────────────────────────────────────────────
@@ -652,6 +659,12 @@ async def fulfill_load_requirement(
         driver_id=driver_uuid,
         transporter_user_id=transporter_uuid,
         created_by=current_user.id,
+        origin_rr_city_id=payload.origin_rr_city_id,
+        destination_rr_city_id=payload.destination_rr_city_id,
+        material_rr_id=payload.material_rr_id,
+        weight_value=payload.weight_value,
+        weight_unit=payload.weight_unit,
+        invoice_value=payload.invoice_value,
     )
     if hasattr(Trip, 'load_requirement_id'):
         trip_kwargs['load_requirement_id'] = load.id

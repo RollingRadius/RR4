@@ -140,7 +140,7 @@ class Trip(Base):
     origin_rr_city_id      = Column(String(24), nullable=True)
     destination_rr_city_id = Column(String(24), nullable=True)
 
-    # Material ObjectId resolved from local material_types table
+    # Material ObjectId resolved via RR /material_types proxy at form-fill time
     material_rr_id = Column(String(24), nullable=True)
 
     # Structured weight (old free-text `weight` column kept for compatibility)
