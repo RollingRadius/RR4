@@ -491,6 +491,10 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                     )
                     return
 
+                # Map RR4 weight units to RR's QuantityUnit enum values
+                _unit_map = {"TONS": "TONNES", "KG": "KILOGRAMS", "QUINTAL": "TONNES"}
+                rr_weight_unit = _unit_map.get((trip.weight_unit or "").upper(), "TONNES")
+
                 payload = {
                     "consignor_company_id": consignor_rr_id,
                     "material":             trip.material_rr_id,
@@ -500,7 +504,7 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                     "pickup_city":          trip.origin_rr_city_id,
                     "unload_city":          trip.destination_rr_city_id,
                     "weight":               float(trip.weight_value),
-                    "weight_unit":          trip.weight_unit,
+                    "weight_unit":          rr_weight_unit,
                     "freight_amount":       float(trip.trip_amount or 0),
                     "invoice_value":        float(trip.invoice_value or trip.trip_amount or 0),
                     "booking_amount":       0.0,

@@ -6,7 +6,7 @@ class AppConfig {
   // For local development, use localhost or set API_BASE_URL environment variable
   // For Android emulator, use 10.0.2.2
   static const String apiBaseUrl =
-      String.fromEnvironment;
+      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://35.244.19.78:8000');
 
   static const String apiVersion = '/api';
 
