@@ -2108,8 +2108,8 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
 
               // ── RR Sync Details ─────────────────────────────────────────
               Row(children: [
-                Container(width: 3, height: 14, color: _primary,
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(2))),
+                Container(width: 3, height: 14,
+                    decoration: BoxDecoration(color: _primary, borderRadius: BorderRadius.circular(2))),
                 const SizedBox(width: 8),
                 Text('RR Sync Details', style: _manrope(size: 13, weight: FontWeight.w800)),
               ]),

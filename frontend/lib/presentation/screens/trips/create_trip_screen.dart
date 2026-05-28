@@ -407,10 +407,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               value: _selectedVehicleId,
               hint: 'Select vehicle',
               items: vehicles
-                  .map((v) => DropdownMenuItem(
-                        value: v.id,
+                  .map((v) => DropdownMenuItem<String>(
+                        value: v['id'] as String?,
                         child: Text(
-                          '${v.registrationNumber}  •  ${v.make} ${v.model}',
+                          '${v['registration_number'] ?? v['vehicle_number'] ?? ''}  •  ${v['make'] ?? ''} ${v['model'] ?? ''}',
                           style: _inter(size: 13, color: _onSurface),
                           overflow: TextOverflow.ellipsis,
                         ),

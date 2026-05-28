@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:fleet_management/data/services/api_service.dart';
 
 /// RR Sync API — proxy calls to /api/rr/*
