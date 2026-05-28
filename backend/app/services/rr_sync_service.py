@@ -109,7 +109,7 @@ async def _try_resolve_rr_ids(trip, client: httpx.AsyncClient, token: str, db) -
     if trip.vehicle_id:
         vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
         if vehicle and not vehicle.rr_vehicle_id and vehicle.vehicle_number:
-            where = json.dumps({"rc_number": vehicle.vehicle_number})
+            where = json.dumps({"identities.number": vehicle.vehicle_number})
             try:
                 resp = await client.get(
                     f"{settings.RR_API_BASE}/vehicles",

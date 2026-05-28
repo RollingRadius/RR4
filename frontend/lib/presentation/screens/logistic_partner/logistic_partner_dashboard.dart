@@ -19,6 +19,7 @@ import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
+import 'package:fleet_management/presentation/screens/fleet/fleet_hub_screen.dart';
 import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/lp_workers_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
@@ -134,6 +135,7 @@ class _LogisticPartnerDashboardState
       const _AvailableLoadsTab(),
       const _ProfileTab(),
       const _RecordsTab(),
+      const FleetHubScreen(),
     ];
 
     return Scaffold(
@@ -573,10 +575,11 @@ class _BottomNav extends StatelessWidget {
 
   // (icon, label, navIndex)
   static const _allItems = [
-    (Icons.dashboard_rounded,     'DASHBOARD', 0),
-    (Icons.search_rounded,        'LOADS',     1),
-    (Icons.folder_copy_outlined,  'RECORDS',   3),
-    (Icons.person_outline,        'PROFILE',   2),
+    (Icons.dashboard_rounded,        'DASHBOARD', 0),
+    (Icons.search_rounded,           'LOADS',     1),
+    (Icons.local_shipping_outlined,  'FLEET',     4),
+    (Icons.folder_copy_outlined,     'RECORDS',   3),
+    (Icons.person_outline,           'PROFILE',   2),
   ];
 
   @override
