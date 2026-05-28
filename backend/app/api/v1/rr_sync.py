@@ -154,11 +154,17 @@ async def rr_auth_login(
     if not settings.RR_SYNC_ENABLED:
         raise HTTPException(status_code=503, detail="RR sync is disabled on this server")
 
+    # RR requires full phone with country code (e.g. 918905393266).
+    # Auto-prepend India country code if a bare 10-digit number is supplied.
+    rr_username = body.username.strip()
+    if rr_username.isdigit() and len(rr_username) == 10:
+        rr_username = "91" + rr_username
+
     try:
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
             resp = await client.get(
                 f"{settings.RR_API_BASE}/persons/authenticate",
-                auth=(body.username, body.password),
+                auth=(rr_username, body.password),
             )
     except Exception as exc:
         logger.error(f"RR auth proxy error: {exc}")
@@ -254,19 +260,11 @@ def _check_trip_readiness(trip: Trip, db: Session) -> dict:
     if not (lp_org and lp_org.rr_company_id):
         missing.append("lp_org.rr_company_id")
 
-    if trip.vehicle_id:
-        vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
-        if not (vehicle and vehicle.rr_vehicle_id):
-            missing.append("vehicle.rr_vehicle_id (not yet in RR — will auto-resolve at sync)")
-    else:
-        missing.append("vehicle.rr_vehicle_id")
-
-    if trip.driver_id:
-        driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
-        if not (driver and driver.rr_user_id):
-            missing.append("driver.rr_user_id (not yet in RR — will auto-resolve at sync)")
-    else:
-        missing.append("driver.rr_user_id")
+    # vehicle/driver rr IDs are auto-resolved at sync time — only block if not assigned at all
+    if not trip.vehicle_id:
+        missing.append("vehicle (no vehicle assigned to trip)")
+    if not trip.driver_id:
+        missing.append("driver (no driver assigned to trip)")
 
     if not trip.origin_rr_city_id:
         missing.append("origin_rr_city_id")

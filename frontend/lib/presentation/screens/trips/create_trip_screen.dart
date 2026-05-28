@@ -501,8 +501,8 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(top: 4),
       child: Row(
         children: [
-          Container(width: 3, height: 16, color: _primary,
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(2))),
+          Container(width: 3, height: 16,
+              decoration: BoxDecoration(color: _primary, borderRadius: BorderRadius.circular(2))),
           const SizedBox(width: 8),
           Text(label, style: _manrope(size: 14, weight: FontWeight.w800, color: _onSurface)),
         ],

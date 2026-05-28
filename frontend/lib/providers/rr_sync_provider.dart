@@ -28,19 +28,21 @@ class RrSyncState {
     List<Map<String, dynamic>>? missingDataTrips,
     int? readyCount,
     bool? isLoading,
-    String? syncingTripId,
-    String? error,
-    String? successMessage,
+    Object? syncingTripId = _keep,
+    Object? error = _keep,
+    Object? successMessage = _keep,
   }) =>
       RrSyncState(
         readyTrips: readyTrips ?? this.readyTrips,
         missingDataTrips: missingDataTrips ?? this.missingDataTrips,
         readyCount: readyCount ?? this.readyCount,
         isLoading: isLoading ?? this.isLoading,
-        syncingTripId: syncingTripId,
-        error: error,
-        successMessage: successMessage,
+        syncingTripId: syncingTripId == _keep ? this.syncingTripId : syncingTripId as String?,
+        error: error == _keep ? this.error : error as String?,
+        successMessage: successMessage == _keep ? this.successMessage : successMessage as String?,
       );
+
+static const Object _keep = Object();
 }
 
 // ─── Notifier ─────────────────────────────────────────────────────────────────
