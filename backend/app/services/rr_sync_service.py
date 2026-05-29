@@ -450,12 +450,21 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                 if not consignor_rr_id:
                     missing.append("load_owner_org.rr_company_id")
 
-                lp_org = db.query(Organization).filter(
-                    Organization.id == trip.organization_id
-                ).first()
-                vehicle_provider_rr_id = lp_org.rr_company_id if lp_org else None
+                # vehicle_provider = transporter assigned to this trip
+                vehicle_provider_rr_id = None
+                if trip.transporter_user_id:
+                    from app.models.user_organization import UserOrganization
+                    t_user_org = db.query(UserOrganization).filter(
+                        UserOrganization.user_id == trip.transporter_user_id,
+                        UserOrganization.status == 'active',
+                    ).first()
+                    if t_user_org and t_user_org.organization_id:
+                        t_org = db.query(Organization).filter(
+                            Organization.id == t_user_org.organization_id
+                        ).first()
+                        vehicle_provider_rr_id = t_org.rr_company_id if t_org else None
                 if not vehicle_provider_rr_id:
-                    missing.append("lp_org.rr_company_id")
+                    missing.append("transporter_org.rr_company_id")
 
                 rr_vehicle_id = None
                 if trip.vehicle_id:

@@ -231,11 +231,26 @@ class ProfileService:
             self.db.add(notif)
 
         elif role_type == 'transporter':
-            # Set as independent Transporter (no company required)
+            # Create an Organization record for the transporter so rr_company_id can be set later
             role = self._get_role_by_key('transporter')
+            transporter_org = Organization(
+                id=uuid.uuid4(),
+                company_name=user.full_name or user.username,
+                business_type='transporter',
+                business_email=user.email or '',
+                business_phone=user.phone or '',
+                address='-',
+                city='-',
+                state='-',
+                pincode='000000',
+                country='India',
+                status='active',
+            )
+            self.db.add(transporter_org)
+            self.db.flush()
             user_org = UserOrganization(
                 user_id=user.id,
-                organization_id=None,
+                organization_id=transporter_org.id,
                 role_id=role.id,
                 status='active'
             )

@@ -11,6 +11,7 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_sync_screen.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
+import 'package:fleet_management/providers/driver_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/available_loads_provider.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
@@ -1860,6 +1861,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   bool _isLoading = false;
   String? _transporterError;
   String? _amountError;
+  String? _rrError;
 
   // ── RR Sync fields ──────────────────────────────────────────────────────────
   final _pickupCityCtrl  = TextEditingController();
@@ -1887,23 +1889,25 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   @override
   void initState() {
     super.initState();
-    // Pre-populate city / material fields from the load requirement
-    final load = widget.load;
-    if (load.pickupLocation != null && load.pickupLocation!.isNotEmpty) {
-      _pickupCityCtrl.text = load.pickupLocation!;
-      WidgetsBinding.instance.addPostFrameCallback((_) =>
-          _searchCity(load.pickupLocation!, isPickup: true));
-    }
-    if (load.unloadLocation != null && load.unloadLocation!.isNotEmpty) {
-      _dropCityCtrl.text = load.unloadLocation!;
-      WidgetsBinding.instance.addPostFrameCallback((_) =>
-          _searchCity(load.unloadLocation!, isPickup: false));
-    }
-    if (load.materialType != null && load.materialType!.isNotEmpty) {
-      _rrMaterialCtrl.text = load.materialType!;
-      WidgetsBinding.instance.addPostFrameCallback((_) =>
-          _searchMaterial(load.materialType!));
-    }
+    // Load fleet data so dropdowns are populated
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(vehicleProvider.notifier).loadVehicles();
+      ref.read(driverProvider.notifier).loadDrivers();
+      // Pre-populate city / material fields from the load requirement
+      final load = widget.load;
+      if (load.pickupLocation != null && load.pickupLocation!.isNotEmpty) {
+        _pickupCityCtrl.text = load.pickupLocation!;
+        _searchCity(load.pickupLocation!, isPickup: true);
+      }
+      if (load.unloadLocation != null && load.unloadLocation!.isNotEmpty) {
+        _dropCityCtrl.text = load.unloadLocation!;
+        _searchCity(load.unloadLocation!, isPickup: false);
+      }
+      if (load.materialType != null && load.materialType!.isNotEmpty) {
+        _rrMaterialCtrl.text = load.materialType!;
+        _searchMaterial(load.materialType!);
+      }
+    });
   }
 
   @override
@@ -1983,25 +1987,39 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     // Validate required fields
     final amountText = _amountController.text.trim();
     final amount = double.tryParse(amountText);
+    final weightText = _weightCtrl.text.trim();
+    final weightVal = double.tryParse(weightText);
+
     String? tErr;
     String? aErr;
+    String? rErr;
+
     if (_selectedTransporterId == null) tErr = 'Please select a transporter';
     if (amountText.isEmpty) {
       aErr = 'Please enter the trip amount';
     } else if (amount == null || amount <= 0) {
       aErr = 'Please enter a valid amount greater than 0';
     }
-    if (tErr != null || aErr != null) {
-      setState(() { _transporterError = tErr; _amountError = aErr; });
+    if (_pickupCityId == null) {
+      rErr = 'Select a pickup city from the dropdown';
+    } else if (_dropCityId == null) {
+      rErr = 'Select a drop city from the dropdown';
+    } else if (_materialRrId == null) {
+      rErr = 'Select a material from the dropdown';
+    } else if (weightText.isEmpty || weightVal == null) {
+      rErr = 'Enter a valid weight';
+    }
+
+    if (tErr != null || aErr != null || rErr != null) {
+      setState(() { _transporterError = tErr; _amountError = aErr; _rrError = rErr; });
       return;
     }
 
-    setState(() { _isLoading = true; _transporterError = null; _amountError = null; });
+    setState(() { _isLoading = true; _transporterError = null; _amountError = null; _rrError = null; });
 
     final api = ref.read(apiServiceProvider);
 
     try {
-      final weightVal = double.tryParse(_weightCtrl.text.trim());
       final invoiceVal = double.tryParse(_invoiceValueCtrl.text.trim());
       final resp = await api.dio.post(
         '/api/loads/${widget.load.id}/fulfill',
@@ -2010,11 +2028,11 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
           if (_selectedDriverId != null) 'driver_id': _selectedDriverId,
           if (amount != null) 'trip_amount': amount,
           if (_selectedTransporterId != null) 'transporter_user_id': _selectedTransporterId,
-          if (_pickupCityId != null) 'origin_rr_city_id': _pickupCityId,
-          if (_dropCityId != null) 'destination_rr_city_id': _dropCityId,
-          if (_materialRrId != null) 'material_rr_id': _materialRrId,
-          if (weightVal != null) 'weight_value': weightVal,
-          if (weightVal != null) 'weight_unit': _weightUnit,
+          'origin_rr_city_id': _pickupCityId,
+          'destination_rr_city_id': _dropCityId,
+          'material_rr_id': _materialRrId,
+          'weight_value': weightVal,
+          'weight_unit': _weightUnit,
           if (invoiceVal != null) 'invoice_value': invoiceVal,
         },
       );
@@ -2051,6 +2069,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   @override
   Widget build(BuildContext context) {
     final vehicles = ref.watch(vehicleProvider).vehicles;
+    final drivers  = ref.watch(driverProvider).drivers;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -2238,53 +2257,100 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 hint: 'e.g. 150000',
                 inputType: TextInputType.number,
               ),
+              if (_rrError != null) ...[
+                const SizedBox(height: 8),
+                Row(children: [
+                  const Icon(Icons.error_outline, size: 13, color: Colors.red),
+                  const SizedBox(width: 4),
+                  Expanded(child: Text(_rrError!, style: _inter(size: 11, color: Colors.red))),
+                ]),
+              ],
               const SizedBox(height: 20),
 
               // Vehicle selector
-              if (vehicles.isNotEmpty) ...[
-                Text('Assign Vehicle (optional)',
+              Text('Assign Vehicle (optional)',
+                  style: _inter(size: 12, weight: FontWeight.w700, color: _secondary)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: _surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _surfaceContainer),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedVehicleId,
+                    isExpanded: true,
+                    hint: Text('Select vehicle',
+                        style: _inter(size: 13, color: _secondary)),
                     style: _inter(
-                        size: 12, weight: FontWeight.w700, color: _secondary)),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: _surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _surfaceContainer),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _selectedVehicleId,
-                      isExpanded: true,
-                      hint: Text('Select vehicle',
-                          style: _inter(size: 13, color: _secondary)),
-                      style: _inter(
-                          size: 13,
-                          color: const Color(0xFF191C1E),
-                          weight: FontWeight.w500),
-                      items: [
-                        DropdownMenuItem<String>(
-                          value: null,
-                          child: Text('None',
-                              style: _inter(size: 13, color: _secondary)),
-                        ),
-                        ...vehicles.map((v) {
-                          final reg = v['registration'] as String? ?? '—';
-                          final id = v['id'] as String?;
-                          return DropdownMenuItem<String>(
-                            value: id,
-                            child: Text(reg),
-                          );
-                        }),
-                      ],
-                      onChanged: (val) =>
-                          setState(() => _selectedVehicleId = val),
-                    ),
+                        size: 13,
+                        color: const Color(0xFF191C1E),
+                        weight: FontWeight.w500),
+                    items: [
+                      DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('None', style: _inter(size: 13, color: _secondary)),
+                      ),
+                      ...vehicles.map((v) {
+                        final reg = v['registration'] as String? ??
+                            v['vehicle_number'] as String? ?? '—';
+                        final make = v['make'] as String? ?? '';
+                        final model = v['model'] as String? ?? '';
+                        final label = [reg, if (make.isNotEmpty || model.isNotEmpty) '$make $model'.trim()]
+                            .join('  ·  ');
+                        return DropdownMenuItem<String>(
+                          value: v['id'] as String?,
+                          child: Text(label, overflow: TextOverflow.ellipsis),
+                        );
+                      }),
+                    ],
+                    onChanged: (val) => setState(() => _selectedVehicleId = val),
                   ),
                 ),
-                const SizedBox(height: 20),
-              ],
+              ),
+              const SizedBox(height: 12),
+
+              // Driver selector
+              Text('Assign Driver (optional)',
+                  style: _inter(size: 12, weight: FontWeight.w700, color: _secondary)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: _surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _surfaceContainer),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedDriverId,
+                    isExpanded: true,
+                    hint: Text('Select driver',
+                        style: _inter(size: 13, color: _secondary)),
+                    style: _inter(
+                        size: 13,
+                        color: const Color(0xFF191C1E),
+                        weight: FontWeight.w500),
+                    items: [
+                      DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('None', style: _inter(size: 13, color: _secondary)),
+                      ),
+                      ...drivers.map((d) {
+                        final label = '${d.fullName}  ·  ${d.phone}';
+                        return DropdownMenuItem<String>(
+                          value: d.driverId,
+                          child: Text(label, overflow: TextOverflow.ellipsis),
+                        );
+                      }),
+                    ],
+                    onChanged: (val) => setState(() => _selectedDriverId = val),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
 
               // Transporter search
               Row(
