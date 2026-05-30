@@ -484,7 +484,7 @@ def accept_worker_request(
     if not new_role:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Worker role not found. Run database migration 040."
+            detail="Worker role not found. Run database migrations 040 and 060."
         )
 
     emp_org.role_id = new_role.id

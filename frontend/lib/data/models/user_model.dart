@@ -80,6 +80,8 @@ class UserModel {
   }
 
   bool get isLogisticPartnerWorker => roleKey == 'logistic_partner_worker';
+  bool get isLpRrOperations => roleKey == 'lp_rr_operations';
+  bool get isLoadReceiver => roleKey == 'load_receiver' || businessType == 'load_receiver';
   bool get isLoadOwnerWorker => roleKey == 'load_owner_worker';
   bool get isWorkerPending => roleKey == 'pending_user';
   bool get isTransporter => roleKey == 'transporter' || businessType == 'transporter';

@@ -33,13 +33,14 @@
 
 ### Phase 4 — Sync Service Core (`6be18a2`, `1ac4969`)
 - `rr_sync_service.sync_all_to_rr(trip_id, rr_token)` — single entry point
-- Step 1: Phase 5 auto-resolve IDs → pre-flight check → `POST /create_trip`
+- Step 1: Phase 5 auto-resolve IDs → pre-flight check (6 fields) → `_create_rr_trip()` → `POST /trips` + `POST /parcels`
 - Step 2: Upload loading slip → `POST /post_loading_slip`
 - Step 3: S3 bilty number + bilty photo + loaded weight slip + material docs → `PATCH /parcels`
 - Step 4: S5 POD → `PATCH /parcels`
 - ETag concurrency handled — re-fetched before every PATCH
 - `rr_sync_status` flow: `not_synced → trip_created → loading_slip_synced → bilty_synced → pod_synced | failed`
 - **No auto-triggers** — `trips.py` stage submit functions have zero sync calls
+- **Note:** `POST /create_trip` is intentionally NOT called — see Bug #10 fix below
 
 ### Phase 5 — Vehicle / Driver RR ID Auto-Resolution (within Phase 4)
 - `_try_resolve_rr_ids` — queries RR at sync time
@@ -59,6 +60,18 @@
 - Cities stored as ObjectIds in `origin_rr_city_id` / `destination_rr_city_id`
 - Material stored as ObjectId in `material_rr_id`
 - `TripModel` updated with all RR fields (`originRrCityId`, `materialRrId`, `weightValue`, `weightUnit`, `invoiceValue`)
+
+### Roles Phase — lp_rr_operations + load_receiver
+- **New role `lp_rr_operations`**: LP worker who handles RR sync. Has own dashboard with sync button (`showRrSyncSheet`). Same trip read-access as `logistic_partner_worker`. **Does NOT submit stages.**
+- **New role `load_receiver`**: Consignee — receives the delivered cargo. Has own dedicated dashboard.
+- **Migration 060**: Adds `lp_rr_operations` role to `roles` table; adds `users.rr_company_id VARCHAR(24)` nullable — set via pgAdmin for each RR Ops worker.
+- **Migration 061**: Adds `load_receiver` role; adds `trips.consignee_org_id UUID`, `trips.consignee_user_id UUID`, `trips.rr_ops_user_id UUID` — all nullable.
+- **`GET /api/rr/consignees?q=`**: Searches `load_receiver` organisations only (orgs only — no user rows). Used in FulfillSheet consignee picker.
+- **`GET /api/rr/ops-workers?q=`**: Lists LP's active `lp_rr_operations` workers. Used in FulfillSheet RR Ops picker.
+- **FulfillSheet** (`logistic_partner_dashboard.dart`): Mandatory consignee field (teal, `*`) + mandatory RR Ops field (blue, `*`). Both validated before POST. POST body includes `consignee_org_id`/`consignee_user_id` and `rr_ops_user_id`.
+- **Profile completion**: Two-level worker join flow — Step 1: pick company group (LP or LO); Step 2 (LP only): pick sub-role (Field Executive = `logistic_partner_worker` or RR Operations = `lp_rr_operations`). `_searchCompanies` maps `lp_rr_operations` → `logistic_partner` for company search.
+- **Auth routing**: Login screen checks `isLoadReceiver` and `isLpRrOperations` before `isLogisticPartnerWorker`.
+- **Head migration is now 061.**
 
 ### Phase 8 — Flutter RR Sync Manager (`68566c8`, `b73aa34`)
 - LP dashboard top-right sync button → `showRrSyncSheet(context)` → `DraggableScrollableSheet`
@@ -110,19 +123,21 @@
 | 7 | `get_sync_ready` docstring incorrectly stated `loading_slip_synced`/`bilty_synced` were excluded | `rr_sync.py` |
 | 8 | `trigger_sync` had no org ownership check — any user could trigger sync on any trip | `rr_sync.py` |
 | 9 | `get_sync_status` had no org ownership check — any user could read sync state of any trip | `rr_sync.py` |
+| 10 | `POST /create_trip` HTTP 400 "Phone number is required" — RR commit `a25eb588` upgraded auth to JWT but `create_trip` still uses legacy MD5 `login_user_record.get("token")` for internal Eve calls; Eve now rejects it → falls to `BCryptAuth` → "Phone number is required". Fix: bypass `create_trip` entirely, call `POST /trips` + `POST /parcels` directly with JWT (same pattern as RR Kanpur CSR app). Pre-flight reduced from 8 to 6 required fields; vehicle/driver RR IDs are now optional (best-effort). Transporter `rr_company_id` sent as `created_by_company` if set but never blocks sync. | `rr_sync_service.py` |
 
 ---
 
 ## Pending (Phase 9)
 
-- **Company picker UI** — `GET /api/rr/companies?q=` proxy + org settings screen to search and set `rr_company_id` on LP and Load Owner orgs. Currently requires manual SQL update.
+- **Company picker UI** — `GET /api/rr/companies?q=` proxy + org settings screen to search and set `rr_company_id` on LP and Load Owner orgs (and potentially lp_rr_operations users). Currently requires manual SQL update.
 
 ---
 
 ## Deployment (fc11 test server — requires SSH)
 
-1. Pull `feature/rr-sync` on RR4 container
-2. `alembic upgrade head`
+1. Pull `staging` branch on RR4 container
+2. `alembic upgrade head` (migrations 054-061)
 3. Set `RR_SYNC_ENABLED=true` in `.env`, restart backend
-4. Set `rr_company_id` on both LP and Load Owner orgs via pgAdmin SQL (`http://35.244.19.78:5050`) — get ObjectIds from Mongo Express (`http://35.244.19.78:8041`)
-5. Pull `test/release-3.18.3.7` on RR container (already has all `feature/rr4-sync` changes)
+4. Set `rr_company_id` on LP org + Load Owner org via pgAdmin SQL — get ObjectIds from Mongo Express (`http://35.244.19.78:8041`)
+5. Set `users.rr_company_id` for each `lp_rr_operations` worker via pgAdmin SQL
+6. Pull `test/release-3.18.3.7` on RR container (already has all `feature/rr4-sync` changes)

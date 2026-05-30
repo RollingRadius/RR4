@@ -40,6 +40,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           context.go('/profile-complete');
           _showSnackBar('Please complete your profile to continue',
               AppTheme.statusWarning, Icons.info_outline);
+        } else if (user?.isLoadReceiver == true) {
+          context.go(AppConstants.routeLoadReceiverHome);
+          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
+              Icons.check_circle);
+        } else if (user?.isLpRrOperations == true) {
+          context.go(AppConstants.routeLpRrOperationsHome);
+          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
+              Icons.check_circle);
         } else if (user?.isLogisticPartnerWorker == true) {
           context.go(AppConstants.routeLogisticPartnerWorkerHome);
           _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,

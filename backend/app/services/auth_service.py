@@ -522,11 +522,12 @@ class AuthService:
         self.db.add(company)
         self.db.flush()
 
-        # Assign role based on business type:
-        # load_owner → load_owner role, all others (including logistic_partner) → logistic_partner role
+        # Assign role based on business type
         business_type = company_details.get('business_type')
         if business_type == 'load_owner':
             role = self._get_role_by_key('load_owner')
+        elif business_type == 'load_receiver':
+            role = self._get_role_by_key('load_receiver')
         else:
             role = self._get_role_by_key('logistic_partner')
 

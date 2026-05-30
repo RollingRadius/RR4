@@ -127,7 +127,14 @@ class Trip(Base):
     # User ID of the transporter assigned by LP to upload the loading slip
     transporter_user_id = Column(UUID(as_uuid=True), nullable=True)
 
-    # ── Stage Authorship (who submitted each stage) ──────────────────────────────
+    # ── Consignee (Load Receiver) ─────────────────────────────────────────────────
+    # Exactly one is set: org-type consignee OR individual user-type consignee
+    consignee_org_id  = Column(UUID(as_uuid=True), nullable=True)
+    consignee_user_id = Column(UUID(as_uuid=True), nullable=True)
+    # RR Ops worker assigned to handle this trip's sync
+    rr_ops_user_id    = Column(UUID(as_uuid=True), nullable=True)
+
+# ── Stage Authorship (who submitted each stage) ──────────────────────────────
     s1_submitted_by = Column(UUID(as_uuid=True), nullable=True)
     s2_submitted_by = Column(UUID(as_uuid=True), nullable=True)
     s3_submitted_by = Column(UUID(as_uuid=True), nullable=True)

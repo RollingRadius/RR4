@@ -54,6 +54,8 @@ import 'package:fleet_management/presentation/screens/load_owner/upload_load_req
 import 'package:fleet_management/presentation/screens/load_owner/load_owner_dashboard_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_dashboard.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_worker_dashboard.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/lp_rr_ops_dashboard.dart';
+import 'package:fleet_management/presentation/screens/load_receiver/load_receiver_dashboard.dart';
 import 'package:fleet_management/presentation/screens/load_owner/load_owner_worker_dashboard.dart';
 import 'package:fleet_management/presentation/screens/transporter/transporter_dashboard.dart';
 import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
@@ -283,6 +285,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'lp-worker-home',
         pageBuilder: (context, state) => const NoTransitionPage(
           child: LogisticPartnerWorkerDashboard(),
+        ),
+      ),
+
+      // RR Operations Dashboard
+      GoRoute(
+        path: AppConstants.routeLpRrOperationsHome,
+        name: 'lp-rr-ops-home',
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: LpRrOpsDashboard(),
+        ),
+      ),
+
+      // Load Receiver Dashboard
+      GoRoute(
+        path: AppConstants.routeLoadReceiverHome,
+        name: 'load-receiver-home',
+        pageBuilder: (context, state) => const NoTransitionPage(
+          child: LoadReceiverDashboard(),
         ),
       ),
 

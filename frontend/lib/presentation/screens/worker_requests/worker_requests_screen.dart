@@ -100,7 +100,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
         final allActive =
             List<Map<String, dynamic>>.from(acceptedData['employees'] ?? []);
         // Filter to only worker roles
-        const workerRoles = ['logistic_partner_worker', 'load_owner_worker'];
+        const workerRoles = ['logistic_partner_worker', 'lp_rr_operations', 'load_owner_worker'];
         setState(() {
           _pending =
               List<Map<String, dynamic>>.from(pendingData['requests'] ?? []);

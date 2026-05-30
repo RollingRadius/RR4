@@ -5,7 +5,7 @@ All endpoints require authentication — RR details are never exposed to the cli
 """
 
 import logging
-from typing import List, Optional
+from typing import List
 
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
@@ -16,10 +16,8 @@ from app.config import settings
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.company import Organization
-from app.models.driver import Driver
 from app.models.trip import Trip
 from app.models.user import User
-from app.models.vehicle import Vehicle
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -232,6 +230,97 @@ async def trigger_sync(
     }
 
 
+# ── Consignee (load_receiver) search ─────────────────────────────────────────
+
+@router.get("/consignees", summary="Search load_receiver organisations")
+def get_consignees(
+    q: str = Query("", description="Name/phone filter"),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_current_user),
+):
+    """
+    Returns matching load_receiver organisations.
+    Used by the FulfillSheet consignee picker.
+    Each result carries {type, id, name, rr_company_id}.
+    """
+    like = f"%{q}%" if q else "%"
+
+    orgs = (
+        db.query(Organization)
+        .filter(
+            Organization.business_type == "load_receiver",
+            Organization.company_name.ilike(like),
+        )
+        .limit(15)
+        .all()
+    )
+
+    return {
+        "consignees": [
+            {
+                "type":          "org",
+                "id":            str(org.id),
+                "name":          org.company_name,
+                "city":          org.city or "",
+                "rr_company_id": org.rr_company_id,
+            }
+            for org in orgs
+        ]
+    }
+
+
+# ── RR Operations workers list ────────────────────────────────────────────────
+
+@router.get("/ops-workers", summary="List LP's active RR Operations workers")
+def get_ops_workers(
+    q: str = Query("", description="Optional name/phone filter"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Returns the LP's active lp_rr_operations workers.
+    Used by the FulfillSheet 'Handled By' field.
+    """
+    from app.models import UserOrganization
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    from app.models.role import Role
+    query = (
+        db.query(User, UserOrganization)
+        .join(UserOrganization, UserOrganization.user_id == User.id)
+        .join(Role, Role.id == UserOrganization.role_id)
+        .filter(
+            UserOrganization.organization_id == user_org.organization_id,
+            UserOrganization.status == "active",
+            Role.role_key == "lp_rr_operations",
+        )
+    )
+    if q:
+        like = f"%{q}%"
+        query = query.filter(
+            (User.full_name.ilike(like)) | (User.phone.ilike(like))
+        )
+
+    rows = query.limit(20).all()
+    return {
+        "workers": [
+            {
+                "user_id":      str(u.id),
+                "full_name":    u.full_name,
+                "phone":        u.phone,
+                "rr_company_id": u.rr_company_id,
+            }
+            for u, _ in rows
+        ]
+    }
+
+
 # ── Sync readiness list ───────────────────────────────────────────────────────
 
 def _check_trip_readiness(trip: Trip, db: Session) -> dict:
@@ -247,6 +336,8 @@ def _check_trip_readiness(trip: Trip, db: Session) -> dict:
     if trip.rr_parcel_id:
         return {"ready": True, "missing": []}
 
+    # Must match the pre-flight in rr_sync_service.sync_all_to_rr exactly (6 fields).
+    # lp_org.rr_company_id, vehicle, and driver are no longer required for sync.
     missing = []
 
     if trip.load_owner_org_id:
@@ -255,16 +346,6 @@ def _check_trip_readiness(trip: Trip, db: Session) -> dict:
             missing.append("load_owner_org.rr_company_id")
     else:
         missing.append("load_owner_org.rr_company_id")
-
-    lp_org = db.query(Organization).filter(Organization.id == trip.organization_id).first()
-    if not (lp_org and lp_org.rr_company_id):
-        missing.append("lp_org.rr_company_id")
-
-    # vehicle/driver rr IDs are auto-resolved at sync time — only block if not assigned at all
-    if not trip.vehicle_id:
-        missing.append("vehicle (no vehicle assigned to trip)")
-    if not trip.driver_id:
-        missing.append("driver (no driver assigned to trip)")
 
     if not trip.origin_rr_city_id:
         missing.append("origin_rr_city_id")

@@ -382,6 +382,11 @@ class FulfillPayload(BaseModel):
     trip_amount:             Optional[float] = None   # Agreed freight amount (₹)
     notes:                   Optional[str]   = None
     transporter_user_id:     Optional[str]   = None   # Transporter to upload loading slip
+    # Consignee (load_receiver) — exactly one must be provided
+    consignee_org_id:        Optional[str]   = None   # load_receiver organisation
+    consignee_user_id:       Optional[str]   = None   # load_receiver individual user
+    # RR Ops worker assigned to handle this trip's sync
+    rr_ops_user_id:          Optional[str]   = None
     # RR sync fields
     origin_rr_city_id:       Optional[str]   = None
     destination_rr_city_id:  Optional[str]   = None
@@ -624,6 +629,36 @@ async def fulfill_load_requirement(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid driver_id.")
 
+    # Validate mandatory consignee — exactly one of org or user must be provided
+    if not payload.consignee_org_id and not payload.consignee_user_id:
+        raise HTTPException(status_code=400, detail="A consignee (load_receiver) is required.")
+
+    consignee_org_uuid = None
+    if payload.consignee_org_id:
+        try:
+            consignee_org_uuid = uuid.UUID(payload.consignee_org_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid consignee_org_id.")
+        if not db.query(Organization).filter(Organization.id == consignee_org_uuid).first():
+            raise HTTPException(status_code=404, detail="Consignee organisation not found.")
+
+    consignee_user_uuid = None
+    if payload.consignee_user_id:
+        try:
+            consignee_user_uuid = uuid.UUID(payload.consignee_user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid consignee_user_id.")
+        if not db.query(User).filter(User.id == consignee_user_uuid).first():
+            raise HTTPException(status_code=404, detail="Consignee user not found.")
+
+    # Parse optional RR Ops worker
+    rr_ops_uuid = None
+    if payload.rr_ops_user_id:
+        try:
+            rr_ops_uuid = uuid.UUID(payload.rr_ops_user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid rr_ops_user_id.")
+
     # Parse and validate optional transporter
     transporter_uuid = None
     if payload.transporter_user_id:
@@ -658,6 +693,9 @@ async def fulfill_load_requirement(
         vehicle_id=vehicle_uuid,
         driver_id=driver_uuid,
         transporter_user_id=transporter_uuid,
+        consignee_org_id=consignee_org_uuid,
+        consignee_user_id=consignee_user_uuid,
+        rr_ops_user_id=rr_ops_uuid,
         created_by=current_user.id,
         origin_rr_city_id=payload.origin_rr_city_id,
         destination_rr_city_id=payload.destination_rr_city_id,

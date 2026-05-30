@@ -47,6 +47,9 @@ class User(Base):
     # FCM token for push notifications
     fcm_token = Column(String(512), nullable=True)
 
+    # RR identity (optional — set manually for lp_rr_operations workers via pgAdmin)
+    rr_company_id = Column(String(24), nullable=True)   # MongoDB ObjectId in RR companies
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())

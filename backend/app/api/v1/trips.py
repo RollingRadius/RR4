@@ -156,7 +156,7 @@ def list_trips(
 
     query = db.query(Trip)
 
-    if role_key in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
+    if role_key in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
         query = query.filter(Trip.organization_id == user_org.organization_id)
     elif role_key == 'load_owner':
         query = query.filter(Trip.load_owner_org_id == user_org.organization_id)
@@ -213,7 +213,7 @@ def get_trip(
         raise HTTPException(status_code=404, detail="Trip not found")
 
     # Access check
-    if role_key in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
+    if role_key in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
         if str(trip.organization_id) != str(user_org.organization_id):
             raise HTTPException(status_code=403, detail="Access denied")
     elif role_key == 'load_owner':

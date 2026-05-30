@@ -51,6 +51,8 @@ Backend: `app.include_router(rr_sync.router, prefix="/api/rr")`
 | `POST /api/rr/auth/login` | Proxy to RR Basic Auth → returns `{token}` |
 | `GET /api/rr/cities?q=` | Public proxy — no auth to RR (city name → ObjectId) |
 | `GET /api/rr/materials?q=` | Live proxy to RR `/material_types` — public, no auth to RR |
+| `GET /api/rr/consignees?q=` | Search `load_receiver` organisations (orgs only) |
+| `GET /api/rr/ops-workers?q=` | List LP's active `lp_rr_operations` workers |
 | `POST /api/rr/sync/trip/{id}` | body `{rr_token}` — BackgroundTask single-trip sync |
 | `GET /api/rr/sync/ready` | Lists ready + incomplete trips for LP |
 | `GET /api/rr/sync/status/{id}` | Current sync status for one trip |
@@ -65,17 +67,21 @@ Backend: `app.include_router(rr_sync.router, prefix="/api/rr")`
 | `POST /persons/refresh` | Every 10 min (background) | Get fresh access token |
 | `GET /vehicles?where={rc_number}` | Phase 5 resolve | Look up rr_vehicle_id by plate |
 | `GET /users?where={phone.number}` | Phase 5 resolve | Look up rr_user_id by phone |
-| `POST /create_trip` | First sync (no rr_parcel_id) | Create trip + parcel + book vehicle in RR |
+| `POST /trips` | First sync (no rr_parcel_id) | Create trip record in RR (form data) |
+| `POST /parcels` | Immediately after POST /trips | Create parcel linked to trip (JSON) |
+| `DELETE /trips/{id}` | Parcel creation fails | Rollback: delete the orphaned trip |
 | `POST /post_loading_slip` | Loading slip sync | Attach loading slip to RR trip |
 | `POST /files` | Each doc upload | Upload file bytes → returns RR file `_id` |
-| `GET /trips/{id}` | After create_trip | Get rr_trip_number + etag |
+| `GET /trips/{id}` | After trip+parcel created | Get rr_trip_number + etag |
 | `GET /parcels/{id}` | Before each PATCH | Get fresh ETag |
 | `PATCH /parcels/{id}` | S3 and S5 | Push bilty/weight/material (S3) + POD (S5) |
 | `PATCH /trips/{id}` | S3 bilty photo | Append to trip_documents array |
 | `GET /cities` | City proxy | Public endpoint — no auth required |
 | `GET /material_types` | Material type proxy | Public endpoint — no auth required |
 
-**NOT called by RR4:** `POST /verify_trip_stage` — RR web users manage their own stage verification.
+**NOT called by RR4:** `POST /create_trip` — bypassed (see note below), `POST /verify_trip_stage` — RR web users manage their own stage verification.
+
+> **Why `POST /create_trip` is NOT used:** RR commit `a25eb588` upgraded `CustomTokenAuth` to JWT, but `create_trip`'s internal Eve calls still use the legacy MD5 token (`login_user_record.get("token")`). Eve rejects the MD5 token → falls to `BCryptAuth` → "Phone number is required" (HTTP 400). Fix: call `POST /trips` + `POST /parcels` directly with JWT — same result, same pattern as the RR Kanpur CSR Flutter app.
 
 ---
 
@@ -85,16 +91,26 @@ Backend: `app.include_router(rr_sync.router, prefix="/api/rr")`
 1. Fetch trip from DB. If not found → return.
 
 2. If no rr_parcel_id (trip not yet in RR):
-   a. _try_resolve_rr_ids:
+   a. _try_resolve_rr_ids (best-effort, non-blocking):
       - GET /vehicles?where={"rc_number": plate} → cache vehicle.rr_vehicle_id
       - GET /users?where={"phone.number": 10digit} → cache driver.rr_user_id
-   b. Pre-flight: check 8 required IDs:
-      load_owner_org.rr_company_id, lp_org.rr_company_id,
-      vehicle.rr_vehicle_id, driver.rr_user_id,
+   b. Pre-flight: check 6 required fields (reduced from 8):
+      load_owner_org.rr_company_id,
       origin_rr_city_id, destination_rr_city_id, material_rr_id,
-      weight_value + weight_unit
+      weight_value, weight_unit
       → Any missing: status=failed, rr_sync_error=<list>, return
-   c. POST /create_trip → rr_trip_id + rr_parcel_id
+      (vehicle/driver RR IDs are optional — sent if resolved, never block sync)
+   c. _create_rr_trip(trip, client, token, consignor_rr_id, rr_weight_unit, transporter_rr_company_id?):
+      - Decode JWT to extract RR user ObjectId (sub claim)
+      - POST /trips  (form data):
+          source="Other", created_by=rr_user_id, handled_by=rr_user_id,
+          created_by_company=transporter_rr_company_id (if available),
+          back_entry_date=trip.created_at.date()
+      - POST /parcels  (JSON):
+          trip_id, pickup/unload city, quantity+unit, material_type, cost,
+          sender.sender_company=consignor_rr_id, source="Other"
+      - On parcel failure: DELETE /trips/{rr_trip_id} (rollback), return error
+      - Returns (rr_trip_id, rr_parcel_id, None)
    d. GET /trips/{rr_trip_id} → rr_trip_number
    e. GET /parcels/{rr_parcel_id} → rr_parcel_etag
    f. status = trip_created
@@ -158,31 +174,41 @@ S5            POD                          parcel.documents.pod.photos
 
 ---
 
-## create_trip Payload
+## Direct Eve Call Payloads (replaces create_trip)
 
+### POST /trips  (form data — `data=`)
 ```python
 {
-    "consignor_company_id": load_owner_org.rr_company_id,   # REQUIRED
-    "vehicle_id":           vehicle.rr_vehicle_id,           # REQUIRED
-    "driver_id":            driver.rr_user_id,               # REQUIRED
-    "vehicle_provider_id":  lp_org.rr_company_id,            # REQUIRED
-    "pickup_city":          trip.origin_rr_city_id,          # REQUIRED
-    "unload_city":          trip.destination_rr_city_id,     # REQUIRED
-    "material":             trip.material_rr_id,             # REQUIRED
-    "weight":               float(trip.weight_value),        # REQUIRED
-    "weight_unit":          trip.weight_unit,                # REQUIRED
-    "invoice_value":        float(trip.invoice_value or trip.trip_amount or 0),
-    "freight_amount":       float(trip.trip_amount or 0),
-    "booking_amount":       0.0,
-    "back_entry_date":      trip.created_at.date().isoformat(),
-    "force_create":         True,                            # ALWAYS
-    "human_trip_number":    trip.trip_number,               # e.g. "RR-90422"
+    "source":             "Other",
+    "created_by":         rr_user_id,          # JWT sub claim (LP's RR ObjectId)
+    "handled_by":         rr_user_id,          # same
     # Optional:
-    "invoice_number":       trip.invoice_number,
-    "bilty_number":         int(trip.bilty_number),         # must be int
+    "created_by_company": transporter_rr_company_id,  # transporter org.rr_company_id if set
+    "back_entry_date":    trip.created_at.date().isoformat(),
 }
-# DO NOT send: transporter_company_id, handled_by
 ```
+
+### POST /parcels  (JSON — `json=`)
+```python
+{
+    "trip_id":               rr_trip_id,          # from POST /trips response
+    "pickup_postal_address": {"city": trip.origin_rr_city_id},
+    "unload_postal_address": {"city": trip.destination_rr_city_id},
+    "quantity":              float(trip.weight_value),
+    "quantity_unit":         rr_weight_unit,      # mapped: "MT"→"Metric Ton", etc.
+    "material_type":         trip.material_rr_id,
+    "cost":                  float(trip.invoice_value or trip.trip_amount or 0),
+    "sender":                {"sender_company": consignor_rr_id},  # load_owner_org.rr_company_id
+    "source":                "Other",
+}
+```
+
+**On parcel failure:** `DELETE /trips/{rr_trip_id}` (If-Match: etag) — rollback orphaned trip.
+
+**JWT decode:** `base64(token.split(".")[1]).sub` → LP's RR user ObjectId for `created_by`/`handled_by`.
+
+> **Old `POST /create_trip` fields no longer used:** `vehicle_id`, `driver_id`, `vehicle_provider_id`, `consignor_company_id`, `pickup_city`, `unload_city`, `weight`, `weight_unit`, `invoice_value`, `freight_amount`, `force_create`, `human_trip_number`.
+> Vehicle/driver are still auto-resolved and cached to `rr_vehicle_id`/`rr_user_id` but no longer sent in the trip creation call.
 
 ---
 
@@ -233,11 +259,12 @@ Store new etag in trip.rr_parcel_etag
 | 6 | S3 bilty/weight/material + S5 POD in sync_all_to_rr | DONE |
 | 7 | Flutter: city picker, material picker, weight/invoice fields in CreateTripScreen + FulfillSheet | DONE |
 | 8 | Flutter: RR Sync Manager sheet (LP dashboard top-right) with per-trip login flow | DONE |
+| Roles | `lp_rr_operations` + `load_receiver` roles; consignee + RR ops fields on trips; migrations 060-061 | DONE |
 | 9 | Company picker UI — `GET /api/rr/companies` proxy + org settings screen to set rr_company_id | PLANNED |
 
 ---
 
-## DB Columns Added (Phases 1-6)
+## DB Columns Added (Phases 1-6, + Roles Phase)
 
 ### trips (migration 054-059)
 - `origin_rr_city_id`, `destination_rr_city_id`, `material_rr_id`
@@ -247,8 +274,16 @@ Store new etag in trip.rr_parcel_etag
 - `rr_sync_status VARCHAR(30)`, `rr_sync_error TEXT`, `rr_synced_at TIMESTAMP`
 - `s3_loaded_weight_slip_url VARCHAR(500)` (migration 059)
 
+### trips (migration 061)
+- `consignee_org_id UUID` — load_receiver org assigned at trip creation (nullable)
+- `consignee_user_id UUID` — load_receiver individual user (nullable, org or user — one of the two)
+- `rr_ops_user_id UUID` — lp_rr_operations worker responsible for syncing this trip (nullable)
+
 ### organizations
-- `rr_company_id VARCHAR(24)` — admin sets once
+- `rr_company_id VARCHAR(24)` — admin sets once (LP org + Load Owner org)
+
+### users (migration 060)
+- `rr_company_id VARCHAR(24)` — for `lp_rr_operations` workers only; set via pgAdmin
 
 ### vehicles
 - `rr_vehicle_id VARCHAR(24)` — auto-resolved via Phase 5
@@ -289,11 +324,12 @@ No separate RR code deployment needed — just pull on fc11 when SSH is availabl
 
 | Step | Action |
 |------|--------|
-| 1 | Pull `feature/rr-sync` on RR4 container |
-| 2 | `alembic upgrade head` (run migrations 054-059) |
+| 1 | Pull `staging` branch on RR4 container |
+| 2 | `alembic upgrade head` (run migrations 054-061) |
 | 3 | Set `RR_SYNC_ENABLED=true` in `.env`, restart backend container |
-| 4 | Set `rr_company_id` on both LP org and Load Owner org — get ObjectIds from Mongo Express companies collection, apply via pgAdmin SQL (company picker UI planned for Phase 9) |
-| 5 | Pull `test/release-3.18.3.7` on RR container (already has rr4-sync changes) |
+| 4 | Set `rr_company_id` on LP org + Load Owner org — Mongo Express → pgAdmin SQL |
+| 5 | Set `users.rr_company_id` for each `lp_rr_operations` worker — pgAdmin SQL |
+| 6 | Pull `test/release-3.18.3.7` on RR container (already has rr4-sync changes) |
 
 **No longer needed**: seed_material_types step removed — materials proxied live from RR.
 
@@ -305,8 +341,9 @@ No separate RR code deployment needed — just pull on fc11 when SSH is availabl
 |------|-----|--------|
 | 1 | Admin/LP | Set `rr_company_id` on LP org (copy ObjectId from RR companies collection) |
 | 2 | Admin/LO | Set `rr_company_id` on Load Owner org |
-| 3 | Auto | `rr_vehicle_id` + `rr_user_id` auto-resolved at sync time — no manual action |
-| 4 | Server | Set `RR_REFRESH_TOKEN` + `RR_SYNC_ENABLED=true` in .env, restart backend |
+| 3 | Admin | Set `rr_company_id` on each `lp_rr_operations` user row in `users` table via pgAdmin |
+| 4 | Auto | `rr_vehicle_id` + `rr_user_id` auto-resolved at sync time — no manual action |
+| 5 | Server | Set `RR_REFRESH_TOKEN` + `RR_SYNC_ENABLED=true` in .env, restart backend |
 
 ---
 

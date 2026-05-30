@@ -42,7 +42,10 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
   // Join company (worker)
   String? _selectedCompanyId;
   String? _selectedCompanyName;
-  String? _selectedWorkerType; // 'logistic_partner_worker' | 'load_owner_worker'
+  // Step 1: which company group — 'logistic_partner' | 'load_owner'
+  String? _selectedWorkerCategory;
+  // Step 2: actual role key — 'logistic_partner_worker' | 'lp_rr_operations' | 'load_owner_worker'
+  String? _selectedWorkerType;
   final _companySearchController = TextEditingController();
 
   @override
@@ -108,7 +111,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
       profileData['requested_role_key'] = _selectedWorkerType;
     } else if (_selectedRoleType == 'create_company') {
       if (_selectedCompanyType == null) {
-        _showError('Please select a company type (Fleet or Load Provider)');
+        _showError('Please select a company type');
         return;
       }
       if (_companyNameController.text.isEmpty) {
@@ -252,6 +255,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
       // matching companies appear (LP workers → logistic_partner companies, etc.)
       String? businessType;
       if (_selectedWorkerType == 'logistic_partner_worker') businessType = 'logistic_partner';
+      if (_selectedWorkerType == 'lp_rr_operations')        businessType = 'logistic_partner';
       if (_selectedWorkerType == 'load_owner_worker')       businessType = 'load_owner';
 
       await ref.read(companyProvider.notifier).searchCompanies(query, businessType: businessType);
@@ -442,7 +446,12 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
             ? null
             : () {
                 setState(() {
-                  _selectedRoleType = value;
+                  _selectedRoleType       = value;
+                  _selectedWorkerCategory = null;
+                  _selectedWorkerType     = null;
+                  _selectedCompanyId      = null;
+                  _selectedCompanyName    = null;
+                  _companySearchController.clear();
                 });
               },
         borderRadius: BorderRadius.circular(12),
@@ -571,33 +580,99 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
       children: [
         const Divider(height: 32),
         const Text(
-          'Select Worker Type',
+          'Select Company Type',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 6),
         Text(
-          'Choose the type of company you want to work for',
+          'Which type of company do you want to work for?',
           style: TextStyle(fontSize: 13, color: Colors.grey[600]),
         ),
         const SizedBox(height: 16),
 
-        // Worker type selection
+        // Step 1 — Company category cards
         _buildWorkerTypeCard(
-          value: 'logistic_partner_worker',
-          title: 'Logistic Partner Worker',
-          description: 'Work at a fleet/logistics company — manage trip stages and fleet status',
+          value: 'logistic_partner',
+          title: 'Logistic Partner Company',
+          description: 'Work at a fleet/logistics company (Field Executive or RR Operations)',
           icon: Icons.local_shipping_outlined,
           color: const Color(0xFFFF6B00),
+          selectedValue: _selectedWorkerCategory,
+          onSelect: (v) => setState(() {
+            _selectedWorkerCategory = v;
+            _selectedWorkerType     = null;   // reset sub-type
+            _selectedCompanyId      = null;
+            _selectedCompanyName    = null;
+            _companySearchController.clear();
+            ref.read(companyProvider.notifier).clearSearchResults();
+          }),
         ),
         const SizedBox(height: 10),
         _buildWorkerTypeCard(
-          value: 'load_owner_worker',
-          title: 'Load Owner Worker',
+          value: 'load_owner',
+          title: 'Load Owner Company',
           description: 'Work at a cargo/load company',
           icon: Icons.inventory_2_outlined,
           color: Colors.blue,
           comingSoon: true,
+          selectedValue: _selectedWorkerCategory,
+          onSelect: (v) => setState(() {
+            _selectedWorkerCategory = v;
+            _selectedWorkerType     = 'load_owner_worker';
+            _selectedCompanyId      = null;
+            _selectedCompanyName    = null;
+            _companySearchController.clear();
+            ref.read(companyProvider.notifier).clearSearchResults();
+          }),
         ),
+
+        // Step 2 — LP sub-type selection (Field Executive or RR Ops)
+        if (_selectedWorkerCategory == 'logistic_partner') ...[
+          const SizedBox(height: 24),
+          const Divider(height: 1),
+          const SizedBox(height: 20),
+          const Text(
+            'Select Your Role',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'What will you do at the logistics company?',
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 14),
+          _buildWorkerTypeCard(
+            value: 'logistic_partner_worker',
+            title: 'Field Executive',
+            description: 'Manage trip stages and fleet status on the ground',
+            icon: Icons.badge_outlined,
+            color: const Color(0xFFFF6B00),
+            selectedValue: _selectedWorkerType,
+            onSelect: (v) => setState(() {
+              _selectedWorkerType  = v;
+              _selectedCompanyId   = null;
+              _selectedCompanyName = null;
+              _companySearchController.clear();
+              ref.read(companyProvider.notifier).clearSearchResults();
+            }),
+          ),
+          const SizedBox(height: 10),
+          _buildWorkerTypeCard(
+            value: 'lp_rr_operations',
+            title: 'RR Operations',
+            description: 'Handle RR sync and trip data entry in the RR system',
+            icon: Icons.sync_alt,
+            color: const Color(0xFF1B6CA8),
+            selectedValue: _selectedWorkerType,
+            onSelect: (v) => setState(() {
+              _selectedWorkerType  = v;
+              _selectedCompanyId   = null;
+              _selectedCompanyName = null;
+              _companySearchController.clear();
+              ref.read(companyProvider.notifier).clearSearchResults();
+            }),
+          ),
+        ],
 
         if (_selectedWorkerType != null) ...[
           const SizedBox(height: 24),
@@ -694,21 +769,30 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
     required IconData icon,
     required Color color,
     bool comingSoon = false,
+    // Optional overrides for two-level selection
+    String? selectedValue,
+    void Function(String)? onSelect,
   }) {
-    final isSelected = _selectedWorkerType == value;
+    final isSelected = (selectedValue ?? _selectedWorkerType) == value;
     return Opacity(
       opacity: comingSoon ? 0.5 : 1.0,
       child: _WorkerTypeCardInner(
         value: value, title: title, description: description,
         icon: icon, color: color, comingSoon: comingSoon,
         isSelected: isSelected,
-        onTap: comingSoon ? null : () => setState(() {
-          _selectedWorkerType = value;
-          _selectedCompanyId = null;
-          _selectedCompanyName = null;
-          _companySearchController.clear();
-          ref.read(companyProvider.notifier).clearSearchResults();
-        }),
+        onTap: comingSoon ? null : () {
+          if (onSelect != null) {
+            onSelect(value);
+          } else {
+            setState(() {
+              _selectedWorkerType  = value;
+              _selectedCompanyId   = null;
+              _selectedCompanyName = null;
+              _companySearchController.clear();
+              ref.read(companyProvider.notifier).clearSearchResults();
+            });
+          }
+        },
       ),
     );
   }
@@ -832,6 +916,16 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           description: 'You have cargo/goods that need to be transported',
           icon: Icons.inventory_2_outlined,
           color: Colors.orange,
+        ),
+        const SizedBox(height: 12),
+
+        // Load Receiver Company card
+        _buildCompanyTypeCard(
+          value: 'load_receiver',
+          title: 'Load Receiver Company',
+          description: 'You receive deliveries — you are the consignee',
+          icon: Icons.move_to_inbox_outlined,
+          color: const Color(0xFF00796B),
         ),
 
         // Company detail form — shown only after type is selected

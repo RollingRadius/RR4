@@ -1853,13 +1853,28 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   String? _selectedDriverId;
   String? _selectedTransporterId;
   String? _selectedTransporterName;
+  String? _selectedConsigneeId;
+  String? _selectedConsigneeName;
+  String? _selectedConsigneeType; // 'org' | 'user'
+  String? _selectedRrOpsId;
+  String? _selectedRrOpsName;
   final _amountController = TextEditingController();
+  final _consigneeController = TextEditingController();
   final _transporterController = TextEditingController();
+  final _rrOpsController = TextEditingController();
+  List<Map<String, dynamic>> _consigneeResults = [];
   List<Map<String, dynamic>> _transporterResults = [];
+  List<Map<String, dynamic>> _rrOpsResults = [];
+  bool _consigneeSearchLoading = false;
   bool _transporterSearchLoading = false;
+  bool _rrOpsSearchLoading = false;
+  Timer? _consigneeDebounce;
   Timer? _transporterDebounce;
+  Timer? _rrOpsDebounce;
   bool _isLoading = false;
+  String? _consigneeError;
   String? _transporterError;
+  String? _rrOpsError;
   String? _amountError;
   String? _rrError;
 
@@ -1913,8 +1928,12 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   @override
   void dispose() {
     _amountController.dispose();
+    _consigneeController.dispose();
     _transporterController.dispose();
+    _rrOpsController.dispose();
+    _consigneeDebounce?.cancel();
     _transporterDebounce?.cancel();
+    _rrOpsDebounce?.cancel();
     _pickupCityCtrl.dispose();
     _dropCityCtrl.dispose();
     _rrMaterialCtrl.dispose();
@@ -1962,6 +1981,21 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     }
   }
 
+  Future<void> _searchConsignees(String q) async {
+    setState(() => _consigneeSearchLoading = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final resp = await api.dio.get(
+        '/api/rr/consignees',
+        queryParameters: q.isNotEmpty ? {'q': q} : null,
+      );
+      final list = (resp.data['consignees'] as List).cast<Map<String, dynamic>>();
+      if (mounted) setState(() { _consigneeResults = list; _consigneeSearchLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _consigneeResults = []; _consigneeSearchLoading = false; });
+    }
+  }
+
   Future<void> _searchTransporters(String q) async {
     if (q.length < 2) {
       setState(() => _transporterResults = []);
@@ -1981,6 +2015,21 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     }
   }
 
+  Future<void> _searchRrOps(String q) async {
+    setState(() => _rrOpsSearchLoading = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      final resp = await api.dio.get(
+        '/api/rr/ops-workers',
+        queryParameters: q.isNotEmpty ? {'q': q} : null,
+      );
+      final list = (resp.data['workers'] as List).cast<Map<String, dynamic>>();
+      if (mounted) setState(() { _rrOpsResults = list; _rrOpsSearchLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _rrOpsResults = []; _rrOpsSearchLoading = false; });
+    }
+  }
+
   Future<void> _confirm() async {
     if (_isLoading) return;
 
@@ -1990,11 +2039,15 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     final weightText = _weightCtrl.text.trim();
     final weightVal = double.tryParse(weightText);
 
+    String? cErr;
     String? tErr;
+    String? opsErr;
     String? aErr;
     String? rErr;
 
+    if (_selectedConsigneeId == null) cErr = 'Please select a consignee (load receiver)';
     if (_selectedTransporterId == null) tErr = 'Please select a transporter';
+    if (_selectedRrOpsId == null) opsErr = 'Please select an RR Ops worker';
     if (amountText.isEmpty) {
       aErr = 'Please enter the trip amount';
     } else if (amount == null || amount <= 0) {
@@ -2010,12 +2063,12 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       rErr = 'Enter a valid weight';
     }
 
-    if (tErr != null || aErr != null || rErr != null) {
-      setState(() { _transporterError = tErr; _amountError = aErr; _rrError = rErr; });
+    if (cErr != null || tErr != null || opsErr != null || aErr != null || rErr != null) {
+      setState(() { _consigneeError = cErr; _transporterError = tErr; _rrOpsError = opsErr; _amountError = aErr; _rrError = rErr; });
       return;
     }
 
-    setState(() { _isLoading = true; _transporterError = null; _amountError = null; _rrError = null; });
+    setState(() { _isLoading = true; _consigneeError = null; _transporterError = null; _rrOpsError = null; _amountError = null; _rrError = null; });
 
     final api = ref.read(apiServiceProvider);
 
@@ -2027,6 +2080,9 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
           if (_selectedVehicleId != null) 'vehicle_id': _selectedVehicleId,
           if (_selectedDriverId != null) 'driver_id': _selectedDriverId,
           if (amount != null) 'trip_amount': amount,
+          if (_selectedConsigneeType == 'org') 'consignee_org_id': _selectedConsigneeId,
+          if (_selectedConsigneeType == 'user') 'consignee_user_id': _selectedConsigneeId,
+          if (_selectedRrOpsId != null) 'rr_ops_user_id': _selectedRrOpsId,
           if (_selectedTransporterId != null) 'transporter_user_id': _selectedTransporterId,
           'origin_rr_city_id': _pickupCityId,
           'destination_rr_city_id': _dropCityId,
@@ -2126,6 +2182,169 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                   label: 'Capacity',
                   value: widget.load.capacity!,
                 ),
+              const SizedBox(height: 20),
+
+              // ── Consignee (Load Receiver) ────────────────────────────────
+              Row(children: [
+                Text('Consignee',
+                    style: _inter(size: 12, weight: FontWeight.w700, color: _secondary)),
+                Text(' *', style: _inter(size: 12, weight: FontWeight.w700, color: Colors.red)),
+              ]),
+              const SizedBox(height: 8),
+              if (_selectedConsigneeId != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0F2F1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF00796B).withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.move_to_inbox_outlined, size: 18,
+                          color: Color(0xFF00796B)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _selectedConsigneeName ?? 'Consignee selected',
+                          style: _inter(size: 13, weight: FontWeight.w600,
+                              color: const Color(0xFF00796B)),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          _selectedConsigneeId   = null;
+                          _selectedConsigneeName = null;
+                          _selectedConsigneeType = null;
+                          _consigneeResults      = [];
+                          _consigneeController.clear();
+                        }),
+                        child: const Icon(Icons.close, size: 18,
+                            color: Color(0xFF00796B)),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                TextField(
+                  controller: _consigneeController,
+                  decoration: InputDecoration(
+                    hintText: 'Search load receiver',
+                    hintStyle: _inter(size: 13, color: _secondary),
+                    prefixIcon: _consigneeSearchLoading
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                                width: 16, height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2)),
+                          )
+                        : const Icon(Icons.move_to_inbox_outlined, size: 18),
+                    contentPadding:
+                        const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+                    filled: true,
+                    fillColor: _surfaceContainerLow,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: _surfaceContainer)),
+                    enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: _surfaceContainer)),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                            color: Color(0xFF00796B), width: 1.5)),
+                  ),
+                  onTap: () => _searchConsignees(''),
+                  onChanged: (val) {
+                    _consigneeDebounce?.cancel();
+                    _consigneeDebounce = Timer(
+                      const Duration(milliseconds: 400),
+                      () => _searchConsignees(val.trim()),
+                    );
+                  },
+                ),
+                if (_consigneeResults.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _surfaceContainer),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: _consigneeResults.map((c) {
+                        final name = c['name'] as String? ?? '—';
+                        final city = c['city'] as String? ?? '';
+                        final type = c['type'] as String? ?? 'org';
+                        return InkWell(
+                          onTap: () => setState(() {
+                            _selectedConsigneeId   = c['id'] as String?;
+                            _selectedConsigneeName = city.isNotEmpty
+                                ? '$name ($city)'
+                                : name;
+                            _selectedConsigneeType = type;
+                            _consigneeResults      = [];
+                            _consigneeController.clear();
+                            _consigneeError        = null;
+                          }),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  type == 'org'
+                                      ? Icons.business_outlined
+                                      : Icons.person_outline,
+                                  size: 16,
+                                  color: const Color(0xFF00796B),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(name,
+                                          style: _inter(
+                                              size: 13,
+                                              weight: FontWeight.w600,
+                                              color:
+                                                  const Color(0xFF191C1E))),
+                                      if (city.isNotEmpty)
+                                        Text(city,
+                                            style: _inter(
+                                                size: 11,
+                                                color: _secondary)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ],
+              if (_consigneeError != null) ...[
+                const SizedBox(height: 6),
+                Row(children: [
+                  const Icon(Icons.error_outline, size: 13, color: Colors.red),
+                  const SizedBox(width: 4),
+                  Text(_consigneeError!,
+                      style: _inter(size: 11, color: Colors.red)),
+                ]),
+              ],
               const SizedBox(height: 20),
 
               // ── RR Sync Details ─────────────────────────────────────────
@@ -2350,6 +2569,163 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                   ),
                 ),
               ),
+              const SizedBox(height: 20),
+
+              // ── RR Ops ────────────────────────────────────────────────────
+              Row(children: [
+                Text('RR Ops',
+                    style: _inter(size: 12, weight: FontWeight.w700, color: _secondary)),
+                Text(' *', style: _inter(size: 12, weight: FontWeight.w700, color: Colors.red)),
+              ]),
+              const SizedBox(height: 8),
+              if (_selectedRrOpsId != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE3F2FD),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF1B6CA8).withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.sync_alt, size: 18, color: Color(0xFF1B6CA8)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _selectedRrOpsName ?? 'RR Ops selected',
+                          style: _inter(size: 13, weight: FontWeight.w600,
+                              color: const Color(0xFF1B6CA8)),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          _selectedRrOpsId = null;
+                          _selectedRrOpsName = null;
+                          _rrOpsResults = [];
+                          _rrOpsController.clear();
+                        }),
+                        child: const Icon(Icons.close, size: 18, color: Color(0xFF1B6CA8)),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                GestureDetector(
+                  onTap: () {
+                    _searchRrOps('');
+                  },
+                  child: TextField(
+                    controller: _rrOpsController,
+                    decoration: InputDecoration(
+                      hintText: 'Search RR Ops worker',
+                      hintStyle: _inter(size: 13, color: _secondary),
+                      prefixIcon: _rrOpsSearchLoading
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 16, height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : const Icon(Icons.sync_alt, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+                      filled: true,
+                      fillColor: _surfaceContainerLow,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: _surfaceContainer),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: _surfaceContainer),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF1B6CA8), width: 1.5),
+                      ),
+                    ),
+                    onTap: () => _searchRrOps(''),
+                    onChanged: (val) {
+                      _rrOpsDebounce?.cancel();
+                      _rrOpsDebounce = Timer(
+                        const Duration(milliseconds: 400),
+                        () => _searchRrOps(val.trim()),
+                      );
+                    },
+                  ),
+                ),
+                if (_rrOpsResults.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: _surfaceContainer),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: _rrOpsResults.isEmpty
+                          ? [
+                              Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Text('No RR Operations workers found',
+                                    style: _inter(size: 12, color: _secondary)),
+                              ),
+                            ]
+                          : _rrOpsResults.map((w) {
+                              final name  = w['full_name'] as String? ?? '—';
+                              final phone = w['phone'] as String? ?? '';
+                              return InkWell(
+                                onTap: () => setState(() {
+                                  _selectedRrOpsId   = w['user_id'] as String?;
+                                  _selectedRrOpsName = name;
+                                  _rrOpsResults      = [];
+                                  _rrOpsController.clear();
+                                }),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.sync_alt, size: 16,
+                                          color: Color(0xFF1B6CA8)),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(name,
+                                                style: _inter(size: 13, weight: FontWeight.w600,
+                                                    color: const Color(0xFF191C1E))),
+                                            if (phone.isNotEmpty)
+                                              Text(phone,
+                                                  style: _inter(size: 11, color: _secondary)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                    ),
+                  ),
+                ],
+              ],
+              if (_rrOpsError != null) ...[
+                const SizedBox(height: 6),
+                Row(children: [
+                  const Icon(Icons.error_outline, size: 13, color: Colors.red),
+                  const SizedBox(width: 4),
+                  Text(_rrOpsError!, style: _inter(size: 11, color: Colors.red)),
+                ]),
+              ],
               const SizedBox(height: 20),
 
               // Transporter search
