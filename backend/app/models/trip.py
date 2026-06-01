@@ -131,6 +131,9 @@ class Trip(Base):
     # Exactly one is set: org-type consignee OR individual user-type consignee
     consignee_org_id  = Column(UUID(as_uuid=True), nullable=True)
     consignee_user_id = Column(UUID(as_uuid=True), nullable=True)
+    # RR company ObjectIds — set directly when LP picks from the RR company picker
+    consignor_rr_company_id = Column(String, nullable=True)   # sender / shipper
+    consignee_rr_company_id = Column(String, nullable=True)   # receiver
     # RR Ops worker assigned to handle this trip's sync
     rr_ops_user_id    = Column(UUID(as_uuid=True), nullable=True)
 

@@ -233,43 +233,46 @@ async def trigger_sync(
     }
 
 
-# ── Consignee (load_receiver) search ─────────────────────────────────────────
+# ── Consignee company search (proxied from RR) ────────────────────────────────
 
-@router.get("/consignees", summary="Search load_receiver organisations")
-def get_consignees(
-    q: str = Query("", description="Name/phone filter"),
-    db: Session = Depends(get_db),
+@router.get("/consignees", summary="Fetch companies linked to an RR user (for consignee picker)")
+async def get_rr_companies(
+    rr_user_id: str = Query(..., description="RR user ObjectId from the active RR session"),
+    q: str = Query("", description="Optional name filter"),
     _: User = Depends(get_current_user),
 ):
     """
-    Returns matching load_receiver organisations.
-    Used by the FulfillSheet consignee picker.
-    Each result carries {type, id, name, rr_company_id}.
+    Proxy to RR GET /get_user_companies?user_id=<rr_user_id>.
+    Returns all companies the logged-in RR user has access to, optionally
+    filtered by name. Used by the FulfillSheet consignee picker.
+    Each result carries {rr_company_id, name}.
     """
-    like = f"%{q}%" if q else "%"
-
-    orgs = (
-        db.query(Organization)
-        .filter(
-            Organization.business_type == "load_receiver",
-            Organization.company_name.ilike(like),
-        )
-        .limit(15)
-        .all()
-    )
-
-    return {
-        "consignees": [
-            {
-                "type":          "org",
-                "id":            str(org.id),
-                "name":          org.company_name,
-                "city":          org.city or "",
-                "rr_company_id": org.rr_company_id,
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/get_user_companies",
+                params={"user_id": rr_user_id},
+            )
+            resp.raise_for_status()
+            items = resp.json().get("_items", [])
+            if q:
+                q_lower = q.lower()
+                items = [c for c in items if q_lower in (c.get("name") or "").lower()]
+            return {
+                "consignees": [
+                    {
+                        "rr_company_id": c["_id"],
+                        "name": c.get("name", ""),
+                    }
+                    for c in items
+                    if c.get("_id")
+                ]
             }
-            for org in orgs
-        ]
-    }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"RR companies proxy error: {exc}")
+        return {"consignees": []}
 
 
 # ── RR Operations workers list ────────────────────────────────────────────────
@@ -343,12 +346,13 @@ def _check_trip_readiness(trip: Trip, db: Session) -> dict:
     # lp_org.rr_company_id, vehicle, and driver are no longer required for sync.
     missing = []
 
-    if trip.load_owner_org_id:
+    # Consignor: prefer direct field, fall back to load owner org lookup
+    consignor_ok = bool(trip.consignor_rr_company_id)
+    if not consignor_ok and trip.load_owner_org_id:
         lo_org = db.query(Organization).filter(Organization.id == trip.load_owner_org_id).first()
-        if not (lo_org and lo_org.rr_company_id):
-            missing.append("load_owner_org.rr_company_id")
-    else:
-        missing.append("load_owner_org.rr_company_id")
+        consignor_ok = bool(lo_org and lo_org.rr_company_id)
+    if not consignor_ok:
+        missing.append("consignor_rr_company_id")
 
     if not trip.origin_rr_city_id:
         missing.append("origin_rr_city_id")

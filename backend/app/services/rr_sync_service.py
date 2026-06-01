@@ -698,16 +698,17 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                 await _try_resolve_rr_ids(trip, client, token, db)
                 db.refresh(trip)
 
-                # Pre-flight: consignor org + RR city/material/weight required
+                # Pre-flight: consignor + RR city/material/weight required
                 missing = []
-                consignor_rr_id = None
-                if trip.load_owner_org_id:
+                # Consignor: prefer direct field, fall back to load owner org lookup
+                consignor_rr_id = trip.consignor_rr_company_id or None
+                if not consignor_rr_id and trip.load_owner_org_id:
                     lo_org = db.query(Organization).filter(
                         Organization.id == trip.load_owner_org_id
                     ).first()
                     consignor_rr_id = lo_org.rr_company_id if lo_org else None
                 if not consignor_rr_id:
-                    missing.append("load_owner_org.rr_company_id")
+                    missing.append("consignor_rr_company_id")
 
                 if not trip.origin_rr_city_id:
                     missing.append("origin_rr_city_id")
@@ -752,9 +753,10 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                     ).first()
                     rr_ops_rr_id = ops_user.rr_company_id if ops_user else None
 
-                # Consignee org: rr_company_id is the receiver in RR
-                consignee_rr_id = None
-                if trip.consignee_org_id:
+                # Consignee rr_company_id: prefer the direct field (set when picking from RR),
+                # fall back to looking up the RR4 organisation's rr_company_id.
+                consignee_rr_id = trip.consignee_rr_company_id or None
+                if not consignee_rr_id and trip.consignee_org_id:
                     c_org = db.query(Organization).filter(
                         Organization.id == trip.consignee_org_id
                     ).first()

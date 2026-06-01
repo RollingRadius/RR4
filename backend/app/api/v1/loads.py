@@ -383,9 +383,12 @@ class FulfillPayload(BaseModel):
     trip_amount:             Optional[float] = None   # Agreed freight amount (₹)
     notes:                   Optional[str]   = None
     transporter_user_id:     Optional[str]   = None   # Transporter to upload loading slip
-    # Consignee (load_receiver) — exactly one must be provided
-    consignee_org_id:        Optional[str]   = None   # load_receiver organisation
-    consignee_user_id:       Optional[str]   = None   # load_receiver individual user
+    # Consignor (sender/shipper) — picked directly from RR company list
+    consignor_rr_company_id: Optional[str]   = None   # RR company ObjectId
+    # Consignee (load_receiver) — one of the three must be provided
+    consignee_org_id:        Optional[str]   = None   # RR4 load_receiver organisation UUID
+    consignee_user_id:       Optional[str]   = None   # RR4 load_receiver individual user UUID
+    consignee_rr_company_id: Optional[str]   = None   # RR company ObjectId (picked from RR directly)
     # RR Ops worker assigned to handle this trip's sync
     rr_ops_user_id:          Optional[str]   = None
     # RR sync fields
@@ -632,8 +635,8 @@ async def fulfill_load_requirement(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid driver_id.")
 
-    # Validate mandatory consignee — exactly one of org or user must be provided
-    if not payload.consignee_org_id and not payload.consignee_user_id:
+    # Validate mandatory consignee — one of org UUID, user UUID, or RR company ObjectId must be provided
+    if not payload.consignee_org_id and not payload.consignee_user_id and not payload.consignee_rr_company_id:
         raise HTTPException(status_code=400, detail="A consignee (load_receiver) is required.")
 
     consignee_org_uuid = None
@@ -696,8 +699,10 @@ async def fulfill_load_requirement(
         vehicle_id=vehicle_uuid,
         driver_id=driver_uuid,
         transporter_user_id=transporter_uuid,
+        consignor_rr_company_id=payload.consignor_rr_company_id or None,
         consignee_org_id=consignee_org_uuid,
         consignee_user_id=consignee_user_uuid,
+        consignee_rr_company_id=payload.consignee_rr_company_id or None,
         rr_ops_user_id=rr_ops_uuid,
         created_by=current_user.id,
         origin_rr_city_id=payload.origin_rr_city_id,

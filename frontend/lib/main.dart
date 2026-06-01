@@ -78,6 +78,12 @@ class FleetManagementApp extends ConsumerStatefulWidget {
 
 class _FleetManagementAppState extends ConsumerState<FleetManagementApp>
     with WidgetsBindingObserver {
+  // Track whether the app was truly backgrounded (paused). On Android, showing
+  // a keyboard or in-app dialog triggers inactive→resumed WITHOUT going through
+  // paused. We only want to run checkTokenExpiry on a real background→foreground
+  // transition, not on every keyboard dismiss.
+  bool _wasPaused = false;
+
   @override
   void initState() {
     super.initState();
@@ -92,8 +98,12 @@ class _FleetManagementAppState extends ConsumerState<FleetManagementApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      // Re-check token expiry when the app comes back from the background.
+    if (state == AppLifecycleState.paused) {
+      _wasPaused = true;
+    }
+    if (state == AppLifecycleState.resumed && _wasPaused) {
+      _wasPaused = false;
+      // Re-check token expiry only when returning from a true background pause.
       // The OS may have suspended the Dart isolate, killing any active Timer.
       ref.read(authProvider.notifier).checkTokenExpiry();
     }
