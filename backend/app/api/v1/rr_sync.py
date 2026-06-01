@@ -235,29 +235,37 @@ async def trigger_sync(
 
 # ── Consignee company search (proxied from RR) ────────────────────────────────
 
-@router.get("/consignees", summary="Fetch companies linked to an RR user (for consignee picker)")
-async def get_rr_companies(
-    rr_user_id: str = Query(..., description="RR user ObjectId from the active RR session"),
-    q: str = Query("", description="Optional name filter"),
+@router.get("/consignees", summary="Search RR companies by name (for consignor/consignee pickers)")
+async def search_rr_companies(
+    q: str = Query("", description="Company name prefix to search"),
+    rr_token: str = Query("", description="LP's active RR session token for auth"),
     _: User = Depends(get_current_user),
 ):
     """
-    Proxy to RR GET /get_user_companies?user_id=<rr_user_id>.
-    Returns all companies the logged-in RR user has access to, optionally
-    filtered by name. Used by the FulfillSheet consignee picker.
-    Each result carries {rr_company_id, name}.
+    Proxy to RR GET /companies with a name regex filter.
+    Used by both the consignor and consignee pickers in the FulfillSheet.
+    Returns {rr_company_id, name} for each match.
+    Requires at least 2 characters to search.
+    The RR /companies endpoint requires auth — pass rr_token from the LP's RR session.
     """
+    import json
+    if len(q) < 2:
+        return {"consignees": []}
+    params: dict = {
+        "where": json.dumps({"name": {"$regex": q, "$options": "i"}}),
+        "max_results": 15,
+        "projection": json.dumps({"_id": 1, "name": 1}),
+    }
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
     try:
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
             resp = await client.get(
-                f"{settings.RR_API_BASE}/get_user_companies",
-                params={"user_id": rr_user_id},
+                f"{settings.RR_API_BASE}/companies",
+                params=params,
+                headers=headers,
             )
             resp.raise_for_status()
             items = resp.json().get("_items", [])
-            if q:
-                q_lower = q.lower()
-                items = [c for c in items if q_lower in (c.get("name") or "").lower()]
             return {
                 "consignees": [
                     {
@@ -271,7 +279,7 @@ async def get_rr_companies(
     except HTTPException:
         raise
     except Exception as exc:
-        logger.error(f"RR companies proxy error: {exc}")
+        logger.error(f"RR companies search proxy error: {exc}")
         return {"consignees": []}
 
 

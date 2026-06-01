@@ -1998,14 +1998,12 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   }
 
   Future<void> _searchConsignors(String q) async {
-    final rrUserId = ref.read(rrSessionProvider)?.rrUserId ?? '';
-    if (rrUserId.isEmpty) return;
+    if (q.length < 2) { setState(() => _consignorResults = []); return; }
     setState(() => _consignorSearchLoading = true);
     try {
-      final api = ref.read(apiServiceProvider);
-      final params = <String, dynamic>{'rr_user_id': rrUserId};
-      if (q.isNotEmpty) params['q'] = q;
-      final resp = await api.dio.get('/api/rr/consignees', queryParameters: params);
+      final rrToken = ref.read(rrSessionProvider)?.token ?? '';
+      final resp = await ref.read(apiServiceProvider).dio.get(
+        '/api/rr/consignees', queryParameters: {'q': q, 'rr_token': rrToken});
       final list = (resp.data['consignees'] as List).cast<Map<String, dynamic>>();
       if (mounted) setState(() { _consignorResults = list; _consignorSearchLoading = false; });
     } catch (_) {
@@ -2014,14 +2012,12 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   }
 
   Future<void> _searchConsignees(String q) async {
-    final rrUserId = ref.read(rrSessionProvider)?.rrUserId ?? '';
-    if (rrUserId.isEmpty) return;
+    if (q.length < 2) { setState(() => _consigneeResults = []); return; }
     setState(() => _consigneeSearchLoading = true);
     try {
-      final api = ref.read(apiServiceProvider);
-      final params = <String, dynamic>{'rr_user_id': rrUserId};
-      if (q.isNotEmpty) params['q'] = q;
-      final resp = await api.dio.get('/api/rr/consignees', queryParameters: params);
+      final rrToken = ref.read(rrSessionProvider)?.token ?? '';
+      final resp = await ref.read(apiServiceProvider).dio.get(
+        '/api/rr/consignees', queryParameters: {'q': q, 'rr_token': rrToken});
       final list = (resp.data['consignees'] as List).cast<Map<String, dynamic>>();
       if (mounted) setState(() { _consigneeResults = list; _consigneeSearchLoading = false; });
     } catch (_) {
@@ -2284,7 +2280,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(color: _primary, width: 1.5)),
                   ),
-                  onTap: () => _searchConsignors(''),
+                  onTap: null,
                   onChanged: (val) {
                     _consignorDebounce?.cancel();
                     _consignorDebounce = Timer(
@@ -2410,7 +2406,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                         borderSide: const BorderSide(
                             color: Color(0xFF00796B), width: 1.5)),
                   ),
-                  onTap: () => _searchConsignees(''),
+                  onTap: null,
                   onChanged: (val) {
                     _consigneeDebounce?.cancel();
                     _consigneeDebounce = Timer(
