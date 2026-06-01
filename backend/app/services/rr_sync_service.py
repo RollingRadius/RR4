@@ -438,7 +438,7 @@ async def _create_rr_trip(
     if transporter_rr_company_id:
         trip_payload["created_by_company"] = transporter_rr_company_id
     if trip.created_at:
-        trip_payload["back_entry_date"] = trip.created_at.date().isoformat()
+        trip_payload["back_entry_date"] = trip.created_at.strftime("%Y-%m-%dT%H:%M:%S")
 
     try:
         trip_resp = await client.post(
@@ -473,7 +473,7 @@ async def _create_rr_trip(
     if transporter_rr_company_id:
         parcel_payload["created_by_company"] = transporter_rr_company_id
     if trip.created_at:
-        parcel_payload["back_entry_date"] = trip.created_at.date().isoformat()
+        parcel_payload["back_entry_date"] = trip.created_at.strftime("%Y-%m-%dT%H:%M:%S")
     if trip.bilty_number:
         parcel_payload["documents.bilty"] = trip.bilty_number
     if trip.invoice_number:

@@ -3,10 +3,11 @@ Organization Management API
 For owners to manage their organization, employees, and access requests
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 
 from app.database import get_db
@@ -441,18 +442,32 @@ def get_worker_requests(
     return {"success": True, "requests": requests, "count": len(requests)}
 
 
+class AcceptWorkerBody(BaseModel):
+    role_key: Optional[str] = None  # LP can override the role when accepting
+
+
+# Valid worker roles an LP/LO owner can assign
+_ASSIGNABLE_WORKER_ROLES = {
+    'logistic_partner_worker',
+    'lp_rr_operations',
+    'load_owner_worker',
+}
+
+
 @router.post("/worker-requests/{user_org_id}/accept", response_model=dict)
 def accept_worker_request(
     user_org_id: str,
+    body: AcceptWorkerBody = Body(default_factory=AcceptWorkerBody),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Accept a pending worker join request.
 
-    Assigns the worker their requested role (logistic_partner_worker or
-    load_owner_worker). Falls back to the matching worker role based on the
-    organization's business_type if no requested_role is set.
+    Role priority:
+    1. body.role_key — explicit override from LP (always wins if provided)
+    2. emp_org.requested_role_id — what the worker requested during signup
+    3. Default fallback: logistic_partner_worker / load_owner_worker by org type
     """
     owner_org = verify_owner(current_user, db)
 
@@ -469,7 +484,14 @@ def accept_worker_request(
         )
 
     # Determine the role to assign
-    if emp_org.requested_role_id:
+    if body.role_key:
+        if body.role_key not in _ASSIGNABLE_WORKER_ROLES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid role_key '{body.role_key}'. Allowed: {sorted(_ASSIGNABLE_WORKER_ROLES)}"
+            )
+        new_role = db.query(Role).filter(Role.role_key == body.role_key).first()
+    elif emp_org.requested_role_id:
         new_role = db.query(Role).filter(Role.id == emp_org.requested_role_id).first()
     else:
         # Default: pick worker role based on org business type

@@ -1867,6 +1867,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   String? _selectedConsigneeType; // kept for legacy; value is 'rr_company'
   String? _selectedRrOpsId;
   String? _selectedRrOpsName;
+  String? _selectedRrOpsRrId;  // rr_company_id of the selected ops worker
   final _amountController = TextEditingController();
   final _consignorController = TextEditingController();
   final _consigneeController = TextEditingController();
@@ -2724,17 +2725,33 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                       const Icon(Icons.sync_alt, size: 18, color: Color(0xFF1B6CA8)),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          _selectedRrOpsName ?? 'RR Ops selected',
-                          style: _inter(size: 13, weight: FontWeight.w600,
-                              color: const Color(0xFF1B6CA8)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedRrOpsName ?? 'RR Ops selected',
+                              style: _inter(size: 13, weight: FontWeight.w600,
+                                  color: const Color(0xFF1B6CA8)),
+                            ),
+                            if (_selectedRrOpsRrId != null && _selectedRrOpsRrId!.isNotEmpty)
+                              Text(
+                                'RR ID: $_selectedRrOpsRrId',
+                                style: _inter(size: 11, color: const Color(0xFF1B6CA8)),
+                              )
+                            else
+                              Text(
+                                'No RR ID set',
+                                style: _inter(size: 11, color: Colors.red),
+                              ),
+                          ],
                         ),
                       ),
                       GestureDetector(
                         onTap: () => setState(() {
-                          _selectedRrOpsId = null;
+                          _selectedRrOpsId   = null;
                           _selectedRrOpsName = null;
-                          _rrOpsResults = [];
+                          _selectedRrOpsRrId = null;
+                          _rrOpsResults      = [];
                           _rrOpsController.clear();
                         }),
                         child: const Icon(Icons.close, size: 18, color: Color(0xFF1B6CA8)),
@@ -2816,9 +2833,10 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                               final phone = w['phone'] as String? ?? '';
                               return InkWell(
                                 onTap: () => setState(() {
-                                  _selectedRrOpsId   = w['user_id'] as String?;
-                                  _selectedRrOpsName = name;
-                                  _rrOpsResults      = [];
+                                  _selectedRrOpsId    = w['user_id'] as String?;
+                                  _selectedRrOpsName  = name;
+                                  _selectedRrOpsRrId  = w['rr_company_id'] as String?;
+                                  _rrOpsResults       = [];
                                   _rrOpsController.clear();
                                 }),
                                 borderRadius: BorderRadius.circular(12),

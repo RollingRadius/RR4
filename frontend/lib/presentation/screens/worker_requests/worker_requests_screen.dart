@@ -121,10 +121,23 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
     }
   }
 
-  Future<void> _accept(String userOrgId) async {
+  Future<void> _accept(String userOrgId, {String? requestedRoleKey, String? requestedRoleName}) async {
+    // Show confirmation dialog; LP can override the role if needed
+    final chosenRole = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _AcceptRoleDialog(
+        requestedRoleKey: requestedRoleKey,
+        requestedRoleName: requestedRoleName,
+      ),
+    );
+    if (chosenRole == null) return; // cancelled
+
     try {
       final dio = ref.read(dioProvider);
-      await dio.post('/api/organization/worker-requests/$userOrgId/accept');
+      await dio.post(
+        '/api/organization/worker-requests/$userOrgId/accept',
+        data: {'role_key': chosenRole},
+      );
       ref.invalidate(pendingWorkerCountProvider);
       _fetchAll();
       if (mounted) {
@@ -320,7 +333,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
 
 class _PendingTab extends StatelessWidget {
   final List<Map<String, dynamic>> requests;
-  final Future<void> Function(String) onAccept;
+  final Future<void> Function(String, {String? requestedRoleKey, String? requestedRoleName}) onAccept;
   final Future<void> Function(String) onReject;
 
   const _PendingTab({
@@ -375,7 +388,7 @@ class _PendingTab extends StatelessWidget {
 
 class _PendingCard extends StatelessWidget {
   final Map<String, dynamic> request;
-  final Future<void> Function(String) onAccept;
+  final Future<void> Function(String, {String? requestedRoleKey, String? requestedRoleName}) onAccept;
   final Future<void> Function(String) onReject;
 
   const _PendingCard({
@@ -392,7 +405,9 @@ class _PendingCard extends StatelessWidget {
     final phone = request['phone'] as String? ?? '';
     final joinedAt = request['joined_at'] as String? ?? '';
     final requestedRole = request['requested_role'] as Map<String, dynamic>?;
-    final roleName = requestedRole?['name'] as String? ?? 'Worker';
+    final roleName = requestedRole?['name'] as String?;
+    final roleKey = requestedRole?['key'] as String?;
+    final roleUnknown = roleName == null;
 
     final initials = name
         .trim()
@@ -493,19 +508,35 @@ class _PendingCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: _primary.withOpacity(0.09),
+                          color: roleUnknown
+                              ? _error.withOpacity(0.08)
+                              : _primary.withOpacity(0.09),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                              color: _primary.withOpacity(0.25),
+                              color: roleUnknown
+                                  ? _error.withOpacity(0.4)
+                                  : _primary.withOpacity(0.25),
                               width: 1),
                         ),
-                        child: Text(roleName,
-                            style: _inter(
-                                size: 12,
-                                weight: FontWeight.w700,
-                                color: _primary),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (roleUnknown) ...[
+                              const Icon(Icons.warning_amber_rounded,
+                                  size: 12, color: _error),
+                              const SizedBox(width: 4),
+                            ],
+                            Text(
+                              roleUnknown ? 'Role not set — tap Accept to assign' : roleName!,
+                              style: _inter(
+                                  size: 12,
+                                  weight: FontWeight.w700,
+                                  color: roleUnknown ? _error : _primary),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
                       ),
                       if (dateStr.isNotEmpty) ...[
                         const SizedBox(height: 8),
@@ -566,7 +597,7 @@ class _PendingCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => onAccept(userOrgId),
+                    onPressed: () => onAccept(userOrgId, requestedRoleKey: roleKey, requestedRoleName: roleName),
                     icon: const Icon(Icons.check_rounded, size: 16),
                     label: const Text('Accept'),
                     style: ElevatedButton.styleFrom(
@@ -838,6 +869,109 @@ class _ErrorView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Accept Role Dialog ────────────────────────────────────────────────────────
+
+class _AcceptRoleDialog extends StatefulWidget {
+  final String? requestedRoleKey;
+  final String? requestedRoleName;
+
+  const _AcceptRoleDialog({this.requestedRoleKey, this.requestedRoleName});
+
+  @override
+  State<_AcceptRoleDialog> createState() => _AcceptRoleDialogState();
+}
+
+class _AcceptRoleDialogState extends State<_AcceptRoleDialog> {
+  late String _selectedRole;
+
+  static const _roles = [
+    {'key': 'logistic_partner_worker', 'label': 'LP Worker'},
+    {'key': 'lp_rr_operations',        'label': 'RR Operations'},
+    {'key': 'load_owner_worker',        'label': 'Load Owner Worker'},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Pre-select the requested role if valid, else default to LP worker
+    _selectedRole = _roles.any((r) => r['key'] == widget.requestedRoleKey)
+        ? widget.requestedRoleKey!
+        : 'logistic_partner_worker';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final roleUnknown = widget.requestedRoleKey == null;
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text('Assign Role', style: _manrope(size: 16)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (roleUnknown)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: _error.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: _error.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, size: 14, color: _error),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Worker did not request a specific role. Please assign one.',
+                      style: _inter(size: 12, color: _error),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Requested: ${widget.requestedRoleName}',
+                style: _inter(size: 12, color: _secondary),
+              ),
+            ),
+          Text('Assign as:', style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface)),
+          const SizedBox(height: 8),
+          ..._roles.map((r) => RadioListTile<String>(
+            value: r['key']!,
+            groupValue: _selectedRole,
+            onChanged: (v) => setState(() => _selectedRole = v!),
+            title: Text(r['label']!, style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface)),
+            subtitle: Text(r['key']!, style: _inter(size: 11)),
+            activeColor: _primary,
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          )),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel', style: _inter(size: 13, color: _secondary)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _success,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onPressed: () => Navigator.pop(context, _selectedRole),
+          child: Text('Confirm', style: _inter(size: 13, weight: FontWeight.w700, color: Colors.white)),
+        ),
+      ],
     );
   }
 }
