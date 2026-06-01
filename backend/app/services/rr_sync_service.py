@@ -404,6 +404,8 @@ async def _create_rr_trip(
     consignor_rr_id: str,
     rr_weight_unit: str,
     transporter_rr_company_id: str | None = None,
+    rr_ops_rr_id: str | None = None,
+    consignee_rr_id: str | None = None,
 ) -> tuple[str | None, str | None, str | None]:
     """
     Create trip + parcel in RR using direct Eve endpoints.
@@ -429,7 +431,10 @@ async def _create_rr_trip(
     trip_payload: dict = {"source": "Other"}
     if rr_user_id:
         trip_payload["created_by"] = rr_user_id
-        trip_payload["handled_by"] = rr_user_id
+    # handled_by = RR Ops worker's RR user ID if available, else fall back to creator
+    trip_payload["handled_by"] = rr_ops_rr_id or rr_user_id or ""
+    if not trip_payload["handled_by"]:
+        del trip_payload["handled_by"]
     if transporter_rr_company_id:
         trip_payload["created_by_company"] = transporter_rr_company_id
     if trip.created_at:
@@ -463,6 +468,8 @@ async def _create_rr_trip(
         "sender":                {"sender_company": consignor_rr_id},
         "source":                "Other",
     }
+    if consignee_rr_id:
+        parcel_payload["receiver"] = {"receiver_company": consignee_rr_id}
     if transporter_rr_company_id:
         parcel_payload["created_by_company"] = transporter_rr_company_id
     if trip.created_at:
@@ -736,6 +743,23 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                         ).first()
                         transporter_rr_company_id = t_org.rr_company_id if t_org else None
 
+                # RR Ops worker: rr_company_id stores their RR user ObjectId
+                from app.models.user import User as UserModel
+                rr_ops_rr_id = None
+                if trip.rr_ops_user_id:
+                    ops_user = db.query(UserModel).filter(
+                        UserModel.id == trip.rr_ops_user_id
+                    ).first()
+                    rr_ops_rr_id = ops_user.rr_company_id if ops_user else None
+
+                # Consignee org: rr_company_id is the receiver in RR
+                consignee_rr_id = None
+                if trip.consignee_org_id:
+                    c_org = db.query(Organization).filter(
+                        Organization.id == trip.consignee_org_id
+                    ).first()
+                    consignee_rr_id = c_org.rr_company_id if c_org else None
+
                 # Map RR4 weight units to RR's QuantityUnit enum values
                 _unit_map = {"TONS": "TONNES", "KG": "KILOGRAMS", "QUINTAL": "TONNES"}
                 rr_weight_unit = _unit_map.get((trip.weight_unit or "").upper(), "TONNES")
@@ -747,6 +771,8 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                     consignor_rr_id=consignor_rr_id,
                     rr_weight_unit=rr_weight_unit,
                     transporter_rr_company_id=transporter_rr_company_id,
+                    rr_ops_rr_id=rr_ops_rr_id,
+                    consignee_rr_id=consignee_rr_id,
                 )
 
                 if err:

@@ -1,6 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:fleet_management/data/services/api_service.dart';
 
+// ─── Login result ─────────────────────────────────────────────────────────────
+
+class RrLoginResult {
+  final String token;
+  final String rrUserId;
+  const RrLoginResult({required this.token, required this.rrUserId});
+}
+
+// ─── API client ───────────────────────────────────────────────────────────────
+
 /// RR Sync API — proxy calls to /api/rr/*
 class RrSyncApi {
   final ApiService _apiService;
@@ -16,15 +26,17 @@ class RrSyncApi {
   }
 
   /// POST /api/rr/auth/login
-  /// Body: {username, password} → returns {token}
-  Future<String> loginToRr(String username, String password) async {
+  /// Body: {username, password} → returns {token, rr_user_id}
+  Future<RrLoginResult> loginToRr(String username, String password) async {
     final resp = await _apiService.dio.post(
       '/api/rr/auth/login',
       data: {'username': username, 'password': password},
     );
-    final token = (resp.data as Map<String, dynamic>)['token'] as String?;
+    final data = resp.data as Map<String, dynamic>;
+    final token = data['token'] as String?;
     if (token == null || token.isEmpty) throw Exception('No token received');
-    return token;
+    final rrUserId = data['rr_user_id'] as String? ?? '';
+    return RrLoginResult(token: token, rrUserId: rrUserId);
   }
 
   /// POST /api/rr/sync/trip/{trip_id}

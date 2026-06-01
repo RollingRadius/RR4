@@ -27,6 +27,7 @@ from app.models.load_requirement import LoadRequirement
 from app.models.trip import Trip
 from app.models.role import Role
 from app.services import fcm_service
+from app.config import settings
 
 router = APIRouter()
 
@@ -394,6 +395,8 @@ class FulfillPayload(BaseModel):
     weight_value:            Optional[float] = None
     weight_unit:             Optional[str]   = None
     invoice_value:           Optional[float] = None
+    # LP's RR session token — if provided, trip+parcel are created in RR immediately
+    rr_token:                Optional[str]   = None
 
 
 # ── Logistic Partner Endpoints ───────────────────────────────────────────────
@@ -802,6 +805,12 @@ async def fulfill_load_requirement(
         )
     except Exception:
         pass
+
+    # RR Sync: if LP provided their RR token, create trip+parcel in RR immediately
+    if payload.rr_token and settings.RR_SYNC_ENABLED:
+        from app.services.rr_sync_service import sync_all_to_rr
+        await sync_all_to_rr(str(trip.id), payload.rr_token)
+        db.refresh(trip)  # pick up rr_trip_id / rr_parcel_id written by sync
 
     return {
         "success": True,

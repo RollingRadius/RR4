@@ -8,7 +8,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
+import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_sync_screen.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
 import 'package:fleet_management/providers/driver_provider.dart';
@@ -97,13 +99,18 @@ class _LogisticPartnerDashboardState
   }
 
   /// Switch tabs — refreshes fleet data whenever user navigates to Dashboard.
-  void _switchNav(int index) {
+  Future<void> _switchNav(int index) async {
     if (index == 0 && _navIndex != 0) {
       ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
     }
     if (index == 3 && _navIndex != 3) {
       // Load completed trips fresh each time Records tab is opened
       ref.read(completedTripsProvider.notifier).loadTrips(statusFilter: 'completed');
+    }
+    // Loads tab requires an active RR session
+    if (index == 1 && _navIndex != 1) {
+      final session = await ensureRrSession(context, ref);
+      if (session == null || !mounted) return; // user cancelled — stay on current tab
     }
     setState(() => _navIndex = index);
   }
@@ -2074,6 +2081,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
 
     try {
       final invoiceVal = double.tryParse(_invoiceValueCtrl.text.trim());
+      final rrSession = ref.read(rrSessionProvider);
       final resp = await api.dio.post(
         '/api/loads/${widget.load.id}/fulfill',
         data: {
@@ -2090,6 +2098,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
           'weight_value': weightVal,
           'weight_unit': _weightUnit,
           if (invoiceVal != null) 'invoice_value': invoiceVal,
+          if (rrSession != null && rrSession.isValid) 'rr_token': rrSession.token,
         },
       );
 

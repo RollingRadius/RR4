@@ -177,7 +177,10 @@ async def rr_auth_login(
         logger.error(f"RR auth response missing token: {resp.text[:200]}")
         raise HTTPException(status_code=500, detail="RR auth response missing token")
 
-    return {"token": token}
+    user_record = data.get("user_record") or {}
+    rr_user_id = str(user_record.get("_id", "")) if user_record else ""
+
+    return {"token": token, "rr_user_id": rr_user_id}
 
 
 # ── Manual sync trigger ───────────────────────────────────────────────────────

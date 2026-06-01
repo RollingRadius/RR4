@@ -1,9 +1,8 @@
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:fleet_management/data/services/rr_sync_api.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
+import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 
 // ─── Typography helpers (local) ───────────────────────────────────────────────
 
@@ -267,14 +266,9 @@ class _ReadyTripTile extends ConsumerWidget {
   }
 
   Future<void> _onTap(BuildContext context, WidgetRef ref, String tripId) async {
-    final dio = ref.read(rrSyncApiProvider).dio;
-    final token = await showDialog<String?>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => _RrLoginDialog(dio: dio),
-    );
-    if (token == null) return;
-    ref.read(rrSyncProvider.notifier).syncTrip(tripId, token);
+    final session = await ensureRrSession(context, ref);
+    if (session == null) return;
+    ref.read(rrSyncProvider.notifier).syncTrip(tripId, session.token);
   }
 }
 
@@ -341,123 +335,6 @@ class _MissingTripTile extends StatelessWidget {
         ),
         isThreeLine: true,
       ),
-    );
-  }
-}
-
-// ─── RR Login Dialog ──────────────────────────────────────────────────────────
-
-class _RrLoginDialog extends StatefulWidget {
-  final Dio dio;
-  const _RrLoginDialog({required this.dio});
-
-  @override
-  State<_RrLoginDialog> createState() => _RrLoginDialogState();
-}
-
-class _RrLoginDialogState extends State<_RrLoginDialog> {
-  final _usernameCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
-  bool _loading = false;
-  bool _obscure = true;
-  String? _errorMsg;
-
-  @override
-  void dispose() {
-    _usernameCtrl.dispose();
-    _passwordCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    final username = _usernameCtrl.text.trim();
-    final password = _passwordCtrl.text;
-    if (username.isEmpty || password.isEmpty) {
-      setState(() => _errorMsg = 'Enter your RR username and password');
-      return;
-    }
-    setState(() { _loading = true; _errorMsg = null; });
-    try {
-      final resp = await widget.dio.post(
-        '/api/rr/auth/login',
-        data: {'username': username, 'password': password},
-      );
-      final token = (resp.data as Map<String, dynamic>)['token'] as String?;
-      if (token == null || token.isEmpty) {
-        setState(() { _errorMsg = 'Login failed — no token received'; _loading = false; });
-        return;
-      }
-      if (mounted) Navigator.of(context).pop(token);
-    } on DioException catch (e) {
-      final msg = (e.response?.data is Map)
-          ? (e.response!.data['detail'] ?? 'Login failed')
-          : 'Login failed';
-      setState(() { _errorMsg = msg.toString(); _loading = false; });
-    } catch (e) {
-      setState(() { _errorMsg = 'Unexpected error: $e'; _loading = false; });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Sign in to RR', style: _manrope(size: 16, weight: FontWeight.w800)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Enter your RollingRadius credentials to sync this trip.',
-              style: _inter(size: 13)),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _usernameCtrl,
-            decoration: InputDecoration(
-              labelText: 'Username / Phone',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            ),
-            keyboardType: TextInputType.text,
-            textInputAction: TextInputAction.next,
-            enabled: !_loading,
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _passwordCtrl,
-            obscureText: _obscure,
-            decoration: InputDecoration(
-              labelText: 'Password',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              suffixIcon: IconButton(
-                icon: Icon(_obscure ? Icons.visibility_off : Icons.visibility, size: 20),
-                onPressed: () => setState(() => _obscure = !_obscure),
-              ),
-            ),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) => _loading ? null : _submit(),
-            enabled: !_loading,
-          ),
-          if (_errorMsg != null) ...[
-            const SizedBox(height: 10),
-            Text(_errorMsg!, style: _inter(size: 12, color: const Color(0xFFBA1A1A))),
-          ],
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: _loading ? null : () => Navigator.of(context).pop(null),
-          child: Text('Cancel', style: _inter(size: 14, color: _secondary)),
-        ),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: _primary),
-          onPressed: _loading ? null : _submit,
-          child: _loading
-              ? const SizedBox(width: 18, height: 18,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-              : Text('Sign in', style: _manrope(size: 14, color: Colors.white)),
-        ),
-      ],
     );
   }
 }
