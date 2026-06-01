@@ -406,6 +406,7 @@ async def _create_rr_trip(
     transporter_rr_company_id: str | None = None,
     rr_ops_rr_id: str | None = None,
     consignee_rr_id: str | None = None,
+    vehicle_body_type: str | None = None,
 ) -> tuple[str | None, str | None, str | None]:
     """
     Create trip + parcel in RR using direct Eve endpoints.
@@ -439,6 +440,8 @@ async def _create_rr_trip(
         trip_payload["created_by_company"] = transporter_rr_company_id
     if trip.created_at:
         trip_payload["back_entry_date"] = trip.created_at.strftime("%Y-%m-%dT%H:%M:%S")
+    if vehicle_body_type:
+        trip_payload["body_type"] = vehicle_body_type
 
     try:
         trip_resp = await client.post(
@@ -762,9 +765,15 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                     ).first()
                     consignee_rr_id = c_org.rr_company_id if c_org else None
 
-                # Map RR4 weight units to RR's QuantityUnit enum values
+                # Map weight units to RR's QuantityUnit enum values.
+                # If value already matches RR format (e.g. "TONNES", "KILOGRAMS") pass through.
+                _rr_units = {"TONNES", "KILOGRAMS", "LITRES", "BOX", "CUBIC METERS"}
                 _unit_map = {"TONS": "TONNES", "KG": "KILOGRAMS", "QUINTAL": "TONNES"}
-                rr_weight_unit = _unit_map.get((trip.weight_unit or "").upper(), "TONNES")
+                raw_unit = (trip.weight_unit or "").strip()
+                if raw_unit.upper() in _rr_units:
+                    rr_weight_unit = raw_unit.upper()
+                else:
+                    rr_weight_unit = _unit_map.get(raw_unit.upper(), "TONNES")
 
                 rr_trip_id, rr_parcel_id, err = await _create_rr_trip(
                     trip=trip,
@@ -775,6 +784,7 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                     transporter_rr_company_id=transporter_rr_company_id,
                     rr_ops_rr_id=rr_ops_rr_id,
                     consignee_rr_id=consignee_rr_id,
+                    vehicle_body_type=trip.vehicle_body_type or None,
                 )
 
                 if err:

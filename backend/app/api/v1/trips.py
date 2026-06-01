@@ -76,6 +76,16 @@ def _get_role_key(user_org: UserOrganization, db: Session) -> str:
     return role.role_key if role else ''
 
 
+def _parse_uuid(value: Optional[str]):
+    """Return a UUID object from a string, or None if blank/invalid."""
+    if not value:
+        return None
+    try:
+        return _uuid_module.UUID(value)
+    except (ValueError, AttributeError):
+        return None
+
+
 def _generate_trip_number(db: Session) -> str:
     """Generate a unique RR-XXXXX trip number."""
     for _ in range(10):
@@ -110,6 +120,13 @@ class TripCreate(BaseModel):
     weight_value: Optional[float] = None
     weight_unit: Optional[str] = None
     invoice_value: Optional[float] = None
+    # RR party fields
+    consignor_rr_company_id: Optional[str] = None
+    consignee_rr_company_id: Optional[str] = None
+    rr_ops_user_id: Optional[str] = None
+    vehicle_body_type: Optional[str] = None
+    # If provided, immediately sync to RR (POST /trips + POST /parcels)
+    rr_token: Optional[str] = None
 
 
 class TripUpdate(BaseModel):
@@ -134,6 +151,11 @@ class TripUpdate(BaseModel):
     weight_value: Optional[float] = None
     weight_unit: Optional[str] = None
     invoice_value: Optional[float] = None
+    # RR party fields
+    consignor_rr_company_id: Optional[str] = None
+    consignee_rr_company_id: Optional[str] = None
+    rr_ops_user_id: Optional[str] = None
+    vehicle_body_type: Optional[str] = None
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -227,7 +249,7 @@ def get_trip(
 
 
 @router.post("/trips", status_code=201)
-def create_trip(
+async def create_trip(
     body: TripCreate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -267,10 +289,23 @@ def create_trip(
         weight_value=body.weight_value,
         weight_unit=body.weight_unit,
         invoice_value=body.invoice_value,
+        consignor_rr_company_id=body.consignor_rr_company_id or None,
+        consignee_rr_company_id=body.consignee_rr_company_id or None,
+        rr_ops_user_id=_parse_uuid(body.rr_ops_user_id),
+        vehicle_body_type=body.vehicle_body_type or None,
     )
     db.add(trip)
     db.commit()
     db.refresh(trip)
+
+    # If LP provided their RR token, immediately sync trip+parcel to RR
+    if body.rr_token:
+        from app.config import settings
+        if settings.RR_SYNC_ENABLED:
+            from app.services.rr_sync_service import sync_all_to_rr
+            await sync_all_to_rr(str(trip.id), body.rr_token)
+            db.refresh(trip)  # pick up rr_trip_id / rr_parcel_id written by sync
+
     return _enrich(trip, db)
 
 
@@ -296,7 +331,10 @@ def update_trip(
         raise HTTPException(status_code=404, detail="Trip not found")
 
     for field, value in body.model_dump(exclude_unset=True).items():
-        setattr(trip, field, value)
+        if field == 'rr_ops_user_id':
+            setattr(trip, field, _parse_uuid(value))
+        else:
+            setattr(trip, field, value)
 
     db.commit()
     db.refresh(trip)

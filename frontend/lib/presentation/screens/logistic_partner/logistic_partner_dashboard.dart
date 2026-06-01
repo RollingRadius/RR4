@@ -931,9 +931,13 @@ class _FleetStatusHeader extends ConsumerWidget {
         ),
         // New Trip button
         Builder(builder: (context) => GestureDetector(
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const CreateTripScreen()),
-          ),
+          onTap: () async {
+            final session = await ensureRrSession(context, ref);
+            if (session == null || !context.mounted) return;
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CreateTripScreen()),
+            );
+          },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
@@ -1028,9 +1032,13 @@ class _EmptyTrips extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const CreateTripScreen()),
-              ),
+              onPressed: () async {
+                final session = await ensureRrSession(context, ref);
+                if (session == null || !context.mounted) return;
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CreateTripScreen()),
+                );
+              },
               icon: const Icon(Icons.add_rounded, size: 16),
               label: Text('Create Trip',
                   style: _manrope(size: 13, weight: FontWeight.w700, color: Colors.white)),
@@ -1860,38 +1868,43 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   String? _selectedDriverId;
   String? _selectedTransporterId;
   String? _selectedTransporterName;
-  String? _selectedConsignorId;
-  String? _selectedConsignorName;
-  String? _selectedConsigneeId;
-  String? _selectedConsigneeName;
-  String? _selectedConsigneeType; // kept for legacy; value is 'rr_company'
-  String? _selectedRrOpsId;
-  String? _selectedRrOpsName;
-  String? _selectedRrOpsRrId;  // rr_company_id of the selected ops worker
-  final _amountController = TextEditingController();
-  final _consignorController = TextEditingController();
-  final _consigneeController = TextEditingController();
+  final _amountController      = TextEditingController();
   final _transporterController = TextEditingController();
-  final _rrOpsController = TextEditingController();
-  List<Map<String, dynamic>> _consignorResults = [];
-  List<Map<String, dynamic>> _consigneeResults = [];
-  List<Map<String, dynamic>> _transporterResults = [];
-  List<Map<String, dynamic>> _rrOpsResults = [];
-  bool _consignorSearchLoading = false;
-  bool _consigneeSearchLoading = false;
-  bool _transporterSearchLoading = false;
-  bool _rrOpsSearchLoading = false;
-  Timer? _consignorDebounce;
-  Timer? _consigneeDebounce;
+  List<Map<String, dynamic>> _transporterResults     = [];
+  bool _transporterSearchLoading                     = false;
   Timer? _transporterDebounce;
-  Timer? _rrOpsDebounce;
   bool _isLoading = false;
+  String? _transporterError;
   String? _consignorError;
   String? _consigneeError;
-  String? _transporterError;
   String? _rrOpsError;
   String? _amountError;
   String? _rrError;
+
+  // ── RR Parties ──────────────────────────────────────────────────────────────
+  List<Map<String, dynamic>> _partners            = [];
+  bool _partnersLoading                           = false;
+
+  // Consignor
+  Map<String, dynamic>? _consignorPartner;
+  List<Map<String, dynamic>> _consignorCompanies  = [];
+  bool _consignorCompaniesLoading                 = false;
+  String? _selectedConsignorId;    // rr_company_id
+  String? _selectedConsignorName;
+
+  // Consignee
+  Map<String, dynamic>? _consigneePartner;
+  List<Map<String, dynamic>> _consigneeCompanies  = [];
+  bool _consigneeCompaniesLoading                 = false;
+  String? _selectedConsigneeId;    // rr_company_id
+  String? _selectedConsigneeName;
+
+  // Ops worker (from RR company-workers)
+  List<Map<String, dynamic>> _opsWorkers          = [];
+  bool _opsWorkersLoading                         = false;
+  String? _selectedRrOpsId;        // rr_user_id from RR (used as dropdown key)
+  String? _selectedRrOpsLocalId;   // local_user_id (UUID) sent to fulfill endpoint
+  String? _selectedRrOpsName;
 
   // ── RR Sync fields ──────────────────────────────────────────────────────────
   final _pickupCityCtrl  = TextEditingController();
@@ -1913,7 +1926,10 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   Timer? _materialDebounce;
 
   final _weightCtrl       = TextEditingController();
-  String _weightUnit      = 'TONS';
+  String _weightUnit      = 'TONNES';  // RR-native default
+  List<String> _quantityUnits    = const ['TONNES', 'KILOGRAMS', 'LITRES', 'BOX', 'CUBIC METERS'];
+  List<String> _vehicleBodyTypes = const [];
+  String? _vehicleBodyType;
   final _invoiceValueCtrl = TextEditingController();
 
   @override
@@ -1937,20 +1953,15 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
         _rrMaterialCtrl.text = load.materialType!;
         _searchMaterial(load.materialType!);
       }
+      _loadRrPartyData();
     });
   }
 
   @override
   void dispose() {
     _amountController.dispose();
-    _consignorController.dispose();
-    _consigneeController.dispose();
     _transporterController.dispose();
-    _rrOpsController.dispose();
-    _consignorDebounce?.cancel();
-    _consigneeDebounce?.cancel();
     _transporterDebounce?.cancel();
-    _rrOpsDebounce?.cancel();
     _pickupCityCtrl.dispose();
     _dropCityCtrl.dispose();
     _rrMaterialCtrl.dispose();
@@ -1960,6 +1971,79 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     _dropCityDebounce?.cancel();
     _materialDebounce?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadRrPartyData() async {
+    // Ensure a valid RR session — re-login if token expired since Loads tab was opened
+    final session = await ensureRrSession(context, ref);
+    if (session == null) {
+      if (mounted) setState(() { _partnersLoading = false; _opsWorkersLoading = false; });
+      return;
+    }
+    final token = session.token;
+    setState(() { _partnersLoading = true; _opsWorkersLoading = true; });
+    final api = ref.read(apiServiceProvider).dio;
+    await Future.wait([
+      api.get('/api/rr/preferred-partners', queryParameters: {'rr_token': token})
+          .then((r) {
+            if (mounted) setState(() {
+              _partners = (r.data['partners'] as List? ?? []).cast<Map<String, dynamic>>();
+              _partnersLoading = false;
+            });
+          }).catchError((_) { if (mounted) setState(() => _partnersLoading = false); }),
+      api.get('/api/rr/company-workers', queryParameters: {'rr_token': token})
+          .then((r) {
+            if (mounted) setState(() {
+              _opsWorkers = (r.data['workers'] as List? ?? []).cast<Map<String, dynamic>>();
+              _opsWorkersLoading = false;
+            });
+          }).catchError((_) { if (mounted) setState(() => _opsWorkersLoading = false); }),
+      api.get('/api/rr/enums', queryParameters: {'name': 'QuantityUnit'})
+          .then((r) {
+            if (mounted) setState(() {
+              final vals = (r.data['values'] as List? ?? []).cast<String>();
+              if (vals.isNotEmpty) {
+                _quantityUnits = vals;
+                if (!_quantityUnits.contains(_weightUnit)) _weightUnit = _quantityUnits.first;
+              }
+            });
+          }).catchError((_) {}),
+      api.get('/api/rr/enums', queryParameters: {'name': 'VehicleBodyTypes'})
+          .then((r) {
+            if (mounted) setState(() {
+              _vehicleBodyTypes = (r.data['values'] as List? ?? []).cast<String>();
+            });
+          }).catchError((_) {}),
+    ]);
+  }
+
+  Future<void> _loadPartnerCompanies(Map<String, dynamic> partner, {required bool isConsignor}) async {
+    final rrUserId = partner['rr_user_id'] as String?;
+    if (rrUserId == null) {
+      final companyId = partner['rr_company_id'] as String?;
+      final name = partner['name'] as String? ?? '';
+      if (isConsignor) setState(() { _selectedConsignorId = companyId; _selectedConsignorName = name; _consignorCompanies = []; });
+      else             setState(() { _selectedConsigneeId = companyId; _selectedConsigneeName = name; _consigneeCompanies = []; });
+      return;
+    }
+    if (isConsignor) setState(() => _consignorCompaniesLoading = true);
+    else             setState(() => _consigneeCompaniesLoading = true);
+    try {
+      final session = ref.read(rrSessionProvider);
+      final token = (session != null && session.isValid) ? session.token : '';
+      final resp = await ref.read(apiServiceProvider).dio.get(
+        '/api/rr/partner-companies',
+        queryParameters: {'user_id': rrUserId, 'rr_token': token},
+      );
+      final companies = (resp.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      if (isConsignor) setState(() { _consignorCompanies = companies; _consignorCompaniesLoading = false; });
+      else             setState(() { _consigneeCompanies = companies; _consigneeCompaniesLoading = false; });
+    } catch (_) {
+      if (!mounted) return;
+      if (isConsignor) setState(() => _consignorCompaniesLoading = false);
+      else             setState(() => _consigneeCompaniesLoading = false);
+    }
   }
 
   Future<void> _searchCity(String q, {required bool isPickup}) async {
@@ -1998,33 +2082,6 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     }
   }
 
-  Future<void> _searchConsignors(String q) async {
-    if (q.length < 2) { setState(() => _consignorResults = []); return; }
-    setState(() => _consignorSearchLoading = true);
-    try {
-      final rrToken = ref.read(rrSessionProvider)?.token ?? '';
-      final resp = await ref.read(apiServiceProvider).dio.get(
-        '/api/rr/consignees', queryParameters: {'q': q, 'rr_token': rrToken});
-      final list = (resp.data['consignees'] as List).cast<Map<String, dynamic>>();
-      if (mounted) setState(() { _consignorResults = list; _consignorSearchLoading = false; });
-    } catch (_) {
-      if (mounted) setState(() { _consignorResults = []; _consignorSearchLoading = false; });
-    }
-  }
-
-  Future<void> _searchConsignees(String q) async {
-    if (q.length < 2) { setState(() => _consigneeResults = []); return; }
-    setState(() => _consigneeSearchLoading = true);
-    try {
-      final rrToken = ref.read(rrSessionProvider)?.token ?? '';
-      final resp = await ref.read(apiServiceProvider).dio.get(
-        '/api/rr/consignees', queryParameters: {'q': q, 'rr_token': rrToken});
-      final list = (resp.data['consignees'] as List).cast<Map<String, dynamic>>();
-      if (mounted) setState(() { _consigneeResults = list; _consigneeSearchLoading = false; });
-    } catch (_) {
-      if (mounted) setState(() { _consigneeResults = []; _consigneeSearchLoading = false; });
-    }
-  }
 
   Future<void> _searchTransporters(String q) async {
     if (q.length < 2) {
@@ -2042,21 +2099,6 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       if (mounted) setState(() { _transporterResults = list; _transporterSearchLoading = false; });
     } catch (_) {
       if (mounted) setState(() { _transporterResults = []; _transporterSearchLoading = false; });
-    }
-  }
-
-  Future<void> _searchRrOps(String q) async {
-    setState(() => _rrOpsSearchLoading = true);
-    try {
-      final api = ref.read(apiServiceProvider);
-      final resp = await api.dio.get(
-        '/api/rr/ops-workers',
-        queryParameters: q.isNotEmpty ? {'q': q} : null,
-      );
-      final list = (resp.data['workers'] as List).cast<Map<String, dynamic>>();
-      if (mounted) setState(() { _rrOpsResults = list; _rrOpsSearchLoading = false; });
-    } catch (_) {
-      if (mounted) setState(() { _rrOpsResults = []; _rrOpsSearchLoading = false; });
     }
   }
 
@@ -2080,6 +2122,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     if (_selectedConsigneeId == null) cErr = 'Please select a consignee (load receiver)';
     if (_selectedTransporterId == null) tErr = 'Please select a transporter';
     if (_selectedRrOpsId == null) opsErr = 'Please select an RR Ops worker';
+    if (_selectedRrOpsId != null && _selectedRrOpsLocalId == null) opsErr = 'Selected worker is not registered in RR4 — ask them to log in first';
     if (amountText.isEmpty) {
       aErr = 'Please enter the trip amount';
     } else if (amount == null || amount <= 0) {
@@ -2104,9 +2147,12 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
 
     final api = ref.read(apiServiceProvider);
 
+    // Ensure valid RR session just before submit — token may have expired while form was filled
+    final rrSession = await ensureRrSession(context, ref);
+    if (!mounted) return;
+
     try {
       final invoiceVal = double.tryParse(_invoiceValueCtrl.text.trim());
-      final rrSession = ref.read(rrSessionProvider);
       final resp = await api.dio.post(
         '/api/loads/${widget.load.id}/fulfill',
         data: {
@@ -2115,7 +2161,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
           if (amount != null) 'trip_amount': amount,
           if (_selectedConsignorId != null) 'consignor_rr_company_id': _selectedConsignorId,
           if (_selectedConsigneeId != null) 'consignee_rr_company_id': _selectedConsigneeId,
-          if (_selectedRrOpsId != null) 'rr_ops_user_id': _selectedRrOpsId,
+          if (_selectedRrOpsLocalId != null) 'rr_ops_user_id': _selectedRrOpsLocalId,
           if (_selectedTransporterId != null) 'transporter_user_id': _selectedTransporterId,
           'origin_rr_city_id': _pickupCityId,
           'destination_rr_city_id': _dropCityId,
@@ -2123,6 +2169,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
           'weight_value': weightVal,
           'weight_unit': _weightUnit,
           if (invoiceVal != null) 'invoice_value': invoiceVal,
+          if (_vehicleBodyType != null) 'vehicle_body_type': _vehicleBodyType,
           if (rrSession != null && rrSession.isValid) 'rr_token': rrSession.token,
         },
       );
@@ -2133,6 +2180,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       ref.read(tripProvider.notifier).patchTrip(trip);
 
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       final trips = ref.read(tripProvider.notifier);
       final nav = Navigator.of(context);
       nav.pop();
@@ -2141,6 +2189,21 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       ).then((_) {
         trips.loadTrips(statusFilter: 'ongoing,pending');
       });
+
+      final rrNum = trip.rrTripNumber;
+      if (rrNum != null && rrNum.isNotEmpty) {
+        messenger.showSnackBar(SnackBar(
+          content: Text('Synced to RR web — Trip $rrNum'),
+          backgroundColor: const Color(0xFF006B5E),
+          duration: const Duration(seconds: 4),
+        ));
+      } else if (trip.rrSyncStatus == 'failed') {
+        messenger.showSnackBar(SnackBar(
+          content: Text('Trip created. RR sync failed: ${trip.rrSyncError ?? 'unknown error'}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 6),
+        ));
+      }
     } on DioException catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -2225,110 +2288,56 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 Text(' *', style: _inter(size: 12, weight: FontWeight.w700, color: Colors.red)),
               ]),
               const SizedBox(height: 8),
-              if (_selectedConsignorId != null) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3E0),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFF6B00).withOpacity(0.4)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.business_outlined, size: 18, color: _primary),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _selectedConsignorName ?? 'Consignor selected',
-                          style: _inter(size: 13, weight: FontWeight.w600, color: _primary),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() {
-                          _selectedConsignorId   = null;
-                          _selectedConsignorName = null;
-                          _consignorResults      = [];
-                          _consignorController.clear();
-                        }),
-                        child: const Icon(Icons.close, size: 18, color: _primary),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                TextField(
-                  controller: _consignorController,
-                  decoration: InputDecoration(
-                    hintText: 'Search sender company',
-                    hintStyle: _inter(size: 13, color: _secondary),
-                    prefixIcon: _consignorSearchLoading
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: SizedBox(width: 16, height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2)),
-                          )
-                        : const Icon(Icons.business_outlined, size: 18),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
-                    filled: true,
-                    fillColor: _surfaceContainerLow,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: _surfaceContainer)),
-                    enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: _surfaceContainer)),
-                    focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: _primary, width: 1.5)),
-                  ),
-                  onTap: null,
-                  onChanged: (val) {
-                    _consignorDebounce?.cancel();
-                    _consignorDebounce = Timer(
-                      const Duration(milliseconds: 400),
-                      () => _searchConsignors(val.trim()),
-                    );
+              if (_partnersLoading)
+                const _PartyLoadingRow()
+              else if (_selectedConsignorId != null)
+                _PartySelectedChip(
+                  icon: Icons.business_outlined,
+                  name: _selectedConsignorName ?? 'Consignor selected',
+                  color: _primary,
+                  bg: const Color(0xFFFFF3E0),
+                  onClear: () => setState(() {
+                    _selectedConsignorId    = null;
+                    _selectedConsignorName  = null;
+                    _consignorPartner       = null;
+                    _consignorCompanies     = [];
+                  }),
+                )
+              else ...[
+                _PartyDropdown<Map<String, dynamic>>(
+                  hint: 'Select consignor partner',
+                  icon: Icons.handshake_outlined,
+                  value: _consignorPartner,
+                  items: _partners,
+                  label: (p) => p['name'] as String? ?? '—',
+                  onChanged: (p) {
+                    setState(() {
+                      _consignorPartner   = p;
+                      _consignorCompanies = [];
+                      _selectedConsignorId   = null;
+                      _selectedConsignorName = null;
+                    });
+                    if (p != null) _loadPartnerCompanies(p, isConsignor: true);
                   },
                 ),
-                if (_consignorResults.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _surfaceContainer),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 2))],
+                if (_consignorPartner != null) ...[
+                  const SizedBox(height: 8),
+                  if (_consignorCompaniesLoading)
+                    const _PartyLoadingRow()
+                  else
+                    _PartyDropdown<Map<String, dynamic>>(
+                      hint: 'Select company',
+                      icon: Icons.business_outlined,
+                      value: _consignorCompanies.cast<Map<String,dynamic>?>()
+                          .firstWhere((c) => c?['rr_company_id'] == _selectedConsignorId, orElse: () => null),
+                      items: _consignorCompanies,
+                      label: (c) => c['name'] as String? ?? '—',
+                      onChanged: (c) => setState(() {
+                        _selectedConsignorId   = c?['rr_company_id'] as String?;
+                        _selectedConsignorName = c?['name'] as String?;
+                        _consignorError        = null;
+                      }),
                     ),
-                    child: Column(
-                      children: _consignorResults.map((c) {
-                        final name = c['name'] as String? ?? '—';
-                        return InkWell(
-                          onTap: () => setState(() {
-                            _selectedConsignorId   = c['rr_company_id'] as String?;
-                            _selectedConsignorName = name;
-                            _consignorResults      = [];
-                            _consignorController.clear();
-                            _consignorError        = null;
-                          }),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.business_outlined, size: 16, color: _primary),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(name,
-                                      style: _inter(size: 13, weight: FontWeight.w600,
-                                          color: const Color(0xFF191C1E))),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
                 ],
               ],
               if (_consignorError != null) ...[
@@ -2344,130 +2353,56 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 Text(' *', style: _inter(size: 12, weight: FontWeight.w700, color: Colors.red)),
               ]),
               const SizedBox(height: 8),
-              if (_selectedConsigneeId != null) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE0F2F1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF00796B).withOpacity(0.4)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.move_to_inbox_outlined, size: 18,
-                          color: Color(0xFF00796B)),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          _selectedConsigneeName ?? 'Consignee selected',
-                          style: _inter(size: 13, weight: FontWeight.w600,
-                              color: const Color(0xFF00796B)),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() {
-                          _selectedConsigneeId   = null;
-                          _selectedConsigneeName = null;
-                          _selectedConsigneeType = null;
-                          _consigneeResults      = [];
-                          _consigneeController.clear();
-                        }),
-                        child: const Icon(Icons.close, size: 18,
-                            color: Color(0xFF00796B)),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                TextField(
-                  controller: _consigneeController,
-                  decoration: InputDecoration(
-                    hintText: 'Search load receiver',
-                    hintStyle: _inter(size: 13, color: _secondary),
-                    prefixIcon: _consigneeSearchLoading
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: SizedBox(
-                                width: 16, height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2)),
-                          )
-                        : const Icon(Icons.move_to_inbox_outlined, size: 18),
-                    contentPadding:
-                        const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
-                    filled: true,
-                    fillColor: _surfaceContainerLow,
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: _surfaceContainer)),
-                    enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: _surfaceContainer)),
-                    focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                            color: Color(0xFF00796B), width: 1.5)),
-                  ),
-                  onTap: null,
-                  onChanged: (val) {
-                    _consigneeDebounce?.cancel();
-                    _consigneeDebounce = Timer(
-                      const Duration(milliseconds: 400),
-                      () => _searchConsignees(val.trim()),
-                    );
+              if (_partnersLoading)
+                const _PartyLoadingRow()
+              else if (_selectedConsigneeId != null)
+                _PartySelectedChip(
+                  icon: Icons.move_to_inbox_outlined,
+                  name: _selectedConsigneeName ?? 'Consignee selected',
+                  color: const Color(0xFF00796B),
+                  bg: const Color(0xFFE0F2F1),
+                  onClear: () => setState(() {
+                    _selectedConsigneeId    = null;
+                    _selectedConsigneeName  = null;
+                    _consigneePartner       = null;
+                    _consigneeCompanies     = [];
+                  }),
+                )
+              else ...[
+                _PartyDropdown<Map<String, dynamic>>(
+                  hint: 'Select consignee partner',
+                  icon: Icons.handshake_outlined,
+                  value: _consigneePartner,
+                  items: _partners,
+                  label: (p) => p['name'] as String? ?? '—',
+                  onChanged: (p) {
+                    setState(() {
+                      _consigneePartner   = p;
+                      _consigneeCompanies = [];
+                      _selectedConsigneeId   = null;
+                      _selectedConsigneeName = null;
+                    });
+                    if (p != null) _loadPartnerCompanies(p, isConsignor: false);
                   },
                 ),
-                if (_consigneeResults.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _surfaceContainer),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
+                if (_consigneePartner != null) ...[
+                  const SizedBox(height: 8),
+                  if (_consigneeCompaniesLoading)
+                    const _PartyLoadingRow()
+                  else
+                    _PartyDropdown<Map<String, dynamic>>(
+                      hint: 'Select company',
+                      icon: Icons.business_outlined,
+                      value: _consigneeCompanies.cast<Map<String,dynamic>?>()
+                          .firstWhere((c) => c?['rr_company_id'] == _selectedConsigneeId, orElse: () => null),
+                      items: _consigneeCompanies,
+                      label: (c) => c['name'] as String? ?? '—',
+                      onChanged: (c) => setState(() {
+                        _selectedConsigneeId   = c?['rr_company_id'] as String?;
+                        _selectedConsigneeName = c?['name'] as String?;
+                        _consigneeError        = null;
+                      }),
                     ),
-                    child: Column(
-                      children: _consigneeResults.map((c) {
-                        final name = c['name'] as String? ?? '—';
-                        return InkWell(
-                          onTap: () => setState(() {
-                            _selectedConsigneeId   = c['rr_company_id'] as String?;
-                            _selectedConsigneeName = name;
-                            _selectedConsigneeType = 'rr_company';
-                            _consigneeResults      = [];
-                            _consigneeController.clear();
-                            _consigneeError        = null;
-                          }),
-                          borderRadius: BorderRadius.circular(12),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 12),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.business_outlined,
-                                  size: 16,
-                                  color: Color(0xFF00796B),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Text(name,
-                                      style: _inter(
-                                          size: 13,
-                                          weight: FontWeight.w600,
-                                          color: const Color(0xFF191C1E))),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
                 ],
               ],
               if (_consigneeError != null) ...[
@@ -2475,8 +2410,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 Row(children: [
                   const Icon(Icons.error_outline, size: 13, color: Colors.red),
                   const SizedBox(width: 4),
-                  Text(_consigneeError!,
-                      style: _inter(size: 11, color: Colors.red)),
+                  Text(_consigneeError!, style: _inter(size: 11, color: Colors.red)),
                 ]),
               ],
               const SizedBox(height: 20),
@@ -2590,10 +2524,10 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
-                      value: _weightUnit,
+                      value: _quantityUnits.contains(_weightUnit) ? _weightUnit : _quantityUnits.first,
                       style: _inter(size: 13, color: const Color(0xFF191C1E)),
                       icon: const Icon(Icons.expand_more_rounded, size: 18),
-                      items: ['KG', 'TONS', 'QUINTAL'].map((u) =>
+                      items: _quantityUnits.map((u) =>
                           DropdownMenuItem(value: u, child: Text(u))).toList(),
                       onChanged: (v) { if (v != null) setState(() => _weightUnit = v); },
                     ),
@@ -2610,6 +2544,46 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 hint: 'e.g. 150000',
                 inputType: TextInputType.number,
               ),
+              const SizedBox(height: 12),
+
+              // Vehicle body type
+              Text('Vehicle Body Type', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _vehicleBodyTypes.isEmpty
+                  ? Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _surfaceContainer),
+                      ),
+                      child: Row(children: [
+                        const SizedBox(width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2)),
+                        const SizedBox(width: 8),
+                        Text('Loading…', style: _inter(size: 13)),
+                      ]),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: _surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _surfaceContainer),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _vehicleBodyType,
+                          hint: Text('Select body type', style: _inter(size: 13)),
+                          isExpanded: true,
+                          style: _inter(size: 13, color: const Color(0xFF191C1E)),
+                          icon: const Icon(Icons.expand_more_rounded, size: 18),
+                          items: _vehicleBodyTypes.map((t) =>
+                              DropdownMenuItem(value: t, child: Text(t))).toList(),
+                          onChanged: (v) => setState(() => _vehicleBodyType = v),
+                        ),
+                      ),
+                    ),
               if (_rrError != null) ...[
                 const SizedBox(height: 8),
                 Row(children: [
@@ -2712,163 +2686,42 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 Text(' *', style: _inter(size: 12, weight: FontWeight.w700, color: Colors.red)),
               ]),
               const SizedBox(height: 8),
-              if (_selectedRrOpsId != null) ...[
+              if (_opsWorkersLoading)
+                const _PartyLoadingRow()
+              else if (_opsWorkers.isEmpty)
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE3F2FD),
+                    color: _surfaceContainerLow,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF1B6CA8).withOpacity(0.4)),
+                    border: Border.all(color: _surfaceContainer),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.sync_alt, size: 18, color: Color(0xFF1B6CA8)),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              _selectedRrOpsName ?? 'RR Ops selected',
-                              style: _inter(size: 13, weight: FontWeight.w600,
-                                  color: const Color(0xFF1B6CA8)),
-                            ),
-                            if (_selectedRrOpsRrId != null && _selectedRrOpsRrId!.isNotEmpty)
-                              Text(
-                                'RR ID: $_selectedRrOpsRrId',
-                                style: _inter(size: 11, color: const Color(0xFF1B6CA8)),
-                              )
-                            else
-                              Text(
-                                'No RR ID set',
-                                style: _inter(size: 11, color: Colors.red),
-                              ),
-                          ],
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() {
-                          _selectedRrOpsId   = null;
-                          _selectedRrOpsName = null;
-                          _selectedRrOpsRrId = null;
-                          _rrOpsResults      = [];
-                          _rrOpsController.clear();
-                        }),
-                        child: const Icon(Icons.close, size: 18, color: Color(0xFF1B6CA8)),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else ...[
-                GestureDetector(
-                  onTap: () {
-                    _searchRrOps('');
+                  child: Row(children: [
+                    Icon(Icons.info_outline, size: 15, color: _secondary),
+                    const SizedBox(width: 8),
+                    Text('No RR Ops workers found for your company',
+                        style: _inter(size: 12, color: _secondary)),
+                  ]),
+                )
+              else
+                _PartyDropdown<Map<String, dynamic>>(
+                  hint: 'Select RR Ops worker',
+                  icon: Icons.sync_alt,
+                  value: _opsWorkers.cast<Map<String,dynamic>?>()
+                      .firstWhere((w) => w?['rr_user_id'] == _selectedRrOpsId, orElse: () => null),
+                  items: _opsWorkers,
+                  label: (w) {
+                    final name = w['name'] as String? ?? '—';
+                    final phone = w['phone'] as String? ?? '';
+                    return phone.isNotEmpty ? '$name · $phone' : name;
                   },
-                  child: TextField(
-                    controller: _rrOpsController,
-                    decoration: InputDecoration(
-                      hintText: 'Search RR Ops worker',
-                      hintStyle: _inter(size: 13, color: _secondary),
-                      prefixIcon: _rrOpsSearchLoading
-                          ? const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: SizedBox(
-                                width: 16, height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            )
-                          : const Icon(Icons.sync_alt, size: 18),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
-                      filled: true,
-                      fillColor: _surfaceContainerLow,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: _surfaceContainer),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: _surfaceContainer),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF1B6CA8), width: 1.5),
-                      ),
-                    ),
-                    onTap: () => _searchRrOps(''),
-                    onChanged: (val) {
-                      _rrOpsDebounce?.cancel();
-                      _rrOpsDebounce = Timer(
-                        const Duration(milliseconds: 400),
-                        () => _searchRrOps(val.trim()),
-                      );
-                    },
-                  ),
+                  onChanged: (w) => setState(() {
+                    _selectedRrOpsId      = w?['rr_user_id'] as String?;
+                    _selectedRrOpsLocalId = w?['local_user_id'] as String?;
+                    _selectedRrOpsName    = w?['name'] as String?;
+                    _rrOpsError           = null;
+                  }),
                 ),
-                if (_rrOpsResults.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _surfaceContainer),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: _rrOpsResults.isEmpty
-                          ? [
-                              Padding(
-                                padding: const EdgeInsets.all(14),
-                                child: Text('No RR Operations workers found',
-                                    style: _inter(size: 12, color: _secondary)),
-                              ),
-                            ]
-                          : _rrOpsResults.map((w) {
-                              final name  = w['full_name'] as String? ?? '—';
-                              final phone = w['phone'] as String? ?? '';
-                              return InkWell(
-                                onTap: () => setState(() {
-                                  _selectedRrOpsId    = w['user_id'] as String?;
-                                  _selectedRrOpsName  = name;
-                                  _selectedRrOpsRrId  = w['rr_company_id'] as String?;
-                                  _rrOpsResults       = [];
-                                  _rrOpsController.clear();
-                                }),
-                                borderRadius: BorderRadius.circular(12),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.sync_alt, size: 16,
-                                          color: Color(0xFF1B6CA8)),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(name,
-                                                style: _inter(size: 13, weight: FontWeight.w600,
-                                                    color: const Color(0xFF191C1E))),
-                                            if (phone.isNotEmpty)
-                                              Text(phone,
-                                                  style: _inter(size: 11, color: _secondary)),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                    ),
-                  ),
-                ],
-              ],
               if (_rrOpsError != null) ...[
                 const SizedBox(height: 6),
                 Row(children: [
@@ -3110,6 +2963,98 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       ),
     );
   }
+}
+
+// ── Party picker helpers ──────────────────────────────────────────────────────
+
+class _PartyLoadingRow extends StatelessWidget {
+  const _PartyLoadingRow();
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: _surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _surfaceContainer),
+        ),
+        child: const Row(children: [
+          SizedBox(width: 16, height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 10),
+          Text('Loading…', style: TextStyle(fontSize: 13, color: _secondary)),
+        ]),
+      );
+}
+
+class _PartySelectedChip extends StatelessWidget {
+  final IconData icon;
+  final String name;
+  final Color color;
+  final Color bg;
+  final VoidCallback onClear;
+  const _PartySelectedChip({
+    required this.icon, required this.name, required this.color,
+    required this.bg, required this.onClear,
+  });
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(child: Text(name,
+              style: _inter(size: 13, weight: FontWeight.w600, color: color))),
+          GestureDetector(
+            onTap: onClear,
+            child: Icon(Icons.close, size: 18, color: color),
+          ),
+        ]),
+      );
+}
+
+class _PartyDropdown<T> extends StatelessWidget {
+  final String hint;
+  final IconData icon;
+  final T? value;
+  final List<T> items;
+  final String Function(T) label;
+  final ValueChanged<T?> onChanged;
+  const _PartyDropdown({
+    required this.hint, required this.icon, required this.value,
+    required this.items, required this.label, required this.onChanged,
+  });
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: _surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _surfaceContainer),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<T>(
+            value: value,
+            isExpanded: true,
+            hint: Row(children: [
+              Icon(icon, size: 16, color: _secondary),
+              const SizedBox(width: 8),
+              Text(hint, style: _inter(size: 13, color: _secondary)),
+            ]),
+            style: _inter(size: 13, color: const Color(0xFF191C1E)),
+            icon: const Icon(Icons.expand_more_rounded, size: 18),
+            items: items.map((item) => DropdownMenuItem<T>(
+              value: item,
+              child: Text(label(item), overflow: TextOverflow.ellipsis),
+            )).toList(),
+            onChanged: onChanged,
+          ),
+        ),
+      );
 }
 
 // ── Fulfill sheet helpers ─────────────────────────────────────────────────────

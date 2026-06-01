@@ -398,6 +398,7 @@ class FulfillPayload(BaseModel):
     weight_value:            Optional[float] = None
     weight_unit:             Optional[str]   = None
     invoice_value:           Optional[float] = None
+    vehicle_body_type:       Optional[str]   = None
     # LP's RR session token — if provided, trip+parcel are created in RR immediately
     rr_token:                Optional[str]   = None
 
@@ -711,6 +712,7 @@ async def fulfill_load_requirement(
         weight_value=payload.weight_value,
         weight_unit=payload.weight_unit,
         invoice_value=payload.invoice_value,
+        vehicle_body_type=payload.vehicle_body_type or None,
     )
     if hasattr(Trip, 'load_requirement_id'):
         trip_kwargs['load_requirement_id'] = load.id

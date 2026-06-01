@@ -154,8 +154,9 @@ class Trip(Base):
     material_rr_id = Column(String(24), nullable=True)
 
     # Structured weight (old free-text `weight` column kept for compatibility)
-    weight_value = Column(Numeric(10, 3), nullable=True)
-    weight_unit  = Column(String(10),     nullable=True)   # KG | TONS | QUINTAL
+    weight_value      = Column(Numeric(10, 3), nullable=True)
+    weight_unit       = Column(String(20),     nullable=True)   # RR-native: TONNES | KILOGRAMS | LITRES | BOX | CUBIC METERS
+    vehicle_body_type = Column(String(50),     nullable=True)   # RR VehicleBodyTypes enum value
 
     # Required by RR, not yet in RR4 form (short-term: defaults to trip_amount)
     invoice_value = Column(Numeric(12, 2), nullable=True)
@@ -286,4 +287,25 @@ class Trip(Base):
             "field_attributions": self.field_attributions,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            # RR sync state
+            "rr_trip_id":     self.rr_trip_id,
+            "rr_trip_number": self.rr_trip_number,
+            "rr_parcel_id":   self.rr_parcel_id,
+            "rr_sync_status": self.rr_sync_status,
+            "rr_sync_error":  self.rr_sync_error,
+            "rr_synced_at":   self.rr_synced_at.isoformat() if self.rr_synced_at else None,
+            # RR party fields
+            "consignor_rr_company_id": self.consignor_rr_company_id,
+            "consignee_rr_company_id": self.consignee_rr_company_id,
+            "rr_ops_user_id": str(self.rr_ops_user_id) if self.rr_ops_user_id else None,
+            # RR route/cargo fields
+            "origin_rr_city_id":      self.origin_rr_city_id,
+            "destination_rr_city_id": self.destination_rr_city_id,
+            "material_rr_id":         self.material_rr_id,
+            "weight_value":           float(self.weight_value) if self.weight_value is not None else None,
+            "weight_unit":            self.weight_unit,
+            "vehicle_body_type":      self.vehicle_body_type,
+            "invoice_value":          float(self.invoice_value) if self.invoice_value is not None else None,
+            "consignee_org_id":       str(self.consignee_org_id) if self.consignee_org_id else None,
+            "consignee_user_id":      str(self.consignee_user_id) if self.consignee_user_id else None,
         }

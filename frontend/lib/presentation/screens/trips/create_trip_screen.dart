@@ -7,6 +7,8 @@ import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
 import 'package:fleet_management/providers/driver_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/rr_session_provider.dart';
+import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
 
 // ─── Typography & Colours (mirrors TripStagesScreen palette) ─────────────────
@@ -68,7 +70,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   // ── Cargo ────────────────────────────────────────────────────────────────────
   final _weightCtrl        = TextEditingController();
-  String _weightUnit       = 'TONS';
+  String _weightUnit       = 'TONNES';  // RR-native default
+  List<String> _quantityUnits    = const ['TONNES', 'KILOGRAMS', 'LITRES', 'BOX', 'CUBIC METERS'];
+  List<String> _vehicleBodyTypes = const [];
+  String? _vehicleBodyType;
   final _invoiceValueCtrl  = TextEditingController();
   final _freightAmountCtrl = TextEditingController();
 
@@ -80,6 +85,31 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   String? _selectedVehicleId;
   String? _selectedDriverId;
 
+  // ── Parties (RR) ─────────────────────────────────────────────────────────────
+  List<Map<String, dynamic>> _partners       = [];
+  bool _partnersLoading                      = false;
+
+  // Consignor
+  Map<String, dynamic>? _consignorPartner;
+  List<Map<String, dynamic>> _consignorCompanies = [];
+  bool _consignorCompaniesLoading            = false;
+  String? _consignorRrCompanyId;
+  String? _consignorCompanyName;
+
+  // Consignee
+  Map<String, dynamic>? _consigneePartner;
+  List<Map<String, dynamic>> _consigneeCompanies = [];
+  bool _consigneeCompaniesLoading            = false;
+  String? _consigneeRrCompanyId;
+  String? _consigneeCompanyName;
+
+  // Ops worker
+  List<Map<String, dynamic>> _opsWorkers     = [];
+  bool _opsWorkersLoading                    = false;
+  String? _selectedOpsWorkerId;      // rr_user_id (dropdown key)
+  String? _selectedOpsWorkerLocalId; // local_user_id (UUID) sent to backend
+  String? _selectedOpsWorkerName;
+
   // ── State ────────────────────────────────────────────────────────────────────
   bool _submitting = false;
   String? _submitError;
@@ -90,7 +120,95 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(vehicleProvider.notifier).loadVehicles();
       ref.read(driverProvider.notifier).loadDrivers();
+      _loadRrPartyData();
     });
+  }
+
+  Future<void> _loadRrPartyData() async {
+    // Ensure a valid RR session — re-login silently if token expired
+    final session = await ensureRrSession(context, ref);
+    if (session == null) {
+      // User cancelled login; leave dropdowns empty
+      if (mounted) setState(() { _partnersLoading = false; _opsWorkersLoading = false; });
+      return;
+    }
+    final token = session.token;
+    setState(() { _partnersLoading = true; _opsWorkersLoading = true; });
+    final dio = ref.read(dioProvider);
+    await Future.wait([
+      dio.get('/api/rr/preferred-partners', queryParameters: {'rr_token': token})
+          .then((r) {
+            if (mounted) setState(() {
+              _partners = (r.data['partners'] as List? ?? []).cast<Map<String, dynamic>>();
+              _partnersLoading = false;
+            });
+          }).catchError((_) { if (mounted) setState(() => _partnersLoading = false); }),
+      dio.get('/api/rr/company-workers', queryParameters: {'rr_token': token})
+          .then((r) {
+            if (mounted) setState(() {
+              _opsWorkers = (r.data['workers'] as List? ?? []).cast<Map<String, dynamic>>();
+              _opsWorkersLoading = false;
+            });
+          }).catchError((_) { if (mounted) setState(() => _opsWorkersLoading = false); }),
+      dio.get('/api/rr/enums', queryParameters: {'name': 'QuantityUnit'})
+          .then((r) {
+            if (mounted) setState(() {
+              final vals = (r.data['values'] as List? ?? []).cast<String>();
+              if (vals.isNotEmpty) {
+                _quantityUnits = vals;
+                // Reset unit if current value not in new list
+                if (!_quantityUnits.contains(_weightUnit)) _weightUnit = _quantityUnits.first;
+              }
+            });
+          }).catchError((_) {}),
+      dio.get('/api/rr/enums', queryParameters: {'name': 'VehicleBodyTypes'})
+          .then((r) {
+            if (mounted) setState(() {
+              _vehicleBodyTypes = (r.data['values'] as List? ?? []).cast<String>();
+            });
+          }).catchError((_) {}),
+    ]);
+  }
+
+  Future<void> _loadPartnerCompanies(Map<String, dynamic> partner, {required bool isConsignor}) async {
+    final rrUserId = partner['rr_user_id'] as String?;
+    if (rrUserId == null) {
+      // company-type partner — the company is directly on the partner record
+      final companyId = partner['rr_company_id'] as String?;
+      final companyName = partner['name'] as String? ?? '';
+      if (isConsignor) {
+        setState(() {
+          _consignorRrCompanyId = companyId;
+          _consignorCompanyName = companyName;
+          _consignorCompanies   = [];
+        });
+      } else {
+        setState(() {
+          _consigneeRrCompanyId = companyId;
+          _consigneeCompanyName = companyName;
+          _consigneeCompanies   = [];
+        });
+      }
+      return;
+    }
+    if (isConsignor) setState(() => _consignorCompaniesLoading = true);
+    else             setState(() => _consigneeCompaniesLoading = true);
+    try {
+      final session = ref.read(rrSessionProvider);
+      final token = (session != null && session.isValid) ? session.token : '';
+      final resp = await ref.read(dioProvider).get(
+        '/api/rr/partner-companies',
+        queryParameters: {'user_id': rrUserId, 'rr_token': token},
+      );
+      final companies = (resp.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      if (isConsignor) setState(() { _consignorCompanies = companies; _consignorCompaniesLoading = false; });
+      else             setState(() { _consigneeCompanies = companies; _consigneeCompaniesLoading = false; });
+    } catch (_) {
+      if (!mounted) return;
+      if (isConsignor) setState(() => _consignorCompaniesLoading = false);
+      else             setState(() => _consigneeCompaniesLoading = false);
+    }
   }
 
   @override
@@ -246,8 +364,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     final invoiceNum = _invoiceNumberCtrl.text.trim();
     if (invoiceNum.isNotEmpty) body['invoice_number'] = invoiceNum;
 
-    if (_selectedVehicleId != null) body['vehicle_id'] = _selectedVehicleId;
-    if (_selectedDriverId  != null) body['driver_id']  = _selectedDriverId;
+    if (_vehicleBodyType          != null) body['vehicle_body_type']      = _vehicleBodyType;
+    if (_selectedVehicleId        != null) body['vehicle_id']             = _selectedVehicleId;
+    if (_selectedDriverId         != null) body['driver_id']              = _selectedDriverId;
+    if (_consignorRrCompanyId     != null) body['consignor_rr_company_id'] = _consignorRrCompanyId;
+    if (_consigneeRrCompanyId     != null) body['consignee_rr_company_id'] = _consigneeRrCompanyId;
+    if (_selectedOpsWorkerLocalId != null) body['rr_ops_user_id']          = _selectedOpsWorkerLocalId;
+
+    // Ensure valid RR session just before submit — token may have expired while form was being filled
+    final rrSession = await ensureRrSession(context, ref);
+    if (rrSession != null && rrSession.isValid) {
+      body['rr_token'] = rrSession.token;
+    }
+    // If session null/cancelled we still create the trip locally; RR sync skipped
+
+    if (!mounted) return;
 
     final trip = await ref.read(tripProvider.notifier).createTrip(body);
 
@@ -261,9 +392,32 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       return;
     }
 
+    // Capture messenger before navigation (context becomes invalid after pushReplacement)
+    final messenger = ScaffoldMessenger.of(context);
+    final rrNum = trip.rrTripNumber;
+    final syncStatus = trip.rrSyncStatus;
+
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)),
     );
+
+    if (rrNum != null && rrNum.isNotEmpty) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Synced to RR web — Trip $rrNum'),
+          backgroundColor: _successClr,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } else if (syncStatus == 'failed') {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Trip created locally. RR sync failed: ${trip.rrSyncError ?? 'unknown error'}'),
+          backgroundColor: _errorClr,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    }
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────────
@@ -383,9 +537,25 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             const SizedBox(height: 6),
             _WeightRow(
               controller: _weightCtrl,
-              unit: _weightUnit,
+              unit: _quantityUnits.contains(_weightUnit) ? _weightUnit : _quantityUnits.first,
+              units: _quantityUnits,
               onUnitChanged: (u) => setState(() => _weightUnit = u),
             ),
+
+            const SizedBox(height: 12),
+            _FieldLabel(label: 'Vehicle Body Type'),
+            const SizedBox(height: 6),
+            _vehicleBodyTypes.isEmpty
+                ? const _LoadingChip(label: 'Loading body types…')
+                : _DropdownField<String>(
+                    value: _vehicleBodyType,
+                    hint: 'Select vehicle body type',
+                    items: _vehicleBodyTypes.map((t) => DropdownMenuItem<String>(
+                      value: t,
+                      child: Text(t, style: _inter(size: 13, color: _onSurface)),
+                    )).toList(),
+                    onChanged: (v) => setState(() => _vehicleBodyType = v),
+                  ),
 
             const SizedBox(height: 12),
             _FieldLabel(label: 'Invoice Value (₹)'),
@@ -395,6 +565,151 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               hint: 'e.g. 150000',
               inputType: TextInputType.number,
             ),
+
+            // ── Parties (RR) ────────────────────────────────────────────────
+            const SizedBox(height: 20),
+            _SectionHeader(label: 'Parties'),
+            const SizedBox(height: 12),
+
+            // Consignor
+            _FieldLabel(label: 'Consignor Partner'),
+            const SizedBox(height: 6),
+            _partnersLoading
+                ? const _LoadingChip(label: 'Loading partners…')
+                : _DropdownField<String>(
+                    value: _consignorPartner?['partner_id'] as String?,
+                    hint: 'Select consignor partner',
+                    items: _partners.map((p) => DropdownMenuItem<String>(
+                      value: p['partner_id'] as String?,
+                      child: Text(p['name'] as String? ?? '—',
+                          style: _inter(size: 13, color: _onSurface),
+                          overflow: TextOverflow.ellipsis),
+                    )).toList(),
+                    onChanged: (v) {
+                      final p = _partners.firstWhere((x) => x['partner_id'] == v, orElse: () => {});
+                      if (p.isEmpty) return;
+                      setState(() {
+                        _consignorPartner      = p;
+                        _consignorRrCompanyId  = null;
+                        _consignorCompanyName  = null;
+                        _consignorCompanies    = [];
+                      });
+                      _loadPartnerCompanies(p, isConsignor: true);
+                    },
+                  ),
+            if (_consignorPartner != null) ...[
+              const SizedBox(height: 10),
+              _FieldLabel(label: 'Consignor Company'),
+              const SizedBox(height: 6),
+              _consignorCompaniesLoading
+                  ? const _LoadingChip(label: 'Loading companies…')
+                  : _consignorCompanies.isEmpty && _consignorRrCompanyId != null
+                      ? _SelectedChip(label: _consignorCompanyName ?? '', onClear: () => setState(() {
+                          _consignorRrCompanyId = null; _consignorCompanyName = null;
+                        }))
+                      : _DropdownField<String>(
+                          value: _consignorRrCompanyId,
+                          hint: 'Select consignor company',
+                          items: _consignorCompanies.map((c) => DropdownMenuItem<String>(
+                            value: c['rr_company_id'] as String,
+                            child: Text(c['name'] as String? ?? '—',
+                                style: _inter(size: 13, color: _onSurface),
+                                overflow: TextOverflow.ellipsis),
+                          )).toList(),
+                          onChanged: (v) {
+                            final c = _consignorCompanies.firstWhere((x) => x['rr_company_id'] == v);
+                            setState(() {
+                              _consignorRrCompanyId = v;
+                              _consignorCompanyName = c['name'] as String?;
+                            });
+                          },
+                        ),
+            ],
+
+            const SizedBox(height: 12),
+
+            // Consignee
+            _FieldLabel(label: 'Consignee Partner'),
+            const SizedBox(height: 6),
+            _partnersLoading
+                ? const _LoadingChip(label: 'Loading partners…')
+                : _DropdownField<String>(
+                    value: _consigneePartner?['partner_id'] as String?,
+                    hint: 'Select consignee partner',
+                    items: _partners.map((p) => DropdownMenuItem<String>(
+                      value: p['partner_id'] as String?,
+                      child: Text(p['name'] as String? ?? '—',
+                          style: _inter(size: 13, color: _onSurface),
+                          overflow: TextOverflow.ellipsis),
+                    )).toList(),
+                    onChanged: (v) {
+                      final p = _partners.firstWhere((x) => x['partner_id'] == v, orElse: () => {});
+                      if (p.isEmpty) return;
+                      setState(() {
+                        _consigneePartner      = p;
+                        _consigneeRrCompanyId  = null;
+                        _consigneeCompanyName  = null;
+                        _consigneeCompanies    = [];
+                      });
+                      _loadPartnerCompanies(p, isConsignor: false);
+                    },
+                  ),
+            if (_consigneePartner != null) ...[
+              const SizedBox(height: 10),
+              _FieldLabel(label: 'Consignee Company'),
+              const SizedBox(height: 6),
+              _consigneeCompaniesLoading
+                  ? const _LoadingChip(label: 'Loading companies…')
+                  : _consigneeCompanies.isEmpty && _consigneeRrCompanyId != null
+                      ? _SelectedChip(label: _consigneeCompanyName ?? '', onClear: () => setState(() {
+                          _consigneeRrCompanyId = null; _consigneeCompanyName = null;
+                        }))
+                      : _DropdownField<String>(
+                          value: _consigneeRrCompanyId,
+                          hint: 'Select consignee company',
+                          items: _consigneeCompanies.map((c) => DropdownMenuItem<String>(
+                            value: c['rr_company_id'] as String,
+                            child: Text(c['name'] as String? ?? '—',
+                                style: _inter(size: 13, color: _onSurface),
+                                overflow: TextOverflow.ellipsis),
+                          )).toList(),
+                          onChanged: (v) {
+                            final c = _consigneeCompanies.firstWhere((x) => x['rr_company_id'] == v);
+                            setState(() {
+                              _consigneeRrCompanyId = v;
+                              _consigneeCompanyName = c['name'] as String?;
+                            });
+                          },
+                        ),
+            ],
+
+            const SizedBox(height: 12),
+
+            // RR Ops Worker
+            _FieldLabel(label: 'RR Ops Worker'),
+            const SizedBox(height: 6),
+            _opsWorkersLoading
+                ? const _LoadingChip(label: 'Loading workers…')
+                : _DropdownField<String>(
+                    value: _selectedOpsWorkerId,
+                    hint: 'Select handled by',
+                    items: _opsWorkers.map((w) => DropdownMenuItem<String>(
+                      value: w['rr_user_id'] as String,
+                      child: Text(
+                        '${w['name'] ?? '—'}${(w['position'] as String?)?.isNotEmpty == true ? '  •  ${w['position']}' : ''}',
+                        style: _inter(size: 13, color: _onSurface),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )).toList(),
+                    onChanged: (v) {
+                      final w = _opsWorkers.firstWhere((x) => x['rr_user_id'] == v, orElse: () => {});
+                      setState(() {
+                        _selectedOpsWorkerId      = v;
+                        _selectedOpsWorkerLocalId = w['local_user_id'] as String?;
+                        _selectedOpsWorkerName    = w['name'] as String?;
+                      });
+                    },
+                  ),
 
             // ── Assignment ──────────────────────────────────────────────────
             const SizedBox(height: 20),
@@ -655,11 +970,13 @@ class _ResultsCard extends StatelessWidget {
 class _WeightRow extends StatelessWidget {
   final TextEditingController controller;
   final String unit;
+  final List<String> units;
   final ValueChanged<String> onUnitChanged;
 
   const _WeightRow({
     required this.controller,
     required this.unit,
+    required this.units,
     required this.onUnitChanged,
   });
 
@@ -687,9 +1004,7 @@ class _WeightRow extends StatelessWidget {
               value: unit,
               style: _inter(size: 13, color: _onSurface),
               icon: const Icon(Icons.expand_more_rounded, size: 18, color: _secondary),
-              items: const ['KG', 'TONS', 'QUINTAL']
-                  .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                  .toList(),
+              items: units.map((u) => DropdownMenuItem(value: u, child: Text(u))).toList(),
               onChanged: (v) { if (v != null) onUnitChanged(v); },
             ),
           ),
@@ -810,4 +1125,51 @@ class _BottomBar extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Loading chip ─────────────────────────────────────────────────────────────
+
+class _LoadingChip extends StatelessWidget {
+  final String label;
+  const _LoadingChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF2F4F6),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: const Color(0xFFECEEF0)),
+    ),
+    child: Row(children: [
+      const SizedBox(width: 16, height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2, color: _primary)),
+      const SizedBox(width: 10),
+      Text(label, style: _inter(size: 13)),
+    ]),
+  );
+}
+
+// ─── Selected chip (company-type partner — no dropdown needed) ────────────────
+
+class _SelectedChip extends StatelessWidget {
+  final String label;
+  final VoidCallback onClear;
+  const _SelectedChip({required this.label, required this.onClear});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFE8F5E9),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: _successClr.withOpacity(0.4)),
+    ),
+    child: Row(children: [
+      const Icon(Icons.business_rounded, size: 16, color: _successClr),
+      const SizedBox(width: 8),
+      Expanded(child: Text(label, style: _inter(size: 13, weight: FontWeight.w600, color: _successClr))),
+      GestureDetector(onTap: onClear, child: const Icon(Icons.close, size: 16, color: _successClr)),
+    ]),
+  );
 }

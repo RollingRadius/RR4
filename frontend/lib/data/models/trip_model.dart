@@ -108,13 +108,27 @@ class TripModel {
   final String? transporterName;
   final String? transporterPhone;
 
-  // ── RR sync fields ────────────────────────────────────────────────────────────
+  // ── RR route/cargo fields ─────────────────────────────────────────────────────
   final String? originRrCityId;
   final String? destinationRrCityId;
   final String? materialRrId;
   final double? weightValue;
   final String? weightUnit;
+  final String? vehicleBodyType;
   final double? invoiceValue;
+
+  // ── RR party fields ───────────────────────────────────────────────────────────
+  final String? consignorRrCompanyId;
+  final String? consigneeRrCompanyId;
+  final String? rrOpsUserId;
+
+  // ── RR sync state ─────────────────────────────────────────────────────────────
+  final String? rrTripId;
+  final String? rrTripNumber;
+  final String? rrParcelId;
+  final String? rrSyncStatus;
+  final String? rrSyncError;
+  final String? rrSyncedAt;
 
   // ── Draft (cross-device in-progress form data) ────────────────────────────────
   final Map<String, dynamic>? draftData;
@@ -214,7 +228,17 @@ class TripModel {
     this.materialRrId,
     this.weightValue,
     this.weightUnit,
+    this.vehicleBodyType,
     this.invoiceValue,
+    this.consignorRrCompanyId,
+    this.consigneeRrCompanyId,
+    this.rrOpsUserId,
+    this.rrTripId,
+    this.rrTripNumber,
+    this.rrParcelId,
+    this.rrSyncStatus,
+    this.rrSyncError,
+    this.rrSyncedAt,
     this.draftData,
     this.fieldAttributions,
   });
@@ -318,9 +342,19 @@ class TripModel {
       materialRrId:         json['material_rr_id']          as String?,
       weightValue:          (json['weight_value'] as num?)?.toDouble(),
       weightUnit:           json['weight_unit']             as String?,
-      invoiceValue:         (json['invoice_value'] as num?)?.toDouble(),
-      draftData:            json['draft_data'] as Map<String, dynamic>?,
-      fieldAttributions:    json['field_attributions'] as Map<String, dynamic>?,
+      vehicleBodyType:      json['vehicle_body_type']       as String?,
+      invoiceValue:            (json['invoice_value'] as num?)?.toDouble(),
+      consignorRrCompanyId:    json['consignor_rr_company_id'] as String?,
+      consigneeRrCompanyId:    json['consignee_rr_company_id'] as String?,
+      rrOpsUserId:             json['rr_ops_user_id'] as String?,
+      rrTripId:                json['rr_trip_id'] as String?,
+      rrTripNumber:            json['rr_trip_number'] as String?,
+      rrParcelId:              json['rr_parcel_id'] as String?,
+      rrSyncStatus:            json['rr_sync_status'] as String?,
+      rrSyncError:             json['rr_sync_error'] as String?,
+      rrSyncedAt:              json['rr_synced_at'] as String?,
+      draftData:               json['draft_data'] as Map<String, dynamic>?,
+      fieldAttributions:       json['field_attributions'] as Map<String, dynamic>?,
     );
   }
 

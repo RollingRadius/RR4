@@ -95,6 +95,33 @@ async def get_materials(
         return {"items": []}
 
 
+# ── Enum proxy ────────────────────────────────────────────────────────────────
+
+@router.get("/enums", summary="Proxy RR get_enum — QuantityUnit, VehicleBodyTypes, etc.")
+async def get_enum(
+    name: str = Query(..., description="Enum name e.g. QuantityUnit or VehicleBodyTypes"),
+    _: User = Depends(get_current_user),
+):
+    """
+    Proxies GET /get_enum?enum_name=<name> (public endpoint on RR, no auth required).
+    Returns {values: ["TONNES", "KILOGRAMS", ...]} for the requested enum.
+    """
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/get_enum",
+                params={"enum_name": name},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            # get_enum returns {"_status": "Ok", "_items": ["TONNES", ...]}
+            values = data.get("_items", [])
+            return {"values": values if isinstance(values, list) else []}
+    except Exception as exc:
+        logger.error(f"RR get_enum proxy error ({name}): {exc}")
+        return {"values": []}
+
+
 # ── Sync status ───────────────────────────────────────────────────────────────
 
 @router.get("/sync/status/{trip_id}", summary="Get RR sync status for a trip")
@@ -233,70 +260,20 @@ async def trigger_sync(
     }
 
 
-# ── Consignee company search (proxied from RR) ────────────────────────────────
+# ── Preferred partners proxy ──────────────────────────────────────────────────
 
-@router.get("/consignees", summary="Search RR companies by name (for consignor/consignee pickers)")
-async def search_rr_companies(
-    q: str = Query("", description="Company name prefix to search"),
-    rr_token: str = Query("", description="LP's active RR session token for auth"),
-    _: User = Depends(get_current_user),
-):
-    """
-    Proxy to RR GET /companies with a name regex filter.
-    Used by both the consignor and consignee pickers in the FulfillSheet.
-    Returns {rr_company_id, name} for each match.
-    Requires at least 2 characters to search.
-    The RR /companies endpoint requires auth — pass rr_token from the LP's RR session.
-    """
-    import json
-    if len(q) < 2:
-        return {"consignees": []}
-    params: dict = {
-        "where": json.dumps({"name": {"$regex": q, "$options": "i"}}),
-        "max_results": 15,
-        "projection": json.dumps({"_id": 1, "name": 1}),
-    }
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
-    try:
-        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
-            resp = await client.get(
-                f"{settings.RR_API_BASE}/companies",
-                params=params,
-                headers=headers,
-            )
-            resp.raise_for_status()
-            items = resp.json().get("_items", [])
-            return {
-                "consignees": [
-                    {
-                        "rr_company_id": c["_id"],
-                        "name": c.get("name", ""),
-                    }
-                    for c in items
-                    if c.get("_id")
-                ]
-            }
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error(f"RR companies search proxy error: {exc}")
-        return {"consignees": []}
-
-
-# ── RR Operations workers list ────────────────────────────────────────────────
-
-@router.get("/ops-workers", summary="List LP's active RR Operations workers")
-def get_ops_workers(
-    q: str = Query("", description="Optional name/phone filter"),
+@router.get("/preferred-partners", summary="Get LP's preferred partners from RR")
+async def get_preferred_partners(
+    rr_token: str = Query("", description="LP's RR session token"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
-    Returns the LP's active lp_rr_operations workers.
-    Used by the FulfillSheet 'Handled By' field.
+    Proxies GET /preferred_partners?where={"user_company":"<lp_rr_company_id>"}&embedded={...}
+    Used to populate the consignor/consignee partner pickers in the FulfillSheet and CreateTripScreen.
     """
+    import json
     from app.models import UserOrganization
-
     user_org = db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id,
         UserOrganization.status == "active",
@@ -304,35 +281,144 @@ def get_ops_workers(
     if not user_org:
         raise HTTPException(status_code=403, detail="User must be in an active organization")
 
-    from app.models.role import Role
-    query = (
-        db.query(User, UserOrganization)
-        .join(UserOrganization, UserOrganization.user_id == User.id)
-        .join(Role, Role.id == UserOrganization.role_id)
-        .filter(
-            UserOrganization.organization_id == user_org.organization_id,
-            UserOrganization.status == "active",
-            Role.role_key == "lp_rr_operations",
-        )
-    )
-    if q:
-        like = f"%{q}%"
-        query = query.filter(
-            (User.full_name.ilike(like)) | (User.phone.ilike(like))
-        )
+    lp_rr_company_id = user_org.organization.rr_company_id if user_org.organization else None
+    if not lp_rr_company_id:
+        return {"partners": []}
 
-    rows = query.limit(20).all()
-    return {
-        "workers": [
-            {
-                "user_id":      str(u.id),
-                "full_name":    u.full_name,
-                "phone":        u.phone,
-                "rr_company_id": u.rr_company_id,
-            }
-            for u, _ in rows
-        ]
+    params = {
+        "where": json.dumps({"user_company": lp_rr_company_id}),
+        "embedded": json.dumps({"user_preferred_partner": 1, "company_preferred_partner": 1}),
+        "max_results": 100,
     }
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/preferred_partners",
+                params=params,
+                headers=headers,
+            )
+            resp.raise_for_status()
+            items = resp.json().get("_items", [])
+            partners = []
+            for item in items:
+                user_p = item.get("user_preferred_partner")
+                comp_p = item.get("company_preferred_partner")
+                if isinstance(user_p, dict) and user_p.get("_id"):
+                    partners.append({
+                        "partner_id":  item["_id"],
+                        "rr_user_id":  user_p["_id"],
+                        "name":        user_p.get("full_name") or user_p.get("name", ""),
+                        "type":        "user",
+                    })
+                elif isinstance(comp_p, dict) and comp_p.get("_id"):
+                    partners.append({
+                        "partner_id":      item["_id"],
+                        "rr_company_id":   comp_p["_id"],
+                        "name":            comp_p.get("name", ""),
+                        "type":            "company",
+                    })
+            return {"partners": partners}
+    except Exception as exc:
+        logger.error(f"RR preferred-partners proxy error: {exc}")
+        return {"partners": []}
+
+
+# ── Company workers proxy ─────────────────────────────────────────────────────
+
+@router.get("/company-workers", summary="Get LP's workers from RR")
+async def get_company_workers(
+    rr_token: str = Query("", description="LP's RR session token"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Proxies GET /get_company_workers?company_id=<lp_rr_company_id>
+    Used to populate the RR Ops worker dropdown.
+    Returns {rr_user_id, name, phone, position} per worker.
+    """
+    from app.models import UserOrganization
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    lp_rr_company_id = user_org.organization.rr_company_id if user_org.organization else None
+    if not lp_rr_company_id:
+        return {"workers": []}
+
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/get_company_workers",
+                params={"company_id": lp_rr_company_id},
+                headers=headers,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            raw = data if isinstance(data, list) else data.get("workers", [])
+            # Enrich with local DB UUID so the fulfill endpoint can use it
+            from app.models.user import User as UserModel
+            workers = []
+            for w in raw:
+                rr_uid = str(w.get("user_id", ""))
+                if not rr_uid:
+                    continue
+                local_user = db.query(UserModel).filter(
+                    UserModel.rr_company_id == rr_uid
+                ).first()
+                workers.append({
+                    "rr_user_id":    rr_uid,
+                    "local_user_id": str(local_user.id) if local_user else None,
+                    "name":          w.get("name", ""),
+                    "phone":         w.get("phone", ""),
+                    "position":      w.get("position", ""),
+                })
+            return {"workers": workers}
+    except Exception as exc:
+        logger.error(f"RR company-workers proxy error: {exc}")
+        return {"workers": []}
+
+
+# ── Partner companies proxy ───────────────────────────────────────────────────
+
+@router.get("/partner-companies", summary="Get RR companies linked to a preferred partner user")
+async def get_partner_companies(
+    user_id: str = Query(..., description="RR user ObjectId of the preferred partner"),
+    rr_token: str = Query("", description="LP's RR session token"),
+    _: User = Depends(get_current_user),
+):
+    """
+    Proxies GET /get_user_companies?user_id=<id>
+    Called after the LP selects a preferred partner — returns the companies that partner belongs to.
+    LP then picks one as the consignor/consignee company (rr_company_id).
+    """
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/get_user_companies",
+                params={"user_id": user_id},
+                headers=headers,
+            )
+            resp.raise_for_status()
+            items = resp.json().get("_items", [])
+            return {
+                "companies": [
+                    {
+                        "rr_company_id": c.get("_id", ""),
+                        "name":          c.get("name", ""),
+                    }
+                    for c in items
+                    if c.get("_id")
+                ]
+            }
+    except Exception as exc:
+        logger.error(f"RR partner-companies proxy error: {exc}")
+        return {"companies": []}
 
 
 # ── Sync readiness list ───────────────────────────────────────────────────────
