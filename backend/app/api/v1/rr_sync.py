@@ -261,6 +261,14 @@ async def trigger_sync(
     }
 
 
+def _extract_gstin(obj: dict) -> str:
+    """Extract GSTIN from an RR identities array (id_name == 'GST')."""
+    for identity in (obj.get("identities") or []):
+        if isinstance(identity, dict) and identity.get("id_name") == "GST":
+            return identity.get("number", "") or ""
+    return ""
+
+
 # ── Preferred partners proxy ──────────────────────────────────────────────────
 
 @router.get("/preferred-partners", summary="Get LP's preferred partners from RR")
@@ -329,6 +337,7 @@ async def get_preferred_partners(
                     "name":             user_p.get("name") or user_p.get("full_name", ""),
                     "phone":            user_p.get("phone", ""),
                     "postal_addresses": addresses,
+                    "gstin":            _extract_gstin(user_p),
                     "type":             "user",
                 })
             elif isinstance(comp_p, dict) and comp_p.get("_id"):
@@ -338,7 +347,7 @@ async def get_preferred_partners(
                     "name":             comp_p.get("name", ""),
                     "phone":            "",
                     "postal_addresses": [],
-                    "gstin":            comp_p.get("gstin", ""),
+                    "gstin":            _extract_gstin(comp_p),
                     "type":             "company",
                 })
         return {"partners": partners}
@@ -430,7 +439,7 @@ async def get_partner_companies(
                 {
                     "rr_company_id": c.get("_id", ""),
                     "name":          c.get("name", ""),
-                    "gstin":         c.get("gstin", ""),
+                    "gstin":         _extract_gstin(c),
                 }
                 for c in items
                 if c.get("_id")

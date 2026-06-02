@@ -562,14 +562,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       final p = _partners.firstWhere((x) => x['partner_id'] == v, orElse: () => {});
                       if (p.isEmpty) return;
                       setState(() {
-                        _consignorPartner      = p;
-                        _consignorPhone        = (p['phone'] as Map?)?['number'] as String?;
-                        _consignorNameCtrl.text = p['name'] as String? ?? '';
-                        _consignorAddresses    = (p['postal_addresses'] as List? ?? []).cast<Map<String, dynamic>>();
-                        _consignorRrCompanyId  = null;
-                        _consignorCompanyName  = null;
-                        _consignorGstinCtrl.clear();
-                        _consignorCompanies    = [];
+                        _consignorPartner        = p;
+                        _consignorPhone          = (p['phone'] as Map?)?['number'] as String?;
+                        _consignorNameCtrl.text  = p['name'] as String? ?? '';
+                        _consignorGstinCtrl.text = p['gstin'] as String? ?? '';
+                        _consignorAddresses      = (p['postal_addresses'] as List? ?? []).cast<Map<String, dynamic>>();
+                        _consignorRrCompanyId    = null;
+                        _consignorCompanyName    = null;
+                        _consignorCompanies      = [];
                       });
                       _loadPartnerCompanies(p, isConsignor: true);
                     },
@@ -723,14 +723,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       final p = _partners.firstWhere((x) => x['partner_id'] == v, orElse: () => {});
                       if (p.isEmpty) return;
                       setState(() {
-                        _consigneePartner      = p;
-                        _consigneePhone        = (p['phone'] as Map?)?['number'] as String?;
-                        _consigneeNameCtrl.text = p['name'] as String? ?? '';
-                        _consigneeAddresses    = (p['postal_addresses'] as List? ?? []).cast<Map<String, dynamic>>();
-                        _consigneeRrCompanyId  = null;
-                        _consigneeCompanyName  = null;
-                        _consigneeGstinCtrl.clear();
-                        _consigneeCompanies    = [];
+                        _consigneePartner        = p;
+                        _consigneePhone          = (p['phone'] as Map?)?['number'] as String?;
+                        _consigneeNameCtrl.text  = p['name'] as String? ?? '';
+                        _consigneeGstinCtrl.text = p['gstin'] as String? ?? '';
+                        _consigneeAddresses      = (p['postal_addresses'] as List? ?? []).cast<Map<String, dynamic>>();
+                        _consigneeRrCompanyId    = null;
+                        _consigneeCompanyName    = null;
+                        _consigneeCompanies      = [];
                       });
                       _loadPartnerCompanies(p, isConsignor: false);
                     },
