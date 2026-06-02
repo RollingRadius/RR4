@@ -287,41 +287,43 @@ async def get_preferred_partners(
 
     params = {
         "where": json.dumps({"user_company": lp_rr_company_id}),
-        "embedded": json.dumps({"user_preferred_partner": 1, "company_preferred_partner": 1}),
+        "embedded": json.dumps({
+            "user_preferred_partner": 1,
+            "user_preferred_partner.postal_addresses.city": 1,
+            "company_preferred_partner": 1,
+        }),
         "max_results": 100,
     }
     headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
-    try:
-        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
-            resp = await client.get(
-                f"{settings.RR_API_BASE}/preferred_partners",
-                params=params,
-                headers=headers,
-            )
-            resp.raise_for_status()
-            items = resp.json().get("_items", [])
-            partners = []
-            for item in items:
-                user_p = item.get("user_preferred_partner")
-                comp_p = item.get("company_preferred_partner")
-                if isinstance(user_p, dict) and user_p.get("_id"):
-                    partners.append({
-                        "partner_id":  item["_id"],
-                        "rr_user_id":  user_p["_id"],
-                        "name":        user_p.get("full_name") or user_p.get("name", ""),
-                        "type":        "user",
-                    })
-                elif isinstance(comp_p, dict) and comp_p.get("_id"):
-                    partners.append({
-                        "partner_id":      item["_id"],
-                        "rr_company_id":   comp_p["_id"],
-                        "name":            comp_p.get("name", ""),
-                        "type":            "company",
-                    })
-            return {"partners": partners}
-    except Exception as exc:
-        logger.error(f"RR preferred-partners proxy error: {exc}")
-        return {"partners": []}
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/preferred_partners",
+            params=params,
+            headers=headers,
+        )
+        if resp.status_code != 200:
+            logger.error(f"RR preferred-partners returned {resp.status_code}: {resp.text[:200]}")
+            raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+        items = resp.json().get("_items", [])
+        partners = []
+        for item in items:
+            user_p = item.get("user_preferred_partner")
+            comp_p = item.get("company_preferred_partner")
+            if isinstance(user_p, dict) and user_p.get("_id"):
+                partners.append({
+                    "partner_id": item["_id"],
+                    "rr_user_id": user_p["_id"],
+                    "name":       user_p.get("name") or user_p.get("full_name", ""),
+                    "type":       "user",
+                })
+            elif isinstance(comp_p, dict) and comp_p.get("_id"):
+                partners.append({
+                    "partner_id":    item["_id"],
+                    "rr_company_id": comp_p["_id"],
+                    "name":          comp_p.get("name", ""),
+                    "type":          "company",
+                })
+        return {"partners": partners}
 
 
 # ── Company workers proxy ─────────────────────────────────────────────────────
@@ -350,37 +352,35 @@ async def get_company_workers(
         return {"workers": []}
 
     headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
-    try:
-        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
-            resp = await client.get(
-                f"{settings.RR_API_BASE}/get_company_workers",
-                params={"company_id": lp_rr_company_id},
-                headers=headers,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            raw = data if isinstance(data, list) else data.get("workers", [])
-            # Enrich with local DB UUID so the fulfill endpoint can use it
-            from app.models.user import User as UserModel
-            workers = []
-            for w in raw:
-                rr_uid = str(w.get("user_id", ""))
-                if not rr_uid:
-                    continue
-                local_user = db.query(UserModel).filter(
-                    UserModel.rr_company_id == rr_uid
-                ).first()
-                workers.append({
-                    "rr_user_id":    rr_uid,
-                    "local_user_id": str(local_user.id) if local_user else None,
-                    "name":          w.get("name", ""),
-                    "phone":         w.get("phone", ""),
-                    "position":      w.get("position", ""),
-                })
-            return {"workers": workers}
-    except Exception as exc:
-        logger.error(f"RR company-workers proxy error: {exc}")
-        return {"workers": []}
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/get_company_workers",
+            params={"company_id": lp_rr_company_id},
+            headers=headers,
+        )
+        if resp.status_code != 200:
+            logger.error(f"RR company-workers returned {resp.status_code}: {resp.text[:200]}")
+            raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+        data = resp.json()
+        raw = data if isinstance(data, list) else data.get("workers", [])
+        # Enrich with local DB UUID so the fulfill endpoint can use it
+        from app.models.user import User as UserModel
+        workers = []
+        for w in raw:
+            rr_uid = str(w.get("user_id", ""))
+            if not rr_uid:
+                continue
+            local_user = db.query(UserModel).filter(
+                UserModel.rr_company_id == rr_uid
+            ).first()
+            workers.append({
+                "rr_user_id":    rr_uid,
+                "local_user_id": str(local_user.id) if local_user else None,
+                "name":          w.get("name", ""),
+                "phone":         w.get("phone", ""),
+                "position":      w.get("position", ""),
+            })
+        return {"workers": workers}
 
 
 # ── Partner companies proxy ───────────────────────────────────────────────────
@@ -397,28 +397,26 @@ async def get_partner_companies(
     LP then picks one as the consignor/consignee company (rr_company_id).
     """
     headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
-    try:
-        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
-            resp = await client.get(
-                f"{settings.RR_API_BASE}/get_user_companies",
-                params={"user_id": user_id},
-                headers=headers,
-            )
-            resp.raise_for_status()
-            items = resp.json().get("_items", [])
-            return {
-                "companies": [
-                    {
-                        "rr_company_id": c.get("_id", ""),
-                        "name":          c.get("name", ""),
-                    }
-                    for c in items
-                    if c.get("_id")
-                ]
-            }
-    except Exception as exc:
-        logger.error(f"RR partner-companies proxy error: {exc}")
-        return {"companies": []}
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/get_user_companies",
+            params={"user_id": user_id},
+            headers=headers,
+        )
+        if resp.status_code != 200:
+            logger.error(f"RR partner-companies returned {resp.status_code}: {resp.text[:200]}")
+            raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+        items = resp.json().get("_items", [])
+        return {
+            "companies": [
+                {
+                    "rr_company_id": c.get("_id", ""),
+                    "name":          c.get("name", ""),
+                }
+                for c in items
+                if c.get("_id")
+            ]
+        }
 
 
 # ── Sync readiness list ───────────────────────────────────────────────────────

@@ -571,14 +571,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             _SectionHeader(label: 'Parties'),
             const SizedBox(height: 12),
 
-            // Consignor
-            _FieldLabel(label: 'Consignor Partner'),
+            // ── Consignor ────────────────────────────────────────────────────
+            _FieldLabel(label: 'Consignor Partner (optional)'),
             const SizedBox(height: 6),
             _partnersLoading
                 ? const _LoadingChip(label: 'Loading partners…')
                 : _DropdownField<String>(
                     value: _consignorPartner?['partner_id'] as String?,
-                    hint: 'Select consignor partner',
+                    hint: 'Select partner to auto-fill',
                     items: _partners.map((p) => DropdownMenuItem<String>(
                       value: p['partner_id'] as String?,
                       child: Text(p['name'] as String? ?? '—',
@@ -597,45 +597,45 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       _loadPartnerCompanies(p, isConsignor: true);
                     },
                   ),
-            if (_consignorPartner != null) ...[
-              const SizedBox(height: 10),
-              _FieldLabel(label: 'Consignor Company'),
-              const SizedBox(height: 6),
-              _consignorCompaniesLoading
-                  ? const _LoadingChip(label: 'Loading companies…')
-                  : _consignorCompanies.isEmpty && _consignorRrCompanyId != null
-                      ? _SelectedChip(label: _consignorCompanyName ?? '', onClear: () => setState(() {
-                          _consignorRrCompanyId = null; _consignorCompanyName = null;
-                        }))
-                      : _DropdownField<String>(
-                          value: _consignorRrCompanyId,
-                          hint: 'Select consignor company',
-                          items: _consignorCompanies.map((c) => DropdownMenuItem<String>(
-                            value: c['rr_company_id'] as String,
-                            child: Text(c['name'] as String? ?? '—',
-                                style: _inter(size: 13, color: _onSurface),
-                                overflow: TextOverflow.ellipsis),
-                          )).toList(),
-                          onChanged: (v) {
-                            final c = _consignorCompanies.firstWhere((x) => x['rr_company_id'] == v);
-                            setState(() {
-                              _consignorRrCompanyId = v;
-                              _consignorCompanyName = c['name'] as String?;
-                            });
-                          },
-                        ),
-            ],
+            const SizedBox(height: 10),
+            _FieldLabel(label: 'Consignor Company'),
+            const SizedBox(height: 6),
+            _consignorCompaniesLoading
+                ? const _LoadingChip(label: 'Loading companies…')
+                : _consignorCompanies.isEmpty && _consignorRrCompanyId != null
+                    ? _SelectedChip(label: _consignorCompanyName ?? '', onClear: () => setState(() {
+                        _consignorRrCompanyId = null; _consignorCompanyName = null;
+                      }))
+                    : _DropdownField<String>(
+                        value: _consignorRrCompanyId,
+                        hint: _consignorPartner == null
+                            ? 'Select a partner above first'
+                            : 'Select consignor company',
+                        items: _consignorCompanies.map((c) => DropdownMenuItem<String>(
+                          value: c['rr_company_id'] as String,
+                          child: Text(c['name'] as String? ?? '—',
+                              style: _inter(size: 13, color: _onSurface),
+                              overflow: TextOverflow.ellipsis),
+                        )).toList(),
+                        onChanged: _consignorPartner == null ? null : (v) {
+                          final c = _consignorCompanies.firstWhere((x) => x['rr_company_id'] == v);
+                          setState(() {
+                            _consignorRrCompanyId = v;
+                            _consignorCompanyName = c['name'] as String?;
+                          });
+                        },
+                      ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            // Consignee
-            _FieldLabel(label: 'Consignee Partner'),
+            // ── Consignee ────────────────────────────────────────────────────
+            _FieldLabel(label: 'Consignee Partner (optional)'),
             const SizedBox(height: 6),
             _partnersLoading
                 ? const _LoadingChip(label: 'Loading partners…')
                 : _DropdownField<String>(
                     value: _consigneePartner?['partner_id'] as String?,
-                    hint: 'Select consignee partner',
+                    hint: 'Select partner to auto-fill',
                     items: _partners.map((p) => DropdownMenuItem<String>(
                       value: p['partner_id'] as String?,
                       child: Text(p['name'] as String? ?? '—',
@@ -654,34 +654,34 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       _loadPartnerCompanies(p, isConsignor: false);
                     },
                   ),
-            if (_consigneePartner != null) ...[
-              const SizedBox(height: 10),
-              _FieldLabel(label: 'Consignee Company'),
-              const SizedBox(height: 6),
-              _consigneeCompaniesLoading
-                  ? const _LoadingChip(label: 'Loading companies…')
-                  : _consigneeCompanies.isEmpty && _consigneeRrCompanyId != null
-                      ? _SelectedChip(label: _consigneeCompanyName ?? '', onClear: () => setState(() {
-                          _consigneeRrCompanyId = null; _consigneeCompanyName = null;
-                        }))
-                      : _DropdownField<String>(
-                          value: _consigneeRrCompanyId,
-                          hint: 'Select consignee company',
-                          items: _consigneeCompanies.map((c) => DropdownMenuItem<String>(
-                            value: c['rr_company_id'] as String,
-                            child: Text(c['name'] as String? ?? '—',
-                                style: _inter(size: 13, color: _onSurface),
-                                overflow: TextOverflow.ellipsis),
-                          )).toList(),
-                          onChanged: (v) {
-                            final c = _consigneeCompanies.firstWhere((x) => x['rr_company_id'] == v);
-                            setState(() {
-                              _consigneeRrCompanyId = v;
-                              _consigneeCompanyName = c['name'] as String?;
-                            });
-                          },
-                        ),
-            ],
+            const SizedBox(height: 10),
+            _FieldLabel(label: 'Consignee Company'),
+            const SizedBox(height: 6),
+            _consigneeCompaniesLoading
+                ? const _LoadingChip(label: 'Loading companies…')
+                : _consigneeCompanies.isEmpty && _consigneeRrCompanyId != null
+                    ? _SelectedChip(label: _consigneeCompanyName ?? '', onClear: () => setState(() {
+                        _consigneeRrCompanyId = null; _consigneeCompanyName = null;
+                      }))
+                    : _DropdownField<String>(
+                        value: _consigneeRrCompanyId,
+                        hint: _consigneePartner == null
+                            ? 'Select a partner above first'
+                            : 'Select consignee company',
+                        items: _consigneeCompanies.map((c) => DropdownMenuItem<String>(
+                          value: c['rr_company_id'] as String,
+                          child: Text(c['name'] as String? ?? '—',
+                              style: _inter(size: 13, color: _onSurface),
+                              overflow: TextOverflow.ellipsis),
+                        )).toList(),
+                        onChanged: _consigneePartner == null ? null : (v) {
+                          final c = _consigneeCompanies.firstWhere((x) => x['rr_company_id'] == v);
+                          setState(() {
+                            _consigneeRrCompanyId = v;
+                            _consigneeCompanyName = c['name'] as String?;
+                          });
+                        },
+                      ),
 
             const SizedBox(height: 12),
 
@@ -1057,7 +1057,7 @@ class _DropdownField<T> extends StatelessWidget {
   final T? value;
   final String hint;
   final List<DropdownMenuItem<T>> items;
-  final ValueChanged<T?> onChanged;
+  final ValueChanged<T?>? onChanged;   // nullable → null disables the dropdown
 
   const _DropdownField({
     required this.value,
@@ -1068,9 +1068,10 @@ class _DropdownField<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final disabled = onChanged == null;
     return Container(
       decoration: BoxDecoration(
-        color: _surface,
+        color: disabled ? const Color(0xFFF2F4F6) : _surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: _border),
       ),
@@ -1078,11 +1079,12 @@ class _DropdownField<T> extends StatelessWidget {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           value: value,
-          hint: Text(hint, style: _inter(size: 13)),
+          hint: Text(hint, style: _inter(size: 13, color: disabled ? _secondary : _secondary)),
           isExpanded: true,
           style: _inter(size: 13, color: _onSurface),
-          icon: const Icon(Icons.expand_more_rounded, size: 18, color: _secondary),
-          items: items,
+          icon: Icon(Icons.expand_more_rounded, size: 18,
+              color: disabled ? _border : _secondary),
+          items: disabled ? null : items,
           onChanged: onChanged,
         ),
       ),

@@ -1032,9 +1032,7 @@ class _EmptyTrips extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: () async {
-                final session = await ensureRrSession(context, ref);
-                if (session == null || !context.mounted) return;
+              onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const CreateTripScreen()),
                 );
@@ -2305,7 +2303,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 )
               else ...[
                 _PartyDropdown<Map<String, dynamic>>(
-                  hint: 'Select consignor partner',
+                  hint: 'Select consignor partner (optional)',
                   icon: Icons.handshake_outlined,
                   value: _consignorPartner,
                   items: _partners,
@@ -2320,25 +2318,25 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                     if (p != null) _loadPartnerCompanies(p, isConsignor: true);
                   },
                 ),
-                if (_consignorPartner != null) ...[
-                  const SizedBox(height: 8),
-                  if (_consignorCompaniesLoading)
-                    const _PartyLoadingRow()
-                  else
-                    _PartyDropdown<Map<String, dynamic>>(
-                      hint: 'Select company',
-                      icon: Icons.business_outlined,
-                      value: _consignorCompanies.cast<Map<String,dynamic>?>()
-                          .firstWhere((c) => c?['rr_company_id'] == _selectedConsignorId, orElse: () => null),
-                      items: _consignorCompanies,
-                      label: (c) => c['name'] as String? ?? '—',
-                      onChanged: (c) => setState(() {
-                        _selectedConsignorId   = c?['rr_company_id'] as String?;
-                        _selectedConsignorName = c?['name'] as String?;
-                        _consignorError        = null;
-                      }),
-                    ),
-                ],
+                const SizedBox(height: 8),
+                if (_consignorCompaniesLoading)
+                  const _PartyLoadingRow()
+                else
+                  _PartyDropdown<Map<String, dynamic>>(
+                    hint: _consignorPartner == null
+                        ? 'Select a partner above first'
+                        : 'Select consignor company',
+                    icon: Icons.business_outlined,
+                    value: _consignorCompanies.cast<Map<String,dynamic>?>()
+                        .firstWhere((c) => c?['rr_company_id'] == _selectedConsignorId, orElse: () => null),
+                    items: _consignorPartner == null ? [] : _consignorCompanies,
+                    label: (c) => c['name'] as String? ?? '—',
+                    onChanged: _consignorPartner == null ? null : (c) => setState(() {
+                      _selectedConsignorId   = c?['rr_company_id'] as String?;
+                      _selectedConsignorName = c?['name'] as String?;
+                      _consignorError        = null;
+                    }),
+                  ),
               ],
               if (_consignorError != null) ...[
                 const SizedBox(height: 4),
@@ -2370,7 +2368,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 )
               else ...[
                 _PartyDropdown<Map<String, dynamic>>(
-                  hint: 'Select consignee partner',
+                  hint: 'Select consignee partner (optional)',
                   icon: Icons.handshake_outlined,
                   value: _consigneePartner,
                   items: _partners,
@@ -2385,25 +2383,25 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                     if (p != null) _loadPartnerCompanies(p, isConsignor: false);
                   },
                 ),
-                if (_consigneePartner != null) ...[
-                  const SizedBox(height: 8),
-                  if (_consigneeCompaniesLoading)
-                    const _PartyLoadingRow()
-                  else
-                    _PartyDropdown<Map<String, dynamic>>(
-                      hint: 'Select company',
-                      icon: Icons.business_outlined,
-                      value: _consigneeCompanies.cast<Map<String,dynamic>?>()
-                          .firstWhere((c) => c?['rr_company_id'] == _selectedConsigneeId, orElse: () => null),
-                      items: _consigneeCompanies,
-                      label: (c) => c['name'] as String? ?? '—',
-                      onChanged: (c) => setState(() {
-                        _selectedConsigneeId   = c?['rr_company_id'] as String?;
-                        _selectedConsigneeName = c?['name'] as String?;
-                        _consigneeError        = null;
-                      }),
-                    ),
-                ],
+                const SizedBox(height: 8),
+                if (_consigneeCompaniesLoading)
+                  const _PartyLoadingRow()
+                else
+                  _PartyDropdown<Map<String, dynamic>>(
+                    hint: _consigneePartner == null
+                        ? 'Select a partner above first'
+                        : 'Select consignee company',
+                    icon: Icons.business_outlined,
+                    value: _consigneeCompanies.cast<Map<String,dynamic>?>()
+                        .firstWhere((c) => c?['rr_company_id'] == _selectedConsigneeId, orElse: () => null),
+                    items: _consigneePartner == null ? [] : _consigneeCompanies,
+                    label: (c) => c['name'] as String? ?? '—',
+                    onChanged: _consigneePartner == null ? null : (c) => setState(() {
+                      _selectedConsigneeId   = c?['rr_company_id'] as String?;
+                      _selectedConsigneeName = c?['name'] as String?;
+                      _consigneeError        = null;
+                    }),
+                  ),
               ],
               if (_consigneeError != null) ...[
                 const SizedBox(height: 6),
@@ -3023,16 +3021,18 @@ class _PartyDropdown<T> extends StatelessWidget {
   final T? value;
   final List<T> items;
   final String Function(T) label;
-  final ValueChanged<T?> onChanged;
+  final ValueChanged<T?>? onChanged;   // nullable → null disables the dropdown
   const _PartyDropdown({
     required this.hint, required this.icon, required this.value,
     required this.items, required this.label, required this.onChanged,
   });
   @override
-  Widget build(BuildContext context) => Container(
+  Widget build(BuildContext context) {
+    final disabled = onChanged == null;
+    return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: _surfaceContainerLow,
+          color: disabled ? const Color(0xFFF2F4F6) : _surfaceContainerLow,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: _surfaceContainer),
         ),
@@ -3046,8 +3046,9 @@ class _PartyDropdown<T> extends StatelessWidget {
               Text(hint, style: _inter(size: 13, color: _secondary)),
             ]),
             style: _inter(size: 13, color: const Color(0xFF191C1E)),
-            icon: const Icon(Icons.expand_more_rounded, size: 18),
-            items: items.map((item) => DropdownMenuItem<T>(
+            icon: Icon(Icons.expand_more_rounded, size: 18,
+                color: disabled ? _surfaceContainer : null),
+            items: disabled ? null : items.map((item) => DropdownMenuItem<T>(
               value: item,
               child: Text(label(item), overflow: TextOverflow.ellipsis),
             )).toList(),
@@ -3055,6 +3056,7 @@ class _PartyDropdown<T> extends StatelessWidget {
           ),
         ),
       );
+  }
 }
 
 // ── Fulfill sheet helpers ─────────────────────────────────────────────────────
