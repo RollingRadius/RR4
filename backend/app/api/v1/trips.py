@@ -125,6 +125,29 @@ class TripCreate(BaseModel):
     consignee_rr_company_id: Optional[str] = None
     rr_ops_user_id: Optional[str] = None
     vehicle_body_type: Optional[str] = None
+    # RR consignor/consignee details
+    consignor_name:  Optional[str] = None
+    consignor_gstin: Optional[str] = None
+    consignee_name:  Optional[str] = None
+    consignee_gstin: Optional[str] = None
+    # Pickup address
+    pickup_address_line1: Optional[str] = None
+    pickup_address_line2: Optional[str] = None
+    pickup_pin:           Optional[str] = None
+    pickup_no_entry_zone: Optional[bool] = None
+    # Unload address
+    unload_address_line1: Optional[str] = None
+    unload_address_line2: Optional[str] = None
+    unload_pin:           Optional[str] = None
+    unload_no_entry_zone: Optional[bool] = None
+    depot_code:           Optional[str] = None
+    # Parcel info
+    parcel_description: Optional[str]  = None
+    part_load:          Optional[bool] = None
+    # Vehicle requirements
+    axle_type:        Optional[str]   = None
+    number_of_wheels: Optional[int]   = None
+    expected_freight: Optional[float] = None
     # If provided, immediately sync to RR (POST /trips + POST /parcels)
     rr_token: Optional[str] = None
 
@@ -156,6 +179,29 @@ class TripUpdate(BaseModel):
     consignee_rr_company_id: Optional[str] = None
     rr_ops_user_id: Optional[str] = None
     vehicle_body_type: Optional[str] = None
+    # RR consignor/consignee details
+    consignor_name:  Optional[str] = None
+    consignor_gstin: Optional[str] = None
+    consignee_name:  Optional[str] = None
+    consignee_gstin: Optional[str] = None
+    # Pickup address
+    pickup_address_line1: Optional[str] = None
+    pickup_address_line2: Optional[str] = None
+    pickup_pin:           Optional[str] = None
+    pickup_no_entry_zone: Optional[bool] = None
+    # Unload address
+    unload_address_line1: Optional[str] = None
+    unload_address_line2: Optional[str] = None
+    unload_pin:           Optional[str] = None
+    unload_no_entry_zone: Optional[bool] = None
+    depot_code:           Optional[str] = None
+    # Parcel info
+    parcel_description: Optional[str]  = None
+    part_load:          Optional[bool] = None
+    # Vehicle requirements
+    axle_type:        Optional[str]   = None
+    number_of_wheels: Optional[int]   = None
+    expected_freight: Optional[float] = None
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
@@ -293,6 +339,24 @@ async def create_trip(
         consignee_rr_company_id=body.consignee_rr_company_id or None,
         rr_ops_user_id=_parse_uuid(body.rr_ops_user_id),
         vehicle_body_type=body.vehicle_body_type or None,
+        consignor_name=body.consignor_name or None,
+        consignor_gstin=body.consignor_gstin or None,
+        consignee_name=body.consignee_name or None,
+        consignee_gstin=body.consignee_gstin or None,
+        pickup_address_line1=body.pickup_address_line1 or None,
+        pickup_address_line2=body.pickup_address_line2 or None,
+        pickup_pin=body.pickup_pin or None,
+        pickup_no_entry_zone=body.pickup_no_entry_zone,
+        unload_address_line1=body.unload_address_line1 or None,
+        unload_address_line2=body.unload_address_line2 or None,
+        unload_pin=body.unload_pin or None,
+        unload_no_entry_zone=body.unload_no_entry_zone,
+        depot_code=body.depot_code or None,
+        parcel_description=body.parcel_description or None,
+        part_load=body.part_load or False,
+        axle_type=body.axle_type or None,
+        number_of_wheels=body.number_of_wheels,
+        expected_freight=body.expected_freight,
     )
     db.add(trip)
     db.commit()

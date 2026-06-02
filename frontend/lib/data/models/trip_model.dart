@@ -117,6 +117,26 @@ class TripModel {
   final String? vehicleBodyType;
   final double? invoiceValue;
 
+  // ── RR parcel / address fields ────────────────────────────────────────────────
+  final String? consignorName;
+  final String? consignorGstin;
+  final String? consigneeName;
+  final String? consigneeGstin;
+  final String? pickupAddressLine1;
+  final String? pickupAddressLine2;
+  final String? pickupPin;
+  final bool?   pickupNoEntryZone;
+  final String? unloadAddressLine1;
+  final String? unloadAddressLine2;
+  final String? unloadPin;
+  final bool?   unloadNoEntryZone;
+  final String? depotCode;
+  final String? parcelDescription;
+  final bool?   partLoad;
+  final String? axleType;
+  final int?    numberOfWheels;
+  final double? expectedFreight;
+
   // ── RR party fields ───────────────────────────────────────────────────────────
   final String? consignorRrCompanyId;
   final String? consigneeRrCompanyId;
@@ -230,6 +250,24 @@ class TripModel {
     this.weightUnit,
     this.vehicleBodyType,
     this.invoiceValue,
+    this.consignorName,
+    this.consignorGstin,
+    this.consigneeName,
+    this.consigneeGstin,
+    this.pickupAddressLine1,
+    this.pickupAddressLine2,
+    this.pickupPin,
+    this.pickupNoEntryZone,
+    this.unloadAddressLine1,
+    this.unloadAddressLine2,
+    this.unloadPin,
+    this.unloadNoEntryZone,
+    this.depotCode,
+    this.parcelDescription,
+    this.partLoad,
+    this.axleType,
+    this.numberOfWheels,
+    this.expectedFreight,
     this.consignorRrCompanyId,
     this.consigneeRrCompanyId,
     this.rrOpsUserId,
@@ -344,6 +382,24 @@ class TripModel {
       weightUnit:           json['weight_unit']             as String?,
       vehicleBodyType:      json['vehicle_body_type']       as String?,
       invoiceValue:            (json['invoice_value'] as num?)?.toDouble(),
+      consignorName:           json['consignor_name']           as String?,
+      consignorGstin:          json['consignor_gstin']          as String?,
+      consigneeName:           json['consignee_name']           as String?,
+      consigneeGstin:          json['consignee_gstin']          as String?,
+      pickupAddressLine1:      json['pickup_address_line1']     as String?,
+      pickupAddressLine2:      json['pickup_address_line2']     as String?,
+      pickupPin:               json['pickup_pin']               as String?,
+      pickupNoEntryZone:       json['pickup_no_entry_zone']     as bool?,
+      unloadAddressLine1:      json['unload_address_line1']     as String?,
+      unloadAddressLine2:      json['unload_address_line2']     as String?,
+      unloadPin:               json['unload_pin']               as String?,
+      unloadNoEntryZone:       json['unload_no_entry_zone']     as bool?,
+      depotCode:               json['depot_code']               as String?,
+      parcelDescription:       json['parcel_description']       as String?,
+      partLoad:                json['part_load']                as bool?,
+      axleType:                json['axle_type']                as String?,
+      numberOfWheels:          json['number_of_wheels']         as int?,
+      expectedFreight:         (json['expected_freight'] as num?)?.toDouble(),
       consignorRrCompanyId:    json['consignor_rr_company_id'] as String?,
       consigneeRrCompanyId:    json['consignee_rr_company_id'] as String?,
       rrOpsUserId:             json['rr_ops_user_id'] as String?,

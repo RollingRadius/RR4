@@ -161,6 +161,34 @@ class Trip(Base):
     # Required by RR, not yet in RR4 form (short-term: defaults to trip_amount)
     invoice_value = Column(Numeric(12, 2), nullable=True)
 
+    # ── RR Consignor / Consignee details ─────────────────────────────────────────
+    consignor_name  = Column(String(100), nullable=True)
+    consignor_gstin = Column(String(20),  nullable=True)
+    consignee_name  = Column(String(100), nullable=True)
+    consignee_gstin = Column(String(20),  nullable=True)
+
+    # ── Pickup address ────────────────────────────────────────────────────────────
+    pickup_address_line1 = Column(String(200), nullable=True)
+    pickup_address_line2 = Column(String(200), nullable=True)
+    pickup_pin           = Column(String(10),  nullable=True)
+    pickup_no_entry_zone = Column(Boolean,     nullable=True)
+
+    # ── Unload address ────────────────────────────────────────────────────────────
+    unload_address_line1 = Column(String(200), nullable=True)
+    unload_address_line2 = Column(String(200), nullable=True)
+    unload_pin           = Column(String(10),  nullable=True)
+    unload_no_entry_zone = Column(Boolean,     nullable=True)
+    depot_code           = Column(String(50),  nullable=True)
+
+    # ── Parcel info ───────────────────────────────────────────────────────────────
+    parcel_description = Column(String(100), nullable=True)
+    part_load          = Column(Boolean,     nullable=True, default=False)
+
+    # ── Vehicle requirements ──────────────────────────────────────────────────────
+    axle_type        = Column(String(20),    nullable=True)   # Single | Double | Triple | Multiple
+    number_of_wheels = Column(Integer,       nullable=True)   # 4|6|8|10|12|14|16|18|22
+    expected_freight = Column(Numeric(12,2), nullable=True)
+
     # RR trip cross-reference
     rr_trip_id     = Column(String(24), nullable=True)   # RR MongoDB trip _id
     rr_trip_number = Column(String(30), nullable=True)   # RR generated number e.g. "rr1235"
@@ -308,4 +336,27 @@ class Trip(Base):
             "invoice_value":          float(self.invoice_value) if self.invoice_value is not None else None,
             "consignee_org_id":       str(self.consignee_org_id) if self.consignee_org_id else None,
             "consignee_user_id":      str(self.consignee_user_id) if self.consignee_user_id else None,
+            # RR consignor/consignee details
+            "consignor_name":  self.consignor_name,
+            "consignor_gstin": self.consignor_gstin,
+            "consignee_name":  self.consignee_name,
+            "consignee_gstin": self.consignee_gstin,
+            # Pickup address
+            "pickup_address_line1": self.pickup_address_line1,
+            "pickup_address_line2": self.pickup_address_line2,
+            "pickup_pin":           self.pickup_pin,
+            "pickup_no_entry_zone": self.pickup_no_entry_zone,
+            # Unload address
+            "unload_address_line1": self.unload_address_line1,
+            "unload_address_line2": self.unload_address_line2,
+            "unload_pin":           self.unload_pin,
+            "unload_no_entry_zone": self.unload_no_entry_zone,
+            "depot_code":           self.depot_code,
+            # Parcel info
+            "parcel_description": self.parcel_description,
+            "part_load":          self.part_load,
+            # Vehicle requirements
+            "axle_type":        self.axle_type,
+            "number_of_wheels": self.number_of_wheels,
+            "expected_freight": float(self.expected_freight) if self.expected_freight is not None else None,
         }

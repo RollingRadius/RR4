@@ -310,18 +310,34 @@ async def get_preferred_partners(
             user_p = item.get("user_preferred_partner")
             comp_p = item.get("company_preferred_partner")
             if isinstance(user_p, dict) and user_p.get("_id"):
+                raw_addrs = user_p.get("postal_addresses") or []
+                addresses = []
+                for addr in (raw_addrs if isinstance(raw_addrs, list) else []):
+                    city = addr.get("city") if isinstance(addr.get("city"), dict) else {}
+                    addresses.append({
+                        "address_line_1": addr.get("address_line_1", ""),
+                        "address_line_2": addr.get("address_line_2", ""),
+                        "pin":            addr.get("pin", ""),
+                        "no_entry_zone":  bool(addr.get("no_entry_zone", False)),
+                        "city_id":        city.get("_id", ""),
+                        "city_name":      city.get("name", ""),
+                    })
                 partners.append({
-                    "partner_id": item["_id"],
-                    "rr_user_id": user_p["_id"],
-                    "name":       user_p.get("name") or user_p.get("full_name", ""),
-                    "type":       "user",
+                    "partner_id":       item["_id"],
+                    "rr_user_id":       user_p["_id"],
+                    "name":             user_p.get("name") or user_p.get("full_name", ""),
+                    "phone":            user_p.get("phone", ""),
+                    "postal_addresses": addresses,
+                    "type":             "user",
                 })
             elif isinstance(comp_p, dict) and comp_p.get("_id"):
                 partners.append({
-                    "partner_id":    item["_id"],
-                    "rr_company_id": comp_p["_id"],
-                    "name":          comp_p.get("name", ""),
-                    "type":          "company",
+                    "partner_id":       item["_id"],
+                    "rr_company_id":    comp_p["_id"],
+                    "name":             comp_p.get("name", ""),
+                    "phone":            "",
+                    "postal_addresses": [],
+                    "type":             "company",
                 })
         return {"partners": partners}
 
@@ -412,11 +428,53 @@ async def get_partner_companies(
                 {
                     "rr_company_id": c.get("_id", ""),
                     "name":          c.get("name", ""),
+                    "gstin":         c.get("gstin", ""),
                 }
                 for c in items
                 if c.get("_id")
             ]
         }
+
+
+# ── Operation locations proxy ─────────────────────────────────────────────────
+
+@router.get("/operation-locations", summary="Get company's operation locations from RR")
+async def get_operation_locations(
+    company_id: str = Query(..., description="RR company ObjectId"),
+    rr_token: str = Query("", description="LP's RR session token"),
+    _: User = Depends(get_current_user),
+):
+    """
+    Proxies GET /operation_locations?embedded={"city":1,"state":1}&where={"company":"<id>"}
+    Called when a company-type partner is selected or a company is chosen from the dropdown,
+    to populate the consignor/consignee address selector.
+    """
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/operation_locations",
+            params={
+                "where":    json.dumps({"company": company_id}),
+                "embedded": json.dumps({"city": 1, "state": 1}),
+            },
+            headers=headers,
+        )
+        if resp.status_code != 200:
+            logger.error(f"RR operation-locations returned {resp.status_code}: {resp.text[:200]}")
+            raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+        items = resp.json().get("_items", [])
+        locations = []
+        for loc in items:
+            city = loc.get("city") if isinstance(loc.get("city"), dict) else {}
+            locations.append({
+                "address_line_1": loc.get("address_line_1", ""),
+                "address_line_2": loc.get("address_line_2", ""),
+                "pin":            loc.get("pin", ""),
+                "no_entry_zone":  bool(loc.get("no_entry_zone", False)),
+                "city_id":        city.get("_id", ""),
+                "city_name":      city.get("name", ""),
+            })
+        return {"locations": locations}
 
 
 # ── Sync readiness list ───────────────────────────────────────────────────────

@@ -403,18 +403,14 @@ async def _create_rr_trip(
     token: str,
     consignor_rr_id: str,
     rr_weight_unit: str,
-    transporter_rr_company_id: str | None = None,
+    lp_rr_company_id: str | None = None,
     rr_ops_rr_id: str | None = None,
     consignee_rr_id: str | None = None,
     vehicle_body_type: str | None = None,
 ) -> tuple[str | None, str | None, str | None]:
     """
-    Create trip + parcel in RR using direct Eve endpoints.
+    Create trip + parcel in RR using direct Eve endpoints (JSON body).
     Returns (rr_trip_id, rr_parcel_id, error_message).
-
-    Uses POST /trips (form data) then POST /parcels (JSON) — same pattern as RR Kanpur.
-    Both endpoints accept JWT directly, unlike /create_trip which has an internal
-    legacy-token bug (RR commit a25eb588, May 2026).
     """
     import base64
     import json as _json
@@ -433,17 +429,27 @@ async def _create_rr_trip(
     if rr_user_id:
         trip_payload["created_by"] = rr_user_id
     # handled_by = RR Ops worker's RR user ID if available, else fall back to creator
-    trip_payload["handled_by"] = rr_ops_rr_id or rr_user_id or ""
-    if not trip_payload["handled_by"]:
-        del trip_payload["handled_by"]
-    if transporter_rr_company_id:
-        trip_payload["created_by_company"] = transporter_rr_company_id
+    handled = rr_ops_rr_id or rr_user_id
+    if handled:
+        trip_payload["handled_by"] = handled
+    # created_by_company = LP's own RR company (makes trip visible in their portal)
+    if lp_rr_company_id:
+        trip_payload["created_by_company"] = lp_rr_company_id
     if trip.created_at:
         trip_payload["back_entry_date"] = trip.created_at.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # Vehicle requirements (build once, add to as we go)
+    svr: dict = {}
     if vehicle_body_type:
-        trip_payload["specific_vehicle_requirements"] = {
-            "vehicle_body_type": vehicle_body_type
-        }
+        svr["vehicle_body_type"] = vehicle_body_type
+    if getattr(trip, 'axle_type', None):
+        svr["axle_type"] = trip.axle_type
+    if getattr(trip, 'number_of_wheels', None):
+        svr["number_of_wheels"] = [trip.number_of_wheels]   # RR expects a list
+    if getattr(trip, 'expected_freight', None):
+        svr["expected_price"] = float(trip.expected_freight)
+    if svr:
+        trip_payload["specific_vehicle_requirements"] = svr
 
     try:
         trip_resp = await client.post(
@@ -462,27 +468,79 @@ async def _create_rr_trip(
         return None, None, f"POST /trips response missing _id: {trip_resp.text[:200]}"
 
     # ── Step 2: POST /parcels ─────────────────────────────────────────────────
+    # Build pickup / unload address dicts
+    pickup_addr: dict = {"city": trip.origin_rr_city_id}
+    if getattr(trip, 'pickup_address_line1', None):
+        pickup_addr["address_line_1"] = trip.pickup_address_line1
+    if getattr(trip, 'pickup_address_line2', None):
+        pickup_addr["address_line_2"] = trip.pickup_address_line2
+    if getattr(trip, 'pickup_pin', None):
+        try:
+            pickup_addr["pin"] = int(trip.pickup_pin)
+        except (ValueError, TypeError):
+            pass
+    if getattr(trip, 'pickup_no_entry_zone', None) is not None:
+        pickup_addr["no_entry_zone"] = bool(trip.pickup_no_entry_zone)
+
+    unload_addr: dict = {"city": trip.destination_rr_city_id}
+    if getattr(trip, 'unload_address_line1', None):
+        unload_addr["address_line_1"] = trip.unload_address_line1
+    if getattr(trip, 'unload_address_line2', None):
+        unload_addr["address_line_2"] = trip.unload_address_line2
+    if getattr(trip, 'unload_pin', None):
+        try:
+            unload_addr["pin"] = int(trip.unload_pin)
+        except (ValueError, TypeError):
+            pass
+    if getattr(trip, 'unload_no_entry_zone', None) is not None:
+        unload_addr["no_entry_zone"] = bool(trip.unload_no_entry_zone)
+
+    # Sender (consignor)
+    sender: dict = {"sender_company": consignor_rr_id}
+    if getattr(trip, 'consignor_name', None):
+        sender["name"] = trip.consignor_name
+    if getattr(trip, 'consignor_gstin', None):
+        sender["gstin"] = trip.consignor_gstin
+
     parcel_payload: dict = {
         "trip_id":               rr_trip_id,
-        "pickup_postal_address": {"city": trip.origin_rr_city_id},
-        "unload_postal_address": {"city": trip.destination_rr_city_id},
+        "pickup_postal_address": pickup_addr,
+        "unload_postal_address": unload_addr,
         "quantity":              float(trip.weight_value),
         "quantity_unit":         rr_weight_unit,
         "material_type":         trip.material_rr_id,
         "cost":                  float(trip.invoice_value or trip.trip_amount or 0),
-        "sender":                {"sender_company": consignor_rr_id},
+        "sender":                sender,
         "source":                "Other",
     }
+    # Receiver (consignee)
     if consignee_rr_id:
-        parcel_payload["receiver"] = {"receiver_company": consignee_rr_id}
-    if transporter_rr_company_id:
-        parcel_payload["created_by_company"] = transporter_rr_company_id
+        receiver: dict = {"receiver_company": consignee_rr_id}
+        if getattr(trip, 'consignee_name', None):
+            receiver["name"] = trip.consignee_name
+        if getattr(trip, 'consignee_gstin', None):
+            receiver["gstin"] = trip.consignee_gstin
+        parcel_payload["receiver"] = receiver
+
+    if lp_rr_company_id:
+        parcel_payload["created_by_company"] = lp_rr_company_id
     if trip.created_at:
         parcel_payload["back_entry_date"] = trip.created_at.strftime("%Y-%m-%dT%H:%M:%S")
+    if getattr(trip, 'parcel_description', None):
+        parcel_payload["description"] = trip.parcel_description
+    if getattr(trip, 'part_load', None):
+        parcel_payload["part_load"] = bool(trip.part_load)
+    if getattr(trip, 'depot_code', None):
+        parcel_payload["depot_code"] = trip.depot_code
+
+    # Documents — must be proper nested dict, NOT dot-notation keys
+    docs: dict = {}
     if trip.bilty_number:
-        parcel_payload["documents.bilty"] = trip.bilty_number
+        docs["bilty"] = trip.bilty_number
     if trip.invoice_number:
-        parcel_payload["documents.consignor_invoice.number"] = str(trip.invoice_number).upper()
+        docs["consignor_invoice"] = {"number": str(trip.invoice_number).upper()}
+    if docs:
+        parcel_payload["documents"] = docs
 
     try:
         parcel_resp = await client.post(
@@ -735,22 +793,25 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                     )
                     return
 
-                # Optional: transporter org rr_company_id for created_by_company
-                transporter_rr_company_id = None
-                if trip.transporter_user_id:
-                    from app.models.user_organization import UserOrganization
-                    t_user_org = db.query(UserOrganization).filter(
-                        UserOrganization.user_id == trip.transporter_user_id,
-                        UserOrganization.status == 'active',
-                    ).first()
-                    if t_user_org and t_user_org.organization_id:
-                        t_org = db.query(Organization).filter(
-                            Organization.id == t_user_org.organization_id
+                from app.models.user import User as UserModel
+                from app.models.user_organization import UserOrganization
+
+                # LP's own RR company — used as created_by_company on trip + parcel
+                lp_rr_company_id = None
+                if trip.created_by:
+                    lp_creator = db.query(UserModel).filter(UserModel.id == trip.created_by).first()
+                    if lp_creator:
+                        lp_uo = db.query(UserOrganization).filter(
+                            UserOrganization.user_id == lp_creator.id,
+                            UserOrganization.status == 'active',
                         ).first()
-                        transporter_rr_company_id = t_org.rr_company_id if t_org else None
+                        if lp_uo and lp_uo.organization_id:
+                            lp_org = db.query(Organization).filter(
+                                Organization.id == lp_uo.organization_id
+                            ).first()
+                            lp_rr_company_id = lp_org.rr_company_id if lp_org else None
 
                 # RR Ops worker: rr_company_id stores their RR user ObjectId
-                from app.models.user import User as UserModel
                 rr_ops_rr_id = None
                 if trip.rr_ops_user_id:
                     ops_user = db.query(UserModel).filter(
@@ -783,7 +844,7 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                     token=token,
                     consignor_rr_id=consignor_rr_id,
                     rr_weight_unit=rr_weight_unit,
-                    transporter_rr_company_id=transporter_rr_company_id,
+                    lp_rr_company_id=lp_rr_company_id,
                     rr_ops_rr_id=rr_ops_rr_id,
                     consignee_rr_id=consignee_rr_id,
                     vehicle_body_type=trip.vehicle_body_type or None,

@@ -1889,6 +1889,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   bool _consignorCompaniesLoading                 = false;
   String? _selectedConsignorId;    // rr_company_id
   String? _selectedConsignorName;
+  List<Map<String, dynamic>> _consignorAddresses  = [];
 
   // Consignee
   Map<String, dynamic>? _consigneePartner;
@@ -1896,6 +1897,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   bool _consigneeCompaniesLoading                 = false;
   String? _selectedConsigneeId;    // rr_company_id
   String? _selectedConsigneeName;
+  List<Map<String, dynamic>> _consigneeAddresses  = [];
 
   // Ops worker (from RR company-workers)
   List<Map<String, dynamic>> _opsWorkers          = [];
@@ -1929,6 +1931,37 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   List<String> _vehicleBodyTypes = const [];
   String? _vehicleBodyType;
   final _invoiceValueCtrl = TextEditingController();
+
+  // ── Consignor / Consignee info ───────────────────────────────────────────────
+  final _consignorNameCtrl  = TextEditingController();
+  final _consignorGstinCtrl = TextEditingController();
+  final _consigneeNameCtrl  = TextEditingController();
+  final _consigneeGstinCtrl = TextEditingController();
+
+  // ── Pickup address ─────────────────────────────────────────────────────────
+  final _pickupLine1Ctrl    = TextEditingController();
+  final _pickupLine2Ctrl    = TextEditingController();
+  final _pickupPinCtrl      = TextEditingController();
+  bool  _pickupNoEntryZone  = false;
+
+  // ── Unload address ─────────────────────────────────────────────────────────
+  final _unloadLine1Ctrl    = TextEditingController();
+  final _unloadLine2Ctrl    = TextEditingController();
+  final _unloadPinCtrl      = TextEditingController();
+  bool  _unloadNoEntryZone  = false;
+
+  // ── Parcel info ────────────────────────────────────────────────────────────
+  final _parcelDescCtrl     = TextEditingController();
+  bool  _partLoad           = false;
+  final _depotCodeCtrl      = TextEditingController();
+
+  // ── Vehicle requirements ───────────────────────────────────────────────────
+  String? _axleType;
+  int?    _numberOfWheels;
+  final _expectedFreightCtrl = TextEditingController();
+
+  static const _axleTypes    = ['Single', 'Double', 'Triple', 'Multiple'];
+  static const _wheelOptions = [4, 6, 8, 10, 12, 14, 16, 18, 22];
 
   @override
   void initState() {
@@ -1968,6 +2001,19 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     _pickupCityDebounce?.cancel();
     _dropCityDebounce?.cancel();
     _materialDebounce?.cancel();
+    _consignorNameCtrl.dispose();
+    _consignorGstinCtrl.dispose();
+    _consigneeNameCtrl.dispose();
+    _consigneeGstinCtrl.dispose();
+    _pickupLine1Ctrl.dispose();
+    _pickupLine2Ctrl.dispose();
+    _pickupPinCtrl.dispose();
+    _unloadLine1Ctrl.dispose();
+    _unloadLine2Ctrl.dispose();
+    _unloadPinCtrl.dispose();
+    _parcelDescCtrl.dispose();
+    _depotCodeCtrl.dispose();
+    _expectedFreightCtrl.dispose();
     super.dispose();
   }
 
@@ -2020,13 +2066,36 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     ]);
   }
 
+  Future<void> _loadCompanyLocations(String? companyId, {required bool isConsignor}) async {
+    if (companyId == null || companyId.isEmpty) return;
+    final session = ref.read(rrSessionProvider);
+    final token = (session != null && session.isValid) ? session.token : '';
+    try {
+      final resp = await ref.read(apiServiceProvider).dio.get(
+        '/api/rr/operation-locations',
+        queryParameters: {'company_id': companyId, 'rr_token': token},
+      );
+      final locs = (resp.data['locations'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      if (isConsignor) setState(() => _consignorAddresses = locs);
+      else             setState(() => _consigneeAddresses = locs);
+    } catch (_) {}
+  }
+
   Future<void> _loadPartnerCompanies(Map<String, dynamic> partner, {required bool isConsignor}) async {
     final rrUserId = partner['rr_user_id'] as String?;
     if (rrUserId == null) {
       final companyId = partner['rr_company_id'] as String?;
       final name = partner['name'] as String? ?? '';
-      if (isConsignor) setState(() { _selectedConsignorId = companyId; _selectedConsignorName = name; _consignorCompanies = []; });
-      else             setState(() { _selectedConsigneeId = companyId; _selectedConsigneeName = name; _consigneeCompanies = []; });
+      if (isConsignor) setState(() {
+        _selectedConsignorId = companyId; _selectedConsignorName = name; _consignorCompanies = [];
+        _consignorAddresses  = [];
+      });
+      else setState(() {
+        _selectedConsigneeId = companyId; _selectedConsigneeName = name; _consigneeCompanies = [];
+        _consigneeAddresses  = [];
+      });
+      _loadCompanyLocations(companyId, isConsignor: isConsignor);
       return;
     }
     if (isConsignor) setState(() => _consignorCompaniesLoading = true);
@@ -2156,6 +2225,19 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
 
     try {
       final invoiceVal = double.tryParse(_invoiceValueCtrl.text.trim());
+      final ef = double.tryParse(_expectedFreightCtrl.text.trim());
+      final consignorName  = _consignorNameCtrl.text.trim();
+      final consignorGstin = _consignorGstinCtrl.text.trim();
+      final consigneeName  = _consigneeNameCtrl.text.trim();
+      final consigneeGstin = _consigneeGstinCtrl.text.trim();
+      final pl1 = _pickupLine1Ctrl.text.trim();
+      final pl2 = _pickupLine2Ctrl.text.trim();
+      final pp  = _pickupPinCtrl.text.trim();
+      final ul1 = _unloadLine1Ctrl.text.trim();
+      final ul2 = _unloadLine2Ctrl.text.trim();
+      final up  = _unloadPinCtrl.text.trim();
+      final desc      = _parcelDescCtrl.text.trim();
+      final depotCode = _depotCodeCtrl.text.trim();
       final resp = await api.dio.post(
         '/api/loads/${widget.load.id}/fulfill',
         data: {
@@ -2173,6 +2255,29 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
           'weight_unit': _weightUnit,
           if (invoiceVal != null) 'invoice_value': invoiceVal,
           if (_vehicleBodyType != null) 'vehicle_body_type': _vehicleBodyType,
+          // Consignor / Consignee info
+          if (consignorName.isNotEmpty)  'consignor_name':  consignorName,
+          if (consignorGstin.isNotEmpty) 'consignor_gstin': consignorGstin,
+          if (consigneeName.isNotEmpty)  'consignee_name':  consigneeName,
+          if (consigneeGstin.isNotEmpty) 'consignee_gstin': consigneeGstin,
+          // Pickup address
+          if (pl1.isNotEmpty) 'pickup_address_line1': pl1,
+          if (pl2.isNotEmpty) 'pickup_address_line2': pl2,
+          if (pp.isNotEmpty)  'pickup_pin':           pp,
+          'pickup_no_entry_zone': _pickupNoEntryZone,
+          // Unload address
+          if (ul1.isNotEmpty) 'unload_address_line1': ul1,
+          if (ul2.isNotEmpty) 'unload_address_line2': ul2,
+          if (up.isNotEmpty)  'unload_pin':           up,
+          'unload_no_entry_zone': _unloadNoEntryZone,
+          // Parcel info
+          if (desc.isNotEmpty)      'parcel_description': desc,
+          if (depotCode.isNotEmpty) 'depot_code':         depotCode,
+          'part_load': _partLoad,
+          // Vehicle requirements
+          if (_axleType       != null) 'axle_type':        _axleType,
+          if (_numberOfWheels != null) 'number_of_wheels': _numberOfWheels,
+          if (ef != null)              'expected_freight':  ef,
           if (rrSession != null && rrSession.isValid) 'rr_token': rrSession.token,
         },
       );
@@ -2336,11 +2441,16 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                         .firstWhere((c) => c?['rr_company_id'] == _selectedConsignorId, orElse: () => null),
                     items: _consignorPartner == null ? [] : _consignorCompanies,
                     label: (c) => c['name'] as String? ?? '—',
-                    onChanged: _consignorPartner == null ? null : (c) => setState(() {
-                      _selectedConsignorId   = c?['rr_company_id'] as String?;
-                      _selectedConsignorName = c?['name'] as String?;
-                      _consignorError        = null;
-                    }),
+                    onChanged: _consignorPartner == null ? null : (c) {
+                      final id = c?['rr_company_id'] as String?;
+                      setState(() {
+                        _selectedConsignorId   = id;
+                        _selectedConsignorName = c?['name'] as String?;
+                        _consignorError        = null;
+                        _consignorAddresses    = [];
+                      });
+                      _loadCompanyLocations(id, isConsignor: true);
+                    },
                   ),
               ],
               if (_consignorError != null) ...[
@@ -2384,6 +2494,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                       _consigneeCompanies = [];
                       _selectedConsigneeId   = null;
                       _selectedConsigneeName = null;
+                      _consigneeAddresses    = (p?['postal_addresses'] as List? ?? []).cast<Map<String,dynamic>>();
                     });
                     if (p != null) _loadPartnerCompanies(p, isConsignor: false);
                   },
@@ -2401,11 +2512,16 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                         .firstWhere((c) => c?['rr_company_id'] == _selectedConsigneeId, orElse: () => null),
                     items: _consigneePartner == null ? [] : _consigneeCompanies,
                     label: (c) => c['name'] as String? ?? '—',
-                    onChanged: _consigneePartner == null ? null : (c) => setState(() {
-                      _selectedConsigneeId   = c?['rr_company_id'] as String?;
-                      _selectedConsigneeName = c?['name'] as String?;
-                      _consigneeError        = null;
-                    }),
+                    onChanged: _consigneePartner == null ? null : (c) {
+                      final id = c?['rr_company_id'] as String?;
+                      setState(() {
+                        _selectedConsigneeId   = id;
+                        _selectedConsigneeName = c?['name'] as String?;
+                        _consigneeError        = null;
+                        _consigneeAddresses    = [];
+                      });
+                      _loadCompanyLocations(id, isConsignor: false);
+                    },
                   ),
               ],
               if (_consigneeError != null) ...[
@@ -2595,6 +2711,150 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                   Expanded(child: Text(_rrError!, style: _inter(size: 11, color: Colors.red))),
                 ]),
               ],
+              const SizedBox(height: 20),
+
+              // ── Consignor Info ─────────────────────────────────────────────
+              _FulfillSectionHeader(label: 'Consignor Info'),
+              const SizedBox(height: 10),
+              Text('Name', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _consignorNameCtrl, hint: 'e.g. Tata Steel Ltd'),
+              const SizedBox(height: 10),
+              Text('GSTIN', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _consignorGstinCtrl, hint: 'e.g. 27AABCT3518Q1ZV'),
+              const SizedBox(height: 20),
+
+              // ── Consignee Info ─────────────────────────────────────────────
+              _FulfillSectionHeader(label: 'Consignee Info'),
+              const SizedBox(height: 10),
+              Text('Name', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _consigneeNameCtrl, hint: 'e.g. JSW Steel Ltd'),
+              const SizedBox(height: 10),
+              Text('GSTIN', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _consigneeGstinCtrl, hint: 'e.g. 27AABCJ1234P1ZX'),
+              const SizedBox(height: 20),
+
+              // ── Pickup Address ─────────────────────────────────────────────
+              _FulfillSectionHeader(label: 'Pickup Address'),
+              const SizedBox(height: 10),
+              Text('Address Line 1', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _pickupLine1Ctrl, hint: 'Street / area'),
+              const SizedBox(height: 10),
+              Text('Address Line 2', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _pickupLine2Ctrl, hint: 'Landmark / locality'),
+              const SizedBox(height: 10),
+              Text('PIN Code', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _pickupPinCtrl, hint: '6-digit PIN', inputType: TextInputType.number),
+              const SizedBox(height: 8),
+              _FulfillCheckboxRow(
+                label: 'No Entry Zone',
+                value: _pickupNoEntryZone,
+                onChanged: (v) => setState(() => _pickupNoEntryZone = v ?? false),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Unload Address ─────────────────────────────────────────────
+              _FulfillSectionHeader(label: 'Unload Address'),
+              const SizedBox(height: 10),
+              Text('Address Line 1', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _unloadLine1Ctrl, hint: 'Street / area'),
+              const SizedBox(height: 10),
+              Text('Address Line 2', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _unloadLine2Ctrl, hint: 'Landmark / locality'),
+              const SizedBox(height: 10),
+              Text('PIN Code', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _unloadPinCtrl, hint: '6-digit PIN', inputType: TextInputType.number),
+              const SizedBox(height: 8),
+              _FulfillCheckboxRow(
+                label: 'No Entry Zone',
+                value: _unloadNoEntryZone,
+                onChanged: (v) => setState(() => _unloadNoEntryZone = v ?? false),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Parcel Info ────────────────────────────────────────────────
+              _FulfillSectionHeader(label: 'Parcel Info'),
+              const SizedBox(height: 10),
+              Text('Description', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _parcelDescCtrl, hint: 'e.g. Steel coils'),
+              const SizedBox(height: 10),
+              Text('Depot Code', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _depotCodeCtrl, hint: 'e.g. KNP01'),
+              const SizedBox(height: 8),
+              _FulfillCheckboxRow(
+                label: 'Part Load',
+                value: _partLoad,
+                onChanged: (v) => setState(() => _partLoad = v ?? false),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Vehicle Requirements ───────────────────────────────────────
+              _FulfillSectionHeader(label: 'Vehicle Requirements'),
+              const SizedBox(height: 10),
+              Text('Axle Type', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: _surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _surfaceContainer),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _axleType,
+                    isExpanded: true,
+                    hint: Text('Select axle type', style: _inter(size: 13, color: _secondary)),
+                    style: _inter(size: 13, color: const Color(0xFF191C1E)),
+                    icon: const Icon(Icons.expand_more_rounded, size: 18),
+                    items: _axleTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                    onChanged: (v) => setState(() => _axleType = v),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text('Number of Wheels', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: _surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _surfaceContainer),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: _numberOfWheels,
+                    isExpanded: true,
+                    hint: Text('Select wheel count', style: _inter(size: 13, color: _secondary)),
+                    style: _inter(size: 13, color: const Color(0xFF191C1E)),
+                    icon: const Icon(Icons.expand_more_rounded, size: 18),
+                    items: _wheelOptions.map((w) => DropdownMenuItem<int>(
+                      value: w, child: Text('$w wheels'),
+                    )).toList(),
+                    onChanged: (v) => setState(() => _numberOfWheels = v),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text('Expected Freight (₹)', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(
+                controller: _expectedFreightCtrl,
+                hint: 'e.g. 45000',
+                inputType: TextInputType.number,
+              ),
               const SizedBox(height: 20),
 
               // Vehicle selector
@@ -3172,6 +3432,46 @@ class _FulfillCityField extends StatelessWidget {
 }
 
 /// Compact plain text field used inside the fulfill bottom sheet.
+class _FulfillSectionHeader extends StatelessWidget {
+  final String label;
+  const _FulfillSectionHeader({required this.label});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Container(width: 3, height: 14,
+          decoration: BoxDecoration(color: _primary, borderRadius: BorderRadius.circular(2))),
+      const SizedBox(width: 8),
+      Text(label, style: _manrope(size: 13, weight: FontWeight.w800)),
+    ],
+  );
+}
+
+class _FulfillCheckboxRow extends StatelessWidget {
+  final String label;
+  final bool value;
+  final ValueChanged<bool?> onChanged;
+  const _FulfillCheckboxRow({required this.label, required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      SizedBox(
+        width: 20, height: 20,
+        child: Checkbox(
+          value: value,
+          onChanged: onChanged,
+          activeColor: _primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          side: BorderSide(color: _secondary),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Text(label, style: _inter(size: 13, color: const Color(0xFF191C1E))),
+    ],
+  );
+}
+
 class _FulfillTextField extends StatelessWidget {
   final TextEditingController controller;
   final String hint;

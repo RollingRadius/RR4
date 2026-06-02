@@ -399,6 +399,29 @@ class FulfillPayload(BaseModel):
     weight_unit:             Optional[str]   = None
     invoice_value:           Optional[float] = None
     vehicle_body_type:       Optional[str]   = None
+    # RR consignor/consignee details
+    consignor_name:  Optional[str] = None
+    consignor_gstin: Optional[str] = None
+    consignee_name:  Optional[str] = None
+    consignee_gstin: Optional[str] = None
+    # Pickup address
+    pickup_address_line1: Optional[str]  = None
+    pickup_address_line2: Optional[str]  = None
+    pickup_pin:           Optional[str]  = None
+    pickup_no_entry_zone: Optional[bool] = None
+    # Unload address
+    unload_address_line1: Optional[str]  = None
+    unload_address_line2: Optional[str]  = None
+    unload_pin:           Optional[str]  = None
+    unload_no_entry_zone: Optional[bool] = None
+    depot_code:           Optional[str]  = None
+    # Parcel info
+    parcel_description: Optional[str]  = None
+    part_load:          Optional[bool] = None
+    # Vehicle requirements
+    axle_type:        Optional[str]   = None
+    number_of_wheels: Optional[int]   = None
+    expected_freight: Optional[float] = None
     # LP's RR session token — if provided, trip+parcel are created in RR immediately
     rr_token:                Optional[str]   = None
 
@@ -713,6 +736,24 @@ async def fulfill_load_requirement(
         weight_unit=payload.weight_unit,
         invoice_value=payload.invoice_value,
         vehicle_body_type=payload.vehicle_body_type or None,
+        consignor_name=payload.consignor_name or None,
+        consignor_gstin=payload.consignor_gstin or None,
+        consignee_name=payload.consignee_name or None,
+        consignee_gstin=payload.consignee_gstin or None,
+        pickup_address_line1=payload.pickup_address_line1 or None,
+        pickup_address_line2=payload.pickup_address_line2 or None,
+        pickup_pin=payload.pickup_pin or None,
+        pickup_no_entry_zone=payload.pickup_no_entry_zone,
+        unload_address_line1=payload.unload_address_line1 or None,
+        unload_address_line2=payload.unload_address_line2 or None,
+        unload_pin=payload.unload_pin or None,
+        unload_no_entry_zone=payload.unload_no_entry_zone,
+        depot_code=payload.depot_code or None,
+        parcel_description=payload.parcel_description or None,
+        part_load=payload.part_load or False,
+        axle_type=payload.axle_type or None,
+        number_of_wheels=payload.number_of_wheels,
+        expected_freight=payload.expected_freight,
     )
     if hasattr(Trip, 'load_requirement_id'):
         trip_kwargs['load_requirement_id'] = load.id
