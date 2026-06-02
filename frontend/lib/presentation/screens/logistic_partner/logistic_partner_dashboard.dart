@@ -2975,7 +2975,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                   items: _opsWorkers,
                   label: (w) {
                     final name = w['name'] as String? ?? '—';
-                    final phone = w['phone'] as String? ?? '';
+                    final phone = (w['phone'] as Map?)?['number'] as String? ?? '';
                     return phone.isNotEmpty ? '$name · $phone' : name;
                   },
                   onChanged: (w) => setState(() {

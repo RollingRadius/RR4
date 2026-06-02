@@ -238,15 +238,18 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (rrUserId == null) {
       // company-type partner — company info is directly on the partner record;
       // fetch operation_locations immediately (no postal_addresses for company types)
-      final id   = partner['rr_company_id'] as String?;
-      final name = partner['name'] as String? ?? '';
+      final id    = partner['rr_company_id'] as String?;
+      final name  = partner['name'] as String? ?? '';
+      final gstin = partner['gstin'] as String? ?? '';
       if (isConsignor) setState(() {
-        _consignorRrCompanyId = id; _consignorCompanyName = name; _consignorCompanies = [];
-        _consignorAddresses   = [];  // will be filled by operation_locations
+        _consignorRrCompanyId    = id; _consignorCompanyName = name; _consignorCompanies = [];
+        _consignorAddresses      = [];  // will be filled by operation_locations
+        _consignorGstinCtrl.text = gstin;
       });
       else setState(() {
-        _consigneeRrCompanyId = id; _consigneeCompanyName = name; _consigneeCompanies = [];
-        _consigneeAddresses   = [];
+        _consigneeRrCompanyId    = id; _consigneeCompanyName = name; _consigneeCompanies = [];
+        _consigneeAddresses      = [];
+        _consigneeGstinCtrl.text = gstin;
       });
       _loadCompanyLocations(id, isConsignor: isConsignor);
       return;
@@ -560,7 +563,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       if (p.isEmpty) return;
                       setState(() {
                         _consignorPartner      = p;
-                        _consignorPhone        = (p['phone'] as String? ?? '').isNotEmpty ? p['phone'] as String : null;
+                        _consignorPhone        = (p['phone'] as Map?)?['number'] as String?;
                         _consignorNameCtrl.text = p['name'] as String? ?? '';
                         _consignorAddresses    = (p['postal_addresses'] as List? ?? []).cast<Map<String, dynamic>>();
                         _consignorRrCompanyId  = null;
@@ -721,7 +724,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       if (p.isEmpty) return;
                       setState(() {
                         _consigneePartner      = p;
-                        _consigneePhone        = (p['phone'] as String? ?? '').isNotEmpty ? p['phone'] as String : null;
+                        _consigneePhone        = (p['phone'] as Map?)?['number'] as String?;
                         _consigneeNameCtrl.text = p['name'] as String? ?? '';
                         _consigneeAddresses    = (p['postal_addresses'] as List? ?? []).cast<Map<String, dynamic>>();
                         _consigneeRrCompanyId  = null;

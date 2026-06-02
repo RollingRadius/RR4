@@ -4,6 +4,7 @@ Proxy endpoints for RR city/material resolution and sync status queries.
 All endpoints require authentication — RR details are never exposed to the client.
 """
 
+import json
 import logging
 from typing import List
 
@@ -337,6 +338,7 @@ async def get_preferred_partners(
                     "name":             comp_p.get("name", ""),
                     "phone":            "",
                     "postal_addresses": [],
+                    "gstin":            comp_p.get("gstin", ""),
                     "type":             "company",
                 })
         return {"partners": partners}
