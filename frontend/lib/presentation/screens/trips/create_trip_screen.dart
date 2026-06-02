@@ -125,16 +125,36 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   }
 
   Future<void> _loadRrPartyData() async {
-    // Ensure a valid RR session — re-login silently if token expired
+    final dio = ref.read(dioProvider);
+
+    // Enums only need RR4 auth — fire immediately, no RR session required.
+    dio.get('/api/rr/enums', queryParameters: {'name': 'QuantityUnit'})
+        .then((r) {
+          if (!mounted) return;
+          final vals = (r.data['values'] as List? ?? []).cast<String>();
+          if (vals.isNotEmpty) {
+            setState(() {
+              _quantityUnits = vals;
+              if (!_quantityUnits.contains(_weightUnit)) _weightUnit = _quantityUnits.first;
+            });
+          }
+        }).catchError((_) {});
+    dio.get('/api/rr/enums', queryParameters: {'name': 'VehicleBodyTypes'})
+        .then((r) {
+          if (!mounted) return;
+          setState(() {
+            _vehicleBodyTypes = (r.data['values'] as List? ?? []).cast<String>();
+          });
+        }).catchError((_) {});
+
+    // Partners and workers require an RR token — ask for login if no valid session.
     final session = await ensureRrSession(context, ref);
     if (session == null) {
-      // User cancelled login; leave dropdowns empty
       if (mounted) setState(() { _partnersLoading = false; _opsWorkersLoading = false; });
       return;
     }
     final token = session.token;
     setState(() { _partnersLoading = true; _opsWorkersLoading = true; });
-    final dio = ref.read(dioProvider);
     await Future.wait([
       dio.get('/api/rr/preferred-partners', queryParameters: {'rr_token': token})
           .then((r) {
@@ -150,23 +170,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               _opsWorkersLoading = false;
             });
           }).catchError((_) { if (mounted) setState(() => _opsWorkersLoading = false); }),
-      dio.get('/api/rr/enums', queryParameters: {'name': 'QuantityUnit'})
-          .then((r) {
-            if (mounted) setState(() {
-              final vals = (r.data['values'] as List? ?? []).cast<String>();
-              if (vals.isNotEmpty) {
-                _quantityUnits = vals;
-                // Reset unit if current value not in new list
-                if (!_quantityUnits.contains(_weightUnit)) _weightUnit = _quantityUnits.first;
-              }
-            });
-          }).catchError((_) {}),
-      dio.get('/api/rr/enums', queryParameters: {'name': 'VehicleBodyTypes'})
-          .then((r) {
-            if (mounted) setState(() {
-              _vehicleBodyTypes = (r.data['values'] as List? ?? []).cast<String>();
-            });
-          }).catchError((_) {}),
     ]);
   }
 

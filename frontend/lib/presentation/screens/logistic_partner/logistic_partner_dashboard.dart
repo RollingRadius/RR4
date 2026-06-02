@@ -1972,7 +1972,29 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   }
 
   Future<void> _loadRrPartyData() async {
-    // Ensure a valid RR session — re-login if token expired since Loads tab was opened
+    final api = ref.read(apiServiceProvider).dio;
+
+    // Enums only need RR4 auth — fire immediately, no RR session required.
+    api.get('/api/rr/enums', queryParameters: {'name': 'QuantityUnit'})
+        .then((r) {
+          if (!mounted) return;
+          final vals = (r.data['values'] as List? ?? []).cast<String>();
+          if (vals.isNotEmpty) {
+            setState(() {
+              _quantityUnits = vals;
+              if (!_quantityUnits.contains(_weightUnit)) _weightUnit = _quantityUnits.first;
+            });
+          }
+        }).catchError((_) {});
+    api.get('/api/rr/enums', queryParameters: {'name': 'VehicleBodyTypes'})
+        .then((r) {
+          if (!mounted) return;
+          setState(() {
+            _vehicleBodyTypes = (r.data['values'] as List? ?? []).cast<String>();
+          });
+        }).catchError((_) {});
+
+    // Partners and workers require an RR token — ask for login if no valid session.
     final session = await ensureRrSession(context, ref);
     if (session == null) {
       if (mounted) setState(() { _partnersLoading = false; _opsWorkersLoading = false; });
@@ -1980,7 +2002,6 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     }
     final token = session.token;
     setState(() { _partnersLoading = true; _opsWorkersLoading = true; });
-    final api = ref.read(apiServiceProvider).dio;
     await Future.wait([
       api.get('/api/rr/preferred-partners', queryParameters: {'rr_token': token})
           .then((r) {
@@ -1996,22 +2017,6 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
               _opsWorkersLoading = false;
             });
           }).catchError((_) { if (mounted) setState(() => _opsWorkersLoading = false); }),
-      api.get('/api/rr/enums', queryParameters: {'name': 'QuantityUnit'})
-          .then((r) {
-            if (mounted) setState(() {
-              final vals = (r.data['values'] as List? ?? []).cast<String>();
-              if (vals.isNotEmpty) {
-                _quantityUnits = vals;
-                if (!_quantityUnits.contains(_weightUnit)) _weightUnit = _quantityUnits.first;
-              }
-            });
-          }).catchError((_) {}),
-      api.get('/api/rr/enums', queryParameters: {'name': 'VehicleBodyTypes'})
-          .then((r) {
-            if (mounted) setState(() {
-              _vehicleBodyTypes = (r.data['values'] as List? ?? []).cast<String>();
-            });
-          }).catchError((_) {}),
     ]);
   }
 

@@ -441,12 +441,14 @@ async def _create_rr_trip(
     if trip.created_at:
         trip_payload["back_entry_date"] = trip.created_at.strftime("%Y-%m-%dT%H:%M:%S")
     if vehicle_body_type:
-        trip_payload["body_type"] = vehicle_body_type
+        trip_payload["specific_vehicle_requirements"] = {
+            "vehicle_body_type": vehicle_body_type
+        }
 
     try:
         trip_resp = await client.post(
             f"{settings.RR_API_BASE}/trips",
-            data=trip_payload,
+            json=trip_payload,
             headers=_auth_header(token),
         )
     except Exception as exc:
