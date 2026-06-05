@@ -126,6 +126,10 @@ class Trip(Base):
     # ── Transporter Assignment ────────────────────────────────────────────────────
     # User ID of the transporter assigned by LP to upload the loading slip
     transporter_user_id = Column(UUID(as_uuid=True), nullable=True)
+    # RR company ObjectId used as vehicle_provider_id in POST /create_trip.
+    # Set at assign-transporter time: transporter org's rr_company_id if set,
+    # else Rolling Radius default (62d66794e54f47829a886a1d).
+    transporter_rr_company_id = Column(String(24), nullable=True)
 
     # ── Consignee (Load Receiver) ─────────────────────────────────────────────────
     # Exactly one is set: org-type consignee OR individual user-type consignee

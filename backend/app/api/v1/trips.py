@@ -1530,6 +1530,20 @@ def assign_transporter(
         raise HTTPException(status_code=400, detail="The selected user is not a registered transporter.")
 
     trip.transporter_user_id = t_uid
+
+    # Resolve vehicle_provider_id for complete-trip: use transporter org's rr_company_id
+    # if set, else default to Rolling Radius LP id.
+    from app.models.company import Organization
+    _RR_DEFAULT = "62d66794e54f47829a886a1d"
+    transporter_rr_company_id = _RR_DEFAULT
+    if transporter_org and transporter_org.organization_id:
+        t_org = db.query(Organization).filter(
+            Organization.id == transporter_org.organization_id
+        ).first()
+        if t_org and t_org.rr_company_id:
+            transporter_rr_company_id = t_org.rr_company_id
+    trip.transporter_rr_company_id = transporter_rr_company_id
+
     db.commit()
     db.refresh(trip)
     return {"success": True, "message": f"Transporter {transporter_user.full_name} assigned.", "trip": _enrich(trip, db)}

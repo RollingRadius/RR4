@@ -54,4 +54,14 @@ class RrSyncApi {
     final resp = await _apiService.dio.get('/api/rr/sync/status/$tripId');
     return Map<String, dynamic>.from(resp.data);
   }
+
+  /// POST /api/rr/complete-trip/{trip_id}
+  /// Body: {rr_token} — calls POST /create_trip on RR web, saves rr_trip_id + rr_parcel_id
+  Future<Map<String, dynamic>> completeTripInRr(String tripId, String rrToken) async {
+    final resp = await _apiService.dio.post(
+      '/api/rr/complete-trip/$tripId',
+      data: {'rr_token': rrToken},
+    );
+    return Map<String, dynamic>.from(resp.data);
+  }
 }

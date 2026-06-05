@@ -8,16 +8,14 @@ Called as a BackgroundTask from:
   - POST /api/rr/sync/bulk       (bulk sync, uses global RR_REFRESH_TOKEN)
 
 Flow:
-  1. If trip not yet in RR → Phase 5 auto-resolve IDs + pre-flight
-       → POST /trips (Eve) + POST /parcels (Eve)   [NOT /create_trip — see note]
+  1. Trip must already exist in RR (rr_parcel_id set via POST /api/rr/complete-trip/{id})
   2. Sync loading slip if not yet done
   3. Sync S3 data (bilty number + weight receipt + material docs) if available
   4. Sync S5 POD if available
 
-Note: /create_trip is NOT used. That endpoint has an internal JWT bug introduced in RR
-commit a25eb588 (May 2026): it calls Eve endpoints using login_user_record.get("token")
-(legacy MD5 token) which Eve no longer accepts. We call /trips + /parcels directly with
-the LP's JWT instead, matching the RR Kanpur (CSR app) pattern.
+Note: Trip creation is now done via POST /api/rr/complete-trip/{id} which calls
+POST /create_trip on RR web (3.7 branch — JWT bug fixed). The sync button only
+pushes document stages (loading slip, S3, S5) after the trip is already in RR.
 """
 
 import json
@@ -755,153 +753,16 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
 
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
 
-            # ── Step 1: Create trip in RR if not yet done ─────────────────────
+            # ── Step 1: Trip must already exist in RR via complete-trip ───────
             if not trip.rr_parcel_id:
-                # Phase 5: auto-resolve vehicle/driver RR IDs (best-effort, not required for sync)
-                await _try_resolve_rr_ids(trip, client, token, db)
-                db.refresh(trip)
-
-                # Pre-flight: consignor + RR city/material/weight required
-                missing = []
-                # Consignor: prefer direct field, fall back to load owner org lookup
-                consignor_rr_id = trip.consignor_rr_company_id or None
-                if not consignor_rr_id and trip.load_owner_org_id:
-                    lo_org = db.query(Organization).filter(
-                        Organization.id == trip.load_owner_org_id
-                    ).first()
-                    consignor_rr_id = lo_org.rr_company_id if lo_org else None
-                if not consignor_rr_id:
-                    missing.append("consignor_rr_company_id")
-
-                if not trip.origin_rr_city_id:
-                    missing.append("origin_rr_city_id")
-                if not trip.destination_rr_city_id:
-                    missing.append("destination_rr_city_id")
-                if not trip.material_rr_id:
-                    missing.append("material_rr_id")
-                if not trip.weight_value:
-                    missing.append("weight_value")
-                if not trip.weight_unit:
-                    missing.append("weight_unit")
-
-                if missing:
-                    trip.rr_sync_status = "failed"
-                    trip.rr_sync_error = f"Missing required RR fields: {', '.join(missing)}"
-                    db.commit()
-                    logger.warning(
-                        f"[RR Sync All] Trip {trip.trip_number} blocked: {trip.rr_sync_error}"
-                    )
-                    return
-
-                from app.models.user import User as UserModel
-                from app.models.user_organization import UserOrganization
-
-                # LP's own RR company — used as created_by_company on trip + parcel
-                lp_rr_company_id = None
-                if trip.created_by:
-                    lp_creator = db.query(UserModel).filter(UserModel.id == trip.created_by).first()
-                    if lp_creator:
-                        lp_uo = db.query(UserOrganization).filter(
-                            UserOrganization.user_id == lp_creator.id,
-                            UserOrganization.status == 'active',
-                        ).first()
-                        if lp_uo and lp_uo.organization_id:
-                            lp_org = db.query(Organization).filter(
-                                Organization.id == lp_uo.organization_id
-                            ).first()
-                            lp_rr_company_id = lp_org.rr_company_id if lp_org else None
-
-                # RR Ops worker: rr_company_id stores their RR user ObjectId
-                rr_ops_rr_id = None
-                if trip.rr_ops_user_id:
-                    ops_user = db.query(UserModel).filter(
-                        UserModel.id == trip.rr_ops_user_id
-                    ).first()
-                    rr_ops_rr_id = ops_user.rr_company_id if ops_user else None
-
-                # Consignee rr_company_id: prefer the direct field (set when picking from RR),
-                # fall back to looking up the RR4 organisation's rr_company_id.
-                consignee_rr_id = trip.consignee_rr_company_id or None
-                if not consignee_rr_id and trip.consignee_org_id:
-                    c_org = db.query(Organization).filter(
-                        Organization.id == trip.consignee_org_id
-                    ).first()
-                    consignee_rr_id = c_org.rr_company_id if c_org else None
-
-                # Map weight units to RR's QuantityUnit enum values.
-                # If value already matches RR format (e.g. "TONNES", "KILOGRAMS") pass through.
-                _rr_units = {"TONNES", "KILOGRAMS", "LITRES", "BOX", "CUBIC METERS"}
-                _unit_map = {"TONS": "TONNES", "KG": "KILOGRAMS", "QUINTAL": "TONNES"}
-                raw_unit = (trip.weight_unit or "").strip()
-                if raw_unit.upper() in _rr_units:
-                    rr_weight_unit = raw_unit.upper()
-                else:
-                    rr_weight_unit = _unit_map.get(raw_unit.upper(), "TONNES")
-
-                rr_trip_id, rr_parcel_id, err = await _create_rr_trip(
-                    trip=trip,
-                    client=client,
-                    token=token,
-                    consignor_rr_id=consignor_rr_id,
-                    rr_weight_unit=rr_weight_unit,
-                    lp_rr_company_id=lp_rr_company_id,
-                    rr_ops_rr_id=rr_ops_rr_id,
-                    consignee_rr_id=consignee_rr_id,
-                    vehicle_body_type=trip.vehicle_body_type or None,
-                )
-
-                if err:
-                    trip.rr_sync_status = "failed"
-                    trip.rr_sync_error = err
-                    db.commit()
-                    logger.error(f"[RR Sync All] Trip creation failed for {trip.trip_number}: {err}")
-                    return
-
-                rr_trip_number = None
-                try:
-                    t_resp = await client.get(
-                        f"{settings.RR_API_BASE}/trips/{rr_trip_id}",
-                        headers=_auth_header(token),
-                    )
-                    if t_resp.status_code == 200:
-                        rr_trip_number = t_resp.json().get("trip_number")
-                except Exception:
-                    pass
-
-                rr_parcel_etag = await _fetch_parcel_etag(rr_parcel_id, client, token)
-
-                trip.rr_trip_id     = rr_trip_id
-                trip.rr_trip_number = rr_trip_number
-                trip.rr_parcel_id   = rr_parcel_id
-                trip.rr_parcel_etag = rr_parcel_etag
-                trip.rr_sync_status = "trip_created"
-                trip.rr_sync_error  = None
-                trip.rr_synced_at   = datetime.utcnow()
-                db.commit()
                 logger.info(
-                    f"[RR Sync All] Trip {trip.trip_number} → RR {rr_trip_number} "
-                    f"(trip_id={rr_trip_id}, parcel_id={rr_parcel_id})"
+                    f"[RR Sync All] Trip {trip.trip_number} not yet in RR — "
+                    f"use Complete Trip button to push via POST /create_trip"
                 )
+                return
 
-            # ── Step 2: Sync loading slip if not yet done ─────────────────────
-            if trip.rr_sync_status in ("trip_created",) and trip.s2_loading_slip_url:
-                await _sync_loading_slip(trip, client, token, db)
-
-            # ── Step 3: Sync S3 data if available and not yet done ────────────
-            if trip.rr_sync_status not in ("bilty_synced", "pod_synced"):
-                has_s3 = any([
-                    trip.s3_loaded_truck_weight_kg,
-                    trip.s3_loaded_weight_slip_url,
-                    trip.bilty_number,
-                    trip.s3_bilty_url,
-                    trip.s3_material_doc_urls,
-                ])
-                if has_s3:
-                    await _sync_stage3(trip, client, token, db)
-
-            # ── Step 4: Sync S5 POD if available and not yet done ────────────
-            if trip.rr_sync_status != "pod_synced" and trip.s5_pod_url:
-                await _sync_stage5(trip, client, token, db)
+            # Steps 2-4 (loading slip, S3, S5) — not active yet.
+            # Will be enabled in a future phase.
 
     except Exception as exc:
         logger.exception(f"[RR Sync All] Unexpected error for trip {trip_id}: {exc}")

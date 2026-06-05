@@ -599,6 +599,186 @@ def get_sync_ready(
     }
 
 
+# ── Complete Trip (calls POST /create_trip on RR) ────────────────────────────
+
+_RR_DEFAULT_VEHICLE_PROVIDER = "62d66794e54f47829a886a1d"  # Rolling Radius LP company
+
+_RR_UNITS = {"TONNES", "KILOGRAMS", "LITRES", "BOX", "CUBIC METERS"}
+_UNIT_MAP  = {"TONS": "TONNES", "KG": "KILOGRAMS", "QUINTAL": "TONNES"}
+
+
+class RrCompleteTripRequest(BaseModel):
+    rr_token: str
+
+
+@router.post("/complete-trip/{trip_id}", summary="Push trip to RR via POST /create_trip")
+async def complete_trip_in_rr(
+    trip_id: str,
+    body: RrCompleteTripRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Calls POST /create_trip on RR web for the given trip.
+    - Requires S1 done (vehicle.rr_vehicle_id + driver.rr_user_id resolved).
+    - vehicle_provider_id resolved from transporter org's rr_company_id;
+      falls back to Rolling Radius LP (62d66794e54f47829a886a1d) if none set.
+    - Saves rr_trip_id + rr_parcel_id back to the trip.
+    """
+    from datetime import datetime as _dt
+    from app.models import UserOrganization
+    from app.models.vehicle import Vehicle
+    from app.models.driver import Driver
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.organization_id == user_org.organization_id,
+    ).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    if trip.rr_trip_id:
+        raise HTTPException(status_code=409, detail="Trip already exists in RR")
+
+    # ── Resolve vehicle RR ID ─────────────────────────────────────────────────
+    rr_vehicle_id = None
+    if trip.vehicle_id:
+        vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
+        rr_vehicle_id = vehicle.rr_vehicle_id if vehicle else None
+
+    # ── Resolve driver RR user ID ─────────────────────────────────────────────
+    rr_driver_id = None
+    if trip.driver_id:
+        driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
+        rr_driver_id = driver.rr_user_id if driver else None
+
+    # ── Resolve vehicle_provider_id ───────────────────────────────────────────
+    # Set at assign-transporter time; always populated (org rr_company_id or RR default).
+    vehicle_provider_id = trip.transporter_rr_company_id or _RR_DEFAULT_VEHICLE_PROVIDER
+
+    # ── Pre-flight checks ─────────────────────────────────────────────────────
+    missing = []
+    if not trip.consignor_rr_company_id:
+        missing.append("consignor_rr_company_id")
+    if not trip.origin_rr_city_id:
+        missing.append("origin_rr_city_id")
+    if not trip.destination_rr_city_id:
+        missing.append("destination_rr_city_id")
+    if not trip.material_rr_id:
+        missing.append("material_rr_id")
+    if not trip.weight_value:
+        missing.append("weight_value")
+    if not trip.weight_unit:
+        missing.append("weight_unit")
+    if not trip.invoice_value:
+        missing.append("invoice_value")
+    if not rr_vehicle_id:
+        missing.append("vehicle.rr_vehicle_id — S1 must be submitted first")
+    if not rr_driver_id:
+        missing.append("driver.rr_user_id — S1 must be submitted first")
+    if missing:
+        raise HTTPException(status_code=422, detail=f"Missing required fields: {', '.join(missing)}")
+
+    # ── Map weight unit to RR enum ────────────────────────────────────────────
+    raw_unit = (trip.weight_unit or "").strip().upper()
+    rr_weight_unit = raw_unit if raw_unit in _RR_UNITS else _UNIT_MAP.get(raw_unit, "TONNES")
+
+    # ── Build create_trip payload ─────────────────────────────────────────────
+    payload: dict = {
+        "consignor_company_id": trip.consignor_rr_company_id,
+        "vehicle_id":           rr_vehicle_id,
+        "vehicle_provider_id":  vehicle_provider_id,
+        "driver_id":            rr_driver_id,
+        "pickup_city":          trip.origin_rr_city_id,
+        "unload_city":          trip.destination_rr_city_id,
+        "material":             trip.material_rr_id,
+        "weight":               float(trip.weight_value),
+        "weight_unit":          rr_weight_unit,
+        "freight_amount":       float(trip.expected_freight or 0),
+        "invoice_value":        float(trip.invoice_value),
+        "booking_amount":       float(trip.expected_freight or 0),
+        "loading_amount":       0,
+        "unloading_amount":     0,
+        "advance_amount":       0,
+        "diesel_charges":       0,
+        "back_entry_date":      trip.created_at.strftime("%Y-%m-%dT%H:%M:%S"),
+        "force_create":         True,
+    }
+    if trip.consignee_rr_company_id:
+        payload["consignee_company_id"] = trip.consignee_rr_company_id
+
+    # ── Call RR POST /create_trip ─────────────────────────────────────────────
+    rr_headers = {
+        "Authorization": f"Bearer {body.rr_token}",
+        "Content-Type":  "application/json",
+    }
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=60) as client:
+            resp = await client.post(
+                f"{settings.RR_API_BASE}/create_trip",
+                json=payload,
+                headers=rr_headers,
+            )
+    except Exception as exc:
+        logger.error(f"[Complete Trip] RR create_trip request failed: {exc}")
+        raise HTTPException(status_code=503, detail=f"Could not reach RR server: {exc}")
+
+    if resp.status_code not in (200, 201):
+        logger.error(f"[Complete Trip] RR create_trip {resp.status_code}: {resp.text[:300]}")
+        raise HTTPException(
+            status_code=resp.status_code,
+            detail=f"RR create_trip failed: {resp.text[:300]}",
+        )
+
+    data = resp.json()
+    rr_trip_id   = data.get("trip_id")
+    rr_parcel_id = data.get("parcel_id")
+
+    if not rr_trip_id:
+        raise HTTPException(status_code=500, detail=f"RR create_trip missing trip_id: {resp.text[:200]}")
+
+    # ── Fetch parcel etag for future PATCH calls ──────────────────────────────
+    rr_parcel_etag = None
+    if rr_parcel_id:
+        try:
+            async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+                etag_resp = await client.get(
+                    f"{settings.RR_API_BASE}/parcels/{rr_parcel_id}",
+                    headers={"Authorization": f"Bearer {body.rr_token}"},
+                )
+                if etag_resp.status_code == 200:
+                    rr_parcel_etag = etag_resp.json().get("_etag")
+        except Exception:
+            pass
+
+    # ── Save back to trip ─────────────────────────────────────────────────────
+    trip.rr_trip_id     = rr_trip_id
+    trip.rr_parcel_id   = rr_parcel_id
+    trip.rr_parcel_etag = rr_parcel_etag
+    trip.rr_sync_status = "trip_created"
+    trip.rr_sync_error  = None
+    trip.rr_synced_at   = _dt.utcnow()
+    db.commit()
+
+    logger.info(
+        f"[Complete Trip] {trip.trip_number} → RR trip_id={rr_trip_id}, parcel_id={rr_parcel_id}"
+    )
+
+    return {
+        "success":      True,
+        "rr_trip_id":   rr_trip_id,
+        "rr_parcel_id": rr_parcel_id,
+        "trip_number":  trip.trip_number,
+    }
+
+
 # ── Bulk sync trigger ─────────────────────────────────────────────────────────
 
 class BulkSyncRequest(BaseModel):

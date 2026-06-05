@@ -53,6 +53,10 @@ Backend: `app.include_router(rr_sync.router, prefix="/api/rr")`
 | `GET /api/rr/materials?q=` | Live proxy to RR `/material_types` — public, no auth to RR |
 | `GET /api/rr/consignees?q=` | Search `load_receiver` organisations (orgs only) |
 | `GET /api/rr/ops-workers?q=` | List LP's active `lp_rr_operations` workers |
+| `GET /api/rr/preferred-partners?rr_token=` | LP's preferred partners from RR (phone + postal_addresses + gstin) |
+| `GET /api/rr/partner-companies?user_id=&rr_token=` | Companies for a user-type partner (name + rr_company_id + gstin) |
+| `GET /api/rr/operation-locations?company_id=&rr_token=` | Pickup/unload addresses for a company (city embedded) |
+| `GET /api/rr/enums?name=` | Public proxy to RR `/get_enum` — no auth (QuantityUnit, VehicleBodyTypes) |
 | `POST /api/rr/sync/trip/{id}` | body `{rr_token}` — BackgroundTask single-trip sync |
 | `GET /api/rr/sync/ready` | Lists ready + incomplete trips for LP |
 | `GET /api/rr/sync/status/{id}` | Current sync status for one trip |
@@ -79,9 +83,10 @@ Backend: `app.include_router(rr_sync.router, prefix="/api/rr")`
 | `GET /cities` | City proxy | Public endpoint — no auth required |
 | `GET /material_types` | Material type proxy | Public endpoint — no auth required |
 
-**NOT called by RR4:** `POST /create_trip` — bypassed (see note below), `POST /verify_trip_stage` — RR web users manage their own stage verification.
+**NOT called by RR4 currently:** `POST /create_trip` — bypassed (see note below), `POST /verify_trip_stage` — RR web users manage their own stage verification.
 
-> **Why `POST /create_trip` is NOT used:** RR commit `a25eb588` upgraded `CustomTokenAuth` to JWT, but `create_trip`'s internal Eve calls still use the legacy MD5 token (`login_user_record.get("token")`). Eve rejects the MD5 token → falls to `BCryptAuth` → "Phone number is required" (HTTP 400). Fix: call `POST /trips` + `POST /parcels` directly with JWT — same result, same pattern as the RR Kanpur CSR Flutter app.
+> **Why `POST /create_trip` is currently bypassed:** Requires `vehicle_id`, `driver_id`, `vehicle_provider_id`, `booking_amount` — fields not available at trip creation time in RR4 (vehicle/driver assigned in S1/S2). Also hardcodes `created_by_company` to "RollingRadius Logistics Pvt. Ltd." which is wrong for LP-owned trips.
+> **Note:** `create_trip` JWT bug (commit `a25eb588`) was **fixed in commit `e6536685` (June 3 2026)**. Redis cache bug between Steps 4 and 5 was **fixed in commit `37cf494c` (June 3 2026)**. `create_trip` is now fully functional on `test/release-3.18.3.7`. The current bypass is a design decision, not a bug fix. See `CREATE_TRIP_ARCHITECTURE.md` for full details and advancement plan.
 
 ---
 
@@ -176,39 +181,72 @@ S5            POD                          parcel.documents.pod.photos
 
 ## Direct Eve Call Payloads (replaces create_trip)
 
-### POST /trips  (form data — `data=`)
+### POST /trips  (JSON — `json=`, NOT `data=`)
 ```python
 {
     "source":             "Other",
-    "created_by":         rr_user_id,          # JWT sub claim (LP's RR ObjectId)
-    "handled_by":         rr_user_id,          # same
-    # Optional:
-    "created_by_company": transporter_rr_company_id,  # transporter org.rr_company_id if set
+    "created_by":         rr_user_id,           # JWT sub claim (LP's RR ObjectId)
+    "handled_by":         rr_user_id,           # same
+    "created_by_company": lp_rr_company_id,     # LP's OWN org rr_company_id (NOT transporter's)
     "back_entry_date":    trip.created_at.date().isoformat(),
+    # If vehicle body type available:
+    "specific_vehicle_requirements": {
+        "vehicle_body_type": trip.body_type,
+        "axle_type":         trip.axle_type,
+        "number_of_wheels":  [trip.number_of_wheels],
+        "expected_price":    float(trip.expected_freight),
+    }
 }
 ```
+**IMPORTANT:** Must use `json=` not `data=` — nested dicts fail with form data.
 
 ### POST /parcels  (JSON — `json=`)
 ```python
 {
-    "trip_id":               rr_trip_id,          # from POST /trips response
-    "pickup_postal_address": {"city": trip.origin_rr_city_id},
-    "unload_postal_address": {"city": trip.destination_rr_city_id},
-    "quantity":              float(trip.weight_value),
-    "quantity_unit":         rr_weight_unit,      # mapped: "MT"→"Metric Ton", etc.
-    "material_type":         trip.material_rr_id,
-    "cost":                  float(trip.invoice_value or trip.trip_amount or 0),
-    "sender":                {"sender_company": consignor_rr_id},  # load_owner_org.rr_company_id
-    "source":                "Other",
+    "trip_id":               rr_trip_id,
+    "pickup_postal_address": {
+        "city":           trip.origin_rr_city_id,
+        "address_line_1": trip.pickup_address_line1,
+        "address_line_2": trip.pickup_address_line2,
+        "pin":            trip.pickup_pin,
+        "no_entry_zone":  trip.pickup_no_entry_zone,
+    },
+    "unload_postal_address": {
+        "city":           trip.destination_rr_city_id,
+        "address_line_1": trip.unload_address_line1,
+        "address_line_2": trip.unload_address_line2,
+        "pin":            trip.unload_pin,
+        "no_entry_zone":  trip.unload_no_entry_zone,
+    },
+    "quantity":      float(trip.weight_value),
+    "quantity_unit": rr_weight_unit,            # already in RR format (TONNES/KILOGRAMS/etc.)
+    "material_type": trip.material_rr_id,
+    "cost":          float(trip.invoice_value or 0),
+    "sender": {
+        "sender_company": consignor_rr_id,      # load_owner_org.rr_company_id
+        "name":           trip.consignor_name,
+        "gstin":          trip.consignor_gstin,
+    },
+    "receiver": {
+        "name":  trip.consignee_name,
+        "gstin": trip.consignee_gstin,
+    },
+    "description":        trip.parcel_description,
+    "part_load":          trip.part_load,
+    "depot_code":         trip.depot_code,
+    "created_by_company": lp_rr_company_id,
+    "source":             "Other",
+    "back_entry_date":    trip.created_at.date().isoformat(),
+    "documents": {
+        "bilty": bilty_number,                  # if available at S3
+    },
 }
 ```
+**IMPORTANT:** `documents` must be a nested dict — NOT `"documents.bilty"` as a literal string key.
 
 **On parcel failure:** `DELETE /trips/{rr_trip_id}` (If-Match: etag) — rollback orphaned trip.
 
 **JWT decode:** `base64(token.split(".")[1]).sub` → LP's RR user ObjectId for `created_by`/`handled_by`.
-
-> **Old `POST /create_trip` fields no longer used:** `vehicle_id`, `driver_id`, `vehicle_provider_id`, `consignor_company_id`, `pickup_city`, `unload_city`, `weight`, `weight_unit`, `invoice_value`, `freight_amount`, `force_create`, `human_trip_number`.
-> Vehicle/driver are still auto-resolved and cached to `rr_vehicle_id`/`rr_user_id` but no longer sent in the trip creation call.
 
 ---
 
@@ -260,7 +298,9 @@ Store new etag in trip.rr_parcel_etag
 | 7 | Flutter: city picker, material picker, weight/invoice fields in CreateTripScreen + FulfillSheet | DONE |
 | 8 | Flutter: RR Sync Manager sheet (LP dashboard top-right) with per-trip login flow | DONE |
 | Roles | `lp_rr_operations` + `load_receiver` roles; consignee + RR ops fields on trips; migrations 060-061 | DONE |
+| RR Form | CreateTripScreen full rewrite: 7-section RR web form, 18 new parcel fields, auto-fill (partner/company/address), operation_locations proxy, GSTIN from identities; migration 065 | DONE |
 | 9 | Company picker UI — `GET /api/rr/companies` proxy + org settings screen to set rr_company_id | PLANNED |
+| Advancement | Call vehicle booking sub-APIs after S1: save_potential_vehicle → submit_offline_bid → award_bidding → award_vehicle; advances trip to VehicleBooking stage in RR | PLANNED |
 
 ---
 
@@ -278,6 +318,14 @@ Store new etag in trip.rr_parcel_etag
 - `consignee_org_id UUID` — load_receiver org assigned at trip creation (nullable)
 - `consignee_user_id UUID` — load_receiver individual user (nullable, org or user — one of the two)
 - `rr_ops_user_id UUID` — lp_rr_operations worker responsible for syncing this trip (nullable)
+
+### trips (migration 065 — 18 RR parcel fields)
+- `consignor_name`, `consignor_gstin` — auto-filled from preferred partner / company identities
+- `consignee_name`, `consignee_gstin`
+- `pickup_address_line1`, `pickup_address_line2`, `pickup_pin`, `pickup_no_entry_zone BOOLEAN`
+- `unload_address_line1`, `unload_address_line2`, `unload_pin`, `unload_no_entry_zone BOOLEAN`
+- `depot_code`, `parcel_description`, `part_load BOOLEAN`
+- `axle_type`, `number_of_wheels INTEGER`, `expected_freight NUMERIC(12,2)`
 
 ### organizations
 - `rr_company_id VARCHAR(24)` — admin sets once (LP org + Load Owner org)
@@ -325,7 +373,7 @@ No separate RR code deployment needed — just pull on fc11 when SSH is availabl
 | Step | Action |
 |------|--------|
 | 1 | Pull `staging` branch on RR4 container |
-| 2 | `alembic upgrade head` (run migrations 054-061) |
+| 2 | `alembic upgrade head` (runs migrations 054-065, adds all RR parcel fields) |
 | 3 | Set `RR_SYNC_ENABLED=true` in `.env`, restart backend container |
 | 4 | Set `rr_company_id` on LP org + Load Owner org — Mongo Express → pgAdmin SQL |
 | 5 | Set `users.rr_company_id` for each `lp_rr_operations` worker — pgAdmin SQL |
@@ -344,6 +392,58 @@ No separate RR code deployment needed — just pull on fc11 when SSH is availabl
 | 3 | Admin | Set `rr_company_id` on each `lp_rr_operations` user row in `users` table via pgAdmin |
 | 4 | Auto | `rr_vehicle_id` + `rr_user_id` auto-resolved at sync time — no manual action |
 | 5 | Server | Set `RR_REFRESH_TOKEN` + `RR_SYNC_ENABLED=true` in .env, restart backend |
+
+---
+
+## GSTIN Lookup — Important Detail
+
+GSTIN is **not** a top-level field on RR company/user objects. It lives in the `identities` array:
+
+```python
+# Correct extraction (used in rr_sync.py _extract_gstin helper):
+for identity in obj.get("identities", []):
+    if identity.get("id_name") == "GST":
+        return identity.get("number", "")
+```
+
+The `get_preferred_partners` and `get_partner_companies` proxy endpoints both use `_extract_gstin()`.
+Flutter auto-fills GSTIN immediately on partner selection (from `p['gstin']`) and updates on company selection.
+
+---
+
+## Advancement Plan — Vehicle Booking Sub-APIs
+
+After the current sync creates trip + parcel in RR (at `ParcelInfo` stage), the next advancement
+will call 4 additional RR APIs to advance the trip to `VehicleBooking` stage.
+
+**Trigger:** After S1 is submitted (vehicle RC + driver phone resolved to RR IDs).
+
+**Required extra fields:**
+- `rr_vehicle_id` — from `vehicles.rr_vehicle_id` (auto-resolved by RC number)
+- `rr_user_id` (driver) — from `drivers.rr_user_id` (auto-resolved by phone)
+- `lp_rr_company_id` — LP org's `rr_company_id` (vehicle provider = LP)
+- `booking_amount` — use `trips.expected_freight` or 0
+
+**Sub-APIs to call (in order):**
+```
+POST /v2/save_potential_vehicle_to_be_hired
+     {vehicle_id, trip_id, participant_company_id: lp_rr_company_id}
+
+POST /submit_offline_bid_by_trip_owner
+     {potential_vehicle_id, amount: expected_freight or 0}
+
+POST /award_bidding
+     {potential_vehicle_id}
+
+POST /award_vehicle
+     {trip_id, potential_vehicle_id}
+```
+
+**Result:** Trip at `VehicleBooking` stage in RR — vehicle assigned, purchase order created, financial journal recorded.
+
+**Always pass `data_entry: true`** to suppress SMS/notifications for back-entered RR4 trips.
+
+**Full architecture:** See `D:/RR4/md/CREATE_TRIP_ARCHITECTURE.md`
 
 ---
 
