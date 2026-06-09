@@ -27,6 +27,6 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_column('trips', 'rr_driver_id')
+    # rr_driver_id is managed by migration 069 (added there after 068 was already deployed)
     op.drop_column('trips', 'rr_vehicle_id')
     op.drop_column('trips', 'vehicle_number')
