@@ -148,6 +148,8 @@ class TripCreate(BaseModel):
     axle_type:        Optional[str]   = None
     number_of_wheels: Optional[int]   = None
     expected_freight: Optional[float] = None
+    # Vehicle provider (RR company ObjectId — vehicle_provider_id in create_trip)
+    transporter_rr_company_id: Optional[str] = None
     # If provided, immediately sync to RR (POST /trips + POST /parcels)
     rr_token: Optional[str] = None
 
@@ -357,6 +359,7 @@ async def create_trip(
         axle_type=body.axle_type or None,
         number_of_wheels=body.number_of_wheels,
         expected_freight=body.expected_freight,
+        transporter_rr_company_id=body.transporter_rr_company_id or None,
     )
     db.add(trip)
     db.commit()

@@ -692,24 +692,30 @@ async def complete_trip_in_rr(
 
     # ── Build create_trip payload ─────────────────────────────────────────────
     payload: dict = {
-        "consignor_company_id": trip.consignor_rr_company_id,
-        "vehicle_id":           rr_vehicle_id,
-        "vehicle_provider_id":  vehicle_provider_id,
-        "driver_id":            rr_driver_id,
-        "pickup_city":          trip.origin_rr_city_id,
-        "unload_city":          trip.destination_rr_city_id,
-        "material":             trip.material_rr_id,
-        "weight":               float(trip.weight_value),
-        "weight_unit":          rr_weight_unit,
-        "freight_amount":       float(trip.expected_freight or 0),
-        "invoice_value":        float(trip.invoice_value),
-        "booking_amount":       float(trip.expected_freight or 0),
-        "loading_amount":       0,
-        "unloading_amount":     0,
-        "advance_amount":       0,
-        "diesel_charges":       0,
-        "back_entry_date":      trip.created_at.strftime("%Y-%m-%dT%H:%M:%S"),
-        "force_create":         True,
+        "consignor_company_id":       trip.consignor_rr_company_id,
+        "vehicle_id":                 rr_vehicle_id,
+        "vehicle_provider_id":        vehicle_provider_id,
+        "driver_id":                  rr_driver_id,
+        "pickup_city":                trip.origin_rr_city_id,
+        "unload_city":                trip.destination_rr_city_id,
+        "material":                   trip.material_rr_id,
+        "weight":                     float(trip.weight_value),
+        "weight_unit":                rr_weight_unit,
+        "freight_amount":             float(trip.expected_freight or 0),
+        "invoice_value":              float(trip.invoice_value),
+        "booking_amount":             float(trip.expected_freight or 0),
+        "loading_amount":             0,
+        "unloading_amount":           0,
+        "advance_amount":             0,
+        "diesel_charges":             0,
+        "back_entry_date":            trip.created_at.strftime("%Y-%m-%dT%H:%M:%S"),
+        "force_create":               True,
+        "data_entry":                 True,
+        # Address fields (create_trip uses flat keys, not nested postal_address objects)
+        "consignor_address_1":        trip.pickup_address_line1 or None,
+        "consignor_address_pin_code": int(trip.pickup_pin) if trip.pickup_pin and trip.pickup_pin.isdigit() else None,
+        "consignee_address_1":        trip.unload_address_line1 or None,
+        "consignee_address_pin_code": int(trip.unload_pin) if trip.unload_pin and trip.unload_pin.isdigit() else None,
     }
     if trip.consignee_rr_company_id:
         payload["consignee_company_id"] = trip.consignee_rr_company_id
@@ -740,6 +746,7 @@ async def complete_trip_in_rr(
     data = resp.json()
     rr_trip_id   = data.get("trip_id")
     rr_parcel_id = data.get("parcel_id")
+    rr_booking_id = str(data.get("booking_id")) if data.get("booking_id") else None
 
     if not rr_trip_id:
         raise HTTPException(status_code=500, detail=f"RR create_trip missing trip_id: {resp.text[:200]}")
@@ -762,20 +769,23 @@ async def complete_trip_in_rr(
     trip.rr_trip_id     = rr_trip_id
     trip.rr_parcel_id   = rr_parcel_id
     trip.rr_parcel_etag = rr_parcel_etag
+    trip.rr_booking_id  = rr_booking_id
     trip.rr_sync_status = "trip_created"
     trip.rr_sync_error  = None
     trip.rr_synced_at   = _dt.utcnow()
     db.commit()
 
     logger.info(
-        f"[Complete Trip] {trip.trip_number} → RR trip_id={rr_trip_id}, parcel_id={rr_parcel_id}"
+        f"[Complete Trip] {trip.trip_number} → rr_trip_id={rr_trip_id}, "
+        f"parcel_id={rr_parcel_id}, booking_id={rr_booking_id}"
     )
 
     return {
-        "success":      True,
-        "rr_trip_id":   rr_trip_id,
-        "rr_parcel_id": rr_parcel_id,
-        "trip_number":  trip.trip_number,
+        "success":        True,
+        "rr_trip_id":     rr_trip_id,
+        "rr_parcel_id":   rr_parcel_id,
+        "rr_booking_id":  rr_booking_id,
+        "trip_number":    trip.trip_number,
     }
 
 
