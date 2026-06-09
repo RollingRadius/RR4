@@ -149,6 +149,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   String? _selectedOpsWorkerId;
   String? _selectedOpsWorkerLocalId;
 
+  // ── Step state ────────────────────────────────────────────────────────────
+  int _currentStep  = 0;   // 0 = Trip Info  |  1 = Vehicle  |  2 = Bidding
+
   // ── Submit state ──────────────────────────────────────────────────────────
   bool _submitting  = false;
   String? _submitError;
@@ -503,45 +506,57 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     }
   }
 
+  // ── Step navigation ───────────────────────────────────────────────────────
+
+  bool _validateStep0() {
+    if (_pickupCityId == null) {
+      setState(() => _submitError = 'Select a Pickup City from the dropdown');
+      return false;
+    }
+    if (_dropCityId == null) {
+      setState(() => _submitError = 'Select an Unload City from the dropdown');
+      return false;
+    }
+    if (_materialRrId == null) {
+      setState(() => _submitError = 'Select a Material / Product Type');
+      return false;
+    }
+    final w = _weightCtrl.text.trim();
+    if (w.isEmpty || double.tryParse(w) == null) {
+      setState(() => _submitError = 'Enter a valid Total Weight / Quantity');
+      return false;
+    }
+    if (_selectedOpsWorkerId == null) {
+      setState(() => _submitError = 'Select a Handled by Person');
+      return false;
+    }
+    return true;
+  }
+
+  void _goNext() {
+    setState(() => _submitError = null);
+    if (_currentStep == 0 && !_validateStep0()) return;
+    if (_currentStep < 2) setState(() => _currentStep++);
+  }
+
+  void _goBack() {
+    setState(() { _submitError = null; if (_currentStep > 0) _currentStep--; });
+  }
+
   // ── Submit ────────────────────────────────────────────────────────────────
 
   Future<void> _submit() async {
     if (_submitting) return;
 
-    if (_pickupCityId == null) {
-      setState(() => _submitError = 'Select a Pickup City from the dropdown');
-      return;
-    }
-    if (_dropCityId == null) {
-      setState(() => _submitError = 'Select an Unload City from the dropdown');
-      return;
-    }
-    if (_materialRrId == null) {
-      setState(() => _submitError = 'Select a Material / Product Type');
-      return;
-    }
-    final weightStr = _weightCtrl.text.trim();
-    if (weightStr.isEmpty || double.tryParse(weightStr) == null) {
-      setState(() => _submitError = 'Enter a valid Total Weight / Quantity');
-      return;
-    }
-    if (_selectedOpsWorkerId == null) {
-      setState(() => _submitError = 'Select a Handled by Person');
-      return;
-    }
-    final efVal = double.tryParse(_expectedFreightCtrl.text.trim());
-    if (efVal == null || efVal <= 0) {
-      setState(() => _submitError = 'Enter Freight Amount');
-      return;
-    }
     final baVal = double.tryParse(_bookingAmountCtrl.text.trim());
     if (baVal == null || baVal <= 0) {
-      setState(() => _submitError = 'Enter LP Booking Amount (offline bid price for vehicle provider)');
+      setState(() => _submitError = 'Enter Vehicle Provider Booking Amount');
       return;
     }
 
     setState(() { _submitting = true; _submitError = null; });
 
+    final weightStr = _weightCtrl.text.trim();
     final body = <String, dynamic>{
       'origin':                 _pickupCtrl.text.trim(),
       'destination':            _dropCtrl.text.trim(),
@@ -549,7 +564,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       'origin_rr_city_id':      _pickupCityId,
       'destination_rr_city_id': _dropCityId,
       'material_rr_id':         _materialRrId,
-      'weight_value':           double.parse(weightStr),
+      'weight_value':           double.tryParse(weightStr) ?? 0,
       'weight_unit':            _weightUnit,
       'weight':                 '$weightStr $_weightUnit',
     };
@@ -669,12 +684,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           ),
           title: Text('New Trip', style: _manrope(size: 16, weight: FontWeight.w800)),
         ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+        body: Column(
           children: [
-
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: _StepIndicator(current: _currentStep),
+            ),
+            const Divider(height: 1),
             // ═══════════════════════════════════════════════════════════
-            // 1 · CONSIGNOR
+            // STEP 0 · TRIP INFO
+            // ═══════════════════════════════════════════════════════════
+            if (_currentStep == 0) Expanded(child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+              children: [
+
+            // ─── 1 · CONSIGNOR
             // ═══════════════════════════════════════════════════════════
             _SectionHeader(label: 'Consignor Info'),
             const SizedBox(height: 4),
@@ -1035,7 +1059,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             ),
 
             const SizedBox(height: 10),
-            _FieldLabel(label: 'Total Cost / Price *'),
+            _FieldLabel(label: 'Total Invoice Value (₹) *'),
             const SizedBox(height: 6),
             _TextInput(
               controller: _invoiceValueCtrl,
@@ -1055,14 +1079,60 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               onChanged: (v) => setState(() => _partLoad = v ?? false),
             ),
 
-            // ═══════════════════════════════════════════════════════════
-            // 6 · VEHICLE INFORMATION
-            // ═══════════════════════════════════════════════════════════
+            // ── Trip Handled By (step 0) ──────────────────────────────
             const SizedBox(height: 24),
-            _SectionHeader(label: 'Vehicle Information'),
+            _SectionHeader(label: 'Trip Handled By'),
             const SizedBox(height: 12),
 
-            // ── Step 1: Vehicle Provider Phone (auto-searches at 10 digits) ──
+            _FieldLabel(label: 'Handled by Person *'),
+            const SizedBox(height: 6),
+            _opsWorkersLoading
+                ? const _LoadingChip(label: 'Loading workers…')
+                : _DropdownField<String>(
+                    value: _selectedOpsWorkerId,
+                    hint: 'Select RR Ops worker',
+                    items: _opsWorkers.map((w) => DropdownMenuItem<String>(
+                      value: w['rr_user_id'] as String,
+                      child: Text(
+                        '${w['name'] ?? '—'}'
+                        '${(w['position'] as String?)?.isNotEmpty == true ? '  •  ${w['position']}' : ''}',
+                        style: _inter(size: 13, color: _onSurface),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    )).toList(),
+                    onChanged: (v) {
+                      final w = _opsWorkers.firstWhere((x) => x['rr_user_id'] == v, orElse: () => {});
+                      setState(() {
+                        _selectedOpsWorkerId      = v;
+                        _selectedOpsWorkerLocalId = w['local_user_id'] as String?;
+                      });
+                    },
+                  ),
+
+            const SizedBox(height: 16),
+            _FieldLabel(label: 'Expected Freight Amount (₹)'),
+            const SizedBox(height: 6),
+            _TextInput(
+              controller: _expectedFreightCtrl,
+              hint: 'e.g. 45000',
+              inputType: TextInputType.number,
+            ),
+
+            ], // end step 0 content
+            )), // end step 0 Expanded+ListView
+            // ═══════════════════════════════════════════════════════════
+            // STEP 1 · VEHICLE
+            // ═══════════════════════════════════════════════════════════
+            if (_currentStep == 1) Expanded(child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+              children: [
+
+            _SectionHeader(label: 'Vehicle Provider'),
+            const SizedBox(height: 4),
+            Text('Enter provider phone → select user → select company → select vehicle',
+                style: _inter(size: 12, color: _secondary)),
+            const SizedBox(height: 12),
+
             _FieldLabel(label: 'Vehicle Provider Phone *'),
             const SizedBox(height: 6),
             _TextInput(
@@ -1079,7 +1149,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               Text(_vpLookupError!, style: _inter(size: 12, color: _errorClr)),
             ],
 
-            // ── Step 2: User found → tap to select ────────────────────
             if (_vpFoundUser != null && _vpUser == null) ...[
               const SizedBox(height: 10),
               GestureDetector(
@@ -1109,7 +1178,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               ),
             ],
 
-            // ── Step 3: User selected → companies + personal vehicles ──
             if (_vpUser != null) ...[
               const SizedBox(height: 10),
               _ReadOnlyField(
@@ -1144,10 +1212,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                             if (session != null && mounted) _loadVpCompanyVehicles(v, session.token);
                           },
                         ),
-            ],
-
-            // ── Step 4: Vehicle selector (personal + company + market) ─
-            if (_vpUser != null) ...[
               const SizedBox(height: 12),
               _FieldLabel(label: 'Select Vehicle *'),
               const SizedBox(height: 6),
@@ -1195,7 +1259,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                     }(),
             ],
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+            _SectionHeader(label: 'Vehicle Specs'),
+            const SizedBox(height: 12),
+
             _FieldLabel(label: 'Vehicle Body Type'),
             const SizedBox(height: 6),
             _vehicleBodyTypes.isEmpty
@@ -1236,48 +1303,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               onChanged: (v) => setState(() => _numberOfWheels = v),
             ),
 
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Freight Amount (₹) *'),
-            const SizedBox(height: 6),
-            _TextInput(
-              controller: _expectedFreightCtrl,
-              hint: 'e.g. 45000',
-              inputType: TextInputType.number,
-            ),
-
+            ], // end step 1 content
+            )), // end step 1 Expanded+ListView
             // ═══════════════════════════════════════════════════════════
-            // 7 · TRIP HANDLED BY
+            // STEP 2 · BIDDING AMOUNT
             // ═══════════════════════════════════════════════════════════
-            const SizedBox(height: 24),
-            _SectionHeader(label: 'Trip Handled By'),
-            const SizedBox(height: 12),
+            if (_currentStep == 2) Expanded(child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+              children: [
 
-            _FieldLabel(label: 'Handled by Person *'),
-            const SizedBox(height: 6),
-            _opsWorkersLoading
-                ? const _LoadingChip(label: 'Loading workers…')
-                : _DropdownField<String>(
-                    value: _selectedOpsWorkerId,
-                    hint: 'Select RR Ops worker',
-                    items: _opsWorkers.map((w) => DropdownMenuItem<String>(
-                      value: w['rr_user_id'] as String,
-                      child: Text(
-                        '${w['name'] ?? '—'}'
-                        '${(w['position'] as String?)?.isNotEmpty == true ? '  •  ${w['position']}' : ''}',
-                        style: _inter(size: 13, color: _onSurface),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    )).toList(),
-                    onChanged: (v) {
-                      final w = _opsWorkers.firstWhere((x) => x['rr_user_id'] == v, orElse: () => {});
-                      setState(() {
-                        _selectedOpsWorkerId      = v;
-                        _selectedOpsWorkerLocalId = w['local_user_id'] as String?;
-                      });
-                    },
-                  ),
+            _SectionHeader(label: 'Bidding Amount'),
+            const SizedBox(height: 4),
+            Text('Set your offline bid / booking amount to the vehicle provider',
+                style: _inter(size: 12, color: _secondary)),
+            const SizedBox(height: 20),
 
-            const SizedBox(height: 10),
             _FieldLabel(label: 'Vehicle Provider Booking Amount (₹) *'),
             const SizedBox(height: 6),
             _TextInput(
@@ -1286,26 +1326,35 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               inputType: TextInputType.number,
             ),
 
-            // ── Error banner ──────────────────────────────────────────
-            if (_submitError != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFF0F0),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _errorClr.withOpacity(0.3)),
+            ], // end step 2 content
+            )), // end step 2 Expanded+ListView
+            // ── Error banner (all steps) ──────────────────────────────
+            if (_submitError != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF0F0),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _errorClr.withOpacity(0.3)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.error_outline_rounded, color: _errorClr, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(_submitError!, style: _inter(size: 13, color: _errorClr))),
+                  ]),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.error_outline_rounded, color: _errorClr, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(child: Text(_submitError!, style: _inter(size: 13, color: _errorClr))),
-                ]),
               ),
-            ],
           ],
         ),
-        bottomNavigationBar: _BottomBar(submitting: _submitting, onSubmit: _submit),
+        bottomNavigationBar: _StepBottomBar(
+          currentStep: _currentStep,
+          submitting: _submitting,
+          onBack: _goBack,
+          onNext: _goNext,
+          onSubmit: _submit,
+        ),
       ),
     );
   }
@@ -1692,38 +1741,126 @@ class _CheckboxRow extends StatelessWidget {
   ]);
 }
 
-// ── Bottom submit bar ─────────────────────────────────────────────────────────
+// ── Step indicator ────────────────────────────────────────────────────────────
 
-class _BottomBar extends StatelessWidget {
-  final bool submitting;
-  final VoidCallback onSubmit;
-  const _BottomBar({required this.submitting, required this.onSubmit});
+class _StepIndicator extends StatelessWidget {
+  final int current;
+  const _StepIndicator({required this.current});
+
+  static const _labels = ['Trip Info', 'Vehicle', 'Bidding'];
 
   @override
   Widget build(BuildContext context) {
+    return Row(
+      children: List.generate(3, (i) {
+        final done    = i < current;
+        final active  = i == current;
+        final circleColor = done ? _successClr : active ? _primary : const Color(0xFFCDD1D4);
+        final labelColor  = active ? _primary : done ? _successClr : _secondary;
+        return Expanded(
+          child: Row(children: [
+            Column(children: [
+              Container(
+                width: 28, height: 28,
+                decoration: BoxDecoration(
+                  color: circleColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: done
+                      ? const Icon(Icons.check_rounded, size: 15, color: Colors.white)
+                      : Text('${i + 1}',
+                          style: _manrope(size: 13, weight: FontWeight.w700,
+                              color: active ? Colors.white : const Color(0xFF546067))),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(_labels[i], style: _inter(size: 11, weight: FontWeight.w500, color: labelColor)),
+            ]),
+            if (i < 2)
+              Expanded(
+                child: Container(
+                  height: 2,
+                  margin: const EdgeInsets.only(bottom: 18),
+                  color: i < current ? _successClr : const Color(0xFFCDD1D4),
+                ),
+              ),
+          ]),
+        );
+      }),
+    );
+  }
+}
+
+// ── Step-aware bottom bar ─────────────────────────────────────────────────────
+
+class _StepBottomBar extends StatelessWidget {
+  final int currentStep;
+  final bool submitting;
+  final VoidCallback onBack;
+  final VoidCallback onNext;
+  final VoidCallback onSubmit;
+
+  const _StepBottomBar({
+    required this.currentStep,
+    required this.submitting,
+    required this.onBack,
+    required this.onNext,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottom),
       decoration: const BoxDecoration(
         color: _surface,
         border: Border(top: BorderSide(color: _border)),
       ),
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: FilledButton(
-          style: FilledButton.styleFrom(
-            backgroundColor: _primary,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Row(children: [
+        if (currentStep > 0) ...[
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: _border),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size(80, 52),
+            ),
+            onPressed: submitting ? null : onBack,
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: _secondary),
+              const SizedBox(width: 6),
+              Text('Back', style: _inter(size: 14, weight: FontWeight.w500, color: _secondary)),
+            ]),
           ),
-          onPressed: submitting ? null : onSubmit,
-          child: submitting
-              ? const SizedBox(
-                  width: 20, height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : Text('Create Trip',
-                  style: _manrope(size: 15, weight: FontWeight.w700, color: Colors.white)),
+          const SizedBox(width: 12),
+        ],
+        Expanded(
+          child: SizedBox(
+            height: 52,
+            child: FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: _primary,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: submitting ? null : (currentStep < 2 ? onNext : onSubmit),
+              child: submitting && currentStep == 2
+                  ? const SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(
+                        currentStep < 2 ? 'Next' : 'Create Trip',
+                        style: _manrope(size: 15, weight: FontWeight.w700, color: Colors.white),
+                      ),
+                      if (currentStep < 2) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.white),
+                      ],
+                    ]),
+            ),
+          ),
         ),
-      ),
+      ]),
     );
   }
 }
