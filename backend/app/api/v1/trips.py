@@ -392,13 +392,18 @@ async def create_trip(
             except Exception:
                 pass  # non-fatal — Stage 0 sync will retry
 
-    # If LP provided their RR token, immediately sync trip+parcel to RR
+    # If LP provided their RR token, immediately call POST /create_trip on RR
     if body.rr_token:
         from app.config import settings
         if settings.RR_SYNC_ENABLED:
-            from app.services.rr_sync_service import sync_all_to_rr
-            await sync_all_to_rr(str(trip.id), body.rr_token)
-            db.refresh(trip)  # pick up rr_trip_id / rr_parcel_id written by sync
+            from app.api.v1.rr_sync import _do_create_trip_in_rr
+            try:
+                await _do_create_trip_in_rr(trip, body.rr_token, db)
+            except Exception as exc:
+                trip.rr_sync_status = "failed"
+                trip.rr_sync_error  = str(exc)[:500]
+                db.commit()
+            db.refresh(trip)
 
     return _enrich(trip, db)
 

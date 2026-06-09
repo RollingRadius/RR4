@@ -611,45 +611,18 @@ class RrCompleteTripRequest(BaseModel):
     rr_token: str
 
 
-@router.post("/complete-trip/{trip_id}", summary="Push trip to RR via POST /create_trip")
-async def complete_trip_in_rr(
-    trip_id: str,
-    body: RrCompleteTripRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
     """
-    Calls POST /create_trip on RR web for the given trip.
-    - Auto-resolves vehicle rr_vehicle_id via GET /vehicles?where=identities.number
-    - Auto-resolves driver rr_user_id via GET /users?where=phone.number
-    - Auto-resolves vehicle_provider_id via GET /users/get_user_by_phone on transporter phone
-    - Falls back to Rolling Radius LP (62d66794e54f47829a886a1d) if transporter not found in RR
-    - Saves resolved IDs + rr_trip_id + rr_parcel_id + rr_booking_id back to trip
+    Core POST /create_trip logic. Auto-resolves vehicle/driver/provider IDs,
+    calls RR, saves results back to trip.
+    Raises ValueError for missing required fields, RuntimeError for RR API errors.
     """
     from datetime import datetime as _dt
-    from app.models import UserOrganization
     from app.models.user import User as UserModel
     from app.models.vehicle import Vehicle
     from app.models.driver import Driver
 
-    user_org = db.query(UserOrganization).filter(
-        UserOrganization.user_id == current_user.id,
-        UserOrganization.status == "active",
-    ).first()
-    if not user_org:
-        raise HTTPException(status_code=403, detail="User must be in an active organization")
-
-    trip = db.query(Trip).filter(
-        Trip.id == trip_id,
-        Trip.organization_id == user_org.organization_id,
-    ).first()
-    if not trip:
-        raise HTTPException(status_code=404, detail="Trip not found")
-
-    if trip.rr_trip_id:
-        raise HTTPException(status_code=409, detail="Trip already exists in RR")
-
-    auth_hdr = {"Authorization": f"Bearer {body.rr_token}"}
+    auth_hdr = {"Authorization": f"Bearer {rr_token}"}
 
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
 
@@ -672,9 +645,9 @@ async def complete_trip_in_rr(
                                 rr_vehicle_id = str(items[0]["_id"])
                                 vehicle.rr_vehicle_id = rr_vehicle_id
                                 db.flush()
-                                logger.info(f"[Complete Trip] Resolved rr_vehicle_id={rr_vehicle_id} for {vehicle.vehicle_number}")
+                                logger.info(f"[Create Trip] Resolved rr_vehicle_id={rr_vehicle_id} for {vehicle.vehicle_number}")
                     except Exception as exc:
-                        logger.warning(f"[Complete Trip] Vehicle lookup failed: {exc}")
+                        logger.warning(f"[Create Trip] Vehicle lookup failed: {exc}")
 
         # ── Resolve driver RR user ID ─────────────────────────────────────────
         rr_driver_id = None
@@ -698,9 +671,9 @@ async def complete_trip_in_rr(
                                     rr_driver_id = str(items[0]["_id"])
                                     driver.rr_user_id = rr_driver_id
                                     db.flush()
-                                    logger.info(f"[Complete Trip] Resolved rr_driver_id={rr_driver_id} for phone {phone_10}")
+                                    logger.info(f"[Create Trip] Resolved rr_driver_id={rr_driver_id} for phone {phone_10}")
                         except Exception as exc:
-                            logger.warning(f"[Complete Trip] Driver lookup failed: {exc}")
+                            logger.warning(f"[Create Trip] Driver lookup failed: {exc}")
 
         # ── Resolve vehicle_provider_id via transporter phone ─────────────────
         vehicle_provider_id = trip.transporter_rr_company_id
@@ -722,29 +695,22 @@ async def complete_trip_in_rr(
                                 vehicle_provider_id = str(company_id)
                                 trip.transporter_rr_company_id = vehicle_provider_id
                                 db.flush()
-                                logger.info(f"[Complete Trip] Resolved vehicle_provider_id={vehicle_provider_id} for transporter phone {phone_10}")
+                                logger.info(f"[Create Trip] Resolved vehicle_provider_id={vehicle_provider_id} for transporter phone {phone_10}")
                     except Exception as exc:
-                        logger.warning(f"[Complete Trip] Transporter company lookup failed: {exc}")
+                        logger.warning(f"[Create Trip] Transporter company lookup failed: {exc}")
         vehicle_provider_id = vehicle_provider_id or _RR_DEFAULT_VEHICLE_PROVIDER
 
     # ── Pre-flight checks ─────────────────────────────────────────────────────
     missing = []
-    if not trip.consignor_rr_company_id:
-        missing.append("consignor_rr_company_id")
-    if not trip.origin_rr_city_id:
-        missing.append("origin_rr_city_id")
-    if not trip.destination_rr_city_id:
-        missing.append("destination_rr_city_id")
-    if not trip.material_rr_id:
-        missing.append("material_rr_id")
-    if not trip.weight_value:
-        missing.append("weight_value")
-    if not trip.weight_unit:
-        missing.append("weight_unit")
-    if not trip.invoice_value:
-        missing.append("invoice_value")
+    if not trip.consignor_rr_company_id: missing.append("consignor_rr_company_id")
+    if not trip.origin_rr_city_id:       missing.append("origin_rr_city_id")
+    if not trip.destination_rr_city_id:  missing.append("destination_rr_city_id")
+    if not trip.material_rr_id:          missing.append("material_rr_id")
+    if not trip.weight_value:            missing.append("weight_value")
+    if not trip.weight_unit:             missing.append("weight_unit")
+    if not trip.invoice_value:           missing.append("invoice_value")
     if missing:
-        raise HTTPException(status_code=422, detail=f"Missing required fields: {', '.join(missing)}")
+        raise ValueError(f"Missing required fields: {', '.join(missing)}")
 
     # ── Map weight unit to RR enum ────────────────────────────────────────────
     raw_unit = (trip.weight_unit or "").strip().upper()
@@ -769,49 +735,36 @@ async def complete_trip_in_rr(
         "back_entry_date":            trip.created_at.strftime("%Y-%m-%dT%H:%M:%S"),
         "force_create":               True,
         "data_entry":                 True,
-        # Address fields (create_trip uses flat keys, not nested postal_address objects)
         "consignor_address_1":        trip.pickup_address_line1 or None,
         "consignor_address_pin_code": int(trip.pickup_pin) if trip.pickup_pin and trip.pickup_pin.isdigit() else None,
         "consignee_address_1":        trip.unload_address_line1 or None,
         "consignee_address_pin_code": int(trip.unload_pin) if trip.unload_pin and trip.unload_pin.isdigit() else None,
     }
-    if trip.consignee_rr_company_id:
-        payload["consignee_company_id"] = trip.consignee_rr_company_id
-    if rr_vehicle_id:
-        payload["vehicle_id"] = rr_vehicle_id
-    if rr_driver_id:
-        payload["driver_id"] = rr_driver_id
+    if trip.consignee_rr_company_id: payload["consignee_company_id"] = trip.consignee_rr_company_id
+    if rr_vehicle_id:                payload["vehicle_id"]           = rr_vehicle_id
+    if rr_driver_id:                 payload["driver_id"]            = rr_driver_id
 
     # ── Call RR POST /create_trip ─────────────────────────────────────────────
-    rr_headers = {
-        "Authorization": f"Bearer {body.rr_token}",
-        "Content-Type":  "application/json",
-    }
     try:
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=60) as client:
             resp = await client.post(
                 f"{settings.RR_API_BASE}/create_trip",
                 json=payload,
-                headers=rr_headers,
+                headers={"Authorization": f"Bearer {rr_token}", "Content-Type": "application/json"},
             )
     except Exception as exc:
-        logger.error(f"[Complete Trip] RR create_trip request failed: {exc}")
-        raise HTTPException(status_code=503, detail=f"Could not reach RR server: {exc}")
+        raise RuntimeError(f"Could not reach RR server: {exc}")
 
     if resp.status_code not in (200, 201):
-        logger.error(f"[Complete Trip] RR create_trip {resp.status_code}: {resp.text[:300]}")
-        raise HTTPException(
-            status_code=resp.status_code,
-            detail=f"RR create_trip failed: {resp.text[:300]}",
-        )
+        raise RuntimeError(f"RR create_trip failed ({resp.status_code}): {resp.text[:300]}")
 
-    data = resp.json()
-    rr_trip_id   = data.get("trip_id")
-    rr_parcel_id = data.get("parcel_id")
+    data          = resp.json()
+    rr_trip_id    = data.get("trip_id")
+    rr_parcel_id  = data.get("parcel_id")
     rr_booking_id = str(data.get("booking_id")) if data.get("booking_id") else None
 
     if not rr_trip_id:
-        raise HTTPException(status_code=500, detail=f"RR create_trip missing trip_id: {resp.text[:200]}")
+        raise RuntimeError(f"RR create_trip missing trip_id: {resp.text[:200]}")
 
     # ── Fetch parcel etag for future PATCH calls ──────────────────────────────
     rr_parcel_etag = None
@@ -820,7 +773,7 @@ async def complete_trip_in_rr(
             async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
                 etag_resp = await client.get(
                     f"{settings.RR_API_BASE}/parcels/{rr_parcel_id}",
-                    headers={"Authorization": f"Bearer {body.rr_token}"},
+                    headers={"Authorization": f"Bearer {rr_token}"},
                 )
                 if etag_resp.status_code == 200:
                     rr_parcel_etag = etag_resp.json().get("_etag")
@@ -838,17 +791,56 @@ async def complete_trip_in_rr(
     db.commit()
 
     logger.info(
-        f"[Complete Trip] {trip.trip_number} → rr_trip_id={rr_trip_id}, "
+        f"[Create Trip] {trip.trip_number} -> rr_trip_id={rr_trip_id}, "
         f"parcel_id={rr_parcel_id}, booking_id={rr_booking_id}"
     )
+    return {"rr_trip_id": rr_trip_id, "rr_parcel_id": rr_parcel_id, "rr_booking_id": rr_booking_id}
+
+
+@router.post("/complete-trip/{trip_id}", summary="Push trip to RR via POST /create_trip")
+async def complete_trip_in_rr(
+    trip_id: str,
+    body: RrCompleteTripRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Calls _do_create_trip_in_rr after auth + ownership checks."""
+    from app.models import UserOrganization
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.organization_id == user_org.organization_id,
+    ).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    if trip.rr_trip_id:
+        raise HTTPException(status_code=409, detail="Trip already exists in RR")
+
+    try:
+        result = await _do_create_trip_in_rr(trip, body.rr_token, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    except RuntimeError as exc:
+        trip.rr_sync_status = "failed"
+        trip.rr_sync_error  = str(exc)[:500]
+        db.commit()
+        raise HTTPException(status_code=503, detail=str(exc))
 
     return {
-        "success":        True,
-        "rr_trip_id":     rr_trip_id,
-        "rr_parcel_id":   rr_parcel_id,
-        "rr_booking_id":  rr_booking_id,
-        "trip_number":    trip.trip_number,
+        "success":       True,
+        "trip_number":   trip.trip_number,
+        "rr_trip_id":    result["rr_trip_id"],
+        "rr_parcel_id":  result["rr_parcel_id"],
+        "rr_booking_id": result["rr_booking_id"],
     }
+
 
 
 # ── Bulk sync trigger ─────────────────────────────────────────────────────────
