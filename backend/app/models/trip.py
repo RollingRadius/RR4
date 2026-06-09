@@ -195,6 +195,7 @@ class Trip(Base):
     axle_type        = Column(String(20),    nullable=True)   # Single | Double | Triple | Multiple
     number_of_wheels = Column(Integer,       nullable=True)   # 4|6|8|10|12|14|16|18|22
     expected_freight = Column(Numeric(12,2), nullable=True)
+    booking_amount   = Column(Numeric(12,2), nullable=True)  # LP offline bid price sent to vehicle provider via create_trip
 
     # RR trip cross-reference
     rr_trip_id     = Column(String(24), nullable=True)   # RR MongoDB trip _id
@@ -371,4 +372,5 @@ class Trip(Base):
             "axle_type":        self.axle_type,
             "number_of_wheels": self.number_of_wheels,
             "expected_freight": float(self.expected_freight) if self.expected_freight is not None else None,
+            "booking_amount":   float(self.booking_amount)   if self.booking_amount   is not None else None,
         }

@@ -5885,7 +5885,7 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: failed ? _error : amber,
+                      color: accentColor,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(

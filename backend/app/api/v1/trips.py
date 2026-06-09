@@ -158,6 +158,8 @@ class TripCreate(BaseModel):
     # or supply transporter_phone to auto-resolve via GET /users/get_user_by_phone
     transporter_rr_company_id: Optional[str] = None
     transporter_phone:         Optional[str] = None
+    # LP offline bid / offer price for vehicle provider (used as booking_amount in RR create_trip)
+    booking_amount: Optional[float] = None
     # If provided, immediately sync to RR (POST /trips + POST /parcels)
     rr_token: Optional[str] = None
 
@@ -370,6 +372,7 @@ async def create_trip(
         axle_type=body.axle_type or None,
         number_of_wheels=body.number_of_wheels,
         expected_freight=body.expected_freight,
+        booking_amount=body.booking_amount,
         transporter_rr_company_id=body.transporter_rr_company_id or None,
     )
     db.add(trip)

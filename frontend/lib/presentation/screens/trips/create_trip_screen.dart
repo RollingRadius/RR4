@@ -121,6 +121,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   String? _axleType;
   int?    _numberOfWheels;
   final _expectedFreightCtrl  = TextEditingController();
+  final _bookingAmountCtrl    = TextEditingController();
 
   // ── Vehicle provider (transporter) multi-step picker ─────────────────────
   final _vpPhoneCtrl              = TextEditingController();
@@ -181,6 +182,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _unloadPinCtrl.dispose();
     _depotCodeCtrl.dispose();
     _expectedFreightCtrl.dispose();
+    _bookingAmountCtrl.dispose();
     _vpPhoneCtrl.removeListener(_onVpPhoneChanged);
     _vpPhoneCtrl.dispose();
     _pickupDebounce?.cancel();
@@ -529,7 +531,12 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     }
     final efVal = double.tryParse(_expectedFreightCtrl.text.trim());
     if (efVal == null || efVal <= 0) {
-      setState(() => _submitError = 'Enter Freight Amount (used as LP offline bid price)');
+      setState(() => _submitError = 'Enter Freight Amount');
+      return;
+    }
+    final baVal = double.tryParse(_bookingAmountCtrl.text.trim());
+    if (baVal == null || baVal <= 0) {
+      setState(() => _submitError = 'Enter LP Booking Amount (offline bid price for vehicle provider)');
       return;
     }
 
@@ -594,6 +601,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (_numberOfWheels  != null) body['number_of_wheels']  = _numberOfWheels;
     final ef = double.tryParse(_expectedFreightCtrl.text.trim());
     if (ef != null) body['expected_freight'] = ef;
+    final ba = double.tryParse(_bookingAmountCtrl.text.trim());
+    if (ba != null) body['booking_amount'] = ba;
     // Vehicle provider picker
     if (_vpSelectedCompanyId     != null) body['transporter_rr_company_id'] = _vpSelectedCompanyId;
     if (_vpSelectedVehicleRrId   != null) body['rr_vehicle_id']             = _vpSelectedVehicleRrId;
@@ -1267,6 +1276,15 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       });
                     },
                   ),
+
+            const SizedBox(height: 10),
+            _FieldLabel(label: 'Vehicle Provider Booking Amount (₹) *'),
+            const SizedBox(height: 6),
+            _TextInput(
+              controller: _bookingAmountCtrl,
+              hint: 'e.g. 42000  (offline bid sent to vehicle provider)',
+              inputType: TextInputType.number,
+            ),
 
             // ── Error banner ──────────────────────────────────────────
             if (_submitError != null) ...[

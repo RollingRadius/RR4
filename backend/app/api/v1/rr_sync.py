@@ -963,6 +963,8 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
     if not trip.invoice_value:                     missing.append("invoice_value")
     if not trip.expected_freight or float(trip.expected_freight) <= 0:
         missing.append("expected_freight (freight amount must be > 0)")
+    if not trip.booking_amount or float(trip.booking_amount) <= 0:
+        missing.append("booking_amount (LP offline bid price must be > 0)")
     if not (trip.rr_vehicle_id or trip.vehicle_id or trip.vehicle_number): missing.append("vehicle (select via provider picker)")
     if not rr_driver_id: missing.append("driver (no driver linked to selected vehicle — ensure vehicle has a driver assigned in RR)")
     if missing:
@@ -983,7 +985,7 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
         "weight_unit":                rr_weight_unit,
         "freight_amount":             float(trip.expected_freight or 0),
         "invoice_value":              float(trip.invoice_value),
-        "booking_amount":             float(trip.expected_freight or 0),
+        "booking_amount":             float(trip.booking_amount or 0),
         "loading_amount":             0,
         "unloading_amount":           0,
         "advance_amount":             0,
