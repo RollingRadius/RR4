@@ -523,8 +523,8 @@ async def get_vehicle_provider_user(
     _: User = Depends(get_current_user),
 ):
     """
-    Proxies GET /users/get_user_by_phone.
-    Returns {user_id, name, company_id} so the frontend can load companies + vehicles.
+    Proxies GET /users/get_user_by_phone → returns {"_items": [{...}]}.
+    Returns {user_id, name} so the frontend can load companies + vehicles.
     """
     raw = phone.strip().lstrip("+")
     phone_10 = raw[-10:] if len(raw) >= 10 else raw
@@ -535,15 +535,16 @@ async def get_vehicle_provider_user(
             params={"phone_number": phone_10, "username": phone_10},
             headers=headers,
         )
-    if resp.status_code == 404:
-        raise HTTPException(status_code=404, detail="No RR user found for this phone number")
-    if resp.status_code != 200:
+    if resp.status_code not in (200,):
         raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
-    data = resp.json()
+    # Response shape: {"_items": [{_id, name, phone, ...}]}
+    items = resp.json().get("_items", [])
+    if not items:
+        raise HTTPException(status_code=404, detail="No RR user found for this phone number")
+    user = items[0]
     return {
-        "user_id":    str(data.get("_id") or ""),
-        "name":       data.get("name") or data.get("full_name") or "",
-        "company_id": str(data.get("company_id") or ""),
+        "user_id": str(user.get("_id") or ""),
+        "name":    user.get("name") or "",
     }
 
 
@@ -886,18 +887,33 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
                 phone_10 = raw[-10:] if len(raw) >= 10 else raw
                 if phone_10.isdigit():
                     try:
-                        resp = await client.get(
+                        # Step 1: get RR user_id by phone (response: {"_items": [{_id, name, ...}]})
+                        r1 = await client.get(
                             f"{settings.RR_API_BASE}/users/get_user_by_phone",
                             params={"phone_number": phone_10, "username": phone_10},
                             headers=auth_hdr,
                         )
-                        if resp.status_code == 200:
-                            company_id = resp.json().get("company_id")
-                            if company_id:
-                                vehicle_provider_id = str(company_id)
-                                trip.transporter_rr_company_id = vehicle_provider_id
-                                db.flush()
-                                logger.info(f"[Create Trip] Resolved vehicle_provider_id={vehicle_provider_id} for transporter phone {phone_10}")
+                        rr_user_id = None
+                        if r1.status_code == 200:
+                            items = r1.json().get("_items", [])
+                            if items:
+                                rr_user_id = str(items[0].get("_id") or "")
+                        # Step 2: get companies for that user
+                        if rr_user_id:
+                            r2 = await client.get(
+                                f"{settings.RR_API_BASE}/get_user_companies",
+                                params={"user_id": rr_user_id},
+                                headers=auth_hdr,
+                            )
+                            if r2.status_code == 200:
+                                companies = r2.json().get("_items", [])
+                                if companies:
+                                    company_id = str(companies[0].get("_id") or "")
+                                    if company_id:
+                                        vehicle_provider_id = company_id
+                                        trip.transporter_rr_company_id = vehicle_provider_id
+                                        db.flush()
+                                        logger.info(f"[Create Trip] Resolved vehicle_provider_id={vehicle_provider_id} for transporter phone {phone_10}")
                     except Exception as exc:
                         logger.warning(f"[Create Trip] Transporter company lookup failed: {exc}")
         vehicle_provider_id = vehicle_provider_id or _RR_DEFAULT_VEHICLE_PROVIDER
