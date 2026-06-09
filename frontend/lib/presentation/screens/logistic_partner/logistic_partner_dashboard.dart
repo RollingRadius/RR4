@@ -768,28 +768,6 @@ class _DashboardTab extends ConsumerWidget {
                 child: OngoingTripCard(
                   trip: t,
                   onComplete: () async {
-                    final session = await ensureRrSession(context, ref);
-                    if (session == null) return false;
-                    try {
-                      await ref.read(rrSyncApiProvider).completeTripInRr(t.id, session.token);
-                    } on DioException catch (e) {
-                      final msg = (e.response?.data is Map)
-                          ? (e.response!.data['detail'] ?? 'RR sync failed')
-                          : 'RR sync failed';
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(msg.toString())),
-                        );
-                      }
-                      return false;
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('RR sync failed: $e')),
-                        );
-                      }
-                      return false;
-                    }
                     return ref.read(tripProvider.notifier).completeTrip(t.id);
                   },
                 ),

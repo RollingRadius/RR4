@@ -5825,11 +5825,8 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
     final trip = widget.trip;
     final synced = trip.rrTripId != null;
     final failed = !synced && trip.rrSyncStatus == 'failed';
-    final ready  = !synced && trip.currentStage >= 1;
 
-    const amber   = Color(0xFFFF8F00);
     const green   = Color(0xFF2E7D32);
-    const bgAmber = Color(0xFFFFF3E0);
     const bgGreen = Color(0xFFE8F5E9);
     const bgRed   = Color(0xFFFFEBEE);
     const bgGrey  = Color(0xFFF5F5F5);
@@ -5844,7 +5841,7 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
       cardBg      = bgGreen;
       accentColor = green;
       icon        = Icons.check_circle_rounded;
-      title       = 'Synced to RR';
+      title       = 'Synced to RR Web';
       subtitle    = [
         if (trip.rrTripNumber != null) 'Trip: \${trip.rrTripNumber}',
         if (trip.rrBookingId  != null) 'PO: \${trip.rrBookingId}',
@@ -5853,20 +5850,14 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
       cardBg      = bgRed;
       accentColor = _error;
       icon        = Icons.error_outline_rounded;
-      title       = 'Sync failed';
+      title       = 'RR sync failed';
       subtitle    = trip.rrSyncError ?? 'Unknown error';
-    } else if (ready) {
-      cardBg      = bgAmber;
-      accentColor = amber;
-      icon        = Icons.upload_rounded;
-      title       = 'Ready to send to RR';
-      subtitle    = 'Stage 1 complete — tap to push trip data';
     } else {
       cardBg      = bgGrey;
       accentColor = const Color(0xFF9E9E9E);
       icon        = Icons.hourglass_top_rounded;
-      title       = 'RR sync pending';
-      subtitle    = 'Complete Stage 1 first to enable RR sync';
+      title       = 'Not synced to RR';
+      subtitle    = 'Tap retry to push this trip to RR Web';
     }
 
     return Container(
@@ -5888,7 +5879,7 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
                 child: Text(title,
                     style: _manrope(size: 13, weight: FontWeight.w700, color: accentColor)),
               ),
-              if ((ready || failed) && !_sending)
+              if (!synced && !_sending)
                 GestureDetector(
                   onTap: _sendToRr,
                   child: Container(

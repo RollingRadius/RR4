@@ -866,15 +866,12 @@ class _StageSlidingPanel extends StatelessWidget {
           if (i == 0) {
             final synced = trip.rrTripId != null;
             final failed = !synced && trip.rrSyncStatus == 'failed';
-            const amber = Color(0xFFFF8F00);
             const green = _StageSlidingPanel._green;
             final tileColor = synced
                 ? green
                 : failed
                     ? const Color(0xFFBA1A1A)
-                    : trip.currentStage >= 1
-                        ? amber
-                        : const Color(0xFF9E9E9E);
+                    : const Color(0xFF9E9E9E);
             final tileBg = tileColor.withValues(alpha: 0.08);
             return GestureDetector(
               onTap: () => Navigator.of(context)
@@ -916,7 +913,7 @@ class _StageSlidingPanel extends StatelessWidget {
                         overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
                     Text(
-                      synced ? 'Done' : failed ? 'Failed' : trip.currentStage >= 1 ? 'Ready' : 'Pending',
+                      synced ? 'Done' : failed ? 'Failed' : 'Pending',
                       style: _inter(size: 8, weight: FontWeight.w500, color: tileColor),
                     ),
                     if (synced && trip.rrTripNumber != null) ...[

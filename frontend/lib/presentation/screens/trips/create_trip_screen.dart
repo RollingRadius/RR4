@@ -527,6 +527,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       setState(() => _submitError = 'Select a Handled by Person');
       return;
     }
+    final efVal = double.tryParse(_expectedFreightCtrl.text.trim());
+    if (efVal == null || efVal <= 0) {
+      setState(() => _submitError = 'Enter Freight Amount (used as LP offline bid price)');
+      return;
+    }
 
     setState(() { _submitting = true; _submitError = null; });
 
@@ -1223,7 +1228,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             ),
 
             const SizedBox(height: 10),
-            _FieldLabel(label: 'Expected Price (₹)'),
+            _FieldLabel(label: 'Freight Amount (₹) *'),
             const SizedBox(height: 6),
             _TextInput(
               controller: _expectedFreightCtrl,
