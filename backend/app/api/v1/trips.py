@@ -148,8 +148,10 @@ class TripCreate(BaseModel):
     axle_type:        Optional[str]   = None
     number_of_wheels: Optional[int]   = None
     expected_freight: Optional[float] = None
-    # Vehicle provider (RR company ObjectId — vehicle_provider_id in create_trip)
+    # Vehicle provider — either supply the resolved RR ObjectId directly,
+    # or supply transporter_phone to auto-resolve via GET /users/get_user_by_phone
     transporter_rr_company_id: Optional[str] = None
+    transporter_phone:         Optional[str] = None
     # If provided, immediately sync to RR (POST /trips + POST /parcels)
     rr_token: Optional[str] = None
 
@@ -364,6 +366,31 @@ async def create_trip(
     db.add(trip)
     db.commit()
     db.refresh(trip)
+
+    # ── Resolve vehicle_provider_id via transporter phone ─────────────────────
+    # If a phone number was supplied and we don't already have the RR company ID,
+    # look it up from RR now so it's ready for Stage 0 sync later.
+    if body.transporter_phone and not trip.transporter_rr_company_id and body.rr_token:
+        import httpx
+        from app.config import settings
+        raw = body.transporter_phone.strip().lstrip("+")
+        phone_10 = raw[-10:] if len(raw) >= 10 else raw
+        if phone_10.isdigit():
+            try:
+                async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+                    resp = await client.get(
+                        f"{settings.RR_API_BASE}/users/get_user_by_phone",
+                        params={"phone_number": phone_10, "username": phone_10},
+                        headers={"Authorization": f"Bearer {body.rr_token}"},
+                    )
+                if resp.status_code == 200:
+                    company_id = resp.json().get("company_id")
+                    if company_id:
+                        trip.transporter_rr_company_id = str(company_id)
+                        db.commit()
+                        db.refresh(trip)
+            except Exception:
+                pass  # non-fatal — Stage 0 sync will retry
 
     # If LP provided their RR token, immediately sync trip+parcel to RR
     if body.rr_token:

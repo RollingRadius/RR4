@@ -142,10 +142,14 @@ class TripModel {
   final String? consigneeRrCompanyId;
   final String? rrOpsUserId;
 
+  // ── RR transporter (vehicle provider) ────────────────────────────────────────
+  final String? transporterRrCompanyId;
+
   // ── RR sync state ─────────────────────────────────────────────────────────────
   final String? rrTripId;
   final String? rrTripNumber;
   final String? rrParcelId;
+  final String? rrBookingId;
   final String? rrSyncStatus;
   final String? rrSyncError;
   final String? rrSyncedAt;
@@ -271,9 +275,11 @@ class TripModel {
     this.consignorRrCompanyId,
     this.consigneeRrCompanyId,
     this.rrOpsUserId,
+    this.transporterRrCompanyId,
     this.rrTripId,
     this.rrTripNumber,
     this.rrParcelId,
+    this.rrBookingId,
     this.rrSyncStatus,
     this.rrSyncError,
     this.rrSyncedAt,
@@ -403,9 +409,11 @@ class TripModel {
       consignorRrCompanyId:    json['consignor_rr_company_id'] as String?,
       consigneeRrCompanyId:    json['consignee_rr_company_id'] as String?,
       rrOpsUserId:             json['rr_ops_user_id'] as String?,
+      transporterRrCompanyId:  json['transporter_rr_company_id'] as String?,
       rrTripId:                json['rr_trip_id'] as String?,
       rrTripNumber:            json['rr_trip_number'] as String?,
       rrParcelId:              json['rr_parcel_id'] as String?,
+      rrBookingId:             json['rr_booking_id'] as String?,
       rrSyncStatus:            json['rr_sync_status'] as String?,
       rrSyncError:             json['rr_sync_error'] as String?,
       rrSyncedAt:              json['rr_synced_at'] as String?,

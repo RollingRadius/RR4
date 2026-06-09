@@ -302,7 +302,6 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
             trip: _trip,
             stage4Done: _stage4Done,
             stage5Done: _stage5Done,
-            rrSetupPending: _trip.originRrCityId == null,
             onStepTap: _buildStepTapHandler(),
           ),
           if (state.error != null)
@@ -321,16 +320,15 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                 ],
               ),
             ),
+          _Stage0Card(
+            key: ValueKey('s0_${_trip.id}_${_trip.rrTripId}_${_trip.rrSyncStatus}'),
+            trip: _trip,
+            onSyncDone: _fetchFreshTrip,
+          ),
           Expanded(
             child: _editingStage != null
                 ? _buildEditForm(_editingStage!)
-                : _trip.originRrCityId == null
-                    ? _Stage0Form(
-                        key: ValueKey('s0_${_trip.id}'),
-                        trip: _trip,
-                        onDone: _fetchFreshTrip,
-                      )
-                    : _stage5Done
+                : _stage5Done
                     ? _Stage4CompleteView(
                         trip: _trip,
                         onDone: () => Navigator.of(context).pop(),
@@ -370,12 +368,14 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                                     onNextStage: () => setState(() => _showStage4 = true),
                                   )
                                 : stage == 0
-                                    ? _Stage1Form(
-                                        key: ValueKey('s1_${_trip.id}_$_tripFreshness'),
-                                        providerKey: _providerKey,
-                                        trip: _trip,
-                                        onEditDone: null,
-                                      )
+                                    ? (_trip.rrTripId == null
+                                        ? _Stage0LandingView(trip: _trip)
+                                        : _Stage1Form(
+                                            key: ValueKey('s1_${_trip.id}_$_tripFreshness'),
+                                            providerKey: _providerKey,
+                                            trip: _trip,
+                                            onEditDone: null,
+                                          ))
                                     : stage == 1
                                         ? _Stage2Form(
                                             key: ValueKey('s2_${_trip.id}_$_tripFreshness'),
@@ -5681,782 +5681,247 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-// ─── Stage 0: RR Trip Setup (inline form, shows before S1) ───────────────────
+// ─── Stage 0: Landing view (new trip, not yet synced to RR) ──────────────────
 
-class _Stage0Form extends ConsumerStatefulWidget {
+class _Stage0LandingView extends StatelessWidget {
   final TripModel trip;
-  final VoidCallback onDone;
-  const _Stage0Form({super.key, required this.trip, required this.onDone});
-
-  @override
-  ConsumerState<_Stage0Form> createState() => _Stage0FormState();
-}
-
-class _Stage0FormState extends ConsumerState<_Stage0Form> {
-  final _originCtrl   = TextEditingController();
-  final _destCtrl     = TextEditingController();
-  final _materialCtrl = TextEditingController();
-  final _weightCtrl   = TextEditingController();
-  final _invoiceCtrl  = TextEditingController();
-
-  String? _originCityId;
-  String? _destCityId;
-  String? _materialRrId;
-  String  _weightUnit = 'TONS';
-
-  List<Map<String, dynamic>> _originResults   = [];
-  List<Map<String, dynamic>> _destResults     = [];
-  List<Map<String, dynamic>> _materialResults = [];
-
-  bool _originLoading   = false;
-  bool _destLoading     = false;
-  bool _materialLoading = false;
-  bool _saving          = false;
-  String? _saveError;
-
-  Timer? _originDebounce;
-  Timer? _destDebounce;
-  Timer? _materialDebounce;
-
-  @override
-  void dispose() {
-    _originCtrl.dispose();
-    _destCtrl.dispose();
-    _materialCtrl.dispose();
-    _weightCtrl.dispose();
-    _invoiceCtrl.dispose();
-    _originDebounce?.cancel();
-    _destDebounce?.cancel();
-    _materialDebounce?.cancel();
-    super.dispose();
-  }
-
-  void _onOriginTyped(String q) {
-    setState(() { _originCityId = null; _originResults = []; });
-    _originDebounce?.cancel();
-    if (q.length < 2) return;
-    _originDebounce = Timer(const Duration(milliseconds: 400), () => _searchCity(q, isOrigin: true));
-  }
-
-  void _onDestTyped(String q) {
-    setState(() { _destCityId = null; _destResults = []; });
-    _destDebounce?.cancel();
-    if (q.length < 2) return;
-    _destDebounce = Timer(const Duration(milliseconds: 400), () => _searchCity(q, isOrigin: false));
-  }
-
-  Future<void> _searchCity(String q, {required bool isOrigin}) async {
-    if (isOrigin) setState(() => _originLoading = true);
-    else          setState(() => _destLoading = true);
-    try {
-      final resp = await ref.read(dioProvider).get('/api/rr/cities', queryParameters: {'q': q});
-      final items = (resp.data['items'] as List? ?? []).cast<Map<String, dynamic>>();
-      if (!mounted) return;
-      setState(() {
-        if (isOrigin) { _originResults = items; _originLoading = false; }
-        else          { _destResults   = items; _destLoading   = false; }
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() { if (isOrigin) _originLoading = false; else _destLoading = false; });
-    }
-  }
-
-  void _onMaterialTyped(String q) {
-    setState(() { _materialRrId = null; _materialResults = []; });
-    _materialDebounce?.cancel();
-    _materialDebounce = Timer(const Duration(milliseconds: 350), () => _searchMaterial(q));
-  }
-
-  Future<void> _searchMaterial(String q) async {
-    setState(() => _materialLoading = true);
-    try {
-      final resp = await ref.read(dioProvider).get('/api/rr/materials', queryParameters: {'q': q});
-      final items = (resp.data['items'] as List? ?? []).cast<Map<String, dynamic>>();
-      if (!mounted) return;
-      setState(() { _materialResults = items; _materialLoading = false; });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _materialLoading = false);
-    }
-  }
-
-  Future<void> _save() async {
-    if (_saving) return;
-    if (_originCityId == null) { setState(() => _saveError = 'Select an origin city from the list'); return; }
-    if (_destCityId == null)   { setState(() => _saveError = 'Select a destination city from the list'); return; }
-    if (_materialRrId == null) { setState(() => _saveError = 'Select a material from the list'); return; }
-    final weightStr = _weightCtrl.text.trim();
-    if (weightStr.isEmpty || double.tryParse(weightStr) == null) {
-      setState(() => _saveError = 'Enter a valid weight');
-      return;
-    }
-    setState(() { _saving = true; _saveError = null; });
-    try {
-      final body = <String, dynamic>{
-        'origin_rr_city_id':      _originCityId,
-        'destination_rr_city_id': _destCityId,
-        'material_rr_id':         _materialRrId,
-        'weight_value':           double.parse(weightStr),
-        'weight_unit':            _weightUnit,
-        'weight':                 '$weightStr $_weightUnit',
-      };
-      final inv = double.tryParse(_invoiceCtrl.text.trim());
-      if (inv != null) body['invoice_value'] = inv;
-      await ref.read(dioProvider).patch('/api/trips/${widget.trip.id}', data: body);
-      if (mounted) widget.onDone();
-    } on DioException catch (e) {
-      final msg = (e.response?.data is Map) ? (e.response!.data['detail'] ?? 'Save failed') : 'Save failed';
-      setState(() { _saveError = msg.toString(); _saving = false; });
-    } catch (e) {
-      setState(() { _saveError = 'Unexpected error: $e'; _saving = false; });
-    }
-  }
-
-  InputDecoration _dec(String label) => InputDecoration(
-    labelText: label,
-    labelStyle: _inter(size: 12, color: _secondary),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: _primary, width: 1.5),
-    ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-    isDense: true,
-  );
-
-  Widget _typeaheadField({
-    required TextEditingController ctrl,
-    required String label,
-    required void Function(String) onChanged,
-    required List<Map<String, dynamic>> results,
-    required bool loading,
-    required String Function(Map<String, dynamic>) display,
-    required void Function(Map<String, dynamic>) onSelect,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: ctrl,
-          decoration: _dec(label).copyWith(
-            suffixIcon: loading
-                ? const Padding(padding: EdgeInsets.all(12),
-                    child: SizedBox(width: 16, height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: _primary)))
-                : null,
-          ),
-          style: _inter(size: 13, color: _onSurface),
-          onChanged: onChanged,
-        ),
-        if (results.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(top: 2),
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _border),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: results.length > 6 ? 6 : results.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
-              itemBuilder: (_, i) => InkWell(
-                onTap: () => onSelect(results[i]),
-                borderRadius: BorderRadius.circular(8),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Text(display(results[i]), style: _inter(size: 13, color: _onSurface)),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
+  const _Stage0LandingView({required this.trip});
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Header card
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _primary.withValues(alpha: 0.25)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: _primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.checklist_rtl_rounded, color: _primary, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Stage 0 — RR Trip Setup',
-                        style: _manrope(size: 14, weight: FontWeight.w800)),
-                    const SizedBox(height: 2),
-                    Text('Required before starting Stage 1. Fill origin, destination, material and weight so this trip can be synced to RollingRadius.',
-                        style: _inter(size: 11, color: _secondary)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Origin city
-        Text('Origin City *', style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
-        const SizedBox(height: 6),
-        _typeaheadField(
-          ctrl: _originCtrl, label: 'Search city…',
-          onChanged: _onOriginTyped,
-          results: _originResults, loading: _originLoading,
-          display: (c) => '${c['name']}, ${c['state']}',
-          onSelect: (c) => setState(() {
-            _originCityId    = c['rr_city_id'] as String?;
-            _originCtrl.text = '${c['name']}, ${c['state']}';
-            _originResults   = [];
-          }),
-        ),
-        const SizedBox(height: 16),
-
-        // Destination city
-        Text('Destination City *', style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
-        const SizedBox(height: 6),
-        _typeaheadField(
-          ctrl: _destCtrl, label: 'Search city…',
-          onChanged: _onDestTyped,
-          results: _destResults, loading: _destLoading,
-          display: (c) => '${c['name']}, ${c['state']}',
-          onSelect: (c) => setState(() {
-            _destCityId    = c['rr_city_id'] as String?;
-            _destCtrl.text = '${c['name']}, ${c['state']}';
-            _destResults   = [];
-          }),
-        ),
-        const SizedBox(height: 16),
-
-        // Material
-        Text('Material *', style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
-        const SizedBox(height: 6),
-        _typeaheadField(
-          ctrl: _materialCtrl, label: 'Search material…',
-          onChanged: _onMaterialTyped,
-          results: _materialResults, loading: _materialLoading,
-          display: (m) => m['name'] as String? ?? '',
-          onSelect: (m) => setState(() {
-            _materialRrId     = m['rr_material_id'] as String?;
-            _materialCtrl.text = m['name'] as String? ?? '';
-            _materialResults  = [];
-          }),
-        ),
-        const SizedBox(height: 16),
-
-        // Weight + unit
-        Text('Weight *', style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
-        const SizedBox(height: 6),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _weightCtrl,
-                decoration: _dec('e.g. 25'),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: _inter(size: 13, color: _onSurface),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: _border),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _weightUnit,
-                  isDense: true,
-                  style: _inter(size: 13, color: _onSurface),
-                  items: ['TONS', 'KG', 'MT']
-                      .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                      .toList(),
-                  onChanged: (u) { if (u != null) setState(() => _weightUnit = u); },
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-
-        // Invoice value (optional)
-        Text('Invoice Value ₹  —  optional',
-            style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _invoiceCtrl,
-          decoration: _dec('e.g. 150000'),
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: _inter(size: 13, color: _onSurface),
-        ),
-
-        if (_saveError != null) ...[
-          const SizedBox(height: 12),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
-              color: const Color(0xFFFFDAD6),
-              borderRadius: BorderRadius.circular(8),
+              color: const Color(0xFFFFF3E0),
+              shape: BoxShape.circle,
             ),
-            child: Text(_saveError!, style: _inter(size: 12, color: _error)),
+            child: const Icon(Icons.upload_rounded, size: 36, color: Color(0xFFFF8F00)),
+          ),
+          const SizedBox(height: 20),
+          Text('Stage 0 — RR Sync',
+              style: _manrope(size: 18, weight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          Text(
+            'Before proceeding to Stage 1, complete the following steps:',
+            style: _inter(size: 13, color: _secondary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 28),
+          _StepRow(
+            number: '1',
+            title: 'Fill Stage 1 — Truck Registration',
+            subtitle: 'Tap Stage 1 in the strip above to enter vehicle & driver details.',
+            done: trip.currentStage >= 1,
+          ),
+          const SizedBox(height: 14),
+          _StepRow(
+            number: '2',
+            title: 'Sync trip to RR',
+            subtitle: 'Once Stage 1 is complete, use the "Send to RR" button above to push the trip.',
+            done: trip.rrTripId != null,
+          ),
+          const SizedBox(height: 14),
+          _StepRow(
+            number: '3',
+            title: 'Continue to Stage 2',
+            subtitle: 'After RR sync, proceed with Pre-Arrival Compliance Check.',
+            done: trip.currentStage >= 2,
           ),
         ],
-
-        const SizedBox(height: 24),
-
-        SizedBox(
-          width: double.infinity,
-          child: FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: _primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              padding: const EdgeInsets.symmetric(vertical: 14),
-            ),
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(width: 20, height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text('Save & Continue to Stage 1',
-                    style: _manrope(size: 14, color: Colors.white)),
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
+      ),
     );
   }
 }
 
-// ─── RR Details Sheet (Stage 0 edit via bottom sheet) ────────────────────────
-
-class _RrDetailsSheet extends ConsumerStatefulWidget {
-  final TripModel trip;
-  const _RrDetailsSheet({required this.trip});
-
-  @override
-  ConsumerState<_RrDetailsSheet> createState() => _RrDetailsSheetState();
-}
-
-class _RrDetailsSheetState extends ConsumerState<_RrDetailsSheet> {
-  final _originCtrl   = TextEditingController();
-  final _destCtrl     = TextEditingController();
-  final _materialCtrl = TextEditingController();
-  final _weightCtrl   = TextEditingController();
-  final _invoiceCtrl  = TextEditingController();
-
-  String? _originCityId;
-  String? _destCityId;
-  String? _materialRrId;
-  String  _weightUnit = 'TONS';
-
-  List<Map<String, dynamic>> _originResults   = [];
-  List<Map<String, dynamic>> _destResults     = [];
-  List<Map<String, dynamic>> _materialResults = [];
-
-  bool _originLoading   = false;
-  bool _destLoading     = false;
-  bool _materialLoading = false;
-  bool _saving          = false;
-  String? _saveError;
-
-  Timer? _originDebounce;
-  Timer? _destDebounce;
-  Timer? _materialDebounce;
+class _StepRow extends StatelessWidget {
+  final String number;
+  final String title;
+  final String subtitle;
+  final bool done;
+  const _StepRow({required this.number, required this.title, required this.subtitle, required this.done});
 
   @override
-  void dispose() {
-    _originCtrl.dispose();
-    _destCtrl.dispose();
-    _materialCtrl.dispose();
-    _weightCtrl.dispose();
-    _invoiceCtrl.dispose();
-    _originDebounce?.cancel();
-    _destDebounce?.cancel();
-    _materialDebounce?.cancel();
-    super.dispose();
-  }
-
-  // ── City search ──────────────────────────────────────────────────────────────
-
-  void _onOriginTyped(String q) {
-    setState(() { _originCityId = null; _originResults = []; });
-    _originDebounce?.cancel();
-    if (q.length < 2) return;
-    _originDebounce = Timer(const Duration(milliseconds: 400), () => _searchCity(q, isOrigin: true));
-  }
-
-  void _onDestTyped(String q) {
-    setState(() { _destCityId = null; _destResults = []; });
-    _destDebounce?.cancel();
-    if (q.length < 2) return;
-    _destDebounce = Timer(const Duration(milliseconds: 400), () => _searchCity(q, isOrigin: false));
-  }
-
-  Future<void> _searchCity(String q, {required bool isOrigin}) async {
-    if (isOrigin) setState(() => _originLoading = true);
-    else          setState(() => _destLoading = true);
-    try {
-      final dio = ref.read(dioProvider);
-      final resp = await dio.get('/api/rr/cities', queryParameters: {'q': q});
-      final items = (resp.data['items'] as List? ?? []).cast<Map<String, dynamic>>();
-      if (!mounted) return;
-      setState(() {
-        if (isOrigin) { _originResults = items; _originLoading = false; }
-        else          { _destResults   = items; _destLoading   = false; }
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        if (isOrigin) _originLoading = false;
-        else          _destLoading   = false;
-      });
-    }
-  }
-
-  // ── Material search ──────────────────────────────────────────────────────────
-
-  void _onMaterialTyped(String q) {
-    setState(() { _materialRrId = null; _materialResults = []; });
-    _materialDebounce?.cancel();
-    _materialDebounce = Timer(const Duration(milliseconds: 350), () => _searchMaterial(q));
-  }
-
-  Future<void> _searchMaterial(String q) async {
-    setState(() => _materialLoading = true);
-    try {
-      final dio = ref.read(dioProvider);
-      final resp = await dio.get('/api/rr/materials', queryParameters: {'q': q});
-      final items = (resp.data['items'] as List? ?? []).cast<Map<String, dynamic>>();
-      if (!mounted) return;
-      setState(() { _materialResults = items; _materialLoading = false; });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _materialLoading = false);
-    }
-  }
-
-  // ── Save ─────────────────────────────────────────────────────────────────────
-
-  Future<void> _save() async {
-    if (_saving) return;
-    if (_originCityId == null) {
-      setState(() => _saveError = 'Select an origin city from the list');
-      return;
-    }
-    if (_destCityId == null) {
-      setState(() => _saveError = 'Select a destination city from the list');
-      return;
-    }
-    if (_materialRrId == null) {
-      setState(() => _saveError = 'Select a material from the list');
-      return;
-    }
-    final weightStr = _weightCtrl.text.trim();
-    if (weightStr.isEmpty || double.tryParse(weightStr) == null) {
-      setState(() => _saveError = 'Enter a valid weight');
-      return;
-    }
-    setState(() { _saving = true; _saveError = null; });
-    try {
-      final dio = ref.read(dioProvider);
-      final body = <String, dynamic>{
-        'origin_rr_city_id':      _originCityId,
-        'destination_rr_city_id': _destCityId,
-        'material_rr_id':         _materialRrId,
-        'weight_value':           double.parse(weightStr),
-        'weight_unit':            _weightUnit,
-        'weight':                 '$weightStr $_weightUnit',
-      };
-      final invoiceVal = double.tryParse(_invoiceCtrl.text.trim());
-      if (invoiceVal != null) body['invoice_value'] = invoiceVal;
-      await dio.patch('/api/trips/${widget.trip.id}', data: body);
-      if (mounted) Navigator.of(context).pop();
-    } on DioException catch (e) {
-      final msg = (e.response?.data is Map)
-          ? (e.response!.data['detail'] ?? 'Save failed')
-          : 'Save failed';
-      setState(() { _saveError = msg.toString(); _saving = false; });
-    } catch (e) {
-      setState(() { _saveError = 'Unexpected error: $e'; _saving = false; });
-    }
-  }
-
-  // ── Helpers ──────────────────────────────────────────────────────────────────
-
-  InputDecoration _inputDec(String label) => InputDecoration(
-    labelText: label,
-    labelStyle: _inter(size: 12, color: _secondary),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: _primary, width: 1.5),
-    ),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-    isDense: true,
-  );
-
-  Widget _cityField({
-    required TextEditingController ctrl,
-    required String label,
-    required void Function(String) onChanged,
-    required List<Map<String, dynamic>> results,
-    required bool loading,
-    required void Function(Map<String, dynamic>) onSelect,
-  }) {
-    return Column(
+  Widget build(BuildContext context) {
+    const green = Color(0xFF2E7D32);
+    const amber = Color(0xFFFF8F00);
+    final color = done ? green : amber;
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
-          controller: ctrl,
-          decoration: _inputDec(label).copyWith(
-            suffixIcon: loading
-                ? const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: SizedBox(width: 16, height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: _primary)))
-                : null,
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.12),
+            border: Border.all(color: color, width: 1.5),
           ),
-          style: _inter(size: 13, color: _onSurface),
-          onChanged: onChanged,
+          child: Center(
+            child: done
+                ? const Icon(Icons.check_rounded, size: 14, color: green)
+                : Text(number, style: _inter(size: 11, weight: FontWeight.w700, color: amber)),
+          ),
         ),
-        if (results.isNotEmpty)
-          Container(
-            margin: const EdgeInsets.only(top: 2),
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _border),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: results.length > 5 ? 5 : results.length,
-              separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
-              itemBuilder: (_, i) {
-                final c = results[i];
-                return InkWell(
-                  onTap: () => onSelect(c),
-                  borderRadius: BorderRadius.circular(8),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: Text(
-                      '${c['name'] ?? ''}, ${c['state'] ?? ''}',
-                      style: _inter(size: 13, color: _onSurface),
-                    ),
-                  ),
-                );
-              },
-            ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: _manrope(size: 13, weight: FontWeight.w700)),
+              const SizedBox(height: 3),
+              Text(subtitle, style: _inter(size: 11, color: _secondary)),
+            ],
           ),
+        ),
       ],
     );
+  }
+}
+
+// ─── Stage 0: RR Sync Status Card ─────────────────────────────────────────
+
+class _Stage0Card extends ConsumerStatefulWidget {
+  final TripModel trip;
+  final VoidCallback onSyncDone;
+  const _Stage0Card({super.key, required this.trip, required this.onSyncDone});
+
+  @override
+  ConsumerState<_Stage0Card> createState() => _Stage0CardState();
+}
+
+class _Stage0CardState extends ConsumerState<_Stage0Card> {
+  bool    _sending = false;
+  String? _sendError;
+
+  Future<void> _sendToRr() async {
+    final session = await ensureRrSession(context, ref);
+    if (session == null || !mounted) return;
+    setState(() { _sending = true; _sendError = null; });
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post(
+        '/api/rr/complete-trip/${widget.trip.id}',
+        data: {'rr_token': session.token},
+      );
+      if (!mounted) return;
+      widget.onSyncDone();
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().split(':').last.trim();
+      setState(() => _sendError = msg);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottomPad = MediaQuery.of(context).viewInsets.bottom;
+    final trip = widget.trip;
+    final synced = trip.rrTripId != null;
+    final failed = !synced && trip.rrSyncStatus == 'failed';
+    final ready  = !synced && trip.currentStage >= 1;
+
+    const amber   = Color(0xFFFF8F00);
+    const green   = Color(0xFF2E7D32);
+    const bgAmber = Color(0xFFFFF3E0);
+    const bgGreen = Color(0xFFE8F5E9);
+    const bgRed   = Color(0xFFFFEBEE);
+    const bgGrey  = Color(0xFFF5F5F5);
+
+    final Color  cardBg;
+    final Color  accentColor;
+    final IconData icon;
+    final String title;
+    final String subtitle;
+
+    if (synced) {
+      cardBg      = bgGreen;
+      accentColor = green;
+      icon        = Icons.check_circle_rounded;
+      title       = 'Synced to RR';
+      subtitle    = [
+        if (trip.rrTripNumber != null) 'Trip: \${trip.rrTripNumber}',
+        if (trip.rrBookingId  != null) 'PO: \${trip.rrBookingId}',
+      ].join('  •  ');
+    } else if (failed) {
+      cardBg      = bgRed;
+      accentColor = _error;
+      icon        = Icons.error_outline_rounded;
+      title       = 'Sync failed';
+      subtitle    = trip.rrSyncError ?? 'Unknown error';
+    } else if (ready) {
+      cardBg      = bgAmber;
+      accentColor = amber;
+      icon        = Icons.upload_rounded;
+      title       = 'Ready to send to RR';
+      subtitle    = 'Stage 1 complete — tap to push trip data';
+    } else {
+      cardBg      = bgGrey;
+      accentColor = const Color(0xFF9E9E9E);
+      icon        = Icons.hourglass_top_rounded;
+      title       = 'RR sync pending';
+      subtitle    = 'Complete Stage 1 first to enable RR sync';
+    }
+
     return Container(
-      decoration: const BoxDecoration(
-        color: _surface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
       ),
-      padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + bottomPad),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36, height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: accentColor, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(title,
+                    style: _manrope(size: 13, weight: FontWeight.w700, color: accentColor)),
               ),
-            ),
-            Text('RR Trip Details', style: _manrope(size: 16, weight: FontWeight.w800)),
-            const SizedBox(height: 4),
-            Text('Fill these fields before syncing this trip to RollingRadius.',
-                style: _inter(size: 12, color: _secondary)),
-            const SizedBox(height: 20),
-
-            Text('Origin City', style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
-            const SizedBox(height: 6),
-            _cityField(
-              ctrl: _originCtrl,
-              label: 'Search city…',
-              onChanged: _onOriginTyped,
-              results: _originResults,
-              loading: _originLoading,
-              onSelect: (c) => setState(() {
-                _originCityId    = c['rr_city_id'] as String?;
-                _originCtrl.text = '${c['name']}, ${c['state']}';
-                _originResults   = [];
-              }),
-            ),
-            const SizedBox(height: 14),
-
-            Text('Destination City', style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
-            const SizedBox(height: 6),
-            _cityField(
-              ctrl: _destCtrl,
-              label: 'Search city…',
-              onChanged: _onDestTyped,
-              results: _destResults,
-              loading: _destLoading,
-              onSelect: (c) => setState(() {
-                _destCityId    = c['rr_city_id'] as String?;
-                _destCtrl.text = '${c['name']}, ${c['state']}';
-                _destResults   = [];
-              }),
-            ),
-            const SizedBox(height: 14),
-
-            Text('Material', style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
-            const SizedBox(height: 6),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: _materialCtrl,
-                  decoration: _inputDec('Search material…').copyWith(
-                    suffixIcon: _materialLoading
-                        ? const Padding(
-                            padding: EdgeInsets.all(12),
-                            child: SizedBox(width: 16, height: 16,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: _primary)))
-                        : null,
-                  ),
-                  style: _inter(size: 13, color: _onSurface),
-                  onChanged: _onMaterialTyped,
-                ),
-                if (_materialResults.isNotEmpty)
-                  Container(
-                    margin: const EdgeInsets.only(top: 2),
+              if ((ready || failed) && !_sending)
+                GestureDetector(
+                  onTap: _sendToRr,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: _surface,
+                      color: failed ? _error : amber,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: _border),
-                      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
                     ),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _materialResults.length > 6 ? 6 : _materialResults.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
-                      itemBuilder: (_, i) {
-                        final m = _materialResults[i];
-                        return InkWell(
-                          onTap: () => setState(() {
-                            _materialRrId     = m['rr_material_id'] as String?;
-                            _materialCtrl.text = m['name'] as String? ?? '';
-                            _materialResults  = [];
-                          }),
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            child: Text(m['name'] as String? ?? '',
-                                style: _inter(size: 13, color: _onSurface)),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            Text('Weight', style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _weightCtrl,
-                    decoration: _inputDec('e.g. 25'),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: _inter(size: 13, color: _onSurface),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: _border),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _weightUnit,
-                      isDense: true,
-                      style: _inter(size: 13, color: _onSurface),
-                      items: ['TONS', 'KG', 'MT']
-                          .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                          .toList(),
-                      onChanged: (u) { if (u != null) setState(() => _weightUnit = u); },
+                    child: Text(
+                      failed ? 'Retry' : 'Send to RR',
+                      style: _manrope(size: 12, weight: FontWeight.w700, color: Colors.white),
                     ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            Text('Invoice Value (₹)  — optional',
-                style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _invoiceCtrl,
-              decoration: _inputDec('e.g. 150000'),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              style: _inter(size: 13, color: _onSurface),
-            ),
-
-            if (_saveError != null) ...[
-              const SizedBox(height: 12),
-              Text(_saveError!, style: _inter(size: 12, color: _error)),
+              if (_sending)
+                const SizedBox(
+                  width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
+                ),
             ],
-
-            const SizedBox(height: 20),
-
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: _primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(width: 20, height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text('Save RR Details', style: _manrope(size: 14, color: Colors.white)),
-              ),
-            ),
+          ),
+          if (subtitle.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(subtitle,
+                style: _inter(size: 11, color: accentColor.withOpacity(0.85)),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
           ],
-        ),
+          if (_sendError != null) ...[
+            const SizedBox(height: 4),
+            Text(_sendError!, style: _inter(size: 11, color: _error),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+        ],
       ),
     );
   }

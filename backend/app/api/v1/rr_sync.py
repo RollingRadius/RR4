@@ -620,13 +620,15 @@ async def complete_trip_in_rr(
 ):
     """
     Calls POST /create_trip on RR web for the given trip.
-    - Requires S1 done (vehicle.rr_vehicle_id + driver.rr_user_id resolved).
-    - vehicle_provider_id resolved from transporter org's rr_company_id;
-      falls back to Rolling Radius LP (62d66794e54f47829a886a1d) if none set.
-    - Saves rr_trip_id + rr_parcel_id back to the trip.
+    - Auto-resolves vehicle rr_vehicle_id via GET /vehicles?where=identities.number
+    - Auto-resolves driver rr_user_id via GET /users?where=phone.number
+    - Auto-resolves vehicle_provider_id via GET /users/get_user_by_phone on transporter phone
+    - Falls back to Rolling Radius LP (62d66794e54f47829a886a1d) if transporter not found in RR
+    - Saves resolved IDs + rr_trip_id + rr_parcel_id + rr_booking_id back to trip
     """
     from datetime import datetime as _dt
     from app.models import UserOrganization
+    from app.models.user import User as UserModel
     from app.models.vehicle import Vehicle
     from app.models.driver import Driver
 
@@ -647,21 +649,83 @@ async def complete_trip_in_rr(
     if trip.rr_trip_id:
         raise HTTPException(status_code=409, detail="Trip already exists in RR")
 
-    # ── Resolve vehicle RR ID ─────────────────────────────────────────────────
-    rr_vehicle_id = None
-    if trip.vehicle_id:
-        vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
-        rr_vehicle_id = vehicle.rr_vehicle_id if vehicle else None
+    auth_hdr = {"Authorization": f"Bearer {body.rr_token}"}
 
-    # ── Resolve driver RR user ID ─────────────────────────────────────────────
-    rr_driver_id = None
-    if trip.driver_id:
-        driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
-        rr_driver_id = driver.rr_user_id if driver else None
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
 
-    # ── Resolve vehicle_provider_id ───────────────────────────────────────────
-    # Set at assign-transporter time; always populated (org rr_company_id or RR default).
-    vehicle_provider_id = trip.transporter_rr_company_id or _RR_DEFAULT_VEHICLE_PROVIDER
+        # ── Resolve vehicle RR ID ─────────────────────────────────────────────
+        rr_vehicle_id = None
+        if trip.vehicle_id:
+            vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
+            if vehicle:
+                rr_vehicle_id = vehicle.rr_vehicle_id
+                if not rr_vehicle_id and vehicle.vehicle_number:
+                    try:
+                        resp = await client.get(
+                            f"{settings.RR_API_BASE}/vehicles",
+                            params={"where": json.dumps({"identities.number": vehicle.vehicle_number}), "max_results": 1},
+                            headers=auth_hdr,
+                        )
+                        if resp.status_code == 200:
+                            items = resp.json().get("_items", [])
+                            if items:
+                                rr_vehicle_id = str(items[0]["_id"])
+                                vehicle.rr_vehicle_id = rr_vehicle_id
+                                db.flush()
+                                logger.info(f"[Complete Trip] Resolved rr_vehicle_id={rr_vehicle_id} for {vehicle.vehicle_number}")
+                    except Exception as exc:
+                        logger.warning(f"[Complete Trip] Vehicle lookup failed: {exc}")
+
+        # ── Resolve driver RR user ID ─────────────────────────────────────────
+        rr_driver_id = None
+        if trip.driver_id:
+            driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
+            if driver:
+                rr_driver_id = driver.rr_user_id
+                if not rr_driver_id and driver.phone:
+                    raw = driver.phone.strip().lstrip("+")
+                    phone_10 = raw[-10:] if len(raw) >= 10 else raw
+                    if phone_10.isdigit():
+                        try:
+                            resp = await client.get(
+                                f"{settings.RR_API_BASE}/users",
+                                params={"where": json.dumps({"phone.number": int(phone_10)}), "max_results": 1},
+                                headers=auth_hdr,
+                            )
+                            if resp.status_code == 200:
+                                items = resp.json().get("_items", [])
+                                if items:
+                                    rr_driver_id = str(items[0]["_id"])
+                                    driver.rr_user_id = rr_driver_id
+                                    db.flush()
+                                    logger.info(f"[Complete Trip] Resolved rr_driver_id={rr_driver_id} for phone {phone_10}")
+                        except Exception as exc:
+                            logger.warning(f"[Complete Trip] Driver lookup failed: {exc}")
+
+        # ── Resolve vehicle_provider_id via transporter phone ─────────────────
+        vehicle_provider_id = trip.transporter_rr_company_id
+        if not vehicle_provider_id and trip.transporter_user_id:
+            transporter = db.query(UserModel).filter(UserModel.id == trip.transporter_user_id).first()
+            if transporter and transporter.phone:
+                raw = transporter.phone.strip().lstrip("+")
+                phone_10 = raw[-10:] if len(raw) >= 10 else raw
+                if phone_10.isdigit():
+                    try:
+                        resp = await client.get(
+                            f"{settings.RR_API_BASE}/users/get_user_by_phone",
+                            params={"phone_number": phone_10, "username": phone_10},
+                            headers=auth_hdr,
+                        )
+                        if resp.status_code == 200:
+                            company_id = resp.json().get("company_id")
+                            if company_id:
+                                vehicle_provider_id = str(company_id)
+                                trip.transporter_rr_company_id = vehicle_provider_id
+                                db.flush()
+                                logger.info(f"[Complete Trip] Resolved vehicle_provider_id={vehicle_provider_id} for transporter phone {phone_10}")
+                    except Exception as exc:
+                        logger.warning(f"[Complete Trip] Transporter company lookup failed: {exc}")
+        vehicle_provider_id = vehicle_provider_id or _RR_DEFAULT_VEHICLE_PROVIDER
 
     # ── Pre-flight checks ─────────────────────────────────────────────────────
     missing = []
@@ -679,10 +743,6 @@ async def complete_trip_in_rr(
         missing.append("weight_unit")
     if not trip.invoice_value:
         missing.append("invoice_value")
-    if not rr_vehicle_id:
-        missing.append("vehicle.rr_vehicle_id — S1 must be submitted first")
-    if not rr_driver_id:
-        missing.append("driver.rr_user_id — S1 must be submitted first")
     if missing:
         raise HTTPException(status_code=422, detail=f"Missing required fields: {', '.join(missing)}")
 
@@ -693,9 +753,7 @@ async def complete_trip_in_rr(
     # ── Build create_trip payload ─────────────────────────────────────────────
     payload: dict = {
         "consignor_company_id":       trip.consignor_rr_company_id,
-        "vehicle_id":                 rr_vehicle_id,
         "vehicle_provider_id":        vehicle_provider_id,
-        "driver_id":                  rr_driver_id,
         "pickup_city":                trip.origin_rr_city_id,
         "unload_city":                trip.destination_rr_city_id,
         "material":                   trip.material_rr_id,
@@ -719,6 +777,10 @@ async def complete_trip_in_rr(
     }
     if trip.consignee_rr_company_id:
         payload["consignee_company_id"] = trip.consignee_rr_company_id
+    if rr_vehicle_id:
+        payload["vehicle_id"] = rr_vehicle_id
+    if rr_driver_id:
+        payload["driver_id"] = rr_driver_id
 
     # ── Call RR POST /create_trip ─────────────────────────────────────────────
     rr_headers = {

@@ -116,18 +116,12 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _parcelDescCtrl   = TextEditingController();
   bool  _partLoad         = false;
 
-  // ── Vehicle Provider ──────────────────────────────────────────────────────
-  Map<String, dynamic>? _vehicleProviderPartner;
-  List<Map<String, dynamic>> _vehicleProviderCompanies  = [];
-  bool   _vehicleProviderCompaniesLoading               = false;
-  String? _vehicleProviderRrCompanyId;
-  String? _vehicleProviderCompanyName;
-
   // ── Vehicle Info ──────────────────────────────────────────────────────────
   String? _vehicleBodyType;
   String? _axleType;
   int?    _numberOfWheels;
-  final _expectedFreightCtrl = TextEditingController();
+  final _expectedFreightCtrl     = TextEditingController();
+  final _transporterPhoneCtrl    = TextEditingController();
 
   static const _axleTypes    = ['Single', 'Double', 'Triple', 'Multiple'];
   static const _wheelOptions = [4, 6, 8, 10, 12, 14, 16, 18, 22];
@@ -170,6 +164,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _unloadPinCtrl.dispose();
     _depotCodeCtrl.dispose();
     _expectedFreightCtrl.dispose();
+    _transporterPhoneCtrl.dispose();
     _pickupDebounce?.cancel();
     _dropDebounce?.cancel();
     _materialDebounce?.cancel();
@@ -278,39 +273,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       if (!mounted) return;
       if (isConsignor) setState(() => _consignorCompaniesLoading = false);
       else             setState(() => _consigneeCompaniesLoading = false);
-    }
-  }
-
-  Future<void> _loadVehicleProviderCompanies(Map<String, dynamic> partner) async {
-    final rrUserId = partner['rr_user_id'] as String?;
-    if (rrUserId == null) {
-      // company-type partner — rr_company_id is directly on the record
-      final id   = partner['rr_company_id'] as String?;
-      final name = partner['name'] as String? ?? '';
-      setState(() {
-        _vehicleProviderRrCompanyId  = id;
-        _vehicleProviderCompanyName  = name;
-        _vehicleProviderCompanies    = [];
-      });
-      return;
-    }
-    setState(() => _vehicleProviderCompaniesLoading = true);
-    try {
-      final session = ref.read(rrSessionProvider);
-      final token = (session != null && session.isValid) ? session.token : '';
-      final resp = await ref.read(dioProvider).get(
-        '/api/rr/partner-companies',
-        queryParameters: {'user_id': rrUserId, 'rr_token': token},
-      );
-      final companies = (resp.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
-      if (!mounted) return;
-      setState(() {
-        _vehicleProviderCompanies          = companies;
-        _vehicleProviderCompaniesLoading   = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _vehicleProviderCompaniesLoading = false);
     }
   }
 
@@ -505,15 +467,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (desc.isNotEmpty) body['parcel_description'] = desc;
     body['part_load'] = _partLoad;
 
-    // Vehicle provider
-    if (_vehicleProviderRrCompanyId != null) body['transporter_rr_company_id'] = _vehicleProviderRrCompanyId;
-
     // Vehicle
     if (_vehicleBodyType != null) body['vehicle_body_type'] = _vehicleBodyType;
     if (_axleType        != null) body['axle_type']         = _axleType;
     if (_numberOfWheels  != null) body['number_of_wheels']  = _numberOfWheels;
     final ef = double.tryParse(_expectedFreightCtrl.text.trim());
     if (ef != null) body['expected_freight'] = ef;
+    final tp = _transporterPhoneCtrl.text.trim();
+    if (tp.isNotEmpty) body['transporter_phone'] = tp;
 
     // Ops worker
     if (_selectedOpsWorkerLocalId != null) body['rr_ops_user_id'] = _selectedOpsWorkerLocalId;
@@ -966,70 +927,20 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             // ═══════════════════════════════════════════════════════════
             const SizedBox(height: 24),
             _SectionHeader(label: 'Vehicle Information'),
-            const SizedBox(height: 4),
-            Text('Select vehicle provider from partners to fill transporter details',
-                style: _inter(size: 12, color: _secondary)),
             const SizedBox(height: 12),
 
-            _FieldLabel(label: 'Vehicle Provider (optional)'),
+            _FieldLabel(label: 'Vehicle Provider Phone'),
+            const SizedBox(height: 4),
+            Text('Phone number of the transporter/fleet owner assigned to this trip',
+                style: _inter(size: 11, color: _secondary)),
             const SizedBox(height: 6),
-            _partnersLoading
-                ? const _LoadingChip(label: 'Loading partners…')
-                : _DropdownField<String>(
-                    value: _vehicleProviderPartner?['partner_id'] as String?,
-                    hint: 'Select partner',
-                    items: _partners.map((p) => DropdownMenuItem<String>(
-                      value: p['partner_id'] as String?,
-                      child: Text(p['name'] as String? ?? '—',
-                          style: _inter(size: 13, color: _onSurface),
-                          overflow: TextOverflow.ellipsis),
-                    )).toList(),
-                    onChanged: (v) {
-                      final p = _partners.firstWhere((x) => x['partner_id'] == v, orElse: () => {});
-                      if (p.isEmpty) return;
-                      setState(() {
-                        _vehicleProviderPartner         = p;
-                        _vehicleProviderRrCompanyId     = null;
-                        _vehicleProviderCompanyName     = null;
-                        _vehicleProviderCompanies       = [];
-                      });
-                      _loadVehicleProviderCompanies(p);
-                    },
-                  ),
+            _TextInput(
+              controller: _transporterPhoneCtrl,
+              hint: 'e.g. 8960281816',
+              inputType: TextInputType.phone,
+            ),
 
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Select Provider Company'),
-            const SizedBox(height: 6),
-            _vehicleProviderCompaniesLoading
-                ? const _LoadingChip(label: 'Loading companies…')
-                : _vehicleProviderCompanies.isEmpty && _vehicleProviderRrCompanyId != null
-                    ? _SelectedChip(
-                        label: _vehicleProviderCompanyName ?? '',
-                        onClear: () => setState(() {
-                          _vehicleProviderRrCompanyId = null;
-                          _vehicleProviderCompanyName = null;
-                        }),
-                      )
-                    : _DropdownField<String>(
-                        value: _vehicleProviderRrCompanyId,
-                        hint: _vehicleProviderPartner == null ? 'Select a partner above first' : 'Select company',
-                        items: _vehicleProviderCompanies.map((c) => DropdownMenuItem<String>(
-                          value: c['rr_company_id'] as String,
-                          child: Text(c['name'] as String? ?? '—',
-                              style: _inter(size: 13, color: _onSurface),
-                              overflow: TextOverflow.ellipsis),
-                        )).toList(),
-                        onChanged: _vehicleProviderPartner == null ? null : (v) {
-                          final c = _vehicleProviderCompanies.firstWhere(
-                              (x) => x['rr_company_id'] == v, orElse: () => {});
-                          setState(() {
-                            _vehicleProviderRrCompanyId = v;
-                            _vehicleProviderCompanyName = c['name'] as String?;
-                          });
-                        },
-                      ),
-
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
             _FieldLabel(label: 'Vehicle Body Type'),
             const SizedBox(height: 6),
             _vehicleBodyTypes.isEmpty
