@@ -137,6 +137,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   bool   _vpVehiclesLoading       = false;
   String? _vpSelectedVehicleRrId;         // → rr_vehicle_id
   String? _vpSelectedVehicleNumber;       // → vehicle_number (display)
+  String? _vpSelectedDriverRrId;          // → rr_driver_id (extracted from vehicle crew)
 
   static const _axleTypes    = ['Single', 'Double', 'Triple', 'Multiple'];
   static const _wheelOptions = [4, 6, 8, 10, 12, 14, 16, 18, 22];
@@ -416,6 +417,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _vpPersonalVehicles = []; _vpCompanies = []; _vpVehicles = [];
         _vpSelectedCompanyId = null; _vpSelectedCompanyName = null;
         _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null;
+        _vpSelectedDriverRrId = null;
         _vpLookupError = null;
       });
     }
@@ -457,6 +459,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       _vpSelectedCompanyId = null;
       _vpSelectedVehicleRrId = null;
       _vpSelectedVehicleNumber = null;
+      _vpSelectedDriverRrId = null;
     });
     final userId = user['user_id'] as String? ?? '';
     final dio = ref.read(dioProvider);
@@ -483,6 +486,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     setState(() {
       _vpVehiclesLoading = true; _vpVehicles = [];
       _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null;
+      _vpSelectedDriverRrId = null;
     });
     try {
       final dio = ref.read(dioProvider);
@@ -589,6 +593,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (_vpSelectedCompanyId     != null) body['transporter_rr_company_id'] = _vpSelectedCompanyId;
     if (_vpSelectedVehicleRrId   != null) body['rr_vehicle_id']             = _vpSelectedVehicleRrId;
     if (_vpSelectedVehicleNumber != null) body['vehicle_number']            = _vpSelectedVehicleNumber;
+    if (_vpSelectedDriverRrId    != null) body['rr_driver_id']              = _vpSelectedDriverRrId;
 
     // Ops worker
     if (_selectedOpsWorkerLocalId != null) body['rr_ops_user_id'] = _selectedOpsWorkerLocalId;
@@ -1148,14 +1153,17 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                         value: _vpSelectedVehicleRrId,
                         hint: 'Select vehicle',
                         items: all.map((v) {
-                          final num   = v['number'] as String? ?? 'Unknown';
-                          final btype = v['body_type'] as String? ?? '';
-                          final src   = v['source'] as String? ?? '';
+                          final num        = v['number'] as String? ?? 'Unknown';
+                          final btype      = v['body_type'] as String? ?? '';
+                          final src        = v['source'] as String? ?? '';
+                          final driverName = v['driver_name'] as String? ?? '';
                           final label = btype.isNotEmpty ? '$num · $btype' : num;
                           final badge = src == 'market_vehicles' ? ' (market)' : '';
+                          final driverSuffix = driverName.isNotEmpty ? '  — $driverName' : '';
                           return DropdownMenuItem<String>(
                             value: v['rr_vehicle_id'] as String,
-                            child: Text('$label$badge', style: _inter(size: 13, color: _onSurface)),
+                            child: Text('$label$badge$driverSuffix',
+                                style: _inter(size: 13, color: _onSurface)),
                           );
                         }).toList(),
                         onChanged: (v) {
@@ -1165,6 +1173,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                           setState(() {
                             _vpSelectedVehicleRrId   = v;
                             _vpSelectedVehicleNumber = veh['number'] as String?;
+                            _vpSelectedDriverRrId    = (veh['driver_id'] as String?)
+                                ?.isNotEmpty == true ? veh['driver_id'] as String : null;
                           });
                         },
                       );

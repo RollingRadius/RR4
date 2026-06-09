@@ -152,6 +152,8 @@ class TripCreate(BaseModel):
     vehicle_number: Optional[str] = None
     # Directly selected RR vehicle ObjectId from the vehicle picker; skips lookup at sync time
     rr_vehicle_id: Optional[str] = None
+    # Driver's RR user ObjectId (from vehicle crew); skips driver lookup at sync time
+    rr_driver_id: Optional[str] = None
     # Vehicle provider — either supply the resolved RR ObjectId directly,
     # or supply transporter_phone to auto-resolve via GET /users/get_user_by_phone
     transporter_rr_company_id: Optional[str] = None
@@ -364,6 +366,7 @@ async def create_trip(
         part_load=body.part_load or False,
         vehicle_number=body.vehicle_number.strip().upper() if body.vehicle_number else None,
         rr_vehicle_id=body.rr_vehicle_id or None,
+        rr_driver_id=body.rr_driver_id or None,
         axle_type=body.axle_type or None,
         number_of_wheels=body.number_of_wheels,
         expected_freight=body.expected_freight,

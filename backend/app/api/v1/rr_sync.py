@@ -494,26 +494,52 @@ def _extract_vehicle_entry(v: dict, source: str) -> dict | None:
     """
     Build a normalised vehicle dict from a /vehicles or /market_vehicles item.
     For market_vehicles the actual vehicle doc is embedded in v["vehicle_id"].
+    Also extracts the driver from crew (position == "Driver") if crew is embedded.
     """
     if source == "market_vehicles":
         actual = v.get("vehicle_id") if isinstance(v.get("vehicle_id"), dict) else {}
         if not actual.get("_id"):
             return None
-        rr_id = str(actual["_id"])
+        rr_id      = str(actual["_id"])
         identities = actual.get("identities") or []
         body_type  = actual.get("body_type", "")
+        crew       = actual.get("crew") or []
     else:
         if not v.get("_id"):
             return None
-        rr_id = str(v["_id"])
+        rr_id      = str(v["_id"])
         identities = v.get("identities") or []
         body_type  = v.get("body_type", "")
+        crew       = v.get("crew") or []
 
     number = next(
         (i.get("number", "") for i in identities if isinstance(i, dict) and i.get("number")),
         ""
     )
-    return {"rr_vehicle_id": rr_id, "number": number, "body_type": body_type, "source": source}
+
+    # Extract driver from crew
+    driver_id   = ""
+    driver_name = ""
+    for member in crew:
+        if not isinstance(member, dict):
+            continue
+        if member.get("position") == "Driver":
+            worker = member.get("worker")
+            if isinstance(worker, dict):          # embedded user document
+                driver_id   = str(worker.get("_id") or "")
+                driver_name = worker.get("name") or ""
+            elif worker:                           # raw ObjectId string
+                driver_id = str(worker)
+            break
+
+    return {
+        "rr_vehicle_id": rr_id,
+        "number":        number,
+        "body_type":     body_type,
+        "source":        source,
+        "driver_id":     driver_id,
+        "driver_name":   driver_name,
+    }
 
 
 @router.get("/vehicle-provider-user", summary="Look up a vehicle provider (transporter) by phone in RR")
@@ -573,7 +599,7 @@ async def get_user_vehicles(
             f"{settings.RR_API_BASE}/vehicles",
             params={
                 "where":      where,
-                "embedded":   json.dumps({"engine.model": 1, "created_by": 1}),
+                "embedded":   json.dumps({"engine.model": 1, "created_by": 1, "crew.worker": 1}),
                 "sort":       json.dumps([("_created", -1)]),
                 "max_results": 300000,
             },
@@ -612,7 +638,8 @@ async def get_company_vehicles(
                 params={
                     "where":      json.dumps({"$and": [{"created_by_company": company_id}]}),
                     "embedded":   json.dumps({"engine.model": 1, "travel_locations.city": 1,
-                                              "travel_locations.state": 1, "created_by": 1}),
+                                              "travel_locations.state": 1, "created_by": 1,
+                                              "crew.worker": 1}),
                     "sort":       json.dumps([("_created", -1)]),
                     "max_results": 300000,
                 },
@@ -638,6 +665,7 @@ async def get_company_vehicles(
                         {"approved_end_date":   {"$exists": True, "$ne": None}},
                     ]}),
                     "embedded":   json.dumps({"vehicle_id": 1, "vehicle_id.engine.model": 1,
+                                              "vehicle_id.crew.worker": 1,
                                               "third_party_company_id": 1}),
                     "max_results": 300000,
                 },
@@ -853,7 +881,13 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
 
         # ── Resolve driver RR user ID ─────────────────────────────────────────
         rr_driver_id = None
-        if trip.driver_id:
+
+        # Path A: directly selected via picker (already resolved)
+        if trip.rr_driver_id:
+            rr_driver_id = trip.rr_driver_id
+
+        # Path B: fleet driver linked
+        elif trip.driver_id:
             driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
             if driver:
                 rr_driver_id = driver.rr_user_id
@@ -928,6 +962,7 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
     if not trip.weight_unit:                       missing.append("weight_unit")
     if not trip.invoice_value:                     missing.append("invoice_value")
     if not (trip.rr_vehicle_id or trip.vehicle_id or trip.vehicle_number): missing.append("vehicle (select via provider picker)")
+    if not rr_driver_id: missing.append("driver (no driver linked to selected vehicle — ensure vehicle has a driver assigned in RR)")
     if missing:
         raise ValueError(f"Missing required fields: {', '.join(missing)}")
 
