@@ -133,6 +133,8 @@ class TripModel {
   final String? depotCode;
   final String? parcelDescription;
   final bool?   partLoad;
+  final String? vehicleNumber;
+  final String? rrVehicleId;
   final String? axleType;
   final int?    numberOfWheels;
   final double? expectedFreight;
@@ -269,6 +271,8 @@ class TripModel {
     this.depotCode,
     this.parcelDescription,
     this.partLoad,
+    this.vehicleNumber,
+    this.rrVehicleId,
     this.axleType,
     this.numberOfWheels,
     this.expectedFreight,
@@ -403,6 +407,8 @@ class TripModel {
       depotCode:               json['depot_code']               as String?,
       parcelDescription:       json['parcel_description']       as String?,
       partLoad:                json['part_load']                as bool?,
+      vehicleNumber:           json['vehicle_number']           as String?,
+      rrVehicleId:             json['rr_vehicle_id']            as String?,
       axleType:                json['axle_type']                as String?,
       numberOfWheels:          json['number_of_wheels']         as int?,
       expectedFreight:         (json['expected_freight'] as num?)?.toDouble(),

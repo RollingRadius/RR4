@@ -189,6 +189,8 @@ class Trip(Base):
     part_load          = Column(Boolean,     nullable=True, default=False)
 
     # ── Vehicle requirements ──────────────────────────────────────────────────────
+    vehicle_number   = Column(String(30),    nullable=True)   # manually entered reg. number (no fleet link)
+    rr_vehicle_id    = Column(String(24),    nullable=True)   # RR vehicle ObjectId selected via picker
     axle_type        = Column(String(20),    nullable=True)   # Single | Double | Triple | Multiple
     number_of_wheels = Column(Integer,       nullable=True)   # 4|6|8|10|12|14|16|18|22
     expected_freight = Column(Numeric(12,2), nullable=True)
@@ -362,6 +364,8 @@ class Trip(Base):
             "parcel_description": self.parcel_description,
             "part_load":          self.part_load,
             # Vehicle requirements
+            "vehicle_number":   self.vehicle_number,
+            "rr_vehicle_id":    self.rr_vehicle_id,
             "axle_type":        self.axle_type,
             "number_of_wheels": self.number_of_wheels,
             "expected_freight": float(self.expected_freight) if self.expected_freight is not None else None,

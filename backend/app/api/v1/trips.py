@@ -148,6 +148,10 @@ class TripCreate(BaseModel):
     axle_type:        Optional[str]   = None
     number_of_wheels: Optional[int]   = None
     expected_freight: Optional[float] = None
+    # Vehicle number — manually entered reg. number (e.g. UP32AB1234), for display/storage
+    vehicle_number: Optional[str] = None
+    # Directly selected RR vehicle ObjectId from the vehicle picker; skips lookup at sync time
+    rr_vehicle_id: Optional[str] = None
     # Vehicle provider — either supply the resolved RR ObjectId directly,
     # or supply transporter_phone to auto-resolve via GET /users/get_user_by_phone
     transporter_rr_company_id: Optional[str] = None
@@ -358,6 +362,8 @@ async def create_trip(
         depot_code=body.depot_code or None,
         parcel_description=body.parcel_description or None,
         part_load=body.part_load or False,
+        vehicle_number=body.vehicle_number.strip().upper() if body.vehicle_number else None,
+        rr_vehicle_id=body.rr_vehicle_id or None,
         axle_type=body.axle_type or None,
         number_of_wheels=body.number_of_wheels,
         expected_freight=body.expected_freight,

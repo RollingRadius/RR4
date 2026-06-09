@@ -120,8 +120,20 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   String? _vehicleBodyType;
   String? _axleType;
   int?    _numberOfWheels;
-  final _expectedFreightCtrl     = TextEditingController();
-  final _transporterPhoneCtrl    = TextEditingController();
+  final _expectedFreightCtrl  = TextEditingController();
+
+  // ── Vehicle provider (transporter) multi-step picker ─────────────────────
+  final _vpPhoneCtrl            = TextEditingController();
+  bool   _vpLookingUp           = false;
+  Map<String, dynamic>? _vpUser;          // {user_id, name, company_id}
+  List<Map<String, dynamic>> _vpCompanies = [];
+  bool   _vpCompaniesLoading    = false;
+  String? _vpSelectedCompanyId;           // → transporter_rr_company_id
+  String? _vpSelectedCompanyName;
+  List<Map<String, dynamic>> _vpVehicles  = [];
+  bool   _vpVehiclesLoading     = false;
+  String? _vpSelectedVehicleRrId;         // → rr_vehicle_id
+  String? _vpSelectedVehicleNumber;       // → vehicle_number (display)
 
   static const _axleTypes    = ['Single', 'Double', 'Triple', 'Multiple'];
   static const _wheelOptions = [4, 6, 8, 10, 12, 14, 16, 18, 22];
@@ -164,7 +176,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _unloadPinCtrl.dispose();
     _depotCodeCtrl.dispose();
     _expectedFreightCtrl.dispose();
-    _transporterPhoneCtrl.dispose();
+    _vpPhoneCtrl.dispose();
     _pickupDebounce?.cancel();
     _dropDebounce?.cancel();
     _materialDebounce?.cancel();
@@ -385,6 +397,59 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     });
   }
 
+  // ── Vehicle Provider Picker ────────────────────────────────────────────────
+
+  Future<void> _lookUpVehicleProvider() async {
+    final phone = _vpPhoneCtrl.text.trim();
+    if (phone.isEmpty) return;
+    final session = await ensureRrSession(context, ref);
+    if (session == null || !mounted) return;
+    setState(() { _vpLookingUp = true; _vpUser = null; _vpCompanies = []; _vpVehicles = []; _vpSelectedCompanyId = null; _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null; });
+    try {
+      final dio = ref.read(dioProvider);
+      final r = await dio.get('/api/rr/vehicle-provider-user',
+          queryParameters: {'phone': phone, 'rr_token': session.token});
+      if (!mounted) return;
+      setState(() { _vpUser = Map<String, dynamic>.from(r.data as Map); _vpLookingUp = false; });
+      _loadVpCompanies(session.token);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _vpLookingUp = false);
+    }
+  }
+
+  Future<void> _loadVpCompanies(String token) async {
+    final userId = _vpUser?['user_id'] as String?;
+    if (userId == null || userId.isEmpty) return;
+    setState(() => _vpCompaniesLoading = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final r = await dio.get('/api/rr/partner-companies',
+          queryParameters: {'user_id': userId, 'rr_token': token});
+      if (!mounted) return;
+      final list = (r.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
+      setState(() { _vpCompanies = list; _vpCompaniesLoading = false; });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _vpCompaniesLoading = false);
+    }
+  }
+
+  Future<void> _loadVpVehicles(String companyId, String token) async {
+    setState(() { _vpVehiclesLoading = true; _vpVehicles = []; _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null; });
+    try {
+      final dio = ref.read(dioProvider);
+      final r = await dio.get('/api/rr/company-vehicles',
+          queryParameters: {'company_id': companyId, 'rr_token': token});
+      if (!mounted) return;
+      final list = (r.data['vehicles'] as List? ?? []).cast<Map<String, dynamic>>();
+      setState(() { _vpVehicles = list; _vpVehiclesLoading = false; });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _vpVehiclesLoading = false);
+    }
+  }
+
   // ── Submit ────────────────────────────────────────────────────────────────
 
   Future<void> _submit() async {
@@ -473,8 +538,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (_numberOfWheels  != null) body['number_of_wheels']  = _numberOfWheels;
     final ef = double.tryParse(_expectedFreightCtrl.text.trim());
     if (ef != null) body['expected_freight'] = ef;
-    final tp = _transporterPhoneCtrl.text.trim();
-    if (tp.isNotEmpty) body['transporter_phone'] = tp;
+    // Vehicle provider picker
+    if (_vpSelectedCompanyId     != null) body['transporter_rr_company_id'] = _vpSelectedCompanyId;
+    if (_vpSelectedVehicleRrId   != null) body['rr_vehicle_id']             = _vpSelectedVehicleRrId;
+    if (_vpSelectedVehicleNumber != null) body['vehicle_number']            = _vpSelectedVehicleNumber;
 
     // Ops worker
     if (_selectedOpsWorkerLocalId != null) body['rr_ops_user_id'] = _selectedOpsWorkerLocalId;
@@ -929,16 +996,105 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             _SectionHeader(label: 'Vehicle Information'),
             const SizedBox(height: 12),
 
-            _FieldLabel(label: 'Vehicle Provider Phone'),
-            const SizedBox(height: 4),
-            Text('Phone number of the transporter/fleet owner assigned to this trip',
-                style: _inter(size: 11, color: _secondary)),
+            // ── Step 1: Vehicle Provider Phone ────────────────────────
+            _FieldLabel(label: 'Vehicle Provider Phone *'),
             const SizedBox(height: 6),
-            _TextInput(
-              controller: _transporterPhoneCtrl,
-              hint: 'e.g. 8960281816',
-              inputType: TextInputType.phone,
-            ),
+            Row(children: [
+              Expanded(
+                child: _TextInput(
+                  controller: _vpPhoneCtrl,
+                  hint: 'e.g. 8960281816',
+                  inputType: TextInputType.phone,
+                ),
+              ),
+              const SizedBox(width: 10),
+              SizedBox(
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _primary,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ),
+                  onPressed: _vpLookingUp ? null : _lookUpVehicleProvider,
+                  child: _vpLookingUp
+                      ? const SizedBox(width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : Text('Look Up', style: _inter(size: 13, weight: FontWeight.w600, color: Colors.white)),
+                ),
+              ),
+            ]),
+
+            // ── Step 2: User found → Company selector ─────────────────
+            if (_vpUser != null) ...[
+              const SizedBox(height: 10),
+              _ReadOnlyField(
+                value: _vpUser!['name'] as String? ?? 'Unknown',
+                icon: Icons.person_outline_rounded,
+              ),
+              const SizedBox(height: 12),
+              _FieldLabel(label: 'Select Provider Company'),
+              const SizedBox(height: 6),
+              _vpCompaniesLoading
+                  ? const _LoadingChip(label: 'Loading companies…')
+                  : _vpCompanies.isEmpty
+                      ? Text('No companies found for this user',
+                            style: _inter(size: 12, color: _secondary))
+                      : _DropdownField<String>(
+                          value: _vpSelectedCompanyId,
+                          hint: 'Select company',
+                          items: _vpCompanies.map((c) => DropdownMenuItem<String>(
+                            value: c['rr_company_id'] as String,
+                            child: Text(c['name'] as String? ?? '', style: _inter(size: 13, color: _onSurface)),
+                          )).toList(),
+                          onChanged: (v) async {
+                            if (v == null) return;
+                            final c = _vpCompanies.firstWhere((x) => x['rr_company_id'] == v);
+                            setState(() {
+                              _vpSelectedCompanyId   = v;
+                              _vpSelectedCompanyName = c['name'] as String?;
+                              _vpVehicles            = [];
+                              _vpSelectedVehicleRrId = null;
+                              _vpSelectedVehicleNumber = null;
+                            });
+                            final session = await ensureRrSession(context, ref);
+                            if (session != null && mounted) _loadVpVehicles(v, session.token);
+                          },
+                        ),
+            ],
+
+            // ── Step 3: Company selected → Vehicle selector ────────────
+            if (_vpSelectedCompanyId != null) ...[
+              const SizedBox(height: 12),
+              _FieldLabel(label: 'Select Vehicle *'),
+              const SizedBox(height: 6),
+              _vpVehiclesLoading
+                  ? const _LoadingChip(label: 'Loading vehicles…')
+                  : _vpVehicles.isEmpty
+                      ? Text('No vehicles found for this company',
+                            style: _inter(size: 12, color: _secondary))
+                      : _DropdownField<String>(
+                          value: _vpSelectedVehicleRrId,
+                          hint: 'Select vehicle',
+                          items: _vpVehicles.map((v) => DropdownMenuItem<String>(
+                            value: v['rr_vehicle_id'] as String,
+                            child: Text(
+                              '${v['number'] ?? 'Unknown'}'
+                              '${(v['body_type'] as String?)?.isNotEmpty == true ? ' · ${v['body_type']}' : ''}',
+                              style: _inter(size: 13, color: _onSurface),
+                            ),
+                          )).toList(),
+                          onChanged: (v) {
+                            if (v == null) return;
+                            final veh = _vpVehicles.firstWhere((x) => x['rr_vehicle_id'] == v);
+                            setState(() {
+                              _vpSelectedVehicleRrId   = v;
+                              _vpSelectedVehicleNumber = veh['number'] as String?;
+                            });
+                          },
+                        ),
+            ],
 
             const SizedBox(height: 16),
             _FieldLabel(label: 'Vehicle Body Type'),

@@ -488,6 +488,90 @@ async def get_operation_locations(
         return {"locations": locations}
 
 
+# ── Vehicle-provider user lookup ─────────────────────────────────────────────
+
+@router.get("/vehicle-provider-user", summary="Look up a vehicle provider (transporter) by phone in RR")
+async def get_vehicle_provider_user(
+    phone: str = Query(..., description="10-digit phone number of the transporter"),
+    rr_token: str = Query("", description="LP's RR session token"),
+    _: User = Depends(get_current_user),
+):
+    """
+    Proxies GET /users/get_user_by_phone to find a transporter by phone.
+    Returns user_id + name so the caller can then fetch their companies via /partner-companies.
+    """
+    raw = phone.strip().lstrip("+")
+    phone_10 = raw[-10:] if len(raw) >= 10 else raw
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/users/get_user_by_phone",
+            params={"phone_number": phone_10, "username": phone_10},
+            headers=headers,
+        )
+    if resp.status_code == 404:
+        raise HTTPException(status_code=404, detail="No RR user found for this phone number")
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+    data = resp.json()
+    return {
+        "user_id":    str(data.get("_id") or data.get("user_id") or ""),
+        "name":       data.get("name") or data.get("full_name") or "",
+        "company_id": str(data.get("company_id") or ""),
+    }
+
+
+# ── Company vehicles ──────────────────────────────────────────────────────────
+
+@router.get("/company-vehicles", summary="Get vehicles linked to an RR company")
+async def get_company_vehicles(
+    company_id: str = Query(..., description="RR company ObjectId"),
+    rr_token: str   = Query("", description="LP's RR session token"),
+    _: User = Depends(get_current_user),
+):
+    """
+    Combines GET /vehicles?where={"company_id":"<id>"} and
+    GET /market_vehicles?where={"company_id":"<id>"} to return a unified vehicle list.
+    """
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    where   = json.dumps({"company_id": company_id})
+    vehicles = []
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
+        for endpoint in ("/vehicles", "/market_vehicles"):
+            try:
+                resp = await client.get(
+                    f"{settings.RR_API_BASE}{endpoint}",
+                    params={"where": where, "max_results": 100},
+                    headers=headers,
+                )
+                if resp.status_code == 200:
+                    for v in resp.json().get("_items", []):
+                        if not v.get("_id"):
+                            continue
+                        # pull registration number from identities list
+                        identities = v.get("identities") or []
+                        number = next(
+                            (i.get("number", "") for i in identities if isinstance(i, dict)),
+                            ""
+                        )
+                        vehicles.append({
+                            "rr_vehicle_id": str(v["_id"]),
+                            "number":        number,
+                            "body_type":     v.get("body_type", ""),
+                            "source":        endpoint.lstrip("/"),
+                        })
+            except Exception as exc:
+                logger.warning(f"[company-vehicles] {endpoint} failed: {exc}")
+    # deduplicate by rr_vehicle_id
+    seen = set()
+    unique = []
+    for v in vehicles:
+        if v["rr_vehicle_id"] not in seen:
+            seen.add(v["rr_vehicle_id"])
+            unique.append(v)
+    return {"vehicles": unique}
+
+
 # ── Sync readiness list ───────────────────────────────────────────────────────
 
 def _check_trip_readiness(trip: Trip, db: Session) -> dict:
@@ -628,7 +712,15 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
 
         # ── Resolve vehicle RR ID ─────────────────────────────────────────────
         rr_vehicle_id = None
-        if trip.vehicle_id:
+        rr_vehicle_company_id = None  # company_id from RR vehicle (overrides transporter phone lookup)
+
+        # Path A: directly selected via picker (already resolved — no lookup needed)
+        if trip.rr_vehicle_id:
+            rr_vehicle_id = trip.rr_vehicle_id
+            # vehicle_provider_id comes from transporter_rr_company_id set during selection
+
+        # Path B: fleet vehicle linked to trip
+        elif trip.vehicle_id:
             vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
             if vehicle:
                 rr_vehicle_id = vehicle.rr_vehicle_id
@@ -643,11 +735,32 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
                             items = resp.json().get("_items", [])
                             if items:
                                 rr_vehicle_id = str(items[0]["_id"])
+                                rr_vehicle_company_id = str(items[0].get("company_id") or "")
                                 vehicle.rr_vehicle_id = rr_vehicle_id
                                 db.flush()
                                 logger.info(f"[Create Trip] Resolved rr_vehicle_id={rr_vehicle_id} for {vehicle.vehicle_number}")
                     except Exception as exc:
                         logger.warning(f"[Create Trip] Vehicle lookup failed: {exc}")
+
+        # Path C: manually entered vehicle number (no fleet link) — lookup by reg number
+        if not rr_vehicle_id and trip.vehicle_number:
+            try:
+                resp = await client.get(
+                    f"{settings.RR_API_BASE}/vehicles",
+                    params={"where": json.dumps({"identities.number": trip.vehicle_number}), "max_results": 1},
+                    headers=auth_hdr,
+                )
+                if resp.status_code == 200:
+                    items = resp.json().get("_items", [])
+                    if items:
+                        rr_vehicle_id = str(items[0]["_id"])
+                        rr_vehicle_company_id = str(items[0].get("company_id") or "")
+                        logger.info(f"[Create Trip] Resolved rr_vehicle_id={rr_vehicle_id} for manual number {trip.vehicle_number}")
+            except Exception as exc:
+                logger.warning(f"[Create Trip] Manual vehicle lookup failed: {exc}")
+
+        if not rr_vehicle_id:
+            raise ValueError("No vehicle resolved — select a vehicle via the provider picker or link a fleet vehicle")
 
         # ── Resolve driver RR user ID ─────────────────────────────────────────
         rr_driver_id = None
@@ -675,8 +788,9 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
                         except Exception as exc:
                             logger.warning(f"[Create Trip] Driver lookup failed: {exc}")
 
-        # ── Resolve vehicle_provider_id via transporter phone ─────────────────
-        vehicle_provider_id = trip.transporter_rr_company_id
+        # ── Resolve vehicle_provider_id (prefer vehicle's own company_id) ───────
+        # vehicle lookup already gave us the company — use it first
+        vehicle_provider_id = rr_vehicle_company_id or trip.transporter_rr_company_id
         if not vehicle_provider_id and trip.transporter_user_id:
             transporter = db.query(UserModel).filter(UserModel.id == trip.transporter_user_id).first()
             if transporter and transporter.phone:
@@ -702,13 +816,14 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
 
     # ── Pre-flight checks ─────────────────────────────────────────────────────
     missing = []
-    if not trip.consignor_rr_company_id: missing.append("consignor_rr_company_id")
-    if not trip.origin_rr_city_id:       missing.append("origin_rr_city_id")
-    if not trip.destination_rr_city_id:  missing.append("destination_rr_city_id")
-    if not trip.material_rr_id:          missing.append("material_rr_id")
-    if not trip.weight_value:            missing.append("weight_value")
-    if not trip.weight_unit:             missing.append("weight_unit")
-    if not trip.invoice_value:           missing.append("invoice_value")
+    if not trip.consignor_rr_company_id:           missing.append("consignor_rr_company_id")
+    if not trip.origin_rr_city_id:                 missing.append("origin_rr_city_id")
+    if not trip.destination_rr_city_id:            missing.append("destination_rr_city_id")
+    if not trip.material_rr_id:                    missing.append("material_rr_id")
+    if not trip.weight_value:                      missing.append("weight_value")
+    if not trip.weight_unit:                       missing.append("weight_unit")
+    if not trip.invoice_value:                     missing.append("invoice_value")
+    if not (trip.rr_vehicle_id or trip.vehicle_id or trip.vehicle_number): missing.append("vehicle (select via provider picker)")
     if missing:
         raise ValueError(f"Missing required fields: {', '.join(missing)}")
 
