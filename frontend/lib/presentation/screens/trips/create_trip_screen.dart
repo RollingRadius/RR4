@@ -1057,7 +1057,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             ],
             if (_vpLookupError != null) ...[
               const SizedBox(height: 8),
-              Text(_vpLookupError!, style: _inter(size: 12, color: _error)),
+              Text(_vpLookupError!, style: _inter(size: 12, color: _errorClr)),
             ],
 
             // ── Step 2: User found → tap to select ────────────────────
