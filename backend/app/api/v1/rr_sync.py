@@ -488,17 +488,43 @@ async def get_operation_locations(
         return {"locations": locations}
 
 
-# ── Vehicle-provider user lookup ─────────────────────────────────────────────
+# ── Vehicle-provider helpers ──────────────────────────────────────────────────
+
+def _extract_vehicle_entry(v: dict, source: str) -> dict | None:
+    """
+    Build a normalised vehicle dict from a /vehicles or /market_vehicles item.
+    For market_vehicles the actual vehicle doc is embedded in v["vehicle_id"].
+    """
+    if source == "market_vehicles":
+        actual = v.get("vehicle_id") if isinstance(v.get("vehicle_id"), dict) else {}
+        if not actual.get("_id"):
+            return None
+        rr_id = str(actual["_id"])
+        identities = actual.get("identities") or []
+        body_type  = actual.get("body_type", "")
+    else:
+        if not v.get("_id"):
+            return None
+        rr_id = str(v["_id"])
+        identities = v.get("identities") or []
+        body_type  = v.get("body_type", "")
+
+    number = next(
+        (i.get("number", "") for i in identities if isinstance(i, dict) and i.get("number")),
+        ""
+    )
+    return {"rr_vehicle_id": rr_id, "number": number, "body_type": body_type, "source": source}
+
 
 @router.get("/vehicle-provider-user", summary="Look up a vehicle provider (transporter) by phone in RR")
 async def get_vehicle_provider_user(
-    phone: str = Query(..., description="10-digit phone number of the transporter"),
+    phone: str = Query(..., description="Phone number of the transporter"),
     rr_token: str = Query("", description="LP's RR session token"),
     _: User = Depends(get_current_user),
 ):
     """
-    Proxies GET /users/get_user_by_phone to find a transporter by phone.
-    Returns user_id + name so the caller can then fetch their companies via /partner-companies.
+    Proxies GET /users/get_user_by_phone.
+    Returns {user_id, name, company_id} so the frontend can load companies + vehicles.
     """
     raw = phone.strip().lstrip("+")
     phone_10 = raw[-10:] if len(raw) >= 10 else raw
@@ -515,13 +541,52 @@ async def get_vehicle_provider_user(
         raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
     data = resp.json()
     return {
-        "user_id":    str(data.get("_id") or data.get("user_id") or ""),
+        "user_id":    str(data.get("_id") or ""),
         "name":       data.get("name") or data.get("full_name") or "",
         "company_id": str(data.get("company_id") or ""),
     }
 
 
-# ── Company vehicles ──────────────────────────────────────────────────────────
+@router.get("/user-vehicles", summary="Get vehicles directly owned by an RR user (no company)")
+async def get_user_vehicles(
+    user_id: str  = Query(..., description="RR user ObjectId"),
+    rr_token: str = Query("", description="LP's RR session token"),
+    _: User = Depends(get_current_user),
+):
+    """
+    Proxies GET /vehicles?where={"$and":[{"created_by":"<id>","$or":[...no company...]}]}
+    Returns vehicles personally created by the user (not linked to a company).
+    """
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    where = json.dumps({"$and": [
+        {
+            "created_by": user_id,
+            "$or": [
+                {"created_by_company": {"$eq": None}},
+                {"created_by_company": {"$exists": False}},
+            ],
+        }
+    ]})
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/vehicles",
+            params={
+                "where":      where,
+                "embedded":   json.dumps({"engine.model": 1, "created_by": 1}),
+                "sort":       json.dumps([("_created", -1)]),
+                "max_results": 300000,
+            },
+            headers=headers,
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+    vehicles = []
+    for v in resp.json().get("_items", []):
+        entry = _extract_vehicle_entry(v, "vehicles")
+        if entry:
+            vehicles.append(entry)
+    return {"vehicles": vehicles}
+
 
 @router.get("/company-vehicles", summary="Get vehicles linked to an RR company")
 async def get_company_vehicles(
@@ -530,40 +595,63 @@ async def get_company_vehicles(
     _: User = Depends(get_current_user),
 ):
     """
-    Combines GET /vehicles?where={"company_id":"<id>"} and
-    GET /market_vehicles?where={"company_id":"<id>"} to return a unified vehicle list.
+    Combines:
+    - GET /vehicles?where={"$and":[{"created_by_company":"<id>"}]}  (owned fleet)
+    - GET /market_vehicles?where={"$and":[{"third_party_company_id":"<id>"},{"status":"Approved"},…]}
+    Returns a deduplicated vehicle list.
     """
     headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
-    where   = json.dumps({"company_id": company_id})
-    vehicles = []
-    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
-        for endpoint in ("/vehicles", "/market_vehicles"):
-            try:
-                resp = await client.get(
-                    f"{settings.RR_API_BASE}{endpoint}",
-                    params={"where": where, "max_results": 100},
-                    headers=headers,
-                )
-                if resp.status_code == 200:
-                    for v in resp.json().get("_items", []):
-                        if not v.get("_id"):
-                            continue
-                        # pull registration number from identities list
-                        identities = v.get("identities") or []
-                        number = next(
-                            (i.get("number", "") for i in identities if isinstance(i, dict)),
-                            ""
-                        )
-                        vehicles.append({
-                            "rr_vehicle_id": str(v["_id"]),
-                            "number":        number,
-                            "body_type":     v.get("body_type", ""),
-                            "source":        endpoint.lstrip("/"),
-                        })
-            except Exception as exc:
-                logger.warning(f"[company-vehicles] {endpoint} failed: {exc}")
+    vehicles: list[dict] = []
+
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        # ── Owned fleet vehicles ──────────────────────────────────────────────
+        try:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/vehicles",
+                params={
+                    "where":      json.dumps({"$and": [{"created_by_company": company_id}]}),
+                    "embedded":   json.dumps({"engine.model": 1, "travel_locations.city": 1,
+                                              "travel_locations.state": 1, "created_by": 1}),
+                    "sort":       json.dumps([("_created", -1)]),
+                    "max_results": 300000,
+                },
+                headers=headers,
+            )
+            if resp.status_code == 200:
+                for v in resp.json().get("_items", []):
+                    entry = _extract_vehicle_entry(v, "vehicles")
+                    if entry:
+                        vehicles.append(entry)
+        except Exception as exc:
+            logger.warning(f"[company-vehicles] /vehicles failed: {exc}")
+
+        # ── Market vehicles (third-party, approved) ───────────────────────────
+        try:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/market_vehicles",
+                params={
+                    "where": json.dumps({"$and": [
+                        {"third_party_company_id": company_id},
+                        {"status": "Approved"},
+                        {"approved_start_date": {"$exists": True, "$ne": None}},
+                        {"approved_end_date":   {"$exists": True, "$ne": None}},
+                    ]}),
+                    "embedded":   json.dumps({"vehicle_id": 1, "vehicle_id.engine.model": 1,
+                                              "third_party_company_id": 1}),
+                    "max_results": 300000,
+                },
+                headers=headers,
+            )
+            if resp.status_code == 200:
+                for v in resp.json().get("_items", []):
+                    entry = _extract_vehicle_entry(v, "market_vehicles")
+                    if entry:
+                        vehicles.append(entry)
+        except Exception as exc:
+            logger.warning(f"[company-vehicles] /market_vehicles failed: {exc}")
+
     # deduplicate by rr_vehicle_id
-    seen = set()
+    seen: set[str] = set()
     unique = []
     for v in vehicles:
         if v["rr_vehicle_id"] not in seen:

@@ -123,15 +123,18 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _expectedFreightCtrl  = TextEditingController();
 
   // ── Vehicle provider (transporter) multi-step picker ─────────────────────
-  final _vpPhoneCtrl            = TextEditingController();
-  bool   _vpLookingUp           = false;
-  Map<String, dynamic>? _vpUser;          // {user_id, name, company_id}
+  final _vpPhoneCtrl              = TextEditingController();
+  bool   _vpLookingUp             = false;
+  String? _vpLookupError;
+  Map<String, dynamic>? _vpFoundUser;     // found but not yet selected: {user_id, name}
+  Map<String, dynamic>? _vpUser;          // selected user
+  List<Map<String, dynamic>> _vpPersonalVehicles = [];  // user's own vehicles (no company)
   List<Map<String, dynamic>> _vpCompanies = [];
-  bool   _vpCompaniesLoading    = false;
+  bool   _vpCompaniesLoading      = false;
   String? _vpSelectedCompanyId;           // → transporter_rr_company_id
   String? _vpSelectedCompanyName;
-  List<Map<String, dynamic>> _vpVehicles  = [];
-  bool   _vpVehiclesLoading     = false;
+  List<Map<String, dynamic>> _vpVehicles  = [];  // company vehicles (fleet + market)
+  bool   _vpVehiclesLoading       = false;
   String? _vpSelectedVehicleRrId;         // → rr_vehicle_id
   String? _vpSelectedVehicleNumber;       // → vehicle_number (display)
 
@@ -154,6 +157,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadRrPartyData());
+    _vpPhoneCtrl.addListener(_onVpPhoneChanged);
   }
 
   @override
@@ -176,6 +180,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _unloadPinCtrl.dispose();
     _depotCodeCtrl.dispose();
     _expectedFreightCtrl.dispose();
+    _vpPhoneCtrl.removeListener(_onVpPhoneChanged);
     _vpPhoneCtrl.dispose();
     _pickupDebounce?.cancel();
     _dropDebounce?.cancel();
@@ -399,44 +404,86 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   // ── Vehicle Provider Picker ────────────────────────────────────────────────
 
+  void _onVpPhoneChanged() {
+    final digits = _vpPhoneCtrl.text.trim().replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 10 && _vpFoundUser == null && !_vpLookingUp) {
+      _lookUpVehicleProvider();
+    }
+    // clear previous result if user edits back
+    if (digits.length < 10 && (_vpFoundUser != null || _vpUser != null)) {
+      setState(() {
+        _vpFoundUser = null; _vpUser = null;
+        _vpPersonalVehicles = []; _vpCompanies = []; _vpVehicles = [];
+        _vpSelectedCompanyId = null; _vpSelectedCompanyName = null;
+        _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null;
+        _vpLookupError = null;
+      });
+    }
+  }
+
   Future<void> _lookUpVehicleProvider() async {
     final phone = _vpPhoneCtrl.text.trim();
     if (phone.isEmpty) return;
     final session = await ensureRrSession(context, ref);
     if (session == null || !mounted) return;
-    setState(() { _vpLookingUp = true; _vpUser = null; _vpCompanies = []; _vpVehicles = []; _vpSelectedCompanyId = null; _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null; });
+    setState(() { _vpLookingUp = true; _vpLookupError = null; _vpFoundUser = null; });
     try {
       final dio = ref.read(dioProvider);
       final r = await dio.get('/api/rr/vehicle-provider-user',
           queryParameters: {'phone': phone, 'rr_token': session.token});
       if (!mounted) return;
-      setState(() { _vpUser = Map<String, dynamic>.from(r.data as Map); _vpLookingUp = false; });
-      _loadVpCompanies(session.token);
-    } catch (_) {
+      setState(() {
+        _vpFoundUser = Map<String, dynamic>.from(r.data as Map);
+        _vpLookingUp = false;
+      });
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _vpLookingUp = false);
+      setState(() {
+        _vpLookingUp = false;
+        _vpLookupError = 'No user found for this number';
+      });
     }
   }
 
-  Future<void> _loadVpCompanies(String token) async {
-    final userId = _vpUser?['user_id'] as String?;
-    if (userId == null || userId.isEmpty) return;
-    setState(() => _vpCompaniesLoading = true);
-    try {
-      final dio = ref.read(dioProvider);
-      final r = await dio.get('/api/rr/partner-companies',
-          queryParameters: {'user_id': userId, 'rr_token': token});
-      if (!mounted) return;
-      final list = (r.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
-      setState(() { _vpCompanies = list; _vpCompaniesLoading = false; });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _vpCompaniesLoading = false);
-    }
+  Future<void> _selectVpUser(String token) async {
+    final user = _vpFoundUser;
+    if (user == null) return;
+    setState(() {
+      _vpUser = user;
+      _vpCompaniesLoading = true;
+      _vpPersonalVehicles = [];
+      _vpCompanies = [];
+      _vpVehicles = [];
+      _vpSelectedCompanyId = null;
+      _vpSelectedVehicleRrId = null;
+      _vpSelectedVehicleNumber = null;
+    });
+    final userId = user['user_id'] as String? ?? '';
+    final dio = ref.read(dioProvider);
+    // load companies + personal vehicles in parallel
+    await Future.wait([
+      dio.get('/api/rr/partner-companies',
+          queryParameters: {'user_id': userId, 'rr_token': token}).then((r) {
+        if (!mounted) return;
+        final list = (r.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
+        setState(() { _vpCompanies = list; _vpCompaniesLoading = false; });
+      }).catchError((_) {
+        if (mounted) setState(() => _vpCompaniesLoading = false);
+      }),
+      dio.get('/api/rr/user-vehicles',
+          queryParameters: {'user_id': userId, 'rr_token': token}).then((r) {
+        if (!mounted) return;
+        final list = (r.data['vehicles'] as List? ?? []).cast<Map<String, dynamic>>();
+        setState(() => _vpPersonalVehicles = list);
+      }).catchError((_) {}),
+    ]);
   }
 
-  Future<void> _loadVpVehicles(String companyId, String token) async {
-    setState(() { _vpVehiclesLoading = true; _vpVehicles = []; _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null; });
+  Future<void> _loadVpCompanyVehicles(String companyId, String token) async {
+    setState(() {
+      _vpVehiclesLoading = true; _vpVehicles = [];
+      _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null;
+    });
     try {
       final dio = ref.read(dioProvider);
       final r = await dio.get('/api/rr/company-vehicles',
@@ -996,37 +1043,54 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             _SectionHeader(label: 'Vehicle Information'),
             const SizedBox(height: 12),
 
-            // ── Step 1: Vehicle Provider Phone ────────────────────────
+            // ── Step 1: Vehicle Provider Phone (auto-searches at 10 digits) ──
             _FieldLabel(label: 'Vehicle Provider Phone *'),
             const SizedBox(height: 6),
-            Row(children: [
-              Expanded(
-                child: _TextInput(
-                  controller: _vpPhoneCtrl,
-                  hint: 'e.g. 8960281816',
-                  inputType: TextInputType.phone,
-                ),
-              ),
-              const SizedBox(width: 10),
-              SizedBox(
-                height: 48,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                  onPressed: _vpLookingUp ? null : _lookUpVehicleProvider,
-                  child: _vpLookingUp
-                      ? const SizedBox(width: 16, height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Text('Look Up', style: _inter(size: 13, weight: FontWeight.w600, color: Colors.white)),
-                ),
-              ),
-            ]),
+            _TextInput(
+              controller: _vpPhoneCtrl,
+              hint: 'e.g. 8960281816 — auto-searches at 10 digits',
+              inputType: TextInputType.phone,
+            ),
+            if (_vpLookingUp) ...[
+              const SizedBox(height: 8),
+              const _LoadingChip(label: 'Looking up…'),
+            ],
+            if (_vpLookupError != null) ...[
+              const SizedBox(height: 8),
+              Text(_vpLookupError!, style: _inter(size: 12, color: _error)),
+            ],
 
-            // ── Step 2: User found → Company selector ─────────────────
+            // ── Step 2: User found → tap to select ────────────────────
+            if (_vpFoundUser != null && _vpUser == null) ...[
+              const SizedBox(height: 10),
+              GestureDetector(
+                onTap: () async {
+                  final session = await ensureRrSession(context, ref);
+                  if (session != null && mounted) _selectVpUser(session.token);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF388E3C), width: 1),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.person_outline_rounded, color: Color(0xFF388E3C), size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(child: Text(
+                      _vpFoundUser!['name'] as String? ?? 'Unknown',
+                      style: _inter(size: 13, weight: FontWeight.w600, color: const Color(0xFF1B5E20)),
+                    )),
+                    Text('Tap to select', style: _inter(size: 11, color: const Color(0xFF388E3C))),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.chevron_right_rounded, color: Color(0xFF388E3C), size: 18),
+                  ]),
+                ),
+              ),
+            ],
+
+            // ── Step 3: User selected → companies + personal vehicles ──
             if (_vpUser != null) ...[
               const SizedBox(height: 10),
               _ReadOnlyField(
@@ -1039,7 +1103,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               _vpCompaniesLoading
                   ? const _LoadingChip(label: 'Loading companies…')
                   : _vpCompanies.isEmpty
-                      ? Text('No companies found for this user',
+                      ? Text('No companies — vehicle from personal fleet below',
                             style: _inter(size: 12, color: _secondary))
                       : _DropdownField<String>(
                           value: _vpSelectedCompanyId,
@@ -1052,48 +1116,59 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                             if (v == null) return;
                             final c = _vpCompanies.firstWhere((x) => x['rr_company_id'] == v);
                             setState(() {
-                              _vpSelectedCompanyId   = v;
-                              _vpSelectedCompanyName = c['name'] as String?;
-                              _vpVehicles            = [];
-                              _vpSelectedVehicleRrId = null;
+                              _vpSelectedCompanyId     = v;
+                              _vpSelectedCompanyName   = c['name'] as String?;
+                              _vpSelectedVehicleRrId   = null;
                               _vpSelectedVehicleNumber = null;
                             });
                             final session = await ensureRrSession(context, ref);
-                            if (session != null && mounted) _loadVpVehicles(v, session.token);
+                            if (session != null && mounted) _loadVpCompanyVehicles(v, session.token);
                           },
                         ),
             ],
 
-            // ── Step 3: Company selected → Vehicle selector ────────────
-            if (_vpSelectedCompanyId != null) ...[
+            // ── Step 4: Vehicle selector (personal + company + market) ─
+            if (_vpUser != null) ...[
               const SizedBox(height: 12),
               _FieldLabel(label: 'Select Vehicle *'),
               const SizedBox(height: 6),
               _vpVehiclesLoading
                   ? const _LoadingChip(label: 'Loading vehicles…')
-                  : _vpVehicles.isEmpty
-                      ? Text('No vehicles found for this company',
-                            style: _inter(size: 12, color: _secondary))
-                      : _DropdownField<String>(
-                          value: _vpSelectedVehicleRrId,
-                          hint: 'Select vehicle',
-                          items: _vpVehicles.map((v) => DropdownMenuItem<String>(
+                  : () {
+                      final all = [..._vpPersonalVehicles, ..._vpVehicles];
+                      if (all.isEmpty) {
+                        return Text(
+                          _vpSelectedCompanyId == null
+                              ? 'Select a company above to load vehicles'
+                              : 'No vehicles found',
+                          style: _inter(size: 12, color: _secondary),
+                        );
+                      }
+                      return _DropdownField<String>(
+                        value: _vpSelectedVehicleRrId,
+                        hint: 'Select vehicle',
+                        items: all.map((v) {
+                          final num   = v['number'] as String? ?? 'Unknown';
+                          final btype = v['body_type'] as String? ?? '';
+                          final src   = v['source'] as String? ?? '';
+                          final label = btype.isNotEmpty ? '$num · $btype' : num;
+                          final badge = src == 'market_vehicles' ? ' (market)' : '';
+                          return DropdownMenuItem<String>(
                             value: v['rr_vehicle_id'] as String,
-                            child: Text(
-                              '${v['number'] ?? 'Unknown'}'
-                              '${(v['body_type'] as String?)?.isNotEmpty == true ? ' · ${v['body_type']}' : ''}',
-                              style: _inter(size: 13, color: _onSurface),
-                            ),
-                          )).toList(),
-                          onChanged: (v) {
-                            if (v == null) return;
-                            final veh = _vpVehicles.firstWhere((x) => x['rr_vehicle_id'] == v);
-                            setState(() {
-                              _vpSelectedVehicleRrId   = v;
-                              _vpSelectedVehicleNumber = veh['number'] as String?;
-                            });
-                          },
-                        ),
+                            child: Text('$label$badge', style: _inter(size: 13, color: _onSurface)),
+                          );
+                        }).toList(),
+                        onChanged: (v) {
+                          if (v == null) return;
+                          final all2 = [..._vpPersonalVehicles, ..._vpVehicles];
+                          final veh = all2.firstWhere((x) => x['rr_vehicle_id'] == v);
+                          setState(() {
+                            _vpSelectedVehicleRrId   = v;
+                            _vpSelectedVehicleNumber = veh['number'] as String?;
+                          });
+                        },
+                      );
+                    }(),
             ],
 
             const SizedBox(height: 16),
