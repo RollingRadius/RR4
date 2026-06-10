@@ -7,7 +7,6 @@ import 'package:fleet_management/providers/trip_provider.dart' show tripProvider
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
-import 'package:go_router/go_router.dart';
 
 // ─── Typography & Colours ─────────────────────────────────────────────────────
 TextStyle _manrope({
@@ -655,7 +654,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     }
 
     if (!mounted) return;
-    context.go('/dashboard');
+    Navigator.of(context).pop();
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────

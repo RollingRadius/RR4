@@ -1050,6 +1050,17 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
             except Exception:
                 pass
 
+    # ── Guard: ensure no other trip already owns this rr_trip_id ─────────────
+    existing = db.query(Trip).filter(
+        Trip.rr_trip_id == rr_trip_id,
+        Trip.id != trip.id,
+    ).first()
+    if existing:
+        raise RuntimeError(
+            f"rr_trip_id {rr_trip_id} is already linked to trip "
+            f"{existing.trip_number} — possible RR deduplication collision"
+        )
+
     # ── Save back to trip ─────────────────────────────────────────────────────
     trip.rr_trip_id     = rr_trip_id
     trip.rr_trip_number = rr_trip_number

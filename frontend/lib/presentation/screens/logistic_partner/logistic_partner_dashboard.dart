@@ -87,15 +87,7 @@ class _LogisticPartnerDashboardState
       }
     });
     // Initial data load — runs after first frame so ref/auth are ready
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadAllData();
-      _checkPendingRrPopup();
-    });
-  }
-
-  void _checkPendingRrPopup() {
-    final pending = ref.read(pendingRrTripNumberProvider);
-    if (pending != null) _showRrTripPopup(pending);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAllData());
   }
 
   void _showRrTripPopup(String value) {
@@ -158,15 +150,35 @@ class _LogisticPartnerDashboardState
                 const SizedBox(height: 8),
                 Text('RR Trip Number', style: _inter(size: 12, color: const Color(0xFF546067))),
                 const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF0F7FF),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFFFF6B00).withOpacity(0.3)),
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: value));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Trip number copied',
+                            style: _inter(size: 13, color: Colors.white)),
+                        backgroundColor: const Color(0xFF2E7D32),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F7FF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFF6B00).withOpacity(0.3)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(value,
+                          style: _manrope(size: 20, weight: FontWeight.w800,
+                              color: const Color(0xFFFF6B00))),
+                      const SizedBox(width: 10),
+                      const Icon(Icons.copy_rounded, size: 16,
+                          color: Color(0xFFFF6B00)),
+                    ]),
                   ),
-                  child: Text(value,
-                      style: _manrope(size: 20, weight: FontWeight.w800, color: const Color(0xFFFF6B00))),
                 ),
               ]),
               actions: [
@@ -218,6 +230,13 @@ class _LogisticPartnerDashboardState
 
   @override
   Widget build(BuildContext context) {
+    // Show RR trip number popup whenever a new trip is created via CreateTripScreen
+    ref.listen<String?>(pendingRrTripNumberProvider, (_, next) {
+      if (next != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _showRrTripPopup(next));
+      }
+    });
+
     // When the LP receives a cancellation notification, immediately remove
     // the cancelled trip from Fleet Status without waiting for the 30s poll.
     ref.listen<NotificationsState>(notificationsProvider, (prev, next) {
