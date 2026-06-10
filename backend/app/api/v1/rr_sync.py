@@ -1024,22 +1024,33 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
     if not rr_trip_id:
         raise RuntimeError(f"RR create_trip missing trip_id: {resp.text[:200]}")
 
-    # ── Fetch parcel etag for future PATCH calls ──────────────────────────────
+    # ── Fetch trip_number + parcel etag from RR ───────────────────────────────
+    rr_trip_number = None
     rr_parcel_etag = None
-    if rr_parcel_id:
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
         try:
-            async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
-                etag_resp = await client.get(
+            tr = await client.get(
+                f"{settings.RR_API_BASE}/trips/{rr_trip_id}",
+                headers={"Authorization": f"Bearer {rr_token}"},
+            )
+            if tr.status_code == 200:
+                rr_trip_number = tr.json().get("trip_number")
+        except Exception:
+            pass
+        if rr_parcel_id:
+            try:
+                pr = await client.get(
                     f"{settings.RR_API_BASE}/parcels/{rr_parcel_id}",
                     headers={"Authorization": f"Bearer {rr_token}"},
                 )
-                if etag_resp.status_code == 200:
-                    rr_parcel_etag = etag_resp.json().get("_etag")
-        except Exception:
-            pass
+                if pr.status_code == 200:
+                    rr_parcel_etag = pr.json().get("_etag")
+            except Exception:
+                pass
 
     # ── Save back to trip ─────────────────────────────────────────────────────
     trip.rr_trip_id     = rr_trip_id
+    trip.rr_trip_number = rr_trip_number
     trip.rr_parcel_id   = rr_parcel_id
     trip.rr_parcel_etag = rr_parcel_etag
     trip.rr_booking_id  = rr_booking_id
@@ -1050,9 +1061,14 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
 
     logger.info(
         f"[Create Trip] {trip.trip_number} -> rr_trip_id={rr_trip_id}, "
-        f"parcel_id={rr_parcel_id}, booking_id={rr_booking_id}"
+        f"rr_trip_number={rr_trip_number}, parcel_id={rr_parcel_id}, booking_id={rr_booking_id}"
     )
-    return {"rr_trip_id": rr_trip_id, "rr_parcel_id": rr_parcel_id, "rr_booking_id": rr_booking_id}
+    return {
+        "rr_trip_id":     rr_trip_id,
+        "rr_trip_number": rr_trip_number,
+        "rr_parcel_id":   rr_parcel_id,
+        "rr_booking_id":  rr_booking_id,
+    }
 
 
 @router.post("/complete-trip/{trip_id}", summary="Push trip to RR via POST /create_trip")

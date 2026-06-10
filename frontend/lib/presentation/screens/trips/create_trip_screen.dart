@@ -7,7 +7,7 @@ import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
-import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
+import 'package:go_router/go_router.dart';
 
 // ─── Typography & Colours ─────────────────────────────────────────────────────
 TextStyle _manrope({
@@ -643,27 +643,76 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       return;
     }
 
-    final messenger  = ScaffoldMessenger.of(context);
     final rrNum      = trip.rrTripNumber;
     final syncStatus = trip.rrSyncStatus;
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)),
-    );
-
     if (rrNum != null && rrNum.isNotEmpty) {
-      messenger.showSnackBar(SnackBar(
-        content: Text('Synced to RR web — Trip $rrNum'),
-        backgroundColor: _successClr,
-        duration: const Duration(seconds: 4),
-      ));
+      // Show popup BEFORE navigating so dialog appears over create-trip screen
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56, height: 56,
+                decoration: BoxDecoration(
+                  color: _successClr.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle_rounded, color: _successClr, size: 32),
+              ),
+              const SizedBox(height: 16),
+              Text('Trip Synced to RR Web',
+                  style: _manrope(size: 15, weight: FontWeight.w800, color: _onSurface),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              Text('RR Trip Number', style: _inter(size: 12, color: _secondary)),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0F7FF),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _primary.withOpacity(0.3)),
+                ),
+                child: Text(rrNum,
+                    style: _manrope(size: 18, weight: FontWeight.w800, color: _primary)),
+              ),
+            ],
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: _primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  Navigator.of(context, rootNavigator: true).pop();
+                  context.go('/dashboard');
+                },
+                child: Text('Continue', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
     } else if (syncStatus == 'failed') {
-      messenger.showSnackBar(SnackBar(
-        content: Text('Trip created locally. RR sync failed: ${trip.rrSyncError ?? 'unknown error'}'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Trip created. RR sync failed: ${trip.rrSyncError ?? 'unknown error'}'),
         backgroundColor: _errorClr,
         duration: const Duration(seconds: 6),
       ));
     }
+
+    if (!mounted) return;
+    context.go('/dashboard');
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
