@@ -4343,7 +4343,7 @@ class _DrawerWorkersTile extends StatelessWidget {
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                'Workers',
+                'Employees',
                 style: _inter(size: 14, weight: FontWeight.w600, color: _onSurface),
               ),
             ),

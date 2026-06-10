@@ -165,7 +165,7 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
       setState(() {
         _workers = (data['workers'] as List<dynamic>)
             .map((e) => _WorkerInfo.fromJson(e as Map<String, dynamic>))
-            .where((w) => w.roleKey == 'logistic_partner_worker')
+            .where((w) => w.roleKey == 'logistic_partner_worker' || w.roleKey == 'lp_rr_operations')
             .toList();
         _recLoading = false;
       });
@@ -210,7 +210,7 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _onSurface, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Workers', style: _m(s: 17, w: FontWeight.w800)),
+        title: Text('Employees', style: _m(s: 17, w: FontWeight.w800)),
         bottom: TabBar(
           controller: _tabCtrl,
           labelStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700),
@@ -276,8 +276,8 @@ class _RecordTab extends StatelessWidget {
     if (workers.isEmpty) {
       return _EmptyView(
         icon: Icons.people_outline_rounded,
-        title: 'No workers found',
-        subtitle: 'Active workers in your organisation will appear here.',
+        title: 'No employees found',
+        subtitle: 'Active employees in your organisation will appear here.',
       );
     }
     return RefreshIndicator(

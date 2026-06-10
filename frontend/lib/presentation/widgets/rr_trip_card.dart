@@ -145,7 +145,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       });
 
       await api.dio.post(
-        '/api/v1/rr/sync/loading-slip/${trip.id}',
+        '/api/rr/sync/loading-slip/${trip.id}',
         data: formData,
       );
 
