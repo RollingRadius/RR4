@@ -252,7 +252,12 @@ def list_trips(
             query = query.filter(Trip.status.in_(statuses))
 
     if rr_only:
-        query = query.filter(Trip.rr_trip_id.isnot(None), Trip.rr_trip_id != '')
+        _rr_slip_statuses = ('loading_slip_synced', 'bilty_synced', 'pod_synced')
+        query = query.filter(
+            Trip.rr_trip_id.isnot(None),
+            Trip.rr_trip_id != '',
+            Trip.rr_sync_status.in_(_rr_slip_statuses),
+        )
 
     total = query.count()
     trips = query.order_by(Trip.created_at.desc()).offset(offset).limit(limit).all()

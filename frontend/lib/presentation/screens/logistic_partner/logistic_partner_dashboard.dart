@@ -209,7 +209,7 @@ class _LogisticPartnerDashboardState
     }
     if (index == 3 && _navIndex != 3) {
       // Load completed RR trips fresh each time Records tab is opened
-      ref.read(completedTripsProvider.notifier).loadTrips(statusFilter: 'completed', rrOnly: true);
+      ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
     }
     setState(() => _navIndex = index);
   }
@@ -3724,7 +3724,7 @@ class _RecordsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(completedTripsProvider);
     final trips = state.trips
-        .where((t) => t.isCompleted && t.rrTripId != null && t.rrTripId!.isNotEmpty)
+        .where((t) => t.rrTripId != null && t.rrTripId!.isNotEmpty)
         .toList()
       ..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
 
@@ -3732,7 +3732,7 @@ class _RecordsTab extends ConsumerWidget {
       color: _primary,
       onRefresh: () => ref
           .read(completedTripsProvider.notifier)
-          .loadTrips(statusFilter: 'completed', rrOnly: true),
+          .loadTrips(rrOnly: true),
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -3794,7 +3794,7 @@ class _RecordsTab extends ConsumerWidget {
                     TextButton(
                       onPressed: () => ref
                           .read(completedTripsProvider.notifier)
-                          .loadTrips(statusFilter: 'completed', rrOnly: true),
+                          .loadTrips(rrOnly: true),
                       child: const Text('Retry'),
                     ),
                   ],
