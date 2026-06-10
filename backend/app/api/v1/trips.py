@@ -325,7 +325,7 @@ async def create_trip(
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
 
-    if role_key not in ('logistic_partner', 'super_admin'):
+    if role_key not in ('logistic_partner', 'super_admin', 'lp_rr_operations'):
         raise HTTPException(
             status_code=403,
             detail="Only fleet managers can create trips"

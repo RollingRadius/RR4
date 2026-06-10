@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,6 +11,7 @@ import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
+import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _rrBlue     = Color(0xFF1B6CA8);
@@ -68,6 +70,98 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
   }
 
+  void _showRrTripPopup(String value) {
+    ref.read(pendingRrTripNumberProvider.notifier).state = null;
+    final isFailed = value.startsWith('__failed__:');
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => isFailed
+          ? AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: const BoxDecoration(color: Color(0xFFFFEBEE), shape: BoxShape.circle),
+                  child: const Icon(Icons.error_outline_rounded, color: Color(0xFFD32F2F), size: 32),
+                ),
+                const SizedBox(height: 16),
+                Text('Trip Created', style: _manrope(size: 15, weight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text('RR sync failed: ${value.substring('__failed__:'.length)}',
+                    style: _inter(size: 13), textAlign: TextAlign.center),
+              ]),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                        backgroundColor: _rrBlue,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                    onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                    child: Text('OK', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+                  ),
+                ),
+              ],
+            )
+          : AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: const BoxDecoration(color: Color(0xFFE8F5E9), shape: BoxShape.circle),
+                  child: const Icon(Icons.check_circle_rounded, color: _doneGreen, size: 32),
+                ),
+                const SizedBox(height: 16),
+                Text('Trip Synced to RR Web',
+                    style: _manrope(size: 15, weight: FontWeight.w800),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 8),
+                Text('RR Trip Number', style: _inter(size: 12)),
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: value));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Trip number copied', style: _inter(size: 13, color: Colors.white)),
+                      backgroundColor: _doneGreen,
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F7FF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _rrBlue.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(value, style: _manrope(size: 20, weight: FontWeight.w800, color: _rrBlue)),
+                      const SizedBox(width: 10),
+                      const Icon(Icons.copy_rounded, size: 16, color: _rrBlue),
+                    ]),
+                  ),
+                ),
+              ]),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                        backgroundColor: _rrBlue,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                    onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                    child: Text('Continue', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
   @override
   void dispose() {
     _pollTimer?.cancel();
@@ -76,6 +170,12 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<String?>(pendingRrTripNumberProvider, (_, next) {
+      if (next != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _showRrTripPopup(next));
+      }
+    });
+
     final user      = ref.watch(authProvider).user;
     final tripState = ref.watch(tripProvider);
     final session   = ref.watch(rrSessionProvider);
@@ -231,6 +331,32 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: _rrBlue),
                       ),
+                    if (!tripState.isLoading) ...[
+                      const SizedBox(width: 8),
+                      Builder(builder: (ctx) => GestureDetector(
+                        onTap: () async {
+                          final session = await ensureRrSession(ctx, ref);
+                          if (session == null || !ctx.mounted) return;
+                          Navigator.of(ctx).push(
+                            MaterialPageRoute(builder: (_) => const CreateTripScreen()),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _rrBlue.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: _rrBlue.withValues(alpha: 0.25)),
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Icon(Icons.add_rounded, size: 14, color: _rrBlue),
+                            const SizedBox(width: 4),
+                            Text('New Trip',
+                                style: _inter(size: 11, weight: FontWeight.w700, color: _rrBlue)),
+                          ]),
+                        ),
+                      )),
+                    ],
                   ],
                 ),
               ),
@@ -481,7 +607,7 @@ class _EmptyState extends StatelessWidget {
                     size: 17, weight: FontWeight.w700)),
             const SizedBox(height: 8),
             Text(
-              'Trips created via RR Web will appear here.\nAsk your LP to create a trip.',
+              'No active RR Web trips yet.\nTap "+ New Trip" above to get started.',
               style: _inter(size: 13),
               textAlign: TextAlign.center,
             ),
