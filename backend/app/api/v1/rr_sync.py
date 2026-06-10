@@ -9,7 +9,9 @@ import logging
 from typing import List
 
 import httpx
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+import mimetypes
+
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -1115,6 +1117,112 @@ async def complete_trip_in_rr(
         "rr_booking_id": result["rr_booking_id"],
     }
 
+
+
+# ── Loading slip upload ───────────────────────────────────────────────────────
+
+@router.post("/sync/loading-slip/{trip_id}", summary="Upload loading slip to RR")
+async def post_loading_slip(
+    trip_id: str,
+    file: UploadFile,
+    rr_token: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Accepts a loading slip image from the mobile app:
+    1. Saves the file to local storage (uploads/trips/{trip_id}/)
+    2. Uploads it to RR /files → gets rr_file_id
+    3. Calls RR /post_loading_slip
+    4. Persists rr_loading_slip_url, rr_loading_slip_file_id, rr_sync_status
+    """
+    import uuid as _uuid_mod
+    import datetime as _dt
+    from pathlib import Path
+    from app.models import UserOrganization
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.organization_id == user_org.organization_id,
+    ).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    if not trip.rr_trip_id:
+        raise HTTPException(status_code=409, detail="Trip has not been synced to RR yet")
+
+    file_bytes = await file.read()
+    orig_name  = file.filename or "loading_slip.jpg"
+    ext        = Path(orig_name).suffix or ".jpg"
+    mime_type  = file.content_type or mimetypes.guess_type(orig_name)[0] or "image/jpeg"
+
+    # ── Step 1: save locally ──────────────────────────────────────────────────
+    trip_dir  = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+    trip_dir.mkdir(parents=True, exist_ok=True)
+    local_name = f"rr_loading_slip_{_uuid_mod.uuid4().hex[:8]}{ext}"
+    (trip_dir / local_name).write_bytes(file_bytes)
+    local_url = f"/uploads/trips/{trip_id}/{local_name}"
+
+    auth_hdr = {"Authorization": f"Bearer {rr_token}"}
+
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+        # ── Step 2: upload to RR /files ───────────────────────────────────────
+        try:
+            files_resp = await client.post(
+                f"{settings.RR_API_BASE}/files",
+                files={"file": (local_name, file_bytes, mime_type)},
+                data={"file_name": local_name},
+                headers=auth_hdr,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"RR /files upload failed: {exc}")
+
+        if files_resp.status_code not in (200, 201):
+            raise HTTPException(
+                status_code=502,
+                detail=f"RR /files returned {files_resp.status_code}: {files_resp.text[:200]}",
+            )
+
+        rr_file_id = files_resp.json().get("_id")
+        if not rr_file_id:
+            raise HTTPException(status_code=502, detail="RR /files response missing _id")
+
+        # ── Step 3: call RR /post_loading_slip ────────────────────────────────
+        try:
+            slip_resp = await client.post(
+                f"{settings.RR_API_BASE}/post_loading_slip",
+                json={"trip_id": trip.rr_trip_id, "loading_slip": rr_file_id},
+                headers={**auth_hdr, "Content-Type": "application/json"},
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"RR /post_loading_slip failed: {exc}")
+
+        if slip_resp.status_code not in (200, 201):
+            raise HTTPException(
+                status_code=502,
+                detail=f"RR /post_loading_slip returned {slip_resp.status_code}: {slip_resp.text[:200]}",
+            )
+
+    # ── Step 4: persist to DB ─────────────────────────────────────────────────
+    trip.rr_loading_slip_url     = local_url
+    trip.rr_loading_slip_file_id = rr_file_id
+    trip.s2_loading_slip_url     = local_url   # also set stage field for consistency
+    trip.rr_sync_status          = "loading_slip_synced"
+    trip.rr_synced_at            = _dt.datetime.utcnow()
+    db.commit()
+
+    logger.info(
+        f"[Loading Slip] {trip.trip_number} -> local={local_url}, "
+        f"rr_file_id={rr_file_id}, status=loading_slip_synced"
+    )
+
+    return {"success": True, "rr_file_id": rr_file_id, "local_url": local_url, "trip": trip.to_dict()}
 
 
 # ── Bulk sync trigger ─────────────────────────────────────────────────────────

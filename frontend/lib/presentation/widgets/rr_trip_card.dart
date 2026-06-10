@@ -11,7 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:fleet_management/data/models/trip_model.dart';
-import 'package:fleet_management/data/services/api_service.dart';
+import 'package:fleet_management/providers/auth_provider.dart' show apiServiceProvider;
 import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 
@@ -150,7 +150,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       );
 
       if (!mounted) return;
-      setState(() { _uploading = false; _uploadDone = true; _pickedSlip = null; });
+      setState(() { _uploading = false; _uploadDone = true; _pickedSlip = null; _uploadError = null; });
       widget.onRefresh?.call();
     } catch (e) {
       if (!mounted) return;

@@ -206,6 +206,10 @@ class Trip(Base):
     rr_parcel_etag = Column(String(100), nullable=True)  # must be sent with every PATCH
     rr_booking_id  = Column(String(30),  nullable=True)  # PO booking_id from create_trip response
 
+    # Loading slip (RR web flow)
+    rr_loading_slip_file_id = Column(String(100), nullable=True)  # ObjectId from RR /files
+    rr_loading_slip_url     = Column(String(500), nullable=True)  # our local saved copy
+
     # Sync state
     rr_sync_status = Column(String(30), nullable=True, default='not_synced')
     # Values: not_synced | trip_created | loading_slip_synced | bilty_synced | pod_synced | failed
@@ -328,8 +332,10 @@ class Trip(Base):
             "rr_trip_id":     self.rr_trip_id,
             "rr_trip_number": self.rr_trip_number,
             "rr_parcel_id":   self.rr_parcel_id,
-            "rr_booking_id":  self.rr_booking_id,
-            "rr_sync_status": self.rr_sync_status,
+            "rr_booking_id":           self.rr_booking_id,
+            "rr_loading_slip_file_id": self.rr_loading_slip_file_id,
+            "rr_loading_slip_url":     self.rr_loading_slip_url,
+            "rr_sync_status":          self.rr_sync_status,
             "rr_sync_error":  self.rr_sync_error,
             "rr_synced_at":   self.rr_synced_at.isoformat() if self.rr_synced_at else None,
             # RR party fields
