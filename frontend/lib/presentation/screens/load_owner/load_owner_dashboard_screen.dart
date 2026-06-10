@@ -238,41 +238,13 @@ class _LoadOwnerDashboardScreenState
       }
     });
 
-    return Scaffold(
-      key: _scaffoldKey,
-      backgroundColor: _background,
-      drawer: _AppDrawer(
-        user: user,
-        role: 'Load Owner',
-        navIndex: _navIndex,
-        onNavTap: (i) {
-          _scaffoldKey.currentState?.closeDrawer();
-          _setNavIndex(i);
-        },
-        onProfileTap: () {
-          _scaffoldKey.currentState?.closeDrawer();
-          _showProfileSheet(context);
-        },
-      ),
-      body: Column(
-        children: [
-          _TopBar(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
-          Expanded(
-            child: IndexedStack(index: _navIndex, children: _pages),
-          ),
-        ],
-      ),
-      bottomNavigationBar: _BottomNav(
-        // Treat upload tab (4) as LOADS (1) being active in the nav bar
-        selectedIndex: _navIndex == 4 ? 1 : _navIndex,
-        onTap: (i) {
-          if (i == 4) {
-            _showProfileSheet(context);
-          } else {
-            _setNavIndex(i);
-          }
-        },
-      ),
+    return _ComingSoonDashboard(
+      role: 'Load Owner',
+      icon: Icons.inventory_2_outlined,
+      onLogout: () async {
+        await ref.read(authProvider.notifier).logout();
+        if (mounted) context.go('/login');
+      },
     );
   }
 
@@ -319,6 +291,89 @@ class _LoadOwnerDashboardScreenState
             ),
             const SizedBox(height: 8),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Coming Soon Dashboard ────────────────────────────────────────────────────
+
+class _ComingSoonDashboard extends StatelessWidget {
+  final String role;
+  final IconData icon;
+  final VoidCallback onLogout;
+
+  const _ComingSoonDashboard({
+    required this.role,
+    required this.icon,
+    required this.onLogout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _background,
+      appBar: AppBar(
+        backgroundColor: _surfaceLowest,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: _secondary),
+            onSelected: (v) { if (v == 'logout') onLogout(); },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'logout', child: Text('Logout')),
+            ],
+          ),
+        ],
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: _primary.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 42, color: _primary.withValues(alpha: 0.65)),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Coming Soon',
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: _primary),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '$role Dashboard',
+                style: GoogleFonts.manrope(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: _onSurface),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'This dashboard is currently under\ndevelopment and will be available soon.',
+                style: GoogleFonts.inter(fontSize: 13, color: _secondary),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -6,29 +6,37 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
-import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
-import 'package:fleet_management/presentation/screens/logistic_partner/rr_sync_screen.dart';
+import 'package:fleet_management/providers/rr_session_provider.dart';
+import 'package:fleet_management/data/models/trip_model.dart';
+import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
+import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 
-// ─── Typography helpers ────────────────────────────────────────────────────────
+// ─── Design tokens ────────────────────────────────────────────────────────────
+const _rrBlue     = Color(0xFF1B6CA8);
+const _rrBlueDark = Color(0xFF154E80);
+const _bg         = Color(0xFFF0F5FB);
+const _surface    = Color(0xFFFFFFFF);
+const _onSurface  = Color(0xFF191C1E);
+const _secondary  = Color(0xFF546067);
+const _border     = Color(0xFFDCE8F5);
+const _doneGreen  = Color(0xFF2E7D32);
+const _doneBg     = Color(0xFFE8F5E9);
+const _warnOrange = Color(0xFFE65100);
+const _warnBg     = Color(0xFFFFF3E0);
+
 TextStyle _manrope({
   double size = 14,
   FontWeight weight = FontWeight.w600,
-  Color color = const Color(0xFF191C1E),
+  Color color = _onSurface,
 }) =>
     GoogleFonts.manrope(fontSize: size, fontWeight: weight, color: color);
 
 TextStyle _inter({
   double size = 13,
   FontWeight weight = FontWeight.w400,
-  Color color = const Color(0xFF546067),
+  Color color = _secondary,
 }) =>
     GoogleFonts.inter(fontSize: size, fontWeight: weight, color: color);
-
-const _primary = Color(0xFF1B6CA8);           // blue — different from LP orange
-const _background = Color(0xFFF4F7FB);
-const _surfaceLowest = Color(0xFFFFFFFF);
-const _secondary = Color(0xFF546067);
-
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
@@ -40,16 +48,13 @@ class LpRrOpsDashboard extends ConsumerStatefulWidget {
 }
 
 class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
-  int _navIndex = 0;
   Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
-      }
+      if (mounted) _silentRefresh();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
   }
@@ -57,6 +62,10 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   void _loadData() {
     if (!mounted) return;
     ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+  }
+
+  void _silentRefresh() {
+    ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
   }
 
   @override
@@ -67,164 +76,418 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(authProvider).user;
+    final user      = ref.watch(authProvider).user;
+    final tripState = ref.watch(tripProvider);
+    final session   = ref.watch(rrSessionProvider);
+
+    final rrTrips = tripState.trips.where((t) => t.rrTripId != null).toList();
 
     return Scaffold(
-      backgroundColor: _background,
-      appBar: AppBar(
-        backgroundColor: _surfaceLowest,
-        elevation: 0,
-        title: Row(
-          children: [
-            Container(
-              width: 32,
-              height: 32,
-              decoration: const BoxDecoration(
-                color: _primary,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.sync_alt, color: Colors.white, size: 18),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(user?.fullName ?? 'RR Operations',
-                    style: _manrope(size: 14)),
-                Text('RR Operations', style: _inter(size: 11, color: _primary)),
+      backgroundColor: _bg,
+      body: RefreshIndicator(
+        color: _rrBlue,
+        onRefresh: () async => _loadData(),
+        child: CustomScrollView(
+          slivers: [
+
+            // ── Gradient app bar ─────────────────────────────────────────────
+            SliverAppBar(
+              pinned: true,
+              expandedHeight: 120,
+              backgroundColor: _rrBlueDark,
+              elevation: 0,
+              automaticallyImplyLeading: false,
+              actions: [
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  onSelected: (v) async {
+                    if (v == 'logout') {
+                      await ref.read(authProvider.notifier).logout();
+                      if (mounted) context.go('/login');
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'logout', child: Text('Logout')),
+                  ],
+                ),
               ],
-            ),
-          ],
-        ),
-        actions: [
-          // Primary action — open RR sync sheet
-          TextButton.icon(
-            onPressed: () => showRrSyncSheet(context),
-            icon: const Icon(Icons.sync, size: 18, color: _primary),
-            label: Text('Sync', style: _manrope(size: 13, color: _primary)),
-          ),
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert, color: _secondary),
-            onSelected: (v) async {
-              if (v == 'logout') {
-                await ref.read(authProvider.notifier).logout();
-                if (mounted) context.go('/login');
-              }
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'logout', child: Text('Logout')),
-            ],
-          ),
-        ],
-      ),
-      body: _navIndex == 0 ? _ActiveTripsTab(onRefresh: _loadData) : _CompletedTripsTab(),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _navIndex,
-        onDestinationSelected: (i) {
-          setState(() => _navIndex = i);
-          if (i == 0) _loadData();
-          if (i == 1) {
-            ref.read(completedTripsProvider.notifier).loadTrips(statusFilter: 'completed');
-          }
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.local_shipping_outlined),
-            selectedIcon: Icon(Icons.local_shipping),
-            label: 'Active',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.check_circle_outline),
-            selectedIcon: Icon(Icons.check_circle),
-            label: 'Completed',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-// ─── Active trips tab ─────────────────────────────────────────────────────────
-
-class _ActiveTripsTab extends ConsumerWidget {
-  final VoidCallback onRefresh;
-  const _ActiveTripsTab({required this.onRefresh});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tripState = ref.watch(tripProvider);
-
-    if (tripState.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final trips = tripState.trips;
-
-    return RefreshIndicator(
-      onRefresh: () async => onRefresh(),
-      child: trips.isEmpty
-          ? ListView(
-              children: [
-                const SizedBox(height: 80),
-                Center(
-                  child: Column(
+              flexibleSpace: FlexibleSpaceBar(
+                collapseMode: CollapseMode.pin,
+                background: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [_rrBlueDark, _rrBlue, Color(0xFF2980B9)],
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(20, 52, 20, 16),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Icon(Icons.local_shipping_outlined,
-                          size: 64, color: Colors.grey[300]),
-                      const SizedBox(height: 16),
-                      Text('No active trips',
-                          style: _manrope(size: 16, color: const Color(0xFF546067))),
-                      const SizedBox(height: 8),
-                      Text('Trips assigned to your company will appear here',
-                          style: _inter(size: 13),
-                          textAlign: TextAlign.center),
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.18),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3)),
+                        ),
+                        child: const Icon(Icons.sync_alt_rounded,
+                            color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              user?.fullName ?? 'RR Operations',
+                              style: _manrope(
+                                  size: 17,
+                                  weight: FontWeight.w800,
+                                  color: Colors.white),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text('RR OPS',
+                                  style: _inter(
+                                      size: 11,
+                                      weight: FontWeight.w700,
+                                      color: Colors.white)),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ],
-            )
-          : ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: trips.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (ctx, i) => OngoingTripCard(trip: trips[i]),
+              ),
             ),
+
+            // ── RR connection banner ─────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: _RrConnectionBanner(
+                  session: session,
+                  onConnect: () async {
+                    await ensureRrSession(context, ref);
+                  },
+                  onDisconnect: () =>
+                      ref.read(rrSessionProvider.notifier).clear(),
+                ),
+              ),
+            ),
+
+            // ── Stats strip ──────────────────────────────────────────────────
+            if (!tripState.isLoading)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: _StatsStrip(trips: rrTrips),
+                ),
+              ),
+
+            // ── Section header ────────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                child: Row(
+                  children: [
+                    Text('RR Web Trips',
+                        style: _manrope(
+                            size: 15, weight: FontWeight.w700)),
+                    const SizedBox(width: 8),
+                    if (!tripState.isLoading && rrTrips.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _rrBlue.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text('${rrTrips.length}',
+                            style: _inter(
+                                size: 12,
+                                weight: FontWeight.w700,
+                                color: _rrBlue)),
+                      ),
+                    const Spacer(),
+                    if (tripState.isLoading)
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: _rrBlue),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ── Trip list / empty / loading ──────────────────────────────────
+            if (tripState.isLoading)
+              const SliverFillRemaining(
+                child: Center(
+                    child: CircularProgressIndicator(color: _rrBlue)),
+              )
+            else if (rrTrips.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _EmptyState(),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+                sliver: SliverList.separated(
+                  itemCount: rrTrips.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  itemBuilder: (_, i) => RrTripCard(
+                    trip: rrTrips[i],
+                    onRefresh: _silentRefresh,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
 
+// ─── RR Connection Banner ─────────────────────────────────────────────────────
 
-// ─── Completed trips tab ──────────────────────────────────────────────────────
+class _RrConnectionBanner extends StatelessWidget {
+  final RrSession? session;
+  final VoidCallback onConnect;
+  final VoidCallback onDisconnect;
 
-class _CompletedTripsTab extends ConsumerWidget {
+  const _RrConnectionBanner({
+    required this.session,
+    required this.onConnect,
+    required this.onDisconnect,
+  });
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tripState = ref.watch(completedTripsProvider);
+  Widget build(BuildContext context) {
+    final connected = session != null && session!.isValid;
 
-    if (tripState.isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    final trips = tripState.trips;
-
-    return trips.isEmpty
-        ? Center(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: connected ? _doneBg : _warnBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: connected
+              ? _doneGreen.withValues(alpha: 0.35)
+              : _warnOrange.withValues(alpha: 0.35),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (connected ? _doneGreen : _warnOrange)
+                .withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: (connected ? _doneGreen : _warnOrange)
+                  .withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              connected
+                  ? Icons.cloud_done_rounded
+                  : Icons.cloud_off_rounded,
+              size: 18,
+              color: connected ? _doneGreen : _warnOrange,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.check_circle_outline, size: 64, color: Colors.grey[300]),
-                const SizedBox(height: 16),
-                Text('No completed trips',
-                    style: _manrope(size: 16, color: const Color(0xFF546067))),
+                Text(
+                  connected ? 'RR Web Connected' : 'RR Web Not Connected',
+                  style: _manrope(
+                    size: 13,
+                    weight: FontWeight.w700,
+                    color: connected ? _doneGreen : _warnOrange,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  connected
+                      ? 'You can upload loading slips'
+                      : 'Connect to upload loading slips',
+                  style: _inter(size: 11),
+                ),
               ],
             ),
-          )
-        : ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: trips.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (ctx, i) => OngoingTripCard(trip: trips[i]),
-          );
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: connected ? onDisconnect : onConnect,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: connected ? _doneGreen : _rrBlue,
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: (connected ? _doneGreen : _rrBlue)
+                        .withValues(alpha: 0.3),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                connected ? 'Disconnect' : 'Connect',
+                style: _inter(
+                    size: 12,
+                    weight: FontWeight.w700,
+                    color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Stats Strip ──────────────────────────────────────────────────────────────
+
+class _StatsStrip extends StatelessWidget {
+  final List<TripModel> trips;
+  const _StatsStrip({required this.trips});
+
+  @override
+  Widget build(BuildContext context) {
+    final total     = trips.length;
+    final needsSlip = trips
+        .where((t) => t.rrSyncStatus == 'trip_created')
+        .length;
+    final slipDone  = trips
+        .where((t) => ['loading_slip_synced', 'bilty_synced', 'pod_synced']
+            .contains(t.rrSyncStatus))
+        .length;
+    final failed    = trips
+        .where((t) => t.rrSyncStatus == 'failed')
+        .length;
+
+    return Row(
+      children: [
+        _StatChip(label: 'Total', count: total, color: _rrBlue),
+        const SizedBox(width: 8),
+        _StatChip(label: 'Needs Slip', count: needsSlip, color: _warnOrange),
+        const SizedBox(width: 8),
+        _StatChip(label: 'Slip Done', count: slipDone, color: _doneGreen),
+        if (failed > 0) ...[
+          const SizedBox(width: 8),
+          _StatChip(label: 'Failed', count: failed, color: Colors.red),
+        ],
+      ],
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final String label;
+  final int count;
+  final Color color;
+
+  const _StatChip({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          children: [
+            Text(
+              '$count',
+              style: _manrope(
+                  size: 20, weight: FontWeight.w800, color: color),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: _inter(
+                  size: 10, weight: FontWeight.w500, color: color),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Empty State ──────────────────────────────────────────────────────────────
+
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: _rrBlue.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.sync_alt_rounded,
+                  size: 36, color: _rrBlue),
+            ),
+            const SizedBox(height: 20),
+            Text('No RR Web trips yet',
+                style: _manrope(
+                    size: 17, weight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Text(
+              'Trips created via RR Web will appear here.\nAsk your LP to create a trip.',
+              style: _inter(size: 13),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

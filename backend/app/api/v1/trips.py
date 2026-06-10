@@ -221,6 +221,7 @@ class TripUpdate(BaseModel):
 @router.get("/trips")
 def list_trips(
     status_filter: Optional[str] = Query(None, alias="status"),
+    rr_only: bool = Query(False),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
@@ -249,6 +250,9 @@ def list_trips(
             query = query.filter(Trip.status == statuses[0])
         elif len(statuses) > 1:
             query = query.filter(Trip.status.in_(statuses))
+
+    if rr_only:
+        query = query.filter(Trip.rr_trip_id.isnot(None), Trip.rr_trip_id != '')
 
     total = query.count()
     trips = query.order_by(Trip.created_at.desc()).offset(offset).limit(limit).all()

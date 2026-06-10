@@ -382,6 +382,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                         'Join as Transporter',
                         'Register as an independent transporter to upload loading slips for assigned trips',
                         Icons.airport_shuttle_outlined,
+                        comingSoon: true,
                       ),
 
                       const SizedBox(height: 32),
@@ -916,6 +917,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           description: 'You have cargo/goods that need to be transported',
           icon: Icons.inventory_2_outlined,
           color: Colors.orange,
+          comingSoon: true,
         ),
         const SizedBox(height: 12),
 
@@ -926,6 +928,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           description: 'You receive deliveries — you are the consignee',
           icon: Icons.move_to_inbox_outlined,
           color: const Color(0xFF00796B),
+          comingSoon: true,
         ),
 
         // Company detail form — shown only after type is selected
@@ -1109,10 +1112,41 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
     required String description,
     required IconData icon,
     required Color color,
+    bool comingSoon = false,
   }) {
     final isSelected = _selectedCompanyType == value;
+    return Opacity(
+      opacity: comingSoon ? 0.5 : 1.0,
+      child: _CompanyTypeCardWrapper(
+        comingSoon: comingSoon,
+        isSelected: isSelected,
+        color: color,
+        icon: icon,
+        title: title,
+        description: description,
+        onTap: comingSoon ? null : () => setState(() => _selectedCompanyType = value),
+      ),
+    );
+  }
+}
+
+class _CompanyTypeCardWrapper extends StatelessWidget {
+  final bool comingSoon, isSelected;
+  final Color color;
+  final IconData icon;
+  final String title, description;
+  final VoidCallback? onTap;
+
+  const _CompanyTypeCardWrapper({
+    required this.comingSoon, required this.isSelected, required this.color,
+    required this.icon, required this.title, required this.description,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => setState(() => _selectedCompanyType = value),
+      onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
@@ -1155,7 +1189,19 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
                 ],
               ),
             ),
-            if (isSelected)
+            if (comingSoon)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Coming Soon',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[600]),
+                ),
+              )
+            else if (isSelected)
               Icon(Icons.check_circle, color: color, size: 22),
           ],
         ),

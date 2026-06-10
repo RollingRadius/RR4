@@ -9,9 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/rr_session_provider.dart';
-import 'package:fleet_management/providers/rr_sync_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
-import 'package:fleet_management/presentation/screens/logistic_partner/rr_sync_screen.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
 import 'package:fleet_management/providers/driver_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
@@ -202,7 +200,6 @@ class _LogisticPartnerDashboardState
     if (!mounted) return;
     ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
     ref.read(vehicleProvider.notifier).loadVehicles();
-    ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
   }
 
   /// Switch tabs — refreshes fleet data whenever user navigates to Dashboard.
@@ -211,13 +208,8 @@ class _LogisticPartnerDashboardState
       ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
     }
     if (index == 3 && _navIndex != 3) {
-      // Load completed trips fresh each time Records tab is opened
-      ref.read(completedTripsProvider.notifier).loadTrips(statusFilter: 'completed');
-    }
-    // Loads tab requires an active RR session
-    if (index == 1 && _navIndex != 1) {
-      final session = await ensureRrSession(context, ref);
-      if (session == null || !mounted) return; // user cancelled — stay on current tab
+      // Load completed RR trips fresh each time Records tab is opened
+      ref.read(completedTripsProvider.notifier).loadTrips(statusFilter: 'completed', rrOnly: true);
     }
     setState(() => _navIndex = index);
   }
@@ -250,14 +242,13 @@ class _LogisticPartnerDashboardState
     });
 
     final user = ref.watch(authProvider).user;
-    final pendingLoadsCount = ref.watch(availableLoadsProvider).loads.length;
 
     final pages = [
-      _DashboardTab(onViewLoads: () => _switchNav(1)),
-      const _AvailableLoadsTab(),
+      const _DashboardTab(),
+      const _ComingSoonTab(label: 'Loads', icon: Icons.search_rounded),
       const _ProfileTab(),
       const _RecordsTab(),
-      const FleetHubScreen(),
+      const _ComingSoonTab(label: 'Fleet Hub', icon: Icons.local_shipping_outlined),
     ];
 
     return Scaffold(
@@ -283,7 +274,6 @@ class _LogisticPartnerDashboardState
       bottomNavigationBar: _BottomNav(
         selectedIndex: _navIndex,
         onTap: _switchNav,
-        pendingLoadsCount: pendingLoadsCount,
       ),
     );
   }
@@ -307,8 +297,6 @@ class _TopBar extends ConsumerWidget {
     final unread = notifState.items
         .where((n) => !n.isRead && (n.type == 'worker_request' || n.type == 'trip_complete' || n.type == 'trip_cancelled' || n.type == 'load_cancelled'))
         .length;
-    final syncReadyCount = ref.watch(rrSyncProvider.select((s) => s.readyCount));
-
     return SafeArea(
       bottom: false,
       child: Container(
@@ -331,39 +319,6 @@ class _TopBar extends ConsumerWidget {
                 ).copyWith(letterSpacing: 1.0),
               ),
             ),
-            GestureDetector(
-              onTap: () => showRrSyncSheet(context),
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  const Icon(Icons.sync_rounded, color: _secondary, size: 24),
-                  if (syncReadyCount > 0)
-                    Positioned(
-                      top: -4,
-                      right: -4,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: const BoxDecoration(
-                          color: _primary,
-                          shape: BoxShape.circle,
-                        ),
-                        constraints:
-                            const BoxConstraints(minWidth: 16, minHeight: 16),
-                        child: Text(
-                          syncReadyCount > 99 ? '99+' : '$syncReadyCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
             GestureDetector(
               onTap: () => _showNotificationsSheet(context),
               child: Stack(
@@ -683,25 +638,78 @@ class _NotifTile extends StatelessWidget {
   }
 }
 
+// ─── Coming Soon Tab ──────────────────────────────────────────────────────────
+
+class _ComingSoonTab extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  const _ComingSoonTab({required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: _primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 38, color: _primary.withValues(alpha: 0.6)),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: _primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Coming Soon',
+                style: _inter(
+                    size: 11,
+                    weight: FontWeight.w700,
+                    color: _primary),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(label,
+                style: _manrope(
+                    size: 20,
+                    weight: FontWeight.w800,
+                    color: const Color(0xFF191C1E))),
+            const SizedBox(height: 8),
+            Text(
+              'This section is under development\nand will be available soon.',
+              style: _inter(size: 13),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Bottom Nav ───────────────────────────────────────────────────────────────
 
 class _BottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
-  final int pendingLoadsCount;
-  const _BottomNav({
-    required this.selectedIndex,
-    required this.onTap,
-    this.pendingLoadsCount = 0,
-  });
+  const _BottomNav({required this.selectedIndex, required this.onTap});
 
-  // (icon, label, navIndex)
+  // (icon, label, navIndex, comingSoon)
   static const _allItems = [
-    (Icons.dashboard_rounded,        'DASHBOARD', 0),
-    (Icons.search_rounded,           'LOADS',     1),
-    (Icons.local_shipping_outlined,  'FLEET',     4),
-    (Icons.folder_copy_outlined,     'RECORDS',   3),
-    (Icons.person_outline,           'PROFILE',   2),
+    (Icons.dashboard_rounded,        'DASHBOARD', 0, false),
+    (Icons.search_rounded,           'LOADS',     1, true),
+    (Icons.local_shipping_outlined,  'FLEET',     4, true),
+    (Icons.folder_copy_outlined,     'RECORDS',   3, false),
+    (Icons.person_outline,           'PROFILE',   2, false),
   ];
 
   @override
@@ -735,65 +743,40 @@ class _BottomNav extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: _allItems.map((item) {
-                  final (icon, label, navIdx) = item;
+                  final (icon, label, navIdx, comingSoon) = item;
                   final active = navIdx == selectedIndex;
-                  return GestureDetector(
-                    onTap: () => onTap(navIdx),
-                    behavior: HitTestBehavior.opaque,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      padding: active
-                          ? const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8)
-                          : const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: active ? _primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Icon(icon,
-                                  color: active ? Colors.white : _secondary,
-                                  size: 22),
-                              // Badge on LOADS tab
-                              if (navIdx == 1 && pendingLoadsCount > 0)
-                                Positioned(
-                                  right: -6,
-                                  top: -4,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 4, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE53935),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      pendingLoadsCount > 99
-                                          ? '99+'
-                                          : '$pendingLoadsCount',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 8,
-                                          fontWeight: FontWeight.w800),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            label,
-                            style: _inter(
-                              size: 9,
-                              weight: FontWeight.w700,
-                              color: active ? Colors.white : _secondary,
-                            ).copyWith(letterSpacing: 0.6),
-                          ),
-                        ],
+                  return Opacity(
+                    opacity: comingSoon ? 0.45 : 1.0,
+                    child: GestureDetector(
+                      onTap: () => onTap(navIdx),
+                      behavior: HitTestBehavior.opaque,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: active
+                            ? const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8)
+                            : const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: active ? _primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(icon,
+                                color: active ? Colors.white : _secondary,
+                                size: 22),
+                            const SizedBox(height: 3),
+                            Text(
+                              comingSoon ? 'SOON' : label,
+                              style: _inter(
+                                size: 9,
+                                weight: FontWeight.w700,
+                                color: active ? Colors.white : _secondary,
+                              ).copyWith(letterSpacing: 0.6),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -810,24 +793,20 @@ class _BottomNav extends StatelessWidget {
 // ─── Dashboard Tab ────────────────────────────────────────────────────────────
 
 class _DashboardTab extends ConsumerWidget {
-  final VoidCallback onViewLoads;
-  const _DashboardTab({required this.onViewLoads});
+  const _DashboardTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tripState = ref.watch(tripProvider);
-    final loadsState = ref.watch(availableLoadsProvider);
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Logistic Partner';
 
     final ongoingTrips = tripState.activeTrips;
-    final pendingLoads = loadsState.loads;
 
     return RefreshIndicator(
       color: _primary,
       onRefresh: () async {
         await ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
-        await ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
       },
       child: SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -845,17 +824,8 @@ class _DashboardTab extends ConsumerWidget {
               style: _inter(size: 13, color: _secondary)),
           const SizedBox(height: 16),
 
-          // ── Pending loads alert banner ───────────────────────────────
-          if (pendingLoads.isNotEmpty)
-            _PendingLoadsBanner(
-              count: pendingLoads.length,
-              loads: pendingLoads.take(2).toList(),
-              onViewAll: onViewLoads,
-            ),
-          if (pendingLoads.isNotEmpty) const SizedBox(height: 16),
-
-          // Search New Loads
-          _SearchLoadsButton(onTap: onViewLoads),
+          // Search New Loads — Coming Soon
+          const _SearchLoadsComingSoon(),
           const SizedBox(height: 24),
 
           // ── Fleet Status — ongoing trips with Locate button ──────────
@@ -950,19 +920,17 @@ class _PendingLoadsBanner extends StatelessWidget {
   }
 }
 
-// ─── Search New Loads Button (primary CTA) ────────────────────────────────────
+// ─── Search New Loads — Coming Soon ──────────────────────────────────────────
 
-class _SearchLoadsButton extends StatelessWidget {
-  final VoidCallback? onTap;
-  const _SearchLoadsButton({this.onTap});
+class _SearchLoadsComingSoon extends StatelessWidget {
+  const _SearchLoadsComingSoon();
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap ?? () => context.push('/fleet-manager/available-loads'),
+    return Opacity(
+      opacity: 0.55,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFFFF6B00), Color(0xFFE55C00)],
@@ -970,13 +938,6 @@ class _SearchLoadsButton extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: _primary.withValues(alpha: 0.35),
-              blurRadius: 14,
-              offset: const Offset(0, 5),
-            ),
-          ],
         ),
         child: Row(
           children: [
@@ -1010,8 +971,18 @@ class _SearchLoadsButton extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                color: Colors.white70, size: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('Coming Soon',
+                  style: _inter(
+                      size: 10,
+                      weight: FontWeight.w700,
+                      color: Colors.white)),
+            ),
           ],
         ),
       ),
@@ -3752,14 +3723,16 @@ class _RecordsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(completedTripsProvider);
-    final trips = state.trips.where((t) => t.isCompleted).toList()
+    final trips = state.trips
+        .where((t) => t.isCompleted && t.rrTripId != null && t.rrTripId!.isNotEmpty)
+        .toList()
       ..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
 
     return RefreshIndicator(
       color: _primary,
       onRefresh: () => ref
           .read(completedTripsProvider.notifier)
-          .loadTrips(statusFilter: 'completed'),
+          .loadTrips(statusFilter: 'completed', rrOnly: true),
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -3772,28 +3745,29 @@ class _RecordsTab extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Trip Records',
+                        Text('RR Web Records',
                             style: _manrope(size: 20, weight: FontWeight.w800)),
-                        Text('All completed trips',
+                        Text('Completed RR Web trips',
                             style: _inter(size: 12, color: _secondary)),
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD7F0D9),
-                      borderRadius: BorderRadius.circular(20),
+                  if (!state.isLoading)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F3FC),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${trips.length} trips',
+                        style: _inter(
+                            size: 11,
+                            weight: FontWeight.w700,
+                            color: const Color(0xFF1B6CA8)),
+                      ),
                     ),
-                    child: Text(
-                      '${trips.length} completed',
-                      style: _inter(
-                          size: 11,
-                          weight: FontWeight.w700,
-                          color: const Color(0xFF1B5E20)),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -3801,7 +3775,7 @@ class _RecordsTab extends ConsumerWidget {
           if (state.isLoading)
             const SliverFillRemaining(
               child: Center(
-                child: CircularProgressIndicator(),
+                child: CircularProgressIndicator(color: _primary),
               ),
             )
           else if (state.error != null && trips.isEmpty)
@@ -3820,7 +3794,7 @@ class _RecordsTab extends ConsumerWidget {
                     TextButton(
                       onPressed: () => ref
                           .read(completedTripsProvider.notifier)
-                          .loadTrips(statusFilter: 'completed'),
+                          .loadTrips(statusFilter: 'completed', rrOnly: true),
                       child: const Text('Retry'),
                     ),
                   ],
@@ -3829,37 +3803,45 @@ class _RecordsTab extends ConsumerWidget {
             )
           else if (trips.isEmpty)
             SliverFillRemaining(
+              hasScrollBody: false,
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.folder_copy_outlined,
-                        size: 64,
-                        color: _secondary.withValues(alpha: 0.4)),
-                    const SizedBox(height: 16),
-                    Text('No completed trips yet',
-                        style: _manrope(
-                            size: 15,
-                            weight: FontWeight.w700,
-                            color: _secondary)),
-                    const SizedBox(height: 6),
-                    Text('Completed trips will appear here',
-                        style: _inter(size: 13, color: _secondary)),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1B6CA8).withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.sync_alt_rounded,
+                            size: 32, color: Color(0xFF1B6CA8)),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('No RR Web records yet',
+                          style: _manrope(
+                              size: 15,
+                              weight: FontWeight.w700,
+                              color: _secondary)),
+                      const SizedBox(height: 6),
+                      Text('Completed RR Web trips will appear here',
+                          style: _inter(size: 13, color: _secondary),
+                          textAlign: TextAlign.center),
+                    ],
+                  ),
                 ),
               ),
             )
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: OngoingTripCard(trip: trips[i], readOnly: true),
-                  ),
-                  childCount: trips.length,
-                ),
+              sliver: SliverList.separated(
+                itemCount: trips.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, i) => RrTripCard(trip: trips[i]),
               ),
             ),
         ],
