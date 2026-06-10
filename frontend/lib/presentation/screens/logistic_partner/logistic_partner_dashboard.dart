@@ -19,6 +19,7 @@ import 'package:fleet_management/providers/available_loads_provider.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
+import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
@@ -86,7 +87,101 @@ class _LogisticPartnerDashboardState
       }
     });
     // Initial data load — runs after first frame so ref/auth are ready
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadAllData());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAllData();
+      _checkPendingRrPopup();
+    });
+  }
+
+  void _checkPendingRrPopup() {
+    final pending = ref.read(pendingRrTripNumberProvider);
+    if (pending != null) _showRrTripPopup(pending);
+  }
+
+  void _showRrTripPopup(String value) {
+    // Clear the provider immediately so it doesn't re-trigger
+    ref.read(pendingRrTripNumberProvider.notifier).state = null;
+
+    final isFailed = value.startsWith('__failed__:');
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => isFailed
+          ? AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEBEE),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.error_outline_rounded, color: Color(0xFFD32F2F), size: 32),
+                ),
+                const SizedBox(height: 16),
+                Text('Trip Created', style: _manrope(size: 15, weight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text('RR sync failed: ${value.substring('__failed__:'.length)}',
+                    style: _inter(size: 13, color: const Color(0xFF546067)),
+                    textAlign: TextAlign.center),
+              ]),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF6B00),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                    onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                    child: Text('OK', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+                  ),
+                ),
+              ],
+            )
+          : AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 32),
+                ),
+                const SizedBox(height: 16),
+                Text('Trip Synced to RR Web',
+                    style: _manrope(size: 15, weight: FontWeight.w800),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 8),
+                Text('RR Trip Number', style: _inter(size: 12, color: const Color(0xFF546067))),
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F7FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFF6B00).withOpacity(0.3)),
+                  ),
+                  child: Text(value,
+                      style: _manrope(size: 20, weight: FontWeight.w800, color: const Color(0xFFFF6B00))),
+                ),
+              ]),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF6B00),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                    onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                    child: Text('Continue', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+    );
   }
 
   /// Load all dashboard data. Called on init and whenever Dashboard tab
@@ -765,12 +860,19 @@ class _DashboardTab extends ConsumerWidget {
             ...ongoingTrips.map(
               (t) => Padding(
                 padding: const EdgeInsets.only(bottom: 14),
-                child: OngoingTripCard(
-                  trip: t,
-                  onComplete: () async {
-                    return ref.read(tripProvider.notifier).completeTrip(t.id);
-                  },
-                ),
+                child: t.rrTripId != null
+                    ? RrTripCard(
+                        trip: t,
+                        onRefresh: () => ref
+                            .read(tripProvider.notifier)
+                            .silentRefresh(statusFilter: 'ongoing,pending'),
+                      )
+                    : OngoingTripCard(
+                        trip: t,
+                        onComplete: () async {
+                          return ref.read(tripProvider.notifier).completeTrip(t.id);
+                        },
+                      ),
               ),
             ),
           const SizedBox(height: 24),

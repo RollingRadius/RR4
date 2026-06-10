@@ -193,3 +193,7 @@ final completedTripsProvider =
   final api = ref.watch(apiServiceProvider);
   return TripNotifier(api);
 });
+
+/// Holds the RR trip number to show as a success popup on the LP dashboard
+/// after trip creation. Set by CreateTripScreen, consumed + cleared by LP dashboard.
+final pendingRrTripNumberProvider = StateProvider<String?>((ref) => null);
