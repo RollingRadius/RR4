@@ -1,12 +1,10 @@
 /// Application Configuration
 /// Centralized configuration for API endpoints and app settings
+import 'package:fleet_management/core/config/server_config.dart';
+
 class AppConfig {
-  // API Configuration
-  // Production server IP: 34.127.125.215
-  // For local development, use localhost or set API_BASE_URL environment variable
-  // For Android emulator, use 10.0.2.2
-  static const String apiBaseUrl =
-      String.fromEnvironment('API_BASE_URL', defaultValue: 'http://35.244.19.78:8000');
+  // API Configuration — switch server in server_config.dart
+  static String get apiBaseUrl => ServerConfig.baseUrl;
 
   static const String apiVersion = '/api';
 
