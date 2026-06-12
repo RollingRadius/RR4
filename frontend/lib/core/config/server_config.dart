@@ -36,3 +36,4 @@ class ServerConfig {
   }
 
   static String get baseUrl => _activeConfig.baseUrl;
+}
