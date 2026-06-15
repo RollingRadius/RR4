@@ -7,9 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
-import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/data/models/notification_model.dart';
+import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 
 // ─── Typography ───────────────────────────────────────────────────────────────
 TextStyle _manrope({
@@ -59,7 +59,7 @@ class _LogisticPartnerWorkerDashboardState
     super.initState();
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending', rrWeb: true);
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
@@ -67,15 +67,15 @@ class _LogisticPartnerWorkerDashboardState
 
   void _loadData() {
     if (!mounted) return;
-    ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+    ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending', rrWeb: true);
   }
 
   void _switchNav(int index) {
     if (index == 0 && _navIndex != 0) {
-      ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+      ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending', rrWeb: true);
     }
     if (index == 1 && _navIndex != 1) {
-      ref.read(completedTripsProvider.notifier).loadTrips(statusFilter: 'completed');
+      ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
     }
     setState(() => _navIndex = index);
   }
@@ -639,7 +639,13 @@ class _WorkerHomeTab extends ConsumerWidget {
               ...ongoingTrips.map(
                 (t) => Padding(
                   padding: const EdgeInsets.only(bottom: 14),
-                  child: OngoingTripCard(trip: t, workerMode: true),
+                  child: RrTripCard(
+                    trip: t,
+                    workerMode: true,
+                    onRefresh: () => ref
+                        .read(tripProvider.notifier)
+                        .loadTrips(statusFilter: 'ongoing,pending', rrWeb: true),
+                  ),
                 ),
               ),
           ],
@@ -919,14 +925,14 @@ class _WorkerRecordsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(completedTripsProvider);
-    final trips = state.trips.where((t) => t.isCompleted).toList()
+    final trips = state.trips
       ..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
 
     return RefreshIndicator(
       color: _primary,
       onRefresh: () => ref
           .read(completedTripsProvider.notifier)
-          .loadTrips(statusFilter: 'completed'),
+          .loadTrips(rrOnly: true),
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -939,9 +945,9 @@ class _WorkerRecordsTab extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Trip Records',
+                        Text('RR Web Records',
                             style: _manrope(size: 20, weight: FontWeight.w800)),
-                        Text('All completed trips',
+                        Text('Synced trips',
                             style: _inter(size: 12, color: _secondary)),
                       ],
                     ),
@@ -954,7 +960,7 @@ class _WorkerRecordsTab extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      '${trips.length} completed',
+                      '${trips.length} synced',
                       style: _inter(
                           size: 11,
                           weight: FontWeight.w700,
@@ -985,7 +991,7 @@ class _WorkerRecordsTab extends ConsumerWidget {
                     TextButton(
                       onPressed: () => ref
                           .read(completedTripsProvider.notifier)
-                          .loadTrips(statusFilter: 'completed'),
+                          .loadTrips(rrOnly: true),
                       child: const Text('Retry'),
                     ),
                   ],
@@ -1002,13 +1008,13 @@ class _WorkerRecordsTab extends ConsumerWidget {
                         size: 64,
                         color: _secondary.withValues(alpha: 0.4)),
                     const SizedBox(height: 16),
-                    Text('No completed trips yet',
+                    Text('No synced trips yet',
                         style: _manrope(
                             size: 15,
                             weight: FontWeight.w700,
                             color: _secondary)),
                     const SizedBox(height: 6),
-                    Text('Completed trips will appear here',
+                    Text('Trips synced to RR web will appear here',
                         style: _inter(size: 13, color: _secondary)),
                   ],
                 ),
@@ -1021,7 +1027,7 @@ class _WorkerRecordsTab extends ConsumerWidget {
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) => Padding(
                     padding: const EdgeInsets.only(bottom: 14),
-                    child: OngoingTripCard(trip: trips[i], readOnly: true),
+                    child: RrTripCard(trip: trips[i], workerMode: true),
                   ),
                   childCount: trips.length,
                 ),

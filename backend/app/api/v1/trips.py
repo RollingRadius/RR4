@@ -222,6 +222,7 @@ class TripUpdate(BaseModel):
 def list_trips(
     status_filter: Optional[str] = Query(None, alias="status"),
     rr_only: bool = Query(False),
+    rr_web: bool = Query(False),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
@@ -252,11 +253,18 @@ def list_trips(
             query = query.filter(Trip.status.in_(statuses))
 
     if rr_only:
-        _rr_slip_statuses = ('loading_slip_synced', 'bilty_synced', 'pod_synced')
+        # Records: trips already synced to RR (have rr_trip_id)
         query = query.filter(
             Trip.rr_trip_id.isnot(None),
             Trip.rr_trip_id != '',
-            Trip.rr_sync_status.in_(_rr_slip_statuses),
+        )
+
+    if rr_web:
+        # Fleet status: RR web form trips not yet synced to RR
+        query = query.filter(
+            Trip.origin_rr_city_id.isnot(None),
+            Trip.origin_rr_city_id != '',
+            Trip.rr_trip_id.is_(None),
         )
 
     total = query.count()
@@ -1078,6 +1086,47 @@ async def submit_stage5(
     db.refresh(trip)
     msg = "Unloading stage updated." if was_already_submitted else "Unloading stage completed."
     return {"success": True, "message": msg, "trip": _enrich(trip, db)}
+
+
+@router.post("/trips/{trip_id}/loading-slip", status_code=200)
+async def upload_loading_slip_local(
+    trip_id: str,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    LP Worker uploads a loading slip for an RR web trip.
+    Saves the file locally only — no RR interaction, no rr_token required.
+    Sets rr_loading_slip_url on the trip.
+    """
+    import uuid as _uuid_mod
+    from pathlib import Path
+
+    user_org = _get_user_org(current_user, db)
+
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.organization_id == user_org.organization_id,
+    ).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    if not trip.origin_rr_city_id:
+        raise HTTPException(status_code=409, detail="Not an RR web trip")
+
+    file_bytes = await file.read()
+    ext = Path(file.filename or "slip.jpg").suffix or ".jpg"
+
+    trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+    trip_dir.mkdir(parents=True, exist_ok=True)
+    local_name = f"loading_slip_{_uuid_mod.uuid4().hex[:8]}{ext}"
+    (trip_dir / local_name).write_bytes(file_bytes)
+    local_url = f"/uploads/trips/{trip_id}/{local_name}"
+
+    trip.rr_loading_slip_url = local_url
+    db.commit()
+
+    return {"success": True, "local_url": local_url, "trip": trip.to_dict()}
 
 
 @router.patch("/trips/{trip_id}/draft", status_code=200)

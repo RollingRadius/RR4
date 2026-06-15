@@ -51,7 +51,11 @@ class RrTripCard extends ConsumerStatefulWidget {
   /// Called after a successful loading slip upload so the parent can refresh.
   final VoidCallback? onRefresh;
 
-  const RrTripCard({super.key, required this.trip, this.onRefresh});
+  /// When true (LP Worker): skips RR login and uploads loading slip locally
+  /// to POST /api/trips/{id}/loading-slip instead of the RR sync endpoint.
+  final bool workerMode;
+
+  const RrTripCard({super.key, required this.trip, this.onRefresh, this.workerMode = false});
 
   @override
   ConsumerState<RrTripCard> createState() => _RrTripCardState();
@@ -70,8 +74,14 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       trip.rrTripId != null ? _StepState.done : _StepState.active;
 
   _StepState get _step2State {
+    if (_uploadDone) return _StepState.done;
+    if (widget.workerMode) {
+      // Worker mode: done if local loading slip already saved
+      if (trip.rrLoadingSlipUrl != null) return _StepState.done;
+      return _StepState.active;
+    }
     const doneStatuses = ['loading_slip_synced', 'bilty_synced', 'pod_synced'];
-    if (doneStatuses.contains(trip.rrSyncStatus) || _uploadDone) return _StepState.done;
+    if (doneStatuses.contains(trip.rrSyncStatus)) return _StepState.done;
     if (trip.rrSyncStatus == 'trip_created') return _StepState.active;
     return _StepState.pending;
   }
@@ -125,9 +135,6 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   Future<void> _uploadSlip() async {
     if (_pickedSlip == null || _uploading) return;
 
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
-
     setState(() { _uploading = true; _uploadError = null; });
 
     try {
@@ -135,19 +142,31 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       final ext  = _pickedSlip!.name.split('.').last.toLowerCase();
       final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
 
-      final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(
-          _pickedSlip!.bytes,
-          filename: _pickedSlip!.name,
-          contentType: DioMediaType.parse(mime),
-        ),
-        'rr_token': session.token,
-      });
+      if (widget.workerMode) {
+        // LP Worker: local save only, no RR login needed
+        final formData = FormData.fromMap({
+          'file': MultipartFile.fromBytes(
+            _pickedSlip!.bytes,
+            filename: _pickedSlip!.name,
+            contentType: DioMediaType.parse(mime),
+          ),
+        });
+        await api.dio.post('/api/trips/${trip.id}/loading-slip', data: formData);
+      } else {
+        // RR Ops / LP: full RR sync upload
+        final session = await ensureRrSession(context, ref);
+        if (session == null || !mounted) return;
 
-      await api.dio.post(
-        '/api/rr/sync/loading-slip/${trip.id}',
-        data: formData,
-      );
+        final formData = FormData.fromMap({
+          'file': MultipartFile.fromBytes(
+            _pickedSlip!.bytes,
+            filename: _pickedSlip!.name,
+            contentType: DioMediaType.parse(mime),
+          ),
+          'rr_token': session.token,
+        });
+        await api.dio.post('/api/rr/sync/loading-slip/${trip.id}', data: formData);
+      }
 
       if (!mounted) return;
       setState(() { _uploading = false; _uploadDone = true; _pickedSlip = null; _uploadError = null; });

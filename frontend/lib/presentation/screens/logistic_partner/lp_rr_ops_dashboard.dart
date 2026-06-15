@@ -12,6 +12,7 @@ import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
+import 'package:fleet_management/providers/trip_provider.dart' show completedTripsProvider;
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _rrBlue     = Color(0xFF1B6CA8);
@@ -51,6 +52,15 @@ class LpRrOpsDashboard extends ConsumerStatefulWidget {
 
 class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   Timer? _pollTimer;
+  int _navIndex = 0;
+
+  void _switchNav(int i) {
+    if (i == 0 && _navIndex != 0) _loadData();
+    if (i == 1 && _navIndex != 1) {
+      ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
+    }
+    setState(() => _navIndex = i);
+  }
 
   @override
   void initState() {
@@ -63,11 +73,11 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
 
   void _loadData() {
     if (!mounted) return;
-    ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+    ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending', rrWeb: true);
   }
 
   void _silentRefresh() {
-    ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+    ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending', rrWeb: true);
   }
 
   void _showRrTripPopup(String value) {
@@ -180,11 +190,18 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     final tripState = ref.watch(tripProvider);
     final session   = ref.watch(rrSessionProvider);
 
-    final rrTrips = tripState.trips.where((t) => t.rrTripId != null).toList();
+    final rrTrips = tripState.trips;
 
     return Scaffold(
       backgroundColor: _bg,
-      body: RefreshIndicator(
+      bottomNavigationBar: _RrOpsBottomNav(
+        selectedIndex: _navIndex,
+        onTap: _switchNav,
+      ),
+      body: IndexedStack(
+        index: _navIndex,
+        children: [
+          RefreshIndicator(
         color: _rrBlue,
         onRefresh: () async => _loadData(),
         child: CustomScrollView(
@@ -387,6 +404,144 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
               ),
           ],
         ),
+          ),
+          const _RrOpsRecordsTab(),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Bottom Nav ───────────────────────────────────────────────────────────────
+
+class _RrOpsBottomNav extends StatelessWidget {
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+  const _RrOpsBottomNav({required this.selectedIndex, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomNavigationBar(
+      currentIndex: selectedIndex,
+      onTap: onTap,
+      selectedItemColor: _rrBlue,
+      unselectedItemColor: _secondary,
+      backgroundColor: _surface,
+      type: BottomNavigationBarType.fixed,
+      selectedLabelStyle: _inter(size: 11, weight: FontWeight.w700, color: _rrBlue),
+      unselectedLabelStyle: _inter(size: 11, color: _secondary),
+      items: const [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.dashboard_rounded),
+          label: 'Dashboard',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.history_rounded),
+          label: 'Records',
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Records Tab ─────────────────────────────────────────────────────────────
+
+class _RrOpsRecordsTab extends ConsumerWidget {
+  const _RrOpsRecordsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(completedTripsProvider);
+    final trips = state.trips
+      ..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
+
+    return RefreshIndicator(
+      color: _rrBlue,
+      onRefresh: () => ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('RR Web Records',
+                            style: _manrope(size: 20, weight: FontWeight.w800)),
+                        Text('Synced trips', style: _inter(size: 12)),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD7F0D9),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${trips.length} synced',
+                      style: _inter(size: 11, weight: FontWeight.w700, color: const Color(0xFF1B5E20)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (state.isLoading)
+            const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
+          else if (state.error != null && trips.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 48, color: Color(0xFFD32F2F)),
+                    const SizedBox(height: 12),
+                    Text(state.error!, style: _inter(size: 13), textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    TextButton(
+                      onPressed: () => ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (trips.isEmpty)
+            SliverFillRemaining(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.folder_copy_outlined, size: 64, color: _secondary.withValues(alpha: 0.4)),
+                    const SizedBox(height: 16),
+                    Text('No synced trips yet',
+                        style: _manrope(size: 15, weight: FontWeight.w700, color: _secondary)),
+                    const SizedBox(height: 6),
+                    Text('Trips synced to RR web will appear here',
+                        style: _inter(size: 13)),
+                  ],
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (ctx, i) => Padding(
+                    padding: const EdgeInsets.only(bottom: 14),
+                    child: RrTripCard(trip: trips[i]),
+                  ),
+                  childCount: trips.length,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -152,6 +152,7 @@ class TripModel {
   final String? rrTripNumber;
   final String? rrParcelId;
   final String? rrBookingId;
+  final String? rrLoadingSlipUrl;
   final String? rrSyncStatus;
   final String? rrSyncError;
   final String? rrSyncedAt;
@@ -284,6 +285,7 @@ class TripModel {
     this.rrTripNumber,
     this.rrParcelId,
     this.rrBookingId,
+    this.rrLoadingSlipUrl,
     this.rrSyncStatus,
     this.rrSyncError,
     this.rrSyncedAt,
@@ -420,6 +422,7 @@ class TripModel {
       rrTripNumber:            json['rr_trip_number'] as String?,
       rrParcelId:              json['rr_parcel_id'] as String?,
       rrBookingId:             json['rr_booking_id'] as String?,
+      rrLoadingSlipUrl:        json['rr_loading_slip_url'] as String?,
       rrSyncStatus:            json['rr_sync_status'] as String?,
       rrSyncError:             json['rr_sync_error'] as String?,
       rrSyncedAt:              json['rr_synced_at'] as String?,

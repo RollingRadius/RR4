@@ -57,7 +57,7 @@ class TripNotifier extends StateNotifier<TripState> {
 
   /// First load: shows full loading indicator.
   /// Subsequent background polls: silent refresh (isRefreshing only).
-  Future<void> loadTrips({String? statusFilter, bool rrOnly = false, bool silent = false}) async {
+  Future<void> loadTrips({String? statusFilter, bool rrOnly = false, bool rrWeb = false, bool silent = false}) async {
     final firstLoad = state.trips.isEmpty && !silent;
     if (firstLoad) {
       state = state.copyWith(isLoading: true, error: null);
@@ -71,6 +71,7 @@ class TripNotifier extends StateNotifier<TripState> {
         queryParameters: {
           if (statusFilter != null) 'status': statusFilter,
           if (rrOnly) 'rr_only': true,
+          if (rrWeb) 'rr_web': true,
         },
       );
       final data = resp.data as Map<String, dynamic>;
@@ -93,8 +94,8 @@ class TripNotifier extends StateNotifier<TripState> {
   }
 
   /// Called by the 30-second timer — never shows a loading indicator.
-  Future<void> silentRefresh({String? statusFilter, bool rrOnly = false}) =>
-      loadTrips(statusFilter: statusFilter, rrOnly: rrOnly, silent: true);
+  Future<void> silentRefresh({String? statusFilter, bool rrOnly = false, bool rrWeb = false}) =>
+      loadTrips(statusFilter: statusFilter, rrOnly: rrOnly, rrWeb: rrWeb, silent: true);
 
   /// Cancel a trip (soft-cancel: status → 'cancelled', record kept in DB).
   /// The cancelled trip will appear in the Cancelled filter on the dashboard.
