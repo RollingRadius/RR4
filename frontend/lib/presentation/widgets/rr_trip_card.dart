@@ -621,7 +621,20 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       );
     }
 
-    // Active — RR Ops / LP Owner mode: show worker's uploaded slip + sync button
+    // Active — RR Ops / LP Owner mode:
+    // Can pick their own file (triggers full RR sync) OR sync the worker's saved file.
+    final hasWorkerSlip = trip.rrLoadingSlipUrl != null;
+    final canUpload     = _pickedSlip != null || hasWorkerSlip;
+    final isBusy        = _uploading || _syncing;
+
+    void onUploadPressed() {
+      if (_pickedSlip != null) {
+        _uploadSlip();       // picked new file → direct RR sync
+      } else {
+        _syncFromLocal();    // use worker's saved file → sync from local
+      }
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -636,18 +649,15 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
             decoration: BoxDecoration(
                 color: _rrBlueBg, borderRadius: BorderRadius.circular(20)),
             child: Text(
-              trip.rrLoadingSlipUrl != null ? 'Ready' : 'Pending',
-              style: _inter(
-                size: 11,
-                weight: FontWeight.w600,
-                color: _rrBlue,
-              ),
+              hasWorkerSlip ? 'Ready' : 'Pending',
+              style: _inter(size: 11, weight: FontWeight.w600, color: _rrBlue),
             ),
           ),
         ]),
         const SizedBox(height: 12),
-        if (trip.rrLoadingSlipUrl != null) ...[
-          // Show tappable thumbnail of worker-uploaded slip
+
+        // Worker's saved slip thumbnail (if exists)
+        if (hasWorkerSlip && _pickedSlip == null) ...[
           GestureDetector(
             onTap: () => _showFullImage(trip.rrLoadingSlipUrl!),
             child: ClipRRect(
@@ -658,62 +668,97 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
                 errorBuilder: (_, __, ___) => Container(
                   width: 72, height: 72,
                   decoration: BoxDecoration(
-                      color: _rrBlueBg,
-                      borderRadius: BorderRadius.circular(8)),
-                  child: const Icon(Icons.image_outlined,
-                      color: _rrBlue, size: 28),
+                      color: _rrBlueBg, borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.image_outlined, color: _rrBlue, size: 28),
                 ),
               ),
             ),
           ),
-        ] else ...[
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFB),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFCDD0D5)),
-            ),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              const Icon(Icons.hourglass_empty_rounded,
-                  color: _secondary, size: 24),
-              const SizedBox(height: 6),
-              Text('Waiting for loading slip from field executive',
-                  style: _inter(size: 12), textAlign: TextAlign.center),
-            ]),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: _showPickerSheet,
+            child: Text('Replace with new photo',
+                style: _inter(size: 12, color: _rrBlue, weight: FontWeight.w500)),
           ),
         ],
+
+        // New file picked preview
+        if (_pickedSlip != null)
+          Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.memory(_pickedSlip!.bytes,
+                  width: 72, height: 72, fit: BoxFit.cover),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(_pickedSlip!.name,
+                    style: _inter(size: 12, color: _onSurface),
+                    overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Text(
+                  '${(_pickedSlip!.bytes.lengthInBytes / 1024).toStringAsFixed(1)} KB',
+                  style: _inter(size: 11),
+                ),
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () => setState(() { _pickedSlip = null; _uploadError = null; }),
+                  child: Text('Remove',
+                      style: _inter(size: 12, color: _errorClr, weight: FontWeight.w500)),
+                ),
+              ]),
+            ),
+          ]),
+
+        // File picker area (when no worker slip and nothing picked yet)
+        if (!hasWorkerSlip && _pickedSlip == null)
+          GestureDetector(
+            onTap: _showPickerSheet,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              decoration: BoxDecoration(
+                color: _rrBlueBg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _rrBlue.withOpacity(0.3), width: 1.5),
+              ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.add_photo_alternate_outlined, color: _rrBlue, size: 28),
+                const SizedBox(height: 6),
+                Text('Tap to attach loading slip',
+                    style: _inter(size: 13, color: _rrBlue)),
+                Text('Camera or Gallery',
+                    style: _inter(size: 11, color: _rrBlue.withOpacity(0.7))),
+              ]),
+            ),
+          ),
+
         if (_uploadError != null) ...[
           const SizedBox(height: 8),
           Text(_uploadError!, style: _inter(size: 12, color: _errorClr)),
         ],
-        if (trip.rrLoadingSlipUrl != null) ...[
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              style: FilledButton.styleFrom(
-                backgroundColor: _rrBlue,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              onPressed: !_syncing ? _syncFromLocal : null,
-              icon: _syncing
-                  ? const SizedBox(
-                      width: 16, height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.cloud_upload_outlined, size: 18),
-              label: Text(
-                _syncing ? 'Uploading…' : 'Upload Loading Slip',
-                style: _inter(
-                    size: 14, weight: FontWeight.w600, color: Colors.white),
-              ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: canUpload ? _rrBlue : _rrBlue.withOpacity(0.4),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            onPressed: canUpload && !isBusy ? onUploadPressed : null,
+            icon: isBusy
+                ? const SizedBox(
+                    width: 16, height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.cloud_upload_outlined, size: 18),
+            label: Text(
+              isBusy ? 'Uploading…' : 'Upload Loading Slip',
+              style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white),
             ),
           ),
-        ],
+        ),
       ]),
     );
   }
