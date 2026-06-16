@@ -1236,6 +1236,100 @@ async def post_loading_slip(
     return {"success": True, "rr_file_id": rr_file_id, "local_url": local_url, "trip": trip.to_dict()}
 
 
+@router.post("/sync/loading-slip-from-local/{trip_id}", summary="Sync LP Worker's loading slip to RR")
+async def sync_loading_slip_from_local(
+    trip_id: str,
+    rr_token: str = Form(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    RR Ops / LP Owner triggers sync of a loading slip already saved locally by LP Worker.
+    1. Reads file from trip.rr_loading_slip_url on disk
+    2. Uploads to RR /files → gets rr_file_id
+    3. Calls RR /post_loading_slip
+    4. Updates rr_loading_slip_file_id, rr_sync_status = loading_slip_synced
+    """
+    import datetime as _dt
+    from pathlib import Path
+    from app.models import UserOrganization
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.organization_id == user_org.organization_id,
+    ).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    if not trip.rr_trip_id:
+        raise HTTPException(status_code=409, detail="Trip has not been synced to RR yet")
+    if not trip.rr_loading_slip_url:
+        raise HTTPException(status_code=409, detail="No loading slip uploaded yet. LP Worker must upload first.")
+
+    file_path = Path(settings.UPLOAD_DIR) / trip.rr_loading_slip_url[len("/uploads/"):]
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Loading slip file not found on server")
+
+    file_bytes = file_path.read_bytes()
+    file_name  = file_path.name
+    mime_type  = mimetypes.guess_type(file_name)[0] or "image/jpeg"
+    auth_hdr   = {"Authorization": f"Bearer {rr_token}"}
+
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+        try:
+            files_resp = await client.post(
+                f"{settings.RR_API_BASE}/files",
+                files={"file": (file_name, file_bytes, mime_type)},
+                data={"file_name": file_name},
+                headers=auth_hdr,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"RR /files upload failed: {exc}")
+
+        if files_resp.status_code not in (200, 201):
+            raise HTTPException(
+                status_code=502,
+                detail=f"RR /files returned {files_resp.status_code}: {files_resp.text[:200]}",
+            )
+
+        rr_file_id = files_resp.json().get("_id")
+        if not rr_file_id:
+            raise HTTPException(status_code=502, detail="RR /files response missing _id")
+
+        try:
+            slip_resp = await client.post(
+                f"{settings.RR_API_BASE}/post_loading_slip",
+                json={"trip_id": trip.rr_trip_id, "loading_slip": rr_file_id},
+                headers={**auth_hdr, "Content-Type": "application/json"},
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail=f"RR /post_loading_slip failed: {exc}")
+
+        if slip_resp.status_code not in (200, 201):
+            raise HTTPException(
+                status_code=502,
+                detail=f"RR /post_loading_slip returned {slip_resp.status_code}: {slip_resp.text[:200]}",
+            )
+
+    trip.rr_loading_slip_file_id = rr_file_id
+    trip.s2_loading_slip_url     = trip.rr_loading_slip_url
+    trip.rr_sync_status          = "loading_slip_synced"
+    trip.rr_synced_at            = _dt.datetime.utcnow()
+    db.commit()
+
+    logger.info(
+        f"[Loading Slip From Local] {trip.trip_number} -> rr_file_id={rr_file_id}, status=loading_slip_synced"
+    )
+
+    return {"success": True, "rr_file_id": rr_file_id, "status": "loading_slip_synced", "trip": trip.to_dict()}
+
+
 # ── Bulk sync trigger ─────────────────────────────────────────────────────────
 
 class BulkSyncRequest(BaseModel):

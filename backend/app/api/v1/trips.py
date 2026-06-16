@@ -260,11 +260,9 @@ def list_trips(
         )
 
     if rr_web:
-        # Fleet status: RR web form trips not yet synced to RR
+        # Fleet status: RR web form trips with loading slip pending
         query = query.filter(
-            Trip.origin_rr_city_id.isnot(None),
-            Trip.origin_rr_city_id != '',
-            Trip.rr_trip_id.is_(None),
+            Trip.rr_sync_status == 'trip_created',
         )
 
     total = query.count()

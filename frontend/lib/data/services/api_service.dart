@@ -5,6 +5,7 @@ import 'package:fleet_management/core/config/app_config.dart';
 /// Handles HTTP requests with error handling and token management
 class ApiService {
   late final Dio _dio;
+  String get baseUrl => AppConfig.apiBaseUrl;
 
   Future<bool> Function()? _onRefresh;
   Future<void> Function()? _onLogout;
