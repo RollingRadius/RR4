@@ -801,7 +801,10 @@ class _DashboardTab extends ConsumerWidget {
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Logistic Partner';
 
-    final ongoingTrips = tripState.activeTrips;
+    // Exclude RR trips that have moved past trip_created — those belong in Records.
+    final ongoingTrips = tripState.activeTrips
+        .where((t) => t.rrTripId == null || t.rrSyncStatus == 'trip_created')
+        .toList();
 
     return RefreshIndicator(
       color: _primary,
