@@ -27,8 +27,19 @@ class ApiService {
       followRedirects: false,
       validateStatus: (status) => status != null && status < 400,
       headers: {
-        'Content-Type': 'application/json',
         'Accept': 'application/json',
+      },
+    ));
+
+    // FormData interceptor: remove Content-Type so the browser sets it
+    // automatically with the correct multipart boundary on Flutter Web.
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) {
+        if (options.data is FormData) {
+          options.headers.remove(Headers.contentTypeHeader);
+          options.contentType = null;
+        }
+        handler.next(options);
       },
     ));
 

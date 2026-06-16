@@ -1,597 +1,932 @@
-# RR `create_trip` — Deep Architecture
+# POST /create_trip — Complete Deep Analysis
 
-## Overview
+File: trips/app.py:13863
+Auth: @requires_auth("resource") + @auth_resource("trips")
 
-`POST /create_trip` is an **orchestrator endpoint** in the RR backend (`rrbc-api/app/trips/app.py`).
-It does not do one large DB write — it calls **6 to 9 internal RR APIs in sequence**, each independently usable from the frontend.
-
-All internal calls use the same JWT token from the incoming `Authorization` header:
-
-```python
-token = request.headers.get("Authorization", "").split(" ")[-1]
-headers = {"Authorization": f"Bearer {token}"}
-URL = os.getenv("API_URL")   # e.g. https://35.244.19.78:8042/
-```
-
-**RR branch:** `test/release-3.18.3.7`
-
-### Fix History
-
-| Commit | Date | Fix |
-|--------|------|-----|
-| `a25eb588` | May 2026 | JWT auth added to RR — but `create_trip` internal calls still used legacy MD5 token → broke |
-| `e6536685` | June 3 2026 | Fixed: internal calls now use incoming JWT token |
-| `37cf494c` | June 3 2026 | Fixed: Redis cache invalidated after Step 4 write → Step 5 now reads fresh `last_bid` |
-
-`create_trip` is **fully functional** on `test/release-3.18.3.7` as of June 3 2026.
+This is a custom orchestration endpoint. It is not a simple Eve insert. It chains 8 sequential internal sub-API calls, uses the caller's Bearer token for every one of them, and touches 10 MongoDB collections across the full execution.
 
 ---
+## Request Body Fields
 
-## 3.6 vs 3.7 — Complete Diff
-
-### Only 3 lines changed that affect `create_trip` directly
-
-**`trips/app.py` — Bug 1 (JWT token):**
-```python
-# 3.6:  token = login_user_record.get("token")          ← legacy DB field, expired/wrong
-# 3.7:  token = request.headers.get("Authorization", "").split(" ")[-1]   ← incoming JWT ✓
+```json
+{
+  "consignor_company_id":      "ObjectId — mandatory",
+  "consignee_company_id":      "ObjectId — optional",
+  "vehicle_id":                "ObjectId — mandatory",
+  "vehicle_provider_id":       "ObjectId — mandatory (company or user)",
+  "driver_id":                 "ObjectId — mandatory",
+  "handled_by":                "ObjectId — optional, defaults to login user",
+  "material":                  "ObjectId — mandatory",
+  "pickup_city":               "ObjectId — mandatory",
+  "unload_city":               "ObjectId — mandatory",
+  "weight":                    "float — mandatory",
+  "weight_unit":               "enum string — mandatory",
+  "freight_amount":            "float — mandatory",
+  "invoice_value":             "float — mandatory",
+  "booking_amount":            "float — mandatory",
+  "loading_amount":            "float — optional, default 0",
+  "unloading_amount":          "float — optional, default 0",
+  "diesel_charges":            "float — optional, default 0",
+  "advance_amount":            "float — optional, default 0",
+  "consignor_address_1":       "string — optional",
+  "consignor_address_pin_code":"int — optional",
+  "consignee_address_1":       "string — optional",
+  "consignee_address_pin_code":"int — optional",
+  "bilty_number":              "string — optional",
+  "eway_bill_number":          "string — optional",
+  "invoice_number":            "string — optional",
+  "actual_kanta_weight":       "float — optional",
+  "depot_code":                "string — optional",
+  "vehicle_entry_time":        "datetime string — optional",
+  "vehicle_exit_time":         "datetime string — optional",
+  "back_entry_date":           "datetime string — optional, backdates trip",
+  "data_entry":                "bool — optional, bypasses SMS/notifications",
+  "force_create":              "bool — optional, bypasses duplicate check"
+}
 ```
 
-**`trips/bidding.py` — Bug 2 (Redis cache invalidation):**
+---
+## Phase 1 — Input Validation (All Direct MongoDB Queries)
+
+All of these run before any write. Collections are opened at function start: companies, material_types, vehicles, trips, parcels, potential_vehicles, purchase_orders, users, cities, bilty.
+
+---
+### Step 1.1 — Consignee Company (Optional)
+
+```
+companies_dbh.find_one({"_id": ObjectId(consignee_company_id)})
+```
+- Extracts receiver_name = record["name"]
+- Loops through record["identities"] to find entry where id_name == "GST" → sets receiver_gst
+- If ID provided but record not found → 400
+- If not provided → receiver_name = None, receiver_gst = None (allowed)
+
+---
+### Step 1.2 — Consignor Company (Mandatory)
+
+```
+companies_dbh.find_one({"_id": ObjectId(consignor_company_id)})
+```
+- Extracts sender_name and loops identities for GSTIN same way
+- If not provided or not found → 400
+
+---
+### Step 1.3 — Transporter (Hardcoded lookup, not from request)
+
+```
+companies_dbh.find_one({"name": "RollingRadius Logistics Pvt. Ltd."})
+```
+- Transporter is always RR — the vehicle_provider_id in the request is the vehicle owner, not the transporter
+- Sets transporter_company_id — used as created_by_company on the trip and parcel
+- If RR company not found in DB → 400
+
+---
+### Step 1.4 — Vehicle
+
+```
+vehicles_dbh.find_one({"_id": ObjectId(vehicle_id)})
+```
+- Fetches full vehicle record — needed later for crew, identities (RC number), and created_by_company (to determine vehicle_relation)
+- If not found → 400
+
+---
+### Step 1.5 — Vehicle Provider (Two-step lookup)
+
 ```python
-# 3.6: no invalidation after find_one_and_update
-# 3.7: added these 3 lines in submit_offline_bid_by_trip_owner:
-from cache.cache_manager import invalidate_document          # (import at top)
-invalidate_document("potential_vehicles", potential_vehicle_record.get("_id"))
-                                                             # (after find_one_and_update)
+# Try company first
+companies_dbh.find_one({"_id": ObjectId(vehicle_provider_id)})
+# If no company, try user
+users_dbh.find_one({"_id": ObjectId(vehicle_provider_id)})
+```
+- Sets either vehicle_provider_company_id or vehicle_provider_user_id
+- This is compared later against vehicle_record["created_by_company"] to determine if vehicle is Own or Market
+- If neither found → 400
+
+---
+### Step 1.6 — Cities (Both Mandatory)
+
+```
+cities_dbh.find_one({"_id": ObjectId(pickup_city)})
+cities_dbh.find_one({"_id": ObjectId(unload_city)})
+```
+- Extracts pickup_city_id and unload_city_id (ObjectIds)
+- Either missing or invalid → 400
+
+---
+### Step 1.7 — Driver
+
+```
+users_dbh.find_one({"_id": ObjectId(driver_id), "_deleted": False})
+```
+- Must exist and not be soft-deleted
+- Mandatory → 400 if missing
+
+---
+### Step 1.8 — Trip Handler
+
+```
+users_dbh.find_one({"_id": ObjectId(handled_by), "_deleted": False})
+```
+- Optional — if not provided, handled_by = login_user_record["_id"] (the calling user)
+
+---
+### Step 1.9 — Driver Assignment (First DB Write — before any sub-API)
+
+```python
+vehicle_crew = vehicle_record.get("crew", [])
+# Remove existing Driver entry if present
+for crew in vehicle_crew:
+    if crew["position"] == "Driver":
+        vehicle_crew.remove(crew); break
+# Append new driver
+vehicle_crew.append({"worker": driver_id, "position": "Driver"})
+vehicles_dbh.update_one({"_id": vehicle_id}, {"$set": {"crew": vehicle_crew}})
+```
+- Directly replaces the Driver slot on the vehicle's crew array
+- Happens before trip is created — so if trip creation fails, vehicle still has the driver assigned
+
+---
+### Step 1.10 — Material
+
+```
+material_types_dbh.find_one({"_id": ObjectId(material)})
+```
+- Mandatory → 400 if missing
+
+---
+### Step 1.11 — Numeric Fields Parsing
+
+```python
+weight = float(body_params.get("weight"))
+weight_unit  # validated against QuantityUnit enum values
+freight_amount = float(body_params.get("freight_amount"))
+invoice_value  = float(body_params.get("invoice_value"))
+booking_amount = float(body_params.get("booking_amount"))
+loading_amount   = float(...) or 0.0
+unloading_amount = float(...) or 0.0
+advance_amount   = float(...) or 0.0
+diesel_charges   = float(...) or 0.0
+```
+- weight_unit must be a valid QuantityUnit enum value → 400 if not
+- bilty_number is uppercased if provided
+- invoice_number is uppercased if provided
+- depot_code is stripped and uppercased if provided
+
+---
+### Step 1.12 — Bilty Uniqueness Check
+
+```
+parcels_dbh.find_one({"documents.bilty": bilty_number})
+```
+- Queries documents.bilty field on parcels collection
+- If already used in any parcel anywhere → 400 with "bilty_number already exists"
+- Only runs if bilty_number is provided
+
+---
+### Step 1.13 — Duplicate Trip Check (_check_duplicate_trip_in_db)
+
+File: trips/app.py:13818
+Skipped entirely if force_create: true is in body.
+
+```python
+# Convert date to IST day boundaries, then UTC for MongoDB
+date_local = ist_timezone.localize(datetime.strptime(date_str[:10], "%Y-%m-%d"))
+day_start  = date_local.replace(hour=0,  ...).astimezone(pytz.utc)
+day_end    = date_local.replace(hour=23, ...).astimezone(pytz.utc)
+
+# If no back_entry_date, uses today in IST
+
+parcels_dbh.count_documents({
+    "_deleted": False,
+    "unload_postal_address.city": ObjectId(unload_city_id),
+    "_created": {"$gte": day_start, "$lte": day_end},
+    "created_by_company": ObjectId(transporter_company_id),
+    "$or": [
+        {"sender.sender_company": ObjectId(consignor_company_id)}
+    ]
+})
+```
+- Checks if a parcel already exists on the same day, for the same consignor, to the same unload city, under the same transporter company
+- If count > 0 → returns 409:
+
+```json
+{
+  "statusText": "duplicate_trip",
+  "message": "A trip with the same date, consignor, and unload city already exists (N found). Pass force_create: true to create anyway.",
+  "exists": true,
+  "count": N
+}
 ```
 
-### Entire Redis Cache Layer is new in 3.7
+---
+## Phase 2 — Sub-API Orchestration
 
-`cache/` module (6 new files) — two-layer caching:
-- **Layer 1 (HTTP response cache):** `before_request`/`after_request` hooks in `app.py`. Only for static collections with `http_cache: True`.
-- **Layer 2 (document cache):** `apply_cache_proxy(app)` wraps Eve's DB layer — `find_one({"_id": X})` auto-served from Redis for cached collections.
+All calls use: `headers = {"Authorization": f"Bearer {token}"}` and `URL = os.getenv("API_URL")`
 
-**Cache config (TTL / strategy):**
-
-| Collection | Strategy | TTL | HTTP cache? |
-|-----------|----------|-----|------------|
-| `cities` | bulk | 3h | ✓ |
-| `districts` | bulk | 6h | ✓ |
-| `states`, `countries` | bulk | 24h | ✓ |
-| `vehicle_body_types`, `vehicle_body_models`, `material_types` | bulk | 6h | ✓ |
-| `roles` | bulk | 24h | ✓ |
-| `users` | individual | 5m | ✗ |
-| `companies` | individual | 10m | ✗ |
-| `vehicles` | individual | 10m | ✗ |
-| `potential_vehicles` | individual | 5m | ✗ |
-
-HTTP cache is OFF for transactional collections — caching HTTP responses would bypass Eve auth (before_request returns early, `g.authh` never set → "No Company Found" errors).
-
-### What is IDENTICAL in 3.6 and 3.7
-
-The **two direct MongoDB writes** in the `create_trip` orchestrator are byte-for-byte identical:
+---
+### Sub-API 1: POST /trips
 
 ```python
-# After Step 4 — advance_amount direct write (same in both):
+trip_post_response = requests.post(URL + "trips", data=trip_payload, headers=headers, verify=False)
+```
+
+Payload sent:
+```json
+{
+  "handled_by":        "<handled_by_user_id>",
+  "created_by":        "<login_user_id>",
+  "created_by_company":"<rr_transporter_company_id>",
+  "source":            "<login_source>",
+  "back_entry_date":   "...",
+  "data_entry":        true
+}
+```
+
+On failure → returns 400. Nothing to roll back yet (driver crew write already happened).
+
+On success → extracts trip_id = ObjectId(response["_id"])
+
+**Hook: before_insert_trips (hooks.py:112)**
+
+Fires inside the Eve resource before the MongoDB insert.
+
+a) Injects all 12 trip stages:
+```python
+document["trip_stages"] = [
+  {"trip_stage": "ParcelInfo",            "start_datetime": datetime.now(UTC)},
+  {"trip_stage": "Bidding",               "start_datetime": None},
+  {"trip_stage": "VehicleBooking",        "start_datetime": None},
+  {"trip_stage": "Loading",               "start_datetime": None},
+  {"trip_stage": "DocumentCollection",    "start_datetime": None},
+  {"trip_stage": "Enroute",               "start_datetime": None},
+  {"trip_stage": "Unloading",             "start_datetime": None},
+  {"trip_stage": "ClearBalance",          "start_datetime": None},
+  {"trip_stage": "OriginalPODSubmission", "start_datetime": None},
+  {"trip_stage": "PODInvoiceClearance",   "start_datetime": None},
+  {"trip_stage": "TripCompleted",         "start_datetime": None},
+  {"trip_stage": "TripCanceled",          "start_datetime": None},
+]
+```
+Only ParcelInfo gets datetime.now(UTC). All others are None until that stage is reached.
+
+b) Generates trip_number:
+
+If created_by_company is set (normal case with RR as transporter):
+```python
+company_record = companies_dbh.find_one({"_id": ObjectId(created_by_company)})
+current_counter = company_record["book_counter"]["trip"]  # e.g. "RR-1234"
+new_counter = increment_trip_numeric_part(current_counter)  # → "RR-1235"
+document["trip_number"] = new_counter
+# Atomically updates counter on company
+companies_dbh.update_one({"_id": company_id}, {"$set": {"book_counter.trip": new_counter}})
+```
+
+If no company (personal trip):
+```python
+counters_dbh.find_one_and_update(
+    {"category": "RandomSequence"},
+    {"$inc": {"next_sequence": 1}}
+)
+document["trip_number"] = f"trip{sequence}"
+```
+
+**Hook: actions_after_insert_trip (hooks.py:135)**
+
+Fires after Eve inserts the document.
+
+```python
+if document.get("back_entry_date"):
+    trips_dbh.update_one(
+        {"_id": document["_id"]},
+        {"$set": {"_created": document["back_entry_date"]}}
+    )
+```
+Overwrites Eve's auto-set _created timestamp with the back-entry date. This is how historical trip creation works.
+
+---
+### Sub-API 2: POST /parcels
+
+```python
+parcel_post_response = requests.post(URL + "parcels", json=parcel_payload, headers=headers, verify=False)
+```
+
+Payload sent:
+```json
+{
+  "trip_id":                "<trip_id>",
+  "created_by_company":     "<rr_transporter_company_id>",
+  "pickup_postal_address":  {"city": "<city_id>", "address_line_1": "...", "pin": 123456},
+  "unload_postal_address":  {"city": "<city_id>", "address_line_1": "...", "pin": 123456},
+  "quantity":               22.5,
+  "quantity_unit":          "TONNES",
+  "material_type":          "<material_id>",
+  "cost":                   150000,
+  "sender": {
+    "sender_company": "<consignor_company_id>",
+    "name":           "Berger Paints India Limited",
+    "gstin":          "27AAACB2894C1ZY"
+  },
+  "receiver": {
+    "receiver_company": "<consignee_company_id>",
+    "name":             "...",
+    "gstin":            "..."
+  },
+  "documents.bilty":                    "BIL-1234",
+  "documents.eway_bill.number":         "EWB123",
+  "documents.consignor_invoice.number": "INV-001",
+  "loading": {
+    "truck_reach_datetime": "...",
+    "end_datetime":         "..."
+  },
+  "actual_kanta_weight":   {"weight": 22.1, "weight_unit": "TONNES"},
+  "depot_code":             "DEP001",
+  "source":                "<login_source>",
+  "back_entry_date":        "..."
+}
+```
+
+On failure → rolls back:
+```python
+trips_dbh.delete_many({"_id": trip_id})
+```
+Returns 400 with _issues (Eve validation errors) and trip_id.
+
+On success → parcel_id = ObjectId(response["_id"])
+
+**Hook: before_insert_parcel (parcels/hooks.py:44)**
+
+```python
+# Since trip_id IS provided (by create_trip):
+trips.find_one({"_id": ObjectId(document["trip_id"])}, {"_id": 1})
+# If trip not found → abort(400, "Invalid trip")
+
+# Then:
+verify_back_date_of_parcel(document, trip_id)
+```
+
+verify_back_date_of_parcel (parcels/hooks.py:73):
+```python
+trip_record = get_document_from_db_by_id("trips", trip_id)
+if parcel["back_entry_date"] < trip_record["_created"]:
+    abort(400, "parcel back_entry_date cannot be less than trip creation date")
+if parcel["back_entry_date"] > datetime.now(UTC):
+    abort(400, "parcel back_entry_date cannot be greater than current datetime")
+```
+
+> Note: If trip_id is NOT in the parcel payload (direct POST /parcels from the frontend form), the hook calls create_trip_new() which auto-creates a blank trip first. But in create_trip, the trip_id is always provided, so this path is skipped.
+
+**Hook: after_inserted_parcel (parcels/hooks.py:97)**
+
+```python
+# Backdate parcel _created if back_entry_date provided
+if document.get("back_entry_date"):
+    parcels_dbh.update_one({"_id": parcel_id}, {"$set": {"_created": document["back_entry_date"]}})
+
+# Rebuild trip search index
+trip_index_dbh.delete_one({"trip_id": document["trip_id"]})
+add_parcel_to_trip_index(document["trip_id"])
+```
+add_parcel_to_trip_index builds a denormalized trip_indexes document for fast search/filtering across trips.
+
+Directly after parcel creation, create_trip also writes freight charges to the parcel:
+```python
+parcels_dbh.update_one(
+    {"_id": parcel_id},
+    {"$set": {"charges.freight_charges": freight_amount}}
+)
+```
+
+---
+### Sub-API 3: POST /v2/save_potential_vehicle_to_be_hired
+
+File: bidding.py:877
+
+```python
+potential_vehicle_response = requests.post(
+    URL + "v2/save_potential_vehicle_to_be_hired",
+    json={"vehicle_id": str(vehicle_id), "trip_id": str(trip_id),
+          "participant_company_id": str(vehicle_provider_company_id)
+          # OR "participant_user_id": str(vehicle_provider_user_id)
+    },
+    headers=headers, verify=False
+)
+```
+
+Queries inside this function:
+```
+get_document_from_db_by_id("vehicles", vehicle_id)      # re-validates vehicle
+companies_dbh.find_one({"_id": ObjectId(participant_company_id)})  # re-validates provider
+get_document_from_db_by_id("trips", trip_id)             # fetches trip for stage check + auth
+```
+
+Stage guard:
+```python
+if trip_stage not in ["ParcelInfo", "Bidding", "VehicleBooking", "TripCanceled"]:
+    return 400  # "Trip has moved to further stages, can't add potential vehicles now"
+```
+
+Bidding live guard:
+```python
+if trip_record.get("bidding") and is_bidding_live(trip_record):
+    return 400  # "Cannot add participants once bidding has started"
+```
+
+Existing potential vehicle check:
+```python
+potential_vehicles_dbh.find_one({
+    "trip_id": trip_record["_id"],
+    "_deleted": False,
+    "vehicle_owner_company_id": vehicle_record["created_by_company"]
+    # OR "vehicle_owner_user_id": ...
+})
+```
+- If found with status Removed → 400 (can't re-add)
+- If found with status Interested/ToBeHired/BiddingRequested → updates existing record instead of inserting new one
+- If not found → inserts new potential_vehicle
+
+Insert (new potential vehicle):
+```python
+post_internal("potential_vehicles", {
+    "trip_id":                     trip_record["_id"],
+    "vehicle":                     vehicle_record["_id"],
+    "vehicle_status":              "ToBeHired",
+    "flags.to_be_hired":           datetime.now(UTC),
+    "all_shortlisted_vehicle":     [{"vehicle": vehicle_id, "datetime": now}],
+    "vehicle_owner_company_id":    provider_company_id
+    # OR "vehicle_owner_user_id":  provider_user_id
+})
+```
+
+**Hook: before_insert_potential_vehicle (potential_vehicles/hooks.py)**
+
+Fires on insert — generates the `booking_id` integer counter:
+```python
+updated_counter = get_next_counter(enum.CountersCategory.VehicleBooking.value)  # "vehicle booking"
+if updated_counter:
+    booking_id = updated_counter
+document.update({"booking_id": booking_id})
+```
+This is the integer returned as `booking_id` in the final create_trip response. Stored as `rr_booking_id` in RR4.
+
+Then calls update_vehicle_relation(potential_vehicle_id, vehicle_record):
+```python
+# From potential_vehicle record: get participant (provider)
+participant = pv_record["vehicle_owner_company_id"] or pv_record["vehicle_owner_user_id"]
+# From vehicle record: get owner
+vehicle_owner = vehicle_record["created_by_company"] or vehicle_record["created_by"]
+
+if vehicle_owner == participant:
+    vehicle_relation = "Owner"   # provider IS the vehicle owner
+else:
+    vehicle_relation = "Market"  # provider is a 3rd party broker/agent
+
+potential_vehicles_dbh.update_one({"_id": pv_id}, {"$set": {"vehicle_relation": vehicle_relation}})
+```
+This vehicle_relation field is critical — it determines whether a market_vehicles record needs to be created in Sub-API 5.
+
+On failure → create_trip deletes trip + parcel:
+```python
+trips_dbh.delete_many({"_id": trip_id})
+parcels_dbh.delete_many({"trip_id": trip_id})
+```
+
+Returns: potential_vehicle_id
+
+---
+### Sub-API 4: POST /submit_offline_bid_by_trip_owner
+
+File: bidding.py:3341
+
+```python
+offline_bid_response = requests.post(
+    URL + "submit_offline_bid_by_trip_owner",
+    json={"potential_vehicle_id": str(potential_vehicle_id), "amount": booking_amount},
+    headers=headers, verify=False
+)
+```
+
+Queries inside:
+```
+get_document_from_db_by_id("potential_vehicles", potential_vehicle_id)
+get_document_from_db_by_id("trips", pv_record["trip_id"])
+```
+
+Auth check:
+```
+check_trips_authorization(login_user_record, trip_record)
+# Verifies caller is authorized for this trip (company worker / trip handler / CSR)
+```
+
+Guard:
+```
+is_bidding_scheduled(trip_record)
+# If bidding is live/scheduled → 400 "Bidding has not ended yet"
+# (Not applicable for fresh create_trip — no bidding scheduled)
+```
+
+```python
+if pv_record["last_bid"] == amount:
+    return 400  # "Amount can't be same as last bid"
+```
+
+Write — appends bid to negotiations history and sets last_bid:
+```python
+potential_vehicles_dbh.find_one_and_update(
+    {"_id": pv_record["_id"]},
+    {
+        "$push": {"bid_negotiations": {"price": booking_amount, "datetime": now, "offline": True}},
+        "$set":  {"last_bid": booking_amount}
+    },
+    return_document=ReturnDocument.AFTER
+)
+```
+bid_negotiations is a full audit trail of every bid round. last_bid is the current agreed price used in purchase order creation.
+
+Then calls update_ranking_of_potential_vehicles(trip_id) (potential_vehicles/common_functions.py:56):
+
+Runs a MongoDB aggregation pipeline on potential_vehicles:
+```python
+[
+  {"$match":   {"trip_id": trip_id, "last_bid": {"$exists": True, "$gt": 0}}},
+  {"$sort":    {"last_bid": 1}},           # ascending — cheapest = rank 1
+  {"$group":   {"_id": "$trip_id",
+                "all_last_bids": {"$push": {"_id": "$_id", "last_bid": "$last_bid"}}}},
+  {"$project": {"vehicles": {"$map": {     # compute rank = index + 1
+                  "input": "$all_last_bids",
+                  "in":    {"_id": "$$vehicle._id", "rank": {"$add": [
+                              {"$indexOfArray": ["$all_last_bids.last_bid", "$$vehicle.last_bid"]}, 1
+                            ]}}}}}},
+  {"$unwind":  "$vehicles"},
+  {"$replaceWith": "$vehicles"},
+  {"$merge":   {"into": "potential_vehicles", "whenMatched": "merge"}}  # writes rank back
+]
+```
+This writes a rank field back into each potential_vehicles document for this trip.
+
+Back in create_trip — direct write for advance amount (not a sub-API):
+```python
 if advance_amount:
-    potential_vehicle_dbh.update_one({"_id": potential_vehicle_id},
-                                     {"$set": {"advance_amount": advance_amount}})
-
-# After Step 7 — freight_charges direct write (same in both):
-parcels_dbh.update_one({"_id": parcel_id},
-                       {"$set": {"charges.freight_charges": freight_amount}})
+    potential_vehicles_dbh.update_one(
+        {"_id": potential_vehicle_id},
+        {"$set": {"advance_amount": advance_amount}}
+    )
 ```
 
-**3.6:** No Redis → direct writes are safe.
-**3.7:** `potential_vehicles` is cached (5-min individual TTL). The `advance_amount` write has NO `invalidate_document` call after it — minor latent bug, but doesn't cause crashes since `advance_amount` is read in payment processing (well after 5-min TTL expires). `parcels` is NOT in the cache config so `freight_charges` write has no issue.
-
-All 9 sub-API steps, all rollback logic, all payloads, and all field names are **identical** between 3.6 and 3.7.
-
 ---
+### Sub-API 5: POST /award_bidding
 
-## RR4 Usage — New Flow (June 2026)
-
-**"Create Trip" tap** → saves to RR4 PostgreSQL only. Zero RR API calls.
-
-**"Complete Trip" button** (on `OngoingTripCard`, LP dashboard) → authenticates with RR → calls `POST /create_trip` → trip lands in RR at `VehicleBooking` stage.
-
-The "Complete Trip" button (`_CompleteBtn` in `ongoing_trip_card.dart`) is currently enabled when `currentStage >= 5`. The new flow hooks into the existing `onComplete` callback passed from LP dashboard. LP authenticates once at form open (for partner/worker data) and the same RR session (with silent refresh) is reused at Complete Trip time.
-
-**Required for Complete Trip to succeed:**
-- S1 must be submitted so `rr_vehicle_id` + `rr_user_id` are resolved
-- `consignor_rr_company_id`, `origin_rr_city_id`, `destination_rr_city_id`, `material_rr_id`, `weight_value/unit` must all be set
-- The authenticating user must have CSR or Developer role in RR (phone `8905393266` qualifies; `7414082984` needs verification — see Step 4 auth note)
-
----
-
-## Required Input Fields
-
-| Field | Type | Required? | Notes |
-|-------|------|-----------|-------|
-| `consignor_company_id` | ObjectId | YES | 400 if missing |
-| `vehicle_id` | ObjectId | YES | 400 if missing |
-| `driver_id` | ObjectId | YES | 400 if missing |
-| `vehicle_provider_id` | ObjectId | YES | Tries companies first, then users |
-| `pickup_city` | ObjectId | YES | RR city `_id` |
-| `unload_city` | ObjectId | YES | RR city `_id` |
-| `material` | ObjectId | YES | RR material_type `_id` |
-| `weight` | float | YES | |
-| `weight_unit` | QuantityUnit enum | YES | Must match RR enum exactly |
-| `freight_amount` | float | YES | |
-| `invoice_value` | float | YES | |
-| `booking_amount` | float | YES | Bid price for vehicle provider |
-| `consignee_company_id` | ObjectId | no | |
-| `handled_by` | ObjectId | no | Defaults to logged-in user |
-| `back_entry_date` | date string | no | Use trip's `created_at` for back-entry |
-| `force_create` | bool | no | Bypasses duplicate trip check — set `true` for RR4 |
-| `data_entry` | bool | no | **Always `true` for RR4** — suppresses all SMS/notifications |
-| `consignor_address_1` | string | no | |
-| `consignor_address_pin_code` | int | no | |
-| `consignee_address_1` | string | no | |
-| `consignee_address_pin_code` | int | no | |
-| `bilty_number` | string | no | Uniqueness-checked across all parcels |
-| `invoice_number` | string | no | |
-| `eway_bill_number` | string | no | |
-| `depot_code` | string | no | |
-| `vehicle_entry_time` | datetime | no | |
-| `vehicle_exit_time` | datetime | no | |
-| `loading_amount` | float | no | Triggers Step 8 if > 0 |
-| `unloading_amount` | float | no | Triggers Step 9 if > 0 |
-| `diesel_charges` | float | no | Triggers Step 9 if > 0 |
-| `advance_amount` | float | no | |
-
-### RR4 Field Mapping
-
-| `create_trip` field | RR4 source | Available when |
-|---------------------|-----------|----------------|
-| `consignor_company_id` | `trips.consignor_rr_company_id` | Form submit |
-| `pickup_city` | `trips.origin_rr_city_id` | Form submit |
-| `unload_city` | `trips.destination_rr_city_id` | Form submit |
-| `material` | `trips.material_rr_id` | Form submit |
-| `weight` + `weight_unit` | `trips.weight_value/unit` | Form submit |
-| `invoice_value` | `trips.invoice_value` | Form submit |
-| `consignee_company_id` | `trips.consignee_rr_company_id` | Form submit |
-| `handled_by` | `rr_ops_user.rr_company_id` | Form submit |
-| `freight_amount` + `booking_amount` | `trips.expected_freight` or 0 | Form submit |
-| `bilty_number` | `trips.bilty_number` | After S3 |
-| **`vehicle_id`** | `vehicles.rr_vehicle_id` | **After S1** (RC lookup) |
-| **`driver_id`** | `drivers.rr_user_id` | **After S1** (phone lookup) |
-| `vehicle_provider_id` | LP org `rr_company_id` (= Rolling Radius ObjectId) | Always |
-| `back_entry_date` | `trips.created_at` | Always |
-
----
-
-## Phase 0: Input Validation (no HTTP calls — direct MongoDB reads)
-
-All validations run before any sub-API is called. Any failure returns 400 immediately.
-
-| Validation | MongoDB collection | Error message |
-|-----------|-------------------|---------------|
-| `consignor_company_id` | `companies` | "Invalid consignor company id provided." |
-| `consignee_company_id` | `companies` | "Invalid consignee company id provided." |
-| Transporter | `companies.find({"name": "RollingRadius Logistics Pvt. Ltd."})` | "Invalid transporter company id provided." |
-| `vehicle_id` | `vehicles` | "Invalid vehicle id provided." |
-| `vehicle_provider_id` | `companies` then `users` | "Invalid vehicle provider id provided." |
-| `pickup_city` + `unload_city` | `cities` | "Please provide valid pickup or unload city." |
-| `driver_id` | `users` (`_deleted: False`) | "Please provide valid driver number." |
-| `material` | `material_types` | "Invalid material id provided." |
-| `weight_unit` | QuantityUnit enum | "Invalid quantity unit" |
-
-**Side effects during validation (DB writes, not HTTP):**
-- Updates `vehicle.crew[]` in MongoDB — replaces existing Driver slot with the new `driver_id`
-- Extracts `sender_name` + `sender_gst` from `consignor_company.identities` (id_name == 'GST')
-- Extracts `receiver_name` + `receiver_gst` from `consignee_company.identities`
-- Duplicate check: queries `parcels` by `(back_entry_date, consignor, unload_city, transporter)` — returns 409 `"statusText": "duplicate_trip"` unless `force_create: true`
-
-**Key hardcoding:** `created_by_company` is always set to the "RollingRadius Logistics Pvt. Ltd." ObjectId — cannot be overridden. For RR4 this is correct: LP org's `rr_company_id` is set to Rolling Radius's MongoDB ObjectId.
-
-**Extra Phase 0 writes confirmed from source:**
-- `vehicle.crew[]` updated in MongoDB: old Driver slot removed, new `{worker: driver_id, position: "Driver"}` appended — this happens BEFORE Step 1
-- `invoice_number` → `str(invoice_number).upper()`
-- `depot_code` → `str(depot_code).strip().upper()`
-- `bilty_number` uniqueness: queries `parcels.documents.bilty` directly — if exists, deletes trip + returns 400
-
----
-
-## Step 1: POST /trips
-
-Eve resource endpoint. Creates the bare trip shell.
+File: bidding.py:3405
 
 ```python
-trip_payload = {
-    "handled_by":         handled_by,
-    "created_by":         login_user._id,
-    "created_by_company": transporter_company_id,   # always RollingRadius
-    "source":             login_user.source,
-    "back_entry_date":    "...",    # optional
-    "data_entry":         True,     # always True for RR4
-}
-requests.post(URL + "trips", data=trip_payload, headers=headers, verify=False)
-# NOTE: trip payload is sent as form data (data=), NOT JSON (json=)
+award_bid_response = requests.post(
+    URL + "award_bidding",
+    json={"potential_vehicle_id": str(potential_vehicle_id)},
+    headers=headers, verify=False
+)
 ```
 
-**Eve hook `before_insert_trips`:**
-- Injects default `trip_stages[]` — 12 stages, all `start_datetime: null` except ParcelInfo (set to `datetime.now(UTC)`)
-- Assigns `trip_number`: reads `company.book_counter.trip`, increments (e.g. "RR-001" → "RR-002"), writes back
+Queries inside:
+```
+get_document_from_db_by_id("potential_vehicles", potential_vehicle_id)
+get_document_from_db_by_id("trips", pv_record["trip_id"])
+```
 
-**Eve hook `actions_after_insert_trip`:**
-- If `back_entry_date` provided: overwrites `_created` timestamp to match
+Guard checks:
+```python
+if pv_record["vehicle_status"] == "BidAwarded":
+    return 400  # "Already awarded"
 
-Returns `{_id}` → `trip_id`. On failure: returns 400, orchestrator exits immediately (no data written yet except the Phase 0 vehicle.crew[] update).
+potential_vehicles_dbh.find_one({
+    "trip_id": trip_id, "vehicle_status": "Booked", "_deleted": False
+})  # → 400 "There is already a vehicle booked"
+
+potential_vehicles_dbh.find_one({
+    "trip_id": trip_id, "vehicle_status": "BidAwarded", "_deleted": False
+})  # → 400 "There is already a bid awarded"
+
+if not pv_record.get("last_bid"):
+    return 400  # "No charge provided — add offline price first"
+```
+
+Writes:
+```python
+# 1. Mark this potential vehicle as bid-awarded
+potential_vehicles_dbh.update_one(
+    {"_id": pv_record["_id"]},
+    {"$set": {"vehicle_status": "BidAwarded"}}
+)
+
+# 2. Advance trip stage to Bidding
+if trip_record["trip_stage"] != "TripCanceled":
+    trips_dbh.update_one(
+        {"_id": trip_id},
+        {"$set": {"trip_stage": "Bidding"}}
+    )
+```
+
+Notifications (only if data_entry is NOT set):
+```python
+# Resolve vehicle owner's phone number
+if pv_record["vehicle_owner_company_id"]:
+    phone, type = get_primary_owner_phone_number_or_username(company_id)
+    user_record = get_user_by_phone_or_username_from_db(phone_or_username)
+    preferred_language = user_record["preferred_language"]
+else:
+    user_record = get_document_from_db_by_id("users", pv_record["vehicle_owner_user_id"], {"phone":1, "preferred_language":1})
+    phone_numbers = [user_record["phone"]["number"]]
+    preferred_language = user_record["preferred_language"]
+
+send_bid_awarded_notification(
+    phone_numbers, bid_payload, redirect_link,
+    [ModeOfNotification.APP, ModeOfNotification.SMS],
+    preferred_language
+)
+```
 
 ---
-
-## Step 2: POST /parcels
+### Optional: POST /market_vehicles (only when vehicle_relation == "Market")
 
 ```python
-parcel_payload = {
-    "trip_id":               str(trip_id),
-    "created_by_company":    str(transporter_company_id),
-    "pickup_postal_address": {
-        "city":          str(pickup_city_id),
-        "address_line_1": pickup_address_1,
-        "pin":           pickup_address_pin_code,
+if potential_vehicle_record["vehicle_relation"] == "Market":
+    market_vehicle_response = requests.post(URL + "market_vehicles", data={
+        "vehicle_id":            vehicle_id,
+        "owner_user_id":         vehicle_record["created_by"],
+        "owner_company_id":      vehicle_record["created_by_company"],
+        "third_party_user_id":   vehicle_provider_user_id,
+        "third_party_company_id":vehicle_provider_company_id,
+        "requested_start_date":  now_utc,
+        "requested_end_date":    now_utc + 7 days
+    }, headers=headers, verify=False)
+```
+Creates a record in market_vehicles collection tracking the relationship between the actual vehicle owner and the third-party who arranged it.
+
+---
+### Sub-API 6: POST /award_vehicle
+
+File: bidding.py:1619
+Most complex sub-API. Creates the Purchase Order and the financial journal entry.
+
+```python
+award_vehicle_response = requests.post(
+    URL + "award_vehicle",
+    json={"trip_id": str(trip_id), "potential_vehicle_id": str(potential_vehicle_id)},
+    headers=headers, verify=False
+)
+```
+
+Queries inside:
+```
+get_document_from_db_by_id("trips", trip_id)
+potential_vehicles_dbh.find_one({"_id": ObjectId(pv_id), "trip_id": trip_id, "_deleted": False})
+get_document_from_db_by_id("vehicles", pv_record["vehicle"])
+
+# If Market vehicle — check status
+market_vehicles_dbh.find_one({"vehicle_id": vehicle_id})
+# → 400 if status is "Rejected" or "Terminated"
+
+# Check no other vehicle already booked on this trip
+potential_vehicles_dbh.find_one({"trip_id": trip_id, "vehicle_status": "Booked", "_deleted": False})
+
+# Validate driver in vehicle crew
+# Loops vehicle_record["crew"] to find position == "Driver"
+# Gets driver user record for phone number:
+get_document_from_db_by_id("users", crew_driver["worker"])
+# → 400 if driver has no phone number
+```
+
+**Step A — post_purchase_order_record() (trips/common_functions.py:155):**
+
+```python
+# Generate unique PO number from counters collection
+purchase_order_number = get_next_counter(CountersCategory.PurchaseOrder.value)
+# → counters_dbh.find_one_and_update({"category": "PurchaseOrder"}, {"$inc": {"next_sequence": 1}})
+
+post_internal("purchase_orders", {
+    "purchase_order_number": purchase_order_number,
+    "service_provider": {          # vehicle owner pays service
+        "company": pv_record["vehicle_owner_company_id"],
+        "user":    pv_record["vehicle_owner_user_id"]
     },
-    "unload_postal_address": {
-        "city":          str(unload_city_id),
-        "address_line_1": drop_address_1,
-        "pin":           drop_address_pin_code,
+    "service_receiver": {          # RR transporter receives service
+        "company": trip_record["created_by_company"],
+        "user":    trip_record["created_by"]
     },
-    "quantity":      weight,
-    "quantity_unit": weight_unit,
-    "material_type": str(material),
-    "cost":          invoice_value,
-    "sender": {
-        "sender_company": str(consignor_company_id),
-        "name":           sender_name,    # from consignor.identities GST
-        "gstin":          sender_gst,
+    "service_description":  "VehicleBookingServicePurchase",
+    "order_date":           booking_date,
+    "total_cost":           pv_record["last_bid"],   # = booking_amount
+    "currency":             "INR",
+    "status":               "Pending",
+    "vehicle_number":       vehicle_number,          # from vehicle RC identity
+    "trip_id":              pv_record["trip_id"],
+    "potential_vehicle":    pv_record["_id"],
+    "parcels_involved":     []
+})
+```
+
+**Step B — Journal Entry (JournalEntry.record_journal_entries()):**
+
+```python
+entry = JournalEntry(
+    date=booking_date,
+    book_owner={
+        "user":    trip_record["created_by"],      # RR (buys service)
+        "company": trip_record["created_by_company"]
     },
-    "receiver": {
-        "receiver_company": str(consignee_company_id),
-        "name":             receiver_name,
-        "gstin":            receiver_gst,
+    party={
+        "user":    pv_record["vehicle_owner_user_id"],    # vehicle owner (sells service)
+        "company": pv_record["vehicle_owner_company_id"]
     },
-    "documents.bilty":                        bilty_number,       # string key bug — see note
-    "documents.eway_bill.number":             eway_bill_number,
-    "documents.consignor_invoice.number":     invoice_number,
-    "loading": {
-        "truck_reach_datetime": vehicle_entry_time,
-        "end_datetime":         vehicle_exit_time,
+    note="Vehicle Booking Entry",
+    amount=pv_record["last_bid"],
+    transaction_type=FinancialTransactionTypes.VehicleBooking,
+    payment_status=None,
+    payment_medium=None,
+    purchase_order_number=purchase_order_number
+)
+entry.record_journal_entries()
+# Creates records in `financial_transactions` collection
+# Double-entry: Debit RR (payable to vehicle owner), Credit vehicle owner (receivable from RR)
+```
+
+If journal entry fails → purchase order is soft-deleted:
+```python
+purchase_orders_dbh.update_one({"_id": po_id}, {"$set": {"_deleted": True}})
+return 400
+```
+
+**Step C — On Success, Three DB writes:**
+
+```python
+# 1. Update trip: stage + booked_vehicle + crew
+trips_dbh.update_one({"_id": trip_id}, {"$set": {
+    "trip_stage":    "VehicleBooking",
+    "booked_vehicle": {
+        "vehicle":          vehicle_id,
+        "vehicle_booked_on": booking_date,
+        "booking_id":       pv_record.get("booking_id")
     },
-    "actual_kanta_weight": {"weight": actual_kanta_weight, "weight_unit": weight_unit},
-    "depot_code":      depot_code,
-    "back_entry_date": "...",
-}
-requests.post(URL + "parcels", json=parcel_payload, headers=headers)
+    "crew": [{"worker": driver_id, "position": "Driver"}, ...],
+    "updated_by": login_user_id,
+    "_updated":   now
+}})
+
+# 2. Update potential vehicle: Booked + timestamp
+potential_vehicles_dbh.update_one({"_id": pv_id}, {"$set": {
+    "vehicle_status": "Booked",
+    "flags.booked":   booking_date
+}})
+
+# 3. Push trip into vehicle's current_trips array
+vehicles_dbh.update_one({"_id": vehicle_id}, {"$push": {
+    "current_trips": {
+        "trip_id":       trip_id,
+        "booking_id":    booking_id,
+        "current_stage": "VehicleBooking"
+    }
+}})
 ```
 
-> ⚠️ **Known bug in `create_trip`:** Uses `"documents.bilty"` as a literal string key (not nested dict). RR4's direct `POST /parcels` call uses correct `{"documents": {"bilty": x}}`. When calling `create_trip`, bilty is passed via top-level key — it may not populate correctly if RR's Eve schema rejects dotted keys.
+Notifications (only if data_entry NOT set):
+```python
+# "Booking Confirmed" → vehicle owner (SMS + App)
+send_booking_confirmed_notification(phone_numbers, bid_payload, redirect_link, ...)
 
-**Bilty uniqueness check:** Before the call, `create_trip` queries `parcels.documents.bilty` — if already exists, deletes trip and returns 400. Pass `force_create: true` to bypass.
+# "POD Submission Warning" → vehicle owner + driver (SMS + App)
+phone_numbers.append(driver_phone_number)
+send_pod_submission_warning_notification(phone_numbers, ...)
 
-On failure: `trips_dbh.delete_many({"_id": trip_id})` + returns 400.
-Returns `{_id}` → `parcel_id`.
+# "RR Brokerage Warning" → only if consignor is Berger Paints
+if sender_company == berger_company_id:
+    send_rr_brokerage_warning_notification(...)
+```
+Also: trip_index_dbh.delete_one({"trip_id": trip_id}) — clears stale trip index before rebuild.
 
 ---
+### Sub-API 7: POST /record_trip_expense (only if loading_amount > 0)
 
-## Step 3: POST /v2/save_potential_vehicle_to_be_hired
-
-File: `rrbc-api/app/trips/bidding.py:878`
-
-```python
-{
-    "vehicle_id":             str(vehicle_id),
-    "trip_id":                str(trip_id),
-    "participant_company_id": str(vehicle_provider_company_id),  # OR
-    "participant_user_id":    str(vehicle_provider_user_id),
-}
-```
-
-**What it does:**
-1. Validates trip stage is still in `[ParcelInfo, Bidding, VehicleBooking, TripCanceled]`
-2. Checks bidding is not live
-3. Checks if this vehicle/participant combo already exists in `potential_vehicles` — handles existing records (Interested, ToBeHired → updates; Booked → blocked)
-4. If new: inserts into `potential_vehicles` with `vehicle_status: "ToBeHired"`, `flags.to_be_hired: now`
-5. Sets `vehicle_relation`:
-   - **`"Owner"`** — vehicle provider's `created_by_company`/`created_by` matches the vehicle's own fields
-   - **`"Market"`** — third party → triggers Step 6 (rental agreement)
-
-On failure: deletes trip + parcel, returns 400.
-Returns `{potential_vehicle_id}`.
-
----
-
-## Step 4: POST /submit_offline_bid_by_trip_owner
-
-File: `rrbc-api/app/trips/bidding.py:3342`
+File: trips/app.py:9652
 
 ```python
-{
-    "potential_vehicle_id": str(potential_vehicle_id),
-    "amount":               booking_amount,
-}
-```
-
-**What it does:**
-1. Fetches `potential_vehicle` and its linked trip
-2. **`check_trips_authorization`** — verifies the logged-in user is a worker of the trip owner's company with **CSR or Developer role**. Regular `User` role is NOT sufficient.
-3. Checks bidding is NOT currently scheduled/live (offline price only allowed before or after formal bidding)
-4. Checks `amount != last_bid` (cannot submit same price twice)
-5. `find_one_and_update`: `$push bid_negotiations [{price, datetime, offline: true}]`, `$set last_bid = amount`
-6. **`invalidate_document("potential_vehicles", id)`** — evicts Redis cache entry. **Critical:** without this, Step 5 reads stale `last_bid = None` and fails. Fixed in commit `37cf494c`.
-7. `update_ranking_of_potential_vehicles(trip_id)` — re-ranks all candidates by last_bid
-
-> ⚠️ **Auth note for RR4 — confirmed from source (`app/auth/common_functions.py:19`):**
-> `check_trips_authorization` has two paths:
-> 1. User has any of `{CSR Supervisor, CSR, Admin, Developer}` role → **passes immediately**
-> 2. No privileged role → must be `is_user_company_worker(user_id, trip.created_by_company)`
->
-> Since `created_by_company` = Rolling Radius ObjectId (hardcoded), path 2 requires being a worker of Rolling Radius.
-> - ✅ Phone `8905393266` has Admin/CSR role → path 1, always passes
-> - ❌ Phone `7414082984` has regular User role → path 2, fails unless added as RR company worker
-> - **Always use `8905393266`** for RR4 `create_trip` calls.
-
-**Between Step 4 and Step 5 (orchestrator direct MongoDB write):**
-- If `advance_amount > 0`: `potential_vehicles.update_one({$set: {advance_amount: advance_amount}})`
-- This is NOT a sub-API call — direct MongoDB write in the orchestrator.
-
-Returns: 200 `{"statusText": "Offline price saved successfully"}`.
-
----
-
-## Step 5: POST /award_bidding
-
-File: `rrbc-api/app/trips/bidding.py:3408`
-
-```python
-{"potential_vehicle_id": str(potential_vehicle_id)}
-```
-
-**What it does:**
-1. Reads `potential_vehicle` via `get_document_from_db_by_id` (goes through Redis cache — must be fresh after Step 4's cache invalidation)
-2. Authorization check (same CSR/Developer requirement)
-3. Guard checks:
-   - Already BidAwarded? → "Already awarded"
-   - Another vehicle already Booked? → blocked
-   - `last_bid is None`? → "No charge provided..." ← this is where the Redis bug hit before fix
-4. Sets `potential_vehicles.vehicle_status = "BidAwarded"`
-5. Sets `trips.trip_stage = "Bidding"`
-6. Sends SMS + push notification to vehicle provider — **skipped if `data_entry: true`**
-
-Returns: 200 `{"statusText": "Awarded successfully"}`.
-
----
-
-## Step 6 (conditional): POST /market_vehicles
-
-Only runs if `vehicle_relation == "Market"` (third-party vehicle provider).
-
-Creates a rental agreement record in `market_vehicles` collection:
-```python
-{
-    "vehicle_id":               str(vehicle_id),
-    "owner_user_id":            vehicle.created_by,
-    "owner_company_id":         vehicle.created_by_company,
-    "third_party_user_id":      vehicle_provider_user_id,
-    "third_party_company_id":   vehicle_provider_company_id,
-    "requested_start_date":     now,
-    "requested_end_date":       now + 7 days,
-}
-```
-
-On failure: returns 400 with `trip_id`.
-
----
-
-## Step 7: POST /award_vehicle
-
-File: `rrbc-api/app/trips/bidding.py:1620`
-
-```python
-{
-    "trip_id":              str(trip_id),
-    "potential_vehicle_id": str(potential_vehicle_id),
-}
-```
-
-**The final booking lock — the most complex step:**
-1. Verifies trip is not cancelled
-2. `check_trips_authorization` (same 2-path check — Admin/CSR role OR RR worker)
-3. Checks vehicle has a driver in `vehicle.crew[]` — Phase 0 already sets this
-4. Checks driver has a phone number — required
-5. Checks no other vehicle booked on this trip (idempotent: if same PV already booked → returns 200)
-6. If Market: checks `market_vehicles` record status is not Rejected/Terminated
-7. Creates/updates `purchase_orders`:
-   - Existing PO with `total_payable == last_bid` and `already_paid == 0` → reuse, no journal
-   - Existing PO with different amounts → delete old `financial_transactions`, create new JournalEntry
-   - None (first call) → `post_purchase_order_record()` → new PO in `purchase_orders` collection
-8. Creates `JournalEntry` (type: `VehicleBooking`):
-   - `book_owner = {trip.created_by, trip.created_by_company}` (Rolling Radius)
-   - `party = {vehicle_owner_user_id, vehicle_owner_company_id}`
-   - `amount = last_bid`
-9. Updates `vehicles.current_trips[]` → push `{trip_id, booking_id, current_stage: "VehicleBooking"}`
-10. Updates `trips`: `trip_stage = VehicleBooking`, `booked_vehicle = {vehicle, vehicle_booked_on, booking_id}`, `crew`
-11. Updates `potential_vehicles`: `vehicle_status = Booked`, `flags.booked = booking_date`
-12. Deletes trip from `trip_indexes` (no longer in bidding pool)
-13. Sends notifications — **skipped if `data_entry: true`**:
-    - "Booking Confirmed" → vehicle provider
-    - "POD Submission Warning" → provider + driver
-    - "RollingRadius Brokerage Warning" → only if sender is Berger Paints
-
-**After Step 7 (orchestrator direct MongoDB write — NOT a sub-API):**
-```python
-parcels_dbh.update_one({"_id": parcel_id}, {"$set": {"charges.freight_charges": freight_amount}})
-```
-This is how `freight_amount` lands on the parcel record — not via any sub-API.
-
-> ⚠️ **Rollback:** Steps 4–9 have rollback commented out. If any fail, trip+parcel+potential_vehicle left as orphans in RR.
-
-Returns: 200 `{"statusText": "This vehicle has been booked"}`.
-
----
-
-## Step 8 (conditional): POST /record_trip_expense
-
-Only runs if `loading_amount > 0`. File: `app.py:9652`
-
-```python
-{
-    "expense_type": "Loading",
-    "order_date":   "2026-06-03T00:00:00",
-    "service_provider": null,        # no provider at booking time
-    "amount":       500.0,
-    "remark":       "Loading expense",
-    "photo":        "",
-    "trip_id":      str(trip_id),
+loading_expense_response = requests.post(URL + "record_trip_expense", json={
+    "expense_type":    "Loading",
+    "order_date":      datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+    "service_provider": None,      # ← no provider yet, so no journal entry
+    "amount":          loading_amount,
+    "remark":          "Loading expense",
+    "photo":           "",
+    "trip_id":         str(trip_id),
     "service_receiver": {
         "company": str(transporter_company_id),
-        "user":    str(login_user._id),
+        "user":    str(login_user_id)
     }
-}
+}, headers=headers, verify=False)
 ```
 
-**What it does:**
-1. `prepare_trip_expense_payload()` — validates fields, gets next `order_id` counter, looks up bilty if exists
-2. `create_trip_expense_and_initial_transaction()` — inserts into `third_party_expenses`
-3. `service_provider = null` → status = **"Pending"** — no journal entry created yet. Journal entry fires via `hooks.py:after_updated_third_party_expenses` when a provider is assigned later.
+create_trip_expense_and_initial_transaction() (trips/app.py:9823):
+```python
+# Insert into third_party_expenses via Eve
+post_internal("third_party_expenses", trip_expense_payload)
+# Since order_creation = False (no service_provider):
+third_party_expenses_dbh.update_one({"_id": expense_id}, {"$set": {
+    "balances": {
+        "total_payable_amount":      loading_amount,
+        "to_be_paid_amount":         loading_amount,
+        "actual_to_be_paid_amount":  loading_amount,
+        "already_paid_amount":       0,
+        "tds_deduction":             0,
+        "payment_allocated_from_bulk_payment": 0,
+        "pending_payment_sheet_balance":       0
+    },
+    "status": "Pending"
+}})
+# No JournalEntry created yet — happens later when service_provider is assigned
+```
 
 ---
+### Sub-API 8: POST /post_extra_vehicle_charges (only if unloading_amount > 0 or diesel_charges > 0)
 
-## Step 9 (conditional): POST /post_extra_vehicle_charges
-
-Only runs if `unloading_amount > 0` OR `diesel_charges > 0`. File: `app.py:2413`
+File: trips/app.py:2413
 
 ```python
-{
-    "trip_id":                   str(trip_id),
-    "extra_weight_charges":      0,
-    "extra_distance_charges":    0,
-    "halting_charges":           0,
-    "hamali_charges":            unloading_amount,   # unloading labour
-    "other_charges":             0,
+unloading_vehicle_charges_response = requests.post(URL + "post_extra_vehicle_charges", json={
+    "trip_id":             str(trip_id),
+    "extra_weight_charges": 0,
+    "extra_distance_charges": 0,
+    "halting_charges":     0,
+    "hamali_charges":      unloading_amount,   # unloading → hamali
+    "other_charges":       0,
     "vehicle_brokerage_charges": 0,
-    "insurance_amount":          0,
-    "no_diesel_taken_penalty":   0,
-    "diesel_charges":            diesel_charges,
-    "remark":                    [""],
-}
+    "insurance_amount":    0,
+    "no_diesel_taken_penalty": 0,
+    "diesel_charges":      diesel_charges,
+    "remark":              [""]
+}, headers=headers, verify=False)
 ```
 
-**What it does:**
-1. Finds the `purchase_order` for this trip (type: `VehicleBookingServicePurchase`)
-2. Looks up existing extra charge journal entries → calculates `charge_difference`
-3. If `charge_difference == 0` → returns 200 "No charge difference" (no-op)
-4. Updates `trips.booked_vehicle.hamali_amount`, `.diesel_charges`, etc.
-5. Updates `purchase_order.extra_charges.*`
-6. Creates `JournalEntry` (type: `VehicleBookingExtraCharge`):
-   - `book_owner = transporter`, `party = vehicle_provider`
-   - `amount = |charge_difference|`, `amount_nature = Increase or Decrease`
+Idempotent charge difference calculation:
+```python
+current_extra_charges = (
+    extra_weight_charges + extra_distance_charges + halting_charges
+    + hamali_charges + other_charges
+    - vehicle_brokerage_charges - insurance_amount
+    - no_diesel_taken_penalty - diesel_charges
+)
+charge_difference = current_extra_charges - earlier_extra_charges
+# If charge_difference == 0 → returns 200 immediately, no writes
+```
+
+Three writes on non-zero difference: trips.booked_vehicle breakdown, purchase_orders.extra_charges, financial_transactions journal entry.
 
 ---
-
 ## Final Response
 
 ```json
 {
-    "statusText": "Trip created succesfully.",
-    "trip_id": "684...",
-    "potential_vehicle_id": "684...",
-    "parcel_id": "684...",
-    "booking_id": null
+  "statusText":          "Trip created successfully.",
+  "trip_id":             "ObjectId  → trips collection _id",
+  "potential_vehicle_id":"ObjectId  → potential_vehicles collection _id",
+  "parcel_id":           "ObjectId  → parcels collection _id",
+  "booking_id":          "integer   → potential_vehicles.booking_id counter (NOT purchase_orders)"
 }
 ```
 
-> ⚠️ **`booking_id` is always `null` for fresh trips.** The orchestrator reads `potential_vehicle_record` BEFORE calling `award_vehicle`, so `booking_id` hasn't been set yet on the potential_vehicle document when the response is built. **RR4 should store only `trip_id` and `parcel_id` from this response.**
+> `booking_id` is an auto-incremented integer from `counters` collection (category: "vehicle booking"),
+> set by the `before_insert_potential_vehicle` hook. It lives on the `potential_vehicles` document.
+>
+> Compass queries:
+> - Find by booking_id:  `{ "booking_id": 10004396 }`  on `potential_vehicles`
+> - Find PO for trip:    `{ "trip_id": { "$oid": "<rr_trip_id>" } }`  on `purchase_orders`
 
 ---
+## Complete DB Write Map
 
-## Collections Written (after full success)
+| Step | Function | Collections Written | What is written |
+|------|----------|---------------------|-----------------|
+| 1.9 | Driver assignment | vehicles | crew array — new Driver entry |
+| Sub-API 1 | before_insert_trips | companies or counters | book_counter.trip incremented |
+| Sub-API 1 | Eve insert | trips | Full trip document + 12 stages |
+| Sub-API 1 | actions_after_insert_trip | trips | _created backdated |
+| Sub-API 2 | Eve insert | parcels | Full parcel document |
+| Sub-API 2 | after_inserted_parcel | parcels, trip_indexes | _created backdated; trip index rebuilt |
+| Sub-API 2 | Freight write | parcels | charges.freight_charges |
+| Sub-API 3 | save_potential_vehicle | potential_vehicles | New PV record with ToBeHired status + vehicle_relation |
+| Sub-API 4 | submit_offline_bid | potential_vehicles | bid_negotiations appended, last_bid set |
+| Sub-API 4 | update_ranking | potential_vehicles | rank field on all PVs for trip |
+| Sub-API 4 | Advance write | potential_vehicles | advance_amount |
+| Sub-API 5 | award_bidding | potential_vehicles, trips | vehicle_status = BidAwarded; trip_stage = Bidding |
+| Optional | market_vehicles | market_vehicles | Market vehicle agreement record |
+| Sub-API 6 | post_purchase_order_record | counters, purchase_orders | PO counter incremented; PO document inserted |
+| Sub-API 6 | JournalEntry | financial_transactions | Vehicle booking debit/credit entries |
+| Sub-API 6 | Award writes | trips, potential_vehicles, vehicles | trip_stage=VehicleBooking, booked_vehicle; status=Booked; current_trips pushed |
+| Sub-API 7 | record_trip_expense | counters, third_party_expenses | Expense counter incremented; expense doc with Pending status + balances |
+| Sub-API 8 | post_extra_vehicle_charges | trips, purchase_orders, financial_transactions | Charge breakdown written; PO extra_charges updated; journal entry for difference |
 
-| Collection | What |
-|-----------|------|
-| `trips` | 1 new trip, `trip_stage = VehicleBooking` |
-| `parcels` | 1 new parcel with cargo + freight_charges set |
-| `potential_vehicles` | 1 new record, `status = Booked`, `last_bid` set |
-| `purchase_orders` | 1 new PO for vehicle booking |
-| `financial_transactions` | 2 journal entries (VehicleBooking + optional ExtraCharge) |
-| `vehicles` | `crew[]` updated, `current_trips[]` updated |
-| `companies` | `book_counter.trip` incremented |
-| `market_vehicles` | 1 new record (only if Market vehicle) |
-| `third_party_expenses` | 1 new record (only if loading_amount > 0) |
-
----
-
-## Full Call Graph
-
-```
-POST /create_trip (orchestrator)
-│
-├── [Phase 0] MongoDB validation: companies, vehicles, users, cities, material_types
-│   ├── Side write: vehicle.crew[] updated (new driver assigned)
-│   └── Duplicate check on parcels collection
-│
-├── Step 1: POST /trips
-│   ├── hook before_insert: trip_stages[] injected, trip_number assigned
-│   └── writes: trips collection
-│
-├── Step 2: POST /parcels
-│   └── writes: parcels collection
-│   └── on failure: DELETE /trips/{trip_id}
-│
-├── Step 3: POST /v2/save_potential_vehicle_to_be_hired
-│   ├── writes: potential_vehicles (status=ToBeHired)
-│   └── sets vehicle_relation: Owner or Market
-│
-├── Step 4: POST /submit_offline_bid_by_trip_owner
-│   ├── auth: check_trips_authorization (CSR/Developer role required)
-│   ├── writes: potential_vehicles.bid_negotiations[], last_bid
-│   └── invalidates Redis cache for potential_vehicles doc  ← critical for Step 5
-│
-├── Step 5: POST /award_bidding
-│   ├── reads potential_vehicles (from Redis — must be fresh)
-│   ├── writes: potential_vehicles.vehicle_status = BidAwarded
-│   ├── writes: trips.trip_stage = Bidding
-│   └── sends: SMS + push to vehicle provider (skipped if data_entry)
-│
-├── Step 6: [if Market] POST /market_vehicles
-│   └── writes: market_vehicles collection (rental agreement)
-│
-├── Step 7: POST /award_vehicle
-│   ├── auth: CSR/Developer required
-│   ├── writes: trips.trip_stage = VehicleBooking, booked_vehicle, crew
-│   ├── writes: purchase_orders (new PO → booking_id)
-│   ├── writes: financial_transactions (JournalEntry: VehicleBooking)
-│   ├── writes: vehicles.current_trips[]
-│   ├── deletes: trip from trip_indexes
-│   └── sends: booking confirmed + POD warning (skipped if data_entry)
-│
-├── [direct write] parcels.charges.freight_charges = freight_amount
-│
-├── Step 8: [if loading_amount > 0] POST /record_trip_expense
-│   └── writes: third_party_expenses (status=Pending, no journal yet)
-│
-└── Step 9: [if unloading/diesel > 0] POST /post_extra_vehicle_charges
-    ├── writes: trips.booked_vehicle.hamali_amount etc.
-    ├── writes: purchase_orders.extra_charges.*
-    └── writes: financial_transactions (JournalEntry: VehicleBookingExtraCharge)
-```
+Up to 10 collections written in a single POST /create_trip call.
 
 ---
+## Prerequisites
 
-## RR Stage Reference
+The only prerequisite is that the user must be authenticated (needs a valid JWT access_token), so RR4 needs to call the login flow first:
 
-```
-1.  ParcelInfo          ← where old direct-sync landed
-2.  Bidding
-3.  VehicleBooking      ← where create_trip lands
-4.  Loading
-5.  DocumentCollection
-6.  Enroute
-7.  Unloading
-8.  ClearBalance
-9.  OriginalPODSubmission
-10. PODInvoiceClearance
-11. TripCompleted
-12. TripCanceled
-```
+1. GET /persons/authenticate (Basic Auth with phone+password) — gets tokens
+2. POST /create_trip — creates the trip

@@ -4,7 +4,7 @@ library;
 
 import 'dart:typed_data';
 
-import 'package:dio/dio.dart' show DioMediaType, FormData, Headers, MultipartFile, Options;
+import 'package:dio/dio.dart' show DioMediaType, FormData, MultipartFile;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -152,11 +152,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
             contentType: DioMediaType.parse(mime),
           ),
         });
-        await api.dio.post(
-          '/api/trips/${trip.id}/loading-slip',
-          data: formData,
-          options: Options(headers: {Headers.contentTypeHeader: null}),
-        );
+        await api.dio.post('/api/trips/${trip.id}/loading-slip', data: formData);
       } else {
         // RR Ops / LP: full RR sync upload
         final session = await ensureRrSession(context, ref);
@@ -170,11 +166,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           ),
           'rr_token': session.token,
         });
-        await api.dio.post(
-          '/api/rr/sync/loading-slip/${trip.id}',
-          data: formData,
-          options: Options(headers: {Headers.contentTypeHeader: null}),
-        );
+        await api.dio.post('/api/rr/sync/loading-slip/${trip.id}', data: formData);
       }
 
       if (!mounted) return;
@@ -235,11 +227,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     try {
       final api = ref.read(apiServiceProvider);
       final formData = FormData.fromMap({'rr_token': session.token});
-      await api.dio.post(
-        '/api/rr/sync/loading-slip-from-local/${trip.id}',
-        data: formData,
-        options: Options(headers: {Headers.contentTypeHeader: null}),
-      );
+      await api.dio.post('/api/rr/sync/loading-slip-from-local/${trip.id}', data: formData);
       if (!mounted) return;
       setState(() { _syncing = false; _uploadDone = true; _uploadError = null; });
       widget.onRefresh?.call();
