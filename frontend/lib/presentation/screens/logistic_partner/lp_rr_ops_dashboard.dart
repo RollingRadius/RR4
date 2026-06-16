@@ -78,6 +78,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
 
   void _silentRefresh() {
     ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending', rrWeb: true);
+    ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
   }
 
   void _showRrTripPopup(String value) {

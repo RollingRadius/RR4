@@ -855,9 +855,10 @@ class _DashboardTab extends ConsumerWidget {
                 child: t.rrTripId != null
                     ? RrTripCard(
                         trip: t,
-                        onRefresh: () => ref
-                            .read(tripProvider.notifier)
-                            .silentRefresh(statusFilter: 'ongoing,pending'),
+                        onRefresh: () {
+                          ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+                          ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
+                        },
                       )
                     : OngoingTripCard(
                         trip: t,
