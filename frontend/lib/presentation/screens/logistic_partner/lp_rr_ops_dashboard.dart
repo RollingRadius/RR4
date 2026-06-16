@@ -452,7 +452,7 @@ class _RrOpsRecordsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(completedTripsProvider);
-    final trips = state.trips
+    final trips = [...state.trips]
       ..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
 
     return RefreshIndicator(
