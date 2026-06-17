@@ -594,14 +594,10 @@ class _WorkerHomeTab extends ConsumerWidget {
     final tripState = ref.watch(tripProvider);
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Worker';
-    // Fleet status: synced RR web trips waiting for loading slip upload.
-    // Worker can only upload loading slips, so only show trips that are
-    // synced (rrTripId set) and still pending the loading slip (trip_created).
+    // Fleet status: RR web form trips not yet loading-slip synced.
+    const _done = {'loading_slip_synced', 'bilty_synced', 'pod_synced'};
     final ongoingTrips = tripState.activeTrips
-        .where((t) =>
-            t.consignorName != null &&
-            t.rrTripId != null &&
-            t.rrSyncStatus == 'trip_created')
+        .where((t) => t.consignorName != null && !_done.contains(t.rrSyncStatus))
         .toList();
 
     return RefreshIndicator(

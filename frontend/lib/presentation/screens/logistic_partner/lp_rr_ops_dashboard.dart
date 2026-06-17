@@ -191,10 +191,10 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     final tripState = ref.watch(tripProvider);
     final session   = ref.watch(rrSessionProvider);
 
+    // Fleet status: RR web form trips not yet loading-slip synced.
+    const _done = {'loading_slip_synced', 'bilty_synced', 'pod_synced'};
     final rrTrips = tripState.trips
-        .where((t) =>
-            t.consignorName != null &&
-            (t.rrTripId == null || t.rrSyncStatus == 'trip_created'))
+        .where((t) => t.consignorName != null && !_done.contains(t.rrSyncStatus))
         .toList();
 
     return Scaffold(

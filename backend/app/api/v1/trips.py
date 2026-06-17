@@ -14,6 +14,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -261,8 +262,17 @@ def list_trips(
         )
 
     if rr_web:
-        # Fleet status: trips created via the RR web form ('+new trip')
-        query = query.filter(Trip.consignor_name.isnot(None))
+        # Fleet status: RR web form trips not yet loading-slip synced.
+        # Excludes trips that have progressed to loading_slip_synced or beyond —
+        # those belong in Records.
+        _done = ['loading_slip_synced', 'bilty_synced', 'pod_synced']
+        query = query.filter(
+            Trip.consignor_name.isnot(None),
+            or_(
+                Trip.rr_sync_status.is_(None),
+                Trip.rr_sync_status.notin_(_done),
+            ),
+        )
 
     total = query.count()
     trips = query.order_by(Trip.created_at.desc()).offset(offset).limit(limit).all()

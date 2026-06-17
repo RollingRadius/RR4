@@ -801,12 +801,10 @@ class _DashboardTab extends ConsumerWidget {
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Logistic Partner';
 
-    // Fleet status: only RR web form trips (created via '+new trip').
-    // Old-style / RR-mobile trips never have consignorName set.
+    // Fleet status: RR web form trips not yet loading-slip synced.
+    const _done = {'loading_slip_synced', 'bilty_synced', 'pod_synced'};
     final ongoingTrips = tripState.activeTrips
-        .where((t) =>
-            t.consignorName != null &&
-            (t.rrTripId == null || t.rrSyncStatus == 'trip_created'))
+        .where((t) => t.consignorName != null && !_done.contains(t.rrSyncStatus))
         .toList();
 
     return RefreshIndicator(
