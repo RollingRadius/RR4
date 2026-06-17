@@ -594,14 +594,22 @@ class _WorkerHomeTab extends ConsumerWidget {
     final tripState = ref.watch(tripProvider);
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Worker';
-    final ongoingTrips = tripState.activeTrips;
+    // Fleet status: synced RR web trips waiting for loading slip upload.
+    // Worker can only upload loading slips, so only show trips that are
+    // synced (rrTripId set) and still pending the loading slip (trip_created).
+    final ongoingTrips = tripState.activeTrips
+        .where((t) =>
+            t.consignorName != null &&
+            t.rrTripId != null &&
+            t.rrSyncStatus == 'trip_created')
+        .toList();
 
     return RefreshIndicator(
       color: _primary,
       onRefresh: () async {
         await ref
             .read(tripProvider.notifier)
-            .loadTrips(statusFilter: 'ongoing,pending');
+            .loadTrips(statusFilter: 'ongoing,pending', rrWeb: true);
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -631,7 +639,7 @@ class _WorkerHomeTab extends ConsumerWidget {
                 message: tripState.error!,
                 onRetry: () => ref
                     .read(tripProvider.notifier)
-                    .loadTrips(statusFilter: 'ongoing,pending'),
+                    .loadTrips(statusFilter: 'ongoing,pending', rrWeb: true),
               )
             else if (ongoingTrips.isEmpty)
               _EmptyTrips()

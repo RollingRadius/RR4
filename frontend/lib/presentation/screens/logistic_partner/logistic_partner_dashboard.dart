@@ -80,7 +80,7 @@ class _LogisticPartnerDashboardState
     // Background refresh every 30 s
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending', rrWeb: true);
         ref.read(availableLoadsProvider.notifier).silentRefresh();
       }
     });
@@ -198,14 +198,14 @@ class _LogisticPartnerDashboardState
   /// comes into focus (e.g. switching back from Loads tab).
   void _loadAllData() {
     if (!mounted) return;
-    ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+    ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending', rrWeb: true);
     ref.read(vehicleProvider.notifier).loadVehicles();
   }
 
   /// Switch tabs — refreshes fleet data whenever user navigates to Dashboard.
   Future<void> _switchNav(int index) async {
     if (index == 0 && _navIndex != 0) {
-      ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+      ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending', rrWeb: true);
     }
     if (index == 3 && _navIndex != 3) {
       // Load completed RR trips fresh each time Records tab is opened
@@ -235,9 +235,9 @@ class _LogisticPartnerDashboardState
       if (prev == null || next.items.length <= (prev.items.length)) return;
       final newest = next.items.first;
       if (newest.type == 'trip_cancelled' && newest.tripId != null) {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending', rrWeb: true);
       } else if (newest.type == 'load_cancelled') {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending', rrWeb: true);
       }
     });
 
@@ -801,15 +801,18 @@ class _DashboardTab extends ConsumerWidget {
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Logistic Partner';
 
-    // Exclude RR trips that have moved past trip_created — those belong in Records.
+    // Fleet status: only RR web form trips (created via '+new trip').
+    // Old-style / RR-mobile trips never have consignorName set.
     final ongoingTrips = tripState.activeTrips
-        .where((t) => t.rrTripId == null || t.rrSyncStatus == 'trip_created')
+        .where((t) =>
+            t.consignorName != null &&
+            (t.rrTripId == null || t.rrSyncStatus == 'trip_created'))
         .toList();
 
     return RefreshIndicator(
       color: _primary,
       onRefresh: () async {
-        await ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+        await ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending', rrWeb: true);
       },
       child: SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),

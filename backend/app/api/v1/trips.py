@@ -261,10 +261,8 @@ def list_trips(
         )
 
     if rr_web:
-        # Fleet status: RR web form trips with loading slip pending
-        query = query.filter(
-            Trip.rr_sync_status == 'trip_created',
-        )
+        # Fleet status: trips created via the RR web form ('+new trip')
+        query = query.filter(Trip.consignor_name.isnot(None))
 
     total = query.count()
     trips = query.order_by(Trip.created_at.desc()).offset(offset).limit(limit).all()

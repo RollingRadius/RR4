@@ -191,7 +191,11 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     final tripState = ref.watch(tripProvider);
     final session   = ref.watch(rrSessionProvider);
 
-    final rrTrips = tripState.trips;
+    final rrTrips = tripState.trips
+        .where((t) =>
+            t.consignorName != null &&
+            (t.rrTripId == null || t.rrSyncStatus == 'trip_created'))
+        .toList();
 
     return Scaffold(
       backgroundColor: _bg,
