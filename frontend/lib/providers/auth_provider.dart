@@ -9,6 +9,7 @@ import 'package:fleet_management/data/services/fcm_service.dart';
 import 'package:fleet_management/data/models/user_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:fleet_management/core/config/app_config.dart';
+import 'package:fleet_management/providers/rr_session_provider.dart';
 
 final fcmServiceProvider = Provider<FcmService>((ref) => FcmService());
 
@@ -84,11 +85,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
   final ApiService _apiService;
   final UserApi _userApi;
   final FcmService _fcmService;
+  final Ref _ref;
 
   Timer? _expiryTimer;
   Timer? _preRefreshTimer;
 
-  AuthNotifier(this._authApi, this._storage, this._apiService, this._userApi, this._fcmService) : super(AuthState()) {
+  AuthNotifier(this._authApi, this._storage, this._apiService, this._userApi, this._fcmService, this._ref) : super(AuthState()) {
     _apiService.setAuthCallbacks(onRefresh: refreshToken, onLogout: logout);
     _loadStoredAuth();
   }
@@ -312,6 +314,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     // push notifications continue to reach this device even when logged out.
 
     _apiService.removeToken();
+    _ref.read(rrSessionProvider.notifier).clear();
     state = AuthState();
   }
 
@@ -467,5 +470,5 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   final apiService = ref.watch(apiServiceProvider);
   final userApi = ref.watch(userApiProvider);
   final fcmService = ref.watch(fcmServiceProvider);
-  return AuthNotifier(authApi, storage, apiService, userApi, fcmService);
+  return AuthNotifier(authApi, storage, apiService, userApi, fcmService, ref);
 });
