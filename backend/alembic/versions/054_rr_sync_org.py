@@ -1,14 +1,14 @@
 """Add rr_company_id to organizations for RR sync.
 
-Revision ID: 054
-Revises: 053
+Revision ID: 073
+Revises: 054
 Create Date: 2026-05-23
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = '054'
-down_revision = '053'
+revision = '073'
+down_revision = '054'
 branch_labels = None
 depends_on = None
 
