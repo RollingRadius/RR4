@@ -18,7 +18,7 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column('trips', sa.Column('rr_driver_id', sa.String(24), nullable=True))
+    op.execute("ALTER TABLE trips ADD COLUMN IF NOT EXISTS rr_driver_id VARCHAR(24)")
 
 
 def downgrade():
