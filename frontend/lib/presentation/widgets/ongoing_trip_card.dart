@@ -108,6 +108,12 @@ class OngoingTripCard extends ConsumerWidget {
             ),
           ),
 
+          // ── Stage 0 — RR sync status ──────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 6),
+            child: _RrSyncBadge(trip: trip),
+          ),
+
           // ── Stage progress strip ───────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(18, 4, 18, 10),
@@ -657,28 +663,25 @@ class _StatusBadge extends StatelessWidget {
   return ('PENDING', const Color(0xFFFFF3E0), const Color(0xFFE65100));
 }
 
-/// Maps a trip to a display label for the current stage (1, 2, LS, 3, 4, 5).
+/// Maps a trip to a display label for the current stage (1–5).
 String _visualStageLabel(TripModel trip) {
   if (trip.currentStage == 0) return '1';
   if (trip.currentStage == 1) return '2';
-  if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 'LS';
   if (trip.currentStage == 2) return '3';
   if (trip.currentStage == 3) return '4';
-  return '5'; // stage 4 → Diesel Receipt
+  return '5';
 }
 
 /// 0-based visual stage index used for the strip indicator.
 int _visualStageIndex(TripModel trip) {
   if (trip.currentStage == 0) return 0;
   if (trip.currentStage == 1) return 1;
-  if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 2;
-  if (trip.currentStage == 2) return 3;
-  if (trip.currentStage == 3) return 4;
-  return 5;
+  if (trip.currentStage == 2) return 2;
+  if (trip.currentStage == 3) return 3;
+  return 4;
 }
 
 String _stageName(TripModel trip) {
-  if (trip.currentStage == 2 && trip.s2LoadingSlipUrl == null) return 'Loading Slip';
   return switch (trip.currentStage) {
     0 => 'Truck Registration',
     1 => 'Compliance Check',
@@ -695,7 +698,7 @@ class _StageStrip extends StatefulWidget {
   final TripModel trip;
   const _StageStrip({required this.trip});
 
-  static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit'];
+  static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit', 'Unloading'];
   static const _green  = Color(0xFF2E7D32);
 
   @override
@@ -756,8 +759,8 @@ class _StageStripState extends State<_StageStrip>
                       ),
                       child: Center(
                         child: Text(
-                          i < 2 ? '${i + 1}' : i == 2 ? 'LS' : '$i',
-                          style: _inter(size: i == 2 ? 6 : 8, weight: FontWeight.w700, color: _primary),
+                          '${i + 1}',
+                          style: _inter(size: 8, weight: FontWeight.w700, color: _primary),
                         ),
                       ),
                     ),
@@ -779,8 +782,8 @@ class _StageStripState extends State<_StageStrip>
                       child: isDone
                           ? const Icon(Icons.check_rounded, size: 10, color: _StageStrip._green)
                           : Text(
-                              i < 2 ? '${i + 1}' : i == 2 ? 'LS' : '$i',
-                              style: _inter(size: i == 2 ? 6 : 8, weight: FontWeight.w700, color: textColor),
+                              '${i + 1}',
+                              style: _inter(size: 8, weight: FontWeight.w700, color: textColor),
                             ),
                     ),
                   ),
@@ -830,8 +833,8 @@ class _StageSlidingPanel extends StatelessWidget {
   final VoidCallback onRefresh;
   const _StageSlidingPanel({required this.trip, required this.onRefresh});
 
-  static const _shortLabels = ['1', '2', 'LS', '3', '4', '5'];
-  static const _names = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit', 'Unloading'];
+  static const _shortLabels = ['1', '2', '3', '4', '5'];
+  static const _names = ['Details', 'Compliance', 'Arrival', 'Exit', 'Unloading'];
   static const _green = Color(0xFF2E7D32);
 
   /// Maps a visual stage index (0–5) to the relevant submitted-by username.
@@ -839,10 +842,9 @@ class _StageSlidingPanel extends StatelessWidget {
     switch (i) {
       case 0: return trip.s1SubmittedByUsername;
       case 1: return trip.s2SubmittedByUsername;
-      case 2: return trip.s2SubmittedByUsername; // Loading slip (part of stage 2)
-      case 3: return trip.s3SubmittedByUsername;
-      case 4: return trip.s4SubmittedByUsername;
-      case 5: return trip.s5SubmittedByUsername;
+      case 2: return trip.s3SubmittedByUsername;
+      case 3: return trip.s4SubmittedByUsername;
+      case 4: return trip.s5SubmittedByUsername;
       default: return null;
     }
   }
@@ -856,12 +858,85 @@ class _StageSlidingPanel extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: EdgeInsets.zero,
+        // item 0 = Stage 0 (RR sync), items 1–5 = S1–S5
         itemCount: 6,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
-          final isDone    = currentVisual > i;
-          final isActive  = currentVisual == i;
-          final submitter = isDone ? _usernameForStage(i) : null;
+          // ── Stage 0 tile ─────────────────────────────────────────
+          if (i == 0) {
+            final synced = trip.rrTripId != null;
+            final failed = !synced && trip.rrSyncStatus == 'failed';
+            const green = _StageSlidingPanel._green;
+            final tileColor = synced
+                ? green
+                : failed
+                    ? const Color(0xFFBA1A1A)
+                    : const Color(0xFF9E9E9E);
+            final tileBg = tileColor.withValues(alpha: 0.08);
+            return GestureDetector(
+              onTap: () => Navigator.of(context)
+                  .push(MaterialPageRoute(
+                      builder: (_) => TripStagesScreen(trip: trip)))
+                  .then((_) => onRefresh()),
+              child: Container(
+                width: 78,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                decoration: BoxDecoration(
+                  color: tileBg,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: tileColor, width: 1.5),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 26,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: tileColor,
+                      ),
+                      child: Center(
+                        child: synced
+                            ? const Icon(Icons.check_rounded, size: 13, color: Colors.white)
+                            : failed
+                                ? const Icon(Icons.error_outline_rounded, size: 13, color: Colors.white)
+                                : Text('0',
+                                    style: _inter(size: 9, weight: FontWeight.w700, color: Colors.white)),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text('RR Sync',
+                        style: _inter(size: 9, weight: FontWeight.w600, color: tileColor),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 2),
+                    Text(
+                      synced ? 'Done' : failed ? 'Failed' : 'Pending',
+                      style: _inter(size: 8, weight: FontWeight.w500, color: tileColor),
+                    ),
+                    if (synced && trip.rrTripNumber != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        trip.rrTripNumber!,
+                        style: _inter(size: 7, weight: FontWeight.w600, color: green),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }
+
+          // ── S1–S5 tiles (i is 1-based here, map to 0-based) ──────
+          final idx     = i - 1;
+          final isDone    = currentVisual > idx;
+          final isActive  = currentVisual == idx;
+          final submitter = isDone ? _usernameForStage(idx) : null;
 
           final bg = isDone
               ? _green.withValues(alpha: 0.08)
@@ -882,7 +957,7 @@ class _StageSlidingPanel extends StatelessWidget {
           return GestureDetector(
             onTap: () => Navigator.of(context)
                 .push(MaterialPageRoute(
-                    builder: (_) => TripStagesScreen(trip: trip, initialStage: i)))
+                    builder: (_) => TripStagesScreen(trip: trip, initialStage: idx)))
                 .then((_) => onRefresh()),
             child: Container(
               width: 78,
@@ -912,9 +987,9 @@ class _StageSlidingPanel extends StatelessWidget {
                           ? const Icon(Icons.check_rounded,
                               size: 13, color: Colors.white)
                           : Text(
-                              _shortLabels[i],
+                              _shortLabels[idx],
                               style: _inter(
-                                  size: i == 2 ? 7 : 9,
+                                  size: 9,
                                   weight: FontWeight.w700,
                                   color: Colors.white),
                             ),
@@ -922,7 +997,7 @@ class _StageSlidingPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _names[i],
+                    _names[idx],
                     style: _inter(
                         size: 9, weight: FontWeight.w600, color: labelColor),
                     textAlign: TextAlign.center,
@@ -953,6 +1028,77 @@ class _StageSlidingPanel extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+// ─── Stage 0 RR sync badge (compact row above stage strip) ───────────────────
+
+class _RrSyncBadge extends StatelessWidget {
+  final TripModel trip;
+  const _RrSyncBadge({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    final synced = trip.rrTripId != null;
+    final failed = !synced && trip.rrSyncStatus == 'failed';
+    const green = Color(0xFF2E7D32);
+    const amber = Color(0xFFFF8F00);
+    const red   = Color(0xFFBA1A1A);
+    const grey  = Color(0xFF9E9E9E);
+
+    final Color fg;
+    final Color bg;
+    final IconData icon;
+    final String label;
+
+    if (synced) {
+      fg    = green;
+      bg    = const Color(0xFFE8F5E9);
+      icon  = Icons.check_circle_rounded;
+      final parts = [
+        if (trip.rrTripNumber != null) trip.rrTripNumber!,
+        if (trip.rrBookingId  != null) 'PO ${trip.rrBookingId}',
+      ];
+      label = parts.isEmpty ? 'Synced to RR' : parts.join('  ·  ');
+    } else if (failed) {
+      fg    = red;
+      bg    = const Color(0xFFFFEBEE);
+      icon  = Icons.error_outline_rounded;
+      label = 'RR sync failed';
+    } else if (trip.currentStage >= 1) {
+      fg    = amber;
+      bg    = const Color(0xFFFFF3E0);
+      icon  = Icons.upload_rounded;
+      label = 'Stage 0 · Not synced to RR';
+    } else {
+      fg    = grey;
+      bg    = const Color(0xFFF5F5F5);
+      icon  = Icons.hourglass_top_rounded;
+      label = 'Stage 0 · Complete S1 to sync RR';
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 12, color: fg),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              label,
+              style: _inter(size: 10, weight: FontWeight.w600, color: fg),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }

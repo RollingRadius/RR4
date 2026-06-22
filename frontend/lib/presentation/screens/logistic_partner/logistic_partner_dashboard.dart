@@ -8,14 +8,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/rr_session_provider.dart';
+import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
+import 'package:fleet_management/providers/driver_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/available_loads_provider.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
+import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
+import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
+import 'package:fleet_management/presentation/screens/fleet/fleet_hub_screen.dart';
 import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/lp_workers_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
@@ -74,7 +80,7 @@ class _LogisticPartnerDashboardState
     // Background refresh every 30 s
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending', rrWeb: true);
         ref.read(availableLoadsProvider.notifier).silentRefresh();
       }
     });
@@ -82,23 +88,128 @@ class _LogisticPartnerDashboardState
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadAllData());
   }
 
+  void _showRrTripPopup(String value) {
+    // Clear the provider immediately so it doesn't re-trigger
+    ref.read(pendingRrTripNumberProvider.notifier).state = null;
+
+    final isFailed = value.startsWith('__failed__:');
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => isFailed
+          ? AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEBEE),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.error_outline_rounded, color: Color(0xFFD32F2F), size: 32),
+                ),
+                const SizedBox(height: 16),
+                Text('Trip Created', style: _manrope(size: 15, weight: FontWeight.w800)),
+                const SizedBox(height: 8),
+                Text('RR sync failed: ${value.substring('__failed__:'.length)}',
+                    style: _inter(size: 13, color: const Color(0xFF546067)),
+                    textAlign: TextAlign.center),
+              ]),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF6B00),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                    onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                    child: Text('OK', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+                  ),
+                ),
+              ],
+            )
+          : AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              content: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 32),
+                ),
+                const SizedBox(height: 16),
+                Text('Trip Synced to RR Web',
+                    style: _manrope(size: 15, weight: FontWeight.w800),
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 8),
+                Text('RR Trip Number', style: _inter(size: 12, color: const Color(0xFF546067))),
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: value));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Trip number copied',
+                            style: _inter(size: 13, color: Colors.white)),
+                        backgroundColor: const Color(0xFF2E7D32),
+                        duration: const Duration(seconds: 2),
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F7FF),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFF6B00).withOpacity(0.3)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Text(value,
+                          style: _manrope(size: 20, weight: FontWeight.w800,
+                              color: const Color(0xFFFF6B00))),
+                      const SizedBox(width: 10),
+                      const Icon(Icons.copy_rounded, size: 16,
+                          color: Color(0xFFFF6B00)),
+                    ]),
+                  ),
+                ),
+              ]),
+              actions: [
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF6B00),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                    onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                    child: Text('Continue', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
   /// Load all dashboard data. Called on init and whenever Dashboard tab
   /// comes into focus (e.g. switching back from Loads tab).
   void _loadAllData() {
     if (!mounted) return;
-    ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+    ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending', rrWeb: true);
     ref.read(vehicleProvider.notifier).loadVehicles();
-    ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
   }
 
   /// Switch tabs — refreshes fleet data whenever user navigates to Dashboard.
-  void _switchNav(int index) {
+  Future<void> _switchNav(int index) async {
     if (index == 0 && _navIndex != 0) {
-      ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
+      ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending', rrWeb: true);
     }
     if (index == 3 && _navIndex != 3) {
-      // Load completed trips fresh each time Records tab is opened
-      ref.read(completedTripsProvider.notifier).loadTrips(statusFilter: 'completed');
+      // Load completed RR trips fresh each time Records tab is opened
+      ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
     }
     setState(() => _navIndex = index);
   }
@@ -111,26 +222,33 @@ class _LogisticPartnerDashboardState
 
   @override
   Widget build(BuildContext context) {
+    // Show RR trip number popup whenever a new trip is created via CreateTripScreen
+    ref.listen<String?>(pendingRrTripNumberProvider, (_, next) {
+      if (next != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _showRrTripPopup(next));
+      }
+    });
+
     // When the LP receives a cancellation notification, immediately remove
     // the cancelled trip from Fleet Status without waiting for the 30s poll.
     ref.listen<NotificationsState>(notificationsProvider, (prev, next) {
       if (prev == null || next.items.length <= (prev.items.length)) return;
       final newest = next.items.first;
       if (newest.type == 'trip_cancelled' && newest.tripId != null) {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending', rrWeb: true);
       } else if (newest.type == 'load_cancelled') {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending', rrWeb: true);
       }
     });
 
     final user = ref.watch(authProvider).user;
-    final pendingLoadsCount = ref.watch(availableLoadsProvider).loads.length;
 
     final pages = [
-      _DashboardTab(onViewLoads: () => _switchNav(1)),
-      const _AvailableLoadsTab(),
+      const _DashboardTab(),
+      const _ComingSoonTab(label: 'Loads', icon: Icons.search_rounded),
       const _ProfileTab(),
       const _RecordsTab(),
+      const _ComingSoonTab(label: 'Fleet Hub', icon: Icons.local_shipping_outlined),
     ];
 
     return Scaffold(
@@ -156,7 +274,6 @@ class _LogisticPartnerDashboardState
       bottomNavigationBar: _BottomNav(
         selectedIndex: _navIndex,
         onTap: _switchNav,
-        pendingLoadsCount: pendingLoadsCount,
       ),
     );
   }
@@ -180,7 +297,6 @@ class _TopBar extends ConsumerWidget {
     final unread = notifState.items
         .where((n) => !n.isRead && (n.type == 'worker_request' || n.type == 'trip_complete' || n.type == 'trip_cancelled' || n.type == 'load_cancelled'))
         .length;
-
     return SafeArea(
       bottom: false,
       child: Container(
@@ -522,24 +638,78 @@ class _NotifTile extends StatelessWidget {
   }
 }
 
+// ─── Coming Soon Tab ──────────────────────────────────────────────────────────
+
+class _ComingSoonTab extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  const _ComingSoonTab({required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: _primary.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 38, color: _primary.withValues(alpha: 0.6)),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                color: _primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Coming Soon',
+                style: _inter(
+                    size: 11,
+                    weight: FontWeight.w700,
+                    color: _primary),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(label,
+                style: _manrope(
+                    size: 20,
+                    weight: FontWeight.w800,
+                    color: const Color(0xFF191C1E))),
+            const SizedBox(height: 8),
+            Text(
+              'This section is under development\nand will be available soon.',
+              style: _inter(size: 13),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Bottom Nav ───────────────────────────────────────────────────────────────
 
 class _BottomNav extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onTap;
-  final int pendingLoadsCount;
-  const _BottomNav({
-    required this.selectedIndex,
-    required this.onTap,
-    this.pendingLoadsCount = 0,
-  });
+  const _BottomNav({required this.selectedIndex, required this.onTap});
 
-  // (icon, label, navIndex)
+  // (icon, label, navIndex, comingSoon)
   static const _allItems = [
-    (Icons.dashboard_rounded,     'DASHBOARD', 0),
-    (Icons.search_rounded,        'LOADS',     1),
-    (Icons.folder_copy_outlined,  'RECORDS',   3),
-    (Icons.person_outline,        'PROFILE',   2),
+    (Icons.dashboard_rounded,        'DASHBOARD', 0, false),
+    (Icons.search_rounded,           'LOADS',     1, true),
+    (Icons.local_shipping_outlined,  'FLEET',     4, true),
+    (Icons.folder_copy_outlined,     'RECORDS',   3, false),
+    (Icons.person_outline,           'PROFILE',   2, false),
   ];
 
   @override
@@ -573,65 +743,40 @@ class _BottomNav extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: _allItems.map((item) {
-                  final (icon, label, navIdx) = item;
+                  final (icon, label, navIdx, comingSoon) = item;
                   final active = navIdx == selectedIndex;
-                  return GestureDetector(
-                    onTap: () => onTap(navIdx),
-                    behavior: HitTestBehavior.opaque,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      padding: active
-                          ? const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8)
-                          : const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: active ? _primary : Colors.transparent,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Icon(icon,
-                                  color: active ? Colors.white : _secondary,
-                                  size: 22),
-                              // Badge on LOADS tab
-                              if (navIdx == 1 && pendingLoadsCount > 0)
-                                Positioned(
-                                  right: -6,
-                                  top: -4,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 4, vertical: 1),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFE53935),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Text(
-                                      pendingLoadsCount > 99
-                                          ? '99+'
-                                          : '$pendingLoadsCount',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 8,
-                                          fontWeight: FontWeight.w800),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            label,
-                            style: _inter(
-                              size: 9,
-                              weight: FontWeight.w700,
-                              color: active ? Colors.white : _secondary,
-                            ).copyWith(letterSpacing: 0.6),
-                          ),
-                        ],
+                  return Opacity(
+                    opacity: comingSoon ? 0.45 : 1.0,
+                    child: GestureDetector(
+                      onTap: () => onTap(navIdx),
+                      behavior: HitTestBehavior.opaque,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 160),
+                        padding: active
+                            ? const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8)
+                            : const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: active ? _primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(icon,
+                                color: active ? Colors.white : _secondary,
+                                size: 22),
+                            const SizedBox(height: 3),
+                            Text(
+                              comingSoon ? 'SOON' : label,
+                              style: _inter(
+                                size: 9,
+                                weight: FontWeight.w700,
+                                color: active ? Colors.white : _secondary,
+                              ).copyWith(letterSpacing: 0.6),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -648,24 +793,24 @@ class _BottomNav extends StatelessWidget {
 // ─── Dashboard Tab ────────────────────────────────────────────────────────────
 
 class _DashboardTab extends ConsumerWidget {
-  final VoidCallback onViewLoads;
-  const _DashboardTab({required this.onViewLoads});
+  const _DashboardTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tripState = ref.watch(tripProvider);
-    final loadsState = ref.watch(availableLoadsProvider);
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Logistic Partner';
 
-    final ongoingTrips = tripState.activeTrips;
-    final pendingLoads = loadsState.loads;
+    // Fleet status: RR web form trips not yet loading-slip synced.
+    const _done = {'loading_slip_synced', 'bilty_synced', 'pod_synced'};
+    final ongoingTrips = tripState.activeTrips
+        .where((t) => t.consignorName != null && !_done.contains(t.rrSyncStatus))
+        .toList();
 
     return RefreshIndicator(
       color: _primary,
       onRefresh: () async {
-        await ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
-        await ref.read(availableLoadsProvider.notifier).loadAvailableLoads();
+        await ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending', rrWeb: true);
       },
       child: SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -683,17 +828,8 @@ class _DashboardTab extends ConsumerWidget {
               style: _inter(size: 13, color: _secondary)),
           const SizedBox(height: 16),
 
-          // ── Pending loads alert banner ───────────────────────────────
-          if (pendingLoads.isNotEmpty)
-            _PendingLoadsBanner(
-              count: pendingLoads.length,
-              loads: pendingLoads.take(2).toList(),
-              onViewAll: onViewLoads,
-            ),
-          if (pendingLoads.isNotEmpty) const SizedBox(height: 16),
-
-          // Search New Loads
-          _SearchLoadsButton(onTap: onViewLoads),
+          // Search New Loads — Coming Soon
+          const _SearchLoadsComingSoon(),
           const SizedBox(height: 24),
 
           // ── Fleet Status — ongoing trips with Locate button ──────────
@@ -717,11 +853,20 @@ class _DashboardTab extends ConsumerWidget {
             ...ongoingTrips.map(
               (t) => Padding(
                 padding: const EdgeInsets.only(bottom: 14),
-                child: OngoingTripCard(
-                  trip: t,
-                  onComplete: () =>
-                      ref.read(tripProvider.notifier).completeTrip(t.id),
-                ),
+                child: t.rrTripId != null
+                    ? RrTripCard(
+                        trip: t,
+                        onRefresh: () {
+                          ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+                          ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
+                        },
+                      )
+                    : OngoingTripCard(
+                        trip: t,
+                        onComplete: () async {
+                          return ref.read(tripProvider.notifier).completeTrip(t.id);
+                        },
+                      ),
               ),
             ),
           const SizedBox(height: 24),
@@ -780,19 +925,17 @@ class _PendingLoadsBanner extends StatelessWidget {
   }
 }
 
-// ─── Search New Loads Button (primary CTA) ────────────────────────────────────
+// ─── Search New Loads — Coming Soon ──────────────────────────────────────────
 
-class _SearchLoadsButton extends StatelessWidget {
-  final VoidCallback? onTap;
-  const _SearchLoadsButton({this.onTap});
+class _SearchLoadsComingSoon extends StatelessWidget {
+  const _SearchLoadsComingSoon();
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap ?? () => context.push('/fleet-manager/available-loads'),
+    return Opacity(
+      opacity: 0.55,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
             colors: [Color(0xFFFF6B00), Color(0xFFE55C00)],
@@ -800,13 +943,6 @@ class _SearchLoadsButton extends StatelessWidget {
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: _primary.withValues(alpha: 0.35),
-              blurRadius: 14,
-              offset: const Offset(0, 5),
-            ),
-          ],
         ),
         child: Row(
           children: [
@@ -840,8 +976,18 @@ class _SearchLoadsButton extends StatelessWidget {
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios_rounded,
-                color: Colors.white70, size: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('Coming Soon',
+                  style: _inter(
+                      size: 10,
+                      weight: FontWeight.w700,
+                      color: Colors.white)),
+            ),
           ],
         ),
       ),
@@ -881,6 +1027,34 @@ class _FleetStatusHeader extends ConsumerWidget {
             ],
           ),
         ),
+        // New Trip button
+        Builder(builder: (context) => GestureDetector(
+          onTap: () async {
+            final session = await ensureRrSession(context, ref);
+            if (session == null || !context.mounted) return;
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const CreateTripScreen()),
+            );
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: _primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _primary.withValues(alpha: 0.35)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.add_rounded, size: 14, color: _primary),
+                const SizedBox(width: 4),
+                Text('New Trip',
+                    style: _inter(size: 11, weight: FontWeight.w700, color: _primary)),
+              ],
+            ),
+          ),
+        )),
+        const SizedBox(width: 8),
         if (isLive)
           Container(
             padding:
@@ -949,6 +1123,22 @@ class _EmptyTrips extends StatelessWidget {
             const SizedBox(height: 4),
             Text('Create a trip to track it here in real time',
                 style: _inter(size: 12)),
+            const SizedBox(height: 14),
+            Builder(builder: (context) => FilledButton.icon(
+              style: FilledButton.styleFrom(
+                backgroundColor: _primary,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const CreateTripScreen()),
+                );
+              },
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: Text('Create Trip',
+                  style: _manrope(size: 13, weight: FontWeight.w700, color: Colors.white)),
+            )),
           ],
         ),
       ),
@@ -1774,22 +1964,294 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   String? _selectedDriverId;
   String? _selectedTransporterId;
   String? _selectedTransporterName;
-  final _amountController = TextEditingController();
+  final _amountController      = TextEditingController();
   final _transporterController = TextEditingController();
-  List<Map<String, dynamic>> _transporterResults = [];
-  bool _transporterSearchLoading = false;
+  List<Map<String, dynamic>> _transporterResults     = [];
+  bool _transporterSearchLoading                     = false;
   Timer? _transporterDebounce;
   bool _isLoading = false;
   String? _transporterError;
+  String? _consignorError;
+  String? _consigneeError;
+  String? _rrOpsError;
   String? _amountError;
+  String? _rrError;
+
+  // ── RR Parties ──────────────────────────────────────────────────────────────
+  List<Map<String, dynamic>> _partners            = [];
+  bool _partnersLoading                           = false;
+
+  // Consignor
+  Map<String, dynamic>? _consignorPartner;
+  List<Map<String, dynamic>> _consignorCompanies  = [];
+  bool _consignorCompaniesLoading                 = false;
+  String? _selectedConsignorId;    // rr_company_id
+  String? _selectedConsignorName;
+  List<Map<String, dynamic>> _consignorAddresses  = [];
+
+  // Consignee
+  Map<String, dynamic>? _consigneePartner;
+  List<Map<String, dynamic>> _consigneeCompanies  = [];
+  bool _consigneeCompaniesLoading                 = false;
+  String? _selectedConsigneeId;    // rr_company_id
+  String? _selectedConsigneeName;
+  List<Map<String, dynamic>> _consigneeAddresses  = [];
+
+  // Ops worker (from RR company-workers)
+  List<Map<String, dynamic>> _opsWorkers          = [];
+  bool _opsWorkersLoading                         = false;
+  String? _selectedRrOpsId;        // rr_user_id from RR (used as dropdown key)
+  String? _selectedRrOpsLocalId;   // local_user_id (UUID) sent to fulfill endpoint
+  String? _selectedRrOpsName;
+
+  // ── RR Sync fields ──────────────────────────────────────────────────────────
+  final _pickupCityCtrl  = TextEditingController();
+  String? _pickupCityId;
+  List<Map<String, dynamic>> _pickupCityResults = [];
+  bool _pickupCityLoading = false;
+  Timer? _pickupCityDebounce;
+
+  final _dropCityCtrl  = TextEditingController();
+  String? _dropCityId;
+  List<Map<String, dynamic>> _dropCityResults = [];
+  bool _dropCityLoading = false;
+  Timer? _dropCityDebounce;
+
+  final _rrMaterialCtrl = TextEditingController();
+  String? _materialRrId;
+  List<Map<String, dynamic>> _materialResults = [];
+  bool _materialLoading = false;
+  Timer? _materialDebounce;
+
+  final _weightCtrl       = TextEditingController();
+  String _weightUnit      = 'TONNES';  // RR-native default
+  List<String> _quantityUnits    = const ['TONNES', 'KILOGRAMS', 'LITRES', 'BOX', 'CUBIC METERS'];
+  List<String> _vehicleBodyTypes = const [];
+  String? _vehicleBodyType;
+  final _invoiceValueCtrl = TextEditingController();
+
+  // ── Consignor / Consignee info ───────────────────────────────────────────────
+  final _consignorNameCtrl  = TextEditingController();
+  final _consignorGstinCtrl = TextEditingController();
+  final _consigneeNameCtrl  = TextEditingController();
+  final _consigneeGstinCtrl = TextEditingController();
+
+  // ── Pickup address ─────────────────────────────────────────────────────────
+  final _pickupLine1Ctrl    = TextEditingController();
+  final _pickupLine2Ctrl    = TextEditingController();
+  final _pickupPinCtrl      = TextEditingController();
+  bool  _pickupNoEntryZone  = false;
+
+  // ── Unload address ─────────────────────────────────────────────────────────
+  final _unloadLine1Ctrl    = TextEditingController();
+  final _unloadLine2Ctrl    = TextEditingController();
+  final _unloadPinCtrl      = TextEditingController();
+  bool  _unloadNoEntryZone  = false;
+
+  // ── Parcel info ────────────────────────────────────────────────────────────
+  final _parcelDescCtrl     = TextEditingController();
+  bool  _partLoad           = false;
+  final _depotCodeCtrl      = TextEditingController();
+
+  // ── Vehicle requirements ───────────────────────────────────────────────────
+  String? _axleType;
+  int?    _numberOfWheels;
+  final _expectedFreightCtrl = TextEditingController();
+
+  static const _axleTypes    = ['Single', 'Double', 'Triple', 'Multiple'];
+  static const _wheelOptions = [4, 6, 8, 10, 12, 14, 16, 18, 22];
+
+  @override
+  void initState() {
+    super.initState();
+    // Load fleet data so dropdowns are populated
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(vehicleProvider.notifier).loadVehicles();
+      ref.read(driverProvider.notifier).loadDrivers();
+      // Pre-populate city / material fields from the load requirement
+      final load = widget.load;
+      if (load.pickupLocation != null && load.pickupLocation!.isNotEmpty) {
+        _pickupCityCtrl.text = load.pickupLocation!;
+        _searchCity(load.pickupLocation!, isPickup: true);
+      }
+      if (load.unloadLocation != null && load.unloadLocation!.isNotEmpty) {
+        _dropCityCtrl.text = load.unloadLocation!;
+        _searchCity(load.unloadLocation!, isPickup: false);
+      }
+      if (load.materialType != null && load.materialType!.isNotEmpty) {
+        _rrMaterialCtrl.text = load.materialType!;
+        _searchMaterial(load.materialType!);
+      }
+      _loadRrPartyData();
+    });
+  }
 
   @override
   void dispose() {
     _amountController.dispose();
     _transporterController.dispose();
     _transporterDebounce?.cancel();
+    _pickupCityCtrl.dispose();
+    _dropCityCtrl.dispose();
+    _rrMaterialCtrl.dispose();
+    _weightCtrl.dispose();
+    _invoiceValueCtrl.dispose();
+    _pickupCityDebounce?.cancel();
+    _dropCityDebounce?.cancel();
+    _materialDebounce?.cancel();
+    _consignorNameCtrl.dispose();
+    _consignorGstinCtrl.dispose();
+    _consigneeNameCtrl.dispose();
+    _consigneeGstinCtrl.dispose();
+    _pickupLine1Ctrl.dispose();
+    _pickupLine2Ctrl.dispose();
+    _pickupPinCtrl.dispose();
+    _unloadLine1Ctrl.dispose();
+    _unloadLine2Ctrl.dispose();
+    _unloadPinCtrl.dispose();
+    _parcelDescCtrl.dispose();
+    _depotCodeCtrl.dispose();
+    _expectedFreightCtrl.dispose();
     super.dispose();
   }
+
+  Future<void> _loadRrPartyData() async {
+    final api = ref.read(apiServiceProvider).dio;
+
+    // Enums only need RR4 auth — fire immediately, no RR session required.
+    api.get('/api/rr/enums', queryParameters: {'name': 'QuantityUnit'})
+        .then((r) {
+          if (!mounted) return;
+          final vals = (r.data['values'] as List? ?? []).cast<String>();
+          if (vals.isNotEmpty) {
+            setState(() {
+              _quantityUnits = vals;
+              if (!_quantityUnits.contains(_weightUnit)) _weightUnit = _quantityUnits.first;
+            });
+          }
+        }).catchError((_) {});
+    api.get('/api/rr/enums', queryParameters: {'name': 'VehicleBodyTypes'})
+        .then((r) {
+          if (!mounted) return;
+          setState(() {
+            _vehicleBodyTypes = (r.data['values'] as List? ?? []).cast<String>();
+          });
+        }).catchError((_) {});
+
+    // Partners and workers require an RR token — ask for login if no valid session.
+    final session = await ensureRrSession(context, ref);
+    if (session == null) {
+      if (mounted) setState(() { _partnersLoading = false; _opsWorkersLoading = false; });
+      return;
+    }
+    final token = session.token;
+    setState(() { _partnersLoading = true; _opsWorkersLoading = true; });
+    await Future.wait([
+      api.get('/api/rr/preferred-partners', queryParameters: {'rr_token': token})
+          .then((r) {
+            if (mounted) setState(() {
+              _partners = (r.data['partners'] as List? ?? []).cast<Map<String, dynamic>>();
+              _partnersLoading = false;
+            });
+          }).catchError((_) { if (mounted) setState(() => _partnersLoading = false); }),
+      api.get('/api/rr/company-workers', queryParameters: {'rr_token': token})
+          .then((r) {
+            if (mounted) setState(() {
+              _opsWorkers = (r.data['workers'] as List? ?? []).cast<Map<String, dynamic>>();
+              _opsWorkersLoading = false;
+            });
+          }).catchError((_) { if (mounted) setState(() => _opsWorkersLoading = false); }),
+    ]);
+  }
+
+  Future<void> _loadCompanyLocations(String? companyId, {required bool isConsignor}) async {
+    if (companyId == null || companyId.isEmpty) return;
+    final session = ref.read(rrSessionProvider);
+    final token = (session != null && session.isValid) ? session.token : '';
+    try {
+      final resp = await ref.read(apiServiceProvider).dio.get(
+        '/api/rr/operation-locations',
+        queryParameters: {'company_id': companyId, 'rr_token': token},
+      );
+      final locs = (resp.data['locations'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      if (isConsignor) setState(() => _consignorAddresses = locs);
+      else             setState(() => _consigneeAddresses = locs);
+    } catch (_) {}
+  }
+
+  Future<void> _loadPartnerCompanies(Map<String, dynamic> partner, {required bool isConsignor}) async {
+    final rrUserId = partner['rr_user_id'] as String?;
+    if (rrUserId == null) {
+      final companyId = partner['rr_company_id'] as String?;
+      final name = partner['name'] as String? ?? '';
+      if (isConsignor) setState(() {
+        _selectedConsignorId = companyId; _selectedConsignorName = name; _consignorCompanies = [];
+        _consignorAddresses  = [];
+      });
+      else setState(() {
+        _selectedConsigneeId = companyId; _selectedConsigneeName = name; _consigneeCompanies = [];
+        _consigneeAddresses  = [];
+      });
+      _loadCompanyLocations(companyId, isConsignor: isConsignor);
+      return;
+    }
+    if (isConsignor) setState(() => _consignorCompaniesLoading = true);
+    else             setState(() => _consigneeCompaniesLoading = true);
+    try {
+      final session = ref.read(rrSessionProvider);
+      final token = (session != null && session.isValid) ? session.token : '';
+      final resp = await ref.read(apiServiceProvider).dio.get(
+        '/api/rr/partner-companies',
+        queryParameters: {'user_id': rrUserId, 'rr_token': token},
+      );
+      final companies = (resp.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      if (isConsignor) setState(() { _consignorCompanies = companies; _consignorCompaniesLoading = false; });
+      else             setState(() { _consigneeCompanies = companies; _consigneeCompaniesLoading = false; });
+    } catch (_) {
+      if (!mounted) return;
+      if (isConsignor) setState(() => _consignorCompaniesLoading = false);
+      else             setState(() => _consigneeCompaniesLoading = false);
+    }
+  }
+
+  Future<void> _searchCity(String q, {required bool isPickup}) async {
+    if (q.length < 2) return;
+    if (isPickup) setState(() => _pickupCityLoading = true);
+    else          setState(() => _dropCityLoading   = true);
+    try {
+      final dio = ref.read(apiServiceProvider).dio;
+      final resp = await dio.get('/api/rr/cities', queryParameters: {'q': q});
+      final items = (resp.data['items'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() {
+        if (isPickup) { _pickupCityResults = items; _pickupCityLoading = false; }
+        else          { _dropCityResults   = items; _dropCityLoading   = false; }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        if (isPickup) _pickupCityLoading = false;
+        else          _dropCityLoading   = false;
+      });
+    }
+  }
+
+  Future<void> _searchMaterial(String q) async {
+    setState(() => _materialLoading = true);
+    try {
+      final dio = ref.read(apiServiceProvider).dio;
+      final resp = await dio.get('/api/rr/materials', queryParameters: {'q': q});
+      final items = (resp.data['items'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() { _materialResults = items; _materialLoading = false; });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _materialLoading = false);
+    }
+  }
+
 
   Future<void> _searchTransporters(String q) async {
     if (q.length < 2) {
@@ -1816,31 +2278,105 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     // Validate required fields
     final amountText = _amountController.text.trim();
     final amount = double.tryParse(amountText);
+    final weightText = _weightCtrl.text.trim();
+    final weightVal = double.tryParse(weightText);
+
+    String? snrErr;
+    String? cErr;
     String? tErr;
+    String? opsErr;
     String? aErr;
+    String? rErr;
+
+    if (_selectedConsignorId == null) snrErr = 'Please select a consignor (sender)';
+    if (_selectedConsigneeId == null) cErr = 'Please select a consignee (load receiver)';
     if (_selectedTransporterId == null) tErr = 'Please select a transporter';
+    if (_selectedRrOpsId == null) opsErr = 'Please select an RR Ops worker';
+    if (_selectedRrOpsId != null && _selectedRrOpsLocalId == null) opsErr = 'Selected worker is not registered in RR4 — ask them to log in first';
     if (amountText.isEmpty) {
       aErr = 'Please enter the trip amount';
     } else if (amount == null || amount <= 0) {
       aErr = 'Please enter a valid amount greater than 0';
     }
-    if (tErr != null || aErr != null) {
-      setState(() { _transporterError = tErr; _amountError = aErr; });
+    if (_pickupCityId == null) {
+      rErr = 'Select a pickup city from the dropdown';
+    } else if (_dropCityId == null) {
+      rErr = 'Select a drop city from the dropdown';
+    } else if (_materialRrId == null) {
+      rErr = 'Select a material from the dropdown';
+    } else if (weightText.isEmpty || weightVal == null) {
+      rErr = 'Enter a valid weight';
+    }
+
+    if (snrErr != null || cErr != null || tErr != null || opsErr != null || aErr != null || rErr != null) {
+      setState(() { _consignorError = snrErr; _consigneeError = cErr; _transporterError = tErr; _rrOpsError = opsErr; _amountError = aErr; _rrError = rErr; });
       return;
     }
 
-    setState(() { _isLoading = true; _transporterError = null; _amountError = null; });
+    setState(() { _isLoading = true; _consignorError = null; _consigneeError = null; _transporterError = null; _rrOpsError = null; _amountError = null; _rrError = null; });
 
     final api = ref.read(apiServiceProvider);
 
+    // Ensure valid RR session just before submit — token may have expired while form was filled
+    final rrSession = await ensureRrSession(context, ref);
+    if (!mounted) return;
+
     try {
+      final invoiceVal = double.tryParse(_invoiceValueCtrl.text.trim());
+      final ef = double.tryParse(_expectedFreightCtrl.text.trim());
+      final consignorName  = _consignorNameCtrl.text.trim();
+      final consignorGstin = _consignorGstinCtrl.text.trim();
+      final consigneeName  = _consigneeNameCtrl.text.trim();
+      final consigneeGstin = _consigneeGstinCtrl.text.trim();
+      final pl1 = _pickupLine1Ctrl.text.trim();
+      final pl2 = _pickupLine2Ctrl.text.trim();
+      final pp  = _pickupPinCtrl.text.trim();
+      final ul1 = _unloadLine1Ctrl.text.trim();
+      final ul2 = _unloadLine2Ctrl.text.trim();
+      final up  = _unloadPinCtrl.text.trim();
+      final desc      = _parcelDescCtrl.text.trim();
+      final depotCode = _depotCodeCtrl.text.trim();
       final resp = await api.dio.post(
         '/api/loads/${widget.load.id}/fulfill',
         data: {
           if (_selectedVehicleId != null) 'vehicle_id': _selectedVehicleId,
           if (_selectedDriverId != null) 'driver_id': _selectedDriverId,
           if (amount != null) 'trip_amount': amount,
+          if (_selectedConsignorId != null) 'consignor_rr_company_id': _selectedConsignorId,
+          if (_selectedConsigneeId != null) 'consignee_rr_company_id': _selectedConsigneeId,
+          if (_selectedRrOpsLocalId != null) 'rr_ops_user_id': _selectedRrOpsLocalId,
           if (_selectedTransporterId != null) 'transporter_user_id': _selectedTransporterId,
+          'origin_rr_city_id': _pickupCityId,
+          'destination_rr_city_id': _dropCityId,
+          'material_rr_id': _materialRrId,
+          'weight_value': weightVal,
+          'weight_unit': _weightUnit,
+          if (invoiceVal != null) 'invoice_value': invoiceVal,
+          if (_vehicleBodyType != null) 'vehicle_body_type': _vehicleBodyType,
+          // Consignor / Consignee info
+          if (consignorName.isNotEmpty)  'consignor_name':  consignorName,
+          if (consignorGstin.isNotEmpty) 'consignor_gstin': consignorGstin,
+          if (consigneeName.isNotEmpty)  'consignee_name':  consigneeName,
+          if (consigneeGstin.isNotEmpty) 'consignee_gstin': consigneeGstin,
+          // Pickup address
+          if (pl1.isNotEmpty) 'pickup_address_line1': pl1,
+          if (pl2.isNotEmpty) 'pickup_address_line2': pl2,
+          if (pp.isNotEmpty)  'pickup_pin':           pp,
+          'pickup_no_entry_zone': _pickupNoEntryZone,
+          // Unload address
+          if (ul1.isNotEmpty) 'unload_address_line1': ul1,
+          if (ul2.isNotEmpty) 'unload_address_line2': ul2,
+          if (up.isNotEmpty)  'unload_pin':           up,
+          'unload_no_entry_zone': _unloadNoEntryZone,
+          // Parcel info
+          if (desc.isNotEmpty)      'parcel_description': desc,
+          if (depotCode.isNotEmpty) 'depot_code':         depotCode,
+          'part_load': _partLoad,
+          // Vehicle requirements
+          if (_axleType       != null) 'axle_type':        _axleType,
+          if (_numberOfWheels != null) 'number_of_wheels': _numberOfWheels,
+          if (ef != null)              'expected_freight':  ef,
+          if (rrSession != null && rrSession.isValid) 'rr_token': rrSession.token,
         },
       );
 
@@ -1850,6 +2386,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       ref.read(tripProvider.notifier).patchTrip(trip);
 
       if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
       final trips = ref.read(tripProvider.notifier);
       final nav = Navigator.of(context);
       nav.pop();
@@ -1858,6 +2395,21 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       ).then((_) {
         trips.loadTrips(statusFilter: 'ongoing,pending');
       });
+
+      final rrNum = trip.rrTripNumber;
+      if (rrNum != null && rrNum.isNotEmpty) {
+        messenger.showSnackBar(SnackBar(
+          content: Text('Synced to RR web — Trip $rrNum'),
+          backgroundColor: const Color(0xFF006B5E),
+          duration: const Duration(seconds: 4),
+        ));
+      } else if (trip.rrSyncStatus == 'failed') {
+        messenger.showSnackBar(SnackBar(
+          content: Text('Trip created. RR sync failed: ${trip.rrSyncError ?? 'unknown error'}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 6),
+        ));
+      }
     } on DioException catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
@@ -1876,6 +2428,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   @override
   Widget build(BuildContext context) {
     final vehicles = ref.watch(vehicleProvider).vehicles;
+    final drivers  = ref.watch(driverProvider).drivers;
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
@@ -1934,51 +2487,611 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
                 ),
               const SizedBox(height: 20),
 
-              // Vehicle selector
-              if (vehicles.isNotEmpty) ...[
-                Text('Assign Vehicle (optional)',
-                    style: _inter(
-                        size: 12, weight: FontWeight.w700, color: _secondary)),
+              // ── Consignor (Sender / Shipper) ─────────────────────────────
+              Row(children: [
+                Text('Consignor',
+                    style: _inter(size: 12, weight: FontWeight.w700, color: _secondary)),
+                Text(' *', style: _inter(size: 12, weight: FontWeight.w700, color: Colors.red)),
+              ]),
+              const SizedBox(height: 8),
+              if (_partnersLoading)
+                const _PartyLoadingRow()
+              else if (_selectedConsignorId != null)
+                _PartySelectedChip(
+                  icon: Icons.business_outlined,
+                  name: _selectedConsignorName ?? 'Consignor selected',
+                  color: _primary,
+                  bg: const Color(0xFFFFF3E0),
+                  onClear: () => setState(() {
+                    _selectedConsignorId    = null;
+                    _selectedConsignorName  = null;
+                    _consignorPartner       = null;
+                    _consignorCompanies     = [];
+                  }),
+                )
+              else ...[
+                _PartyDropdown<Map<String, dynamic>>(
+                  hint: 'Select consignor partner (optional)',
+                  icon: Icons.handshake_outlined,
+                  value: _consignorPartner,
+                  items: _partners,
+                  label: (p) => p['name'] as String? ?? '—',
+                  onChanged: (p) {
+                    setState(() {
+                      _consignorPartner   = p;
+                      _consignorCompanies = [];
+                      _selectedConsignorId   = null;
+                      _selectedConsignorName = null;
+                    });
+                    if (p != null) _loadPartnerCompanies(p, isConsignor: true);
+                  },
+                ),
                 const SizedBox(height: 8),
+                if (_consignorCompaniesLoading)
+                  const _PartyLoadingRow()
+                else
+                  _PartyDropdown<Map<String, dynamic>>(
+                    hint: _consignorPartner == null
+                        ? 'Select a partner above first'
+                        : 'Select consignor company',
+                    icon: Icons.business_outlined,
+                    value: _consignorCompanies.cast<Map<String,dynamic>?>()
+                        .firstWhere((c) => c?['rr_company_id'] == _selectedConsignorId, orElse: () => null),
+                    items: _consignorPartner == null ? [] : _consignorCompanies,
+                    label: (c) => c['name'] as String? ?? '—',
+                    onChanged: _consignorPartner == null ? null : (c) {
+                      final id = c?['rr_company_id'] as String?;
+                      setState(() {
+                        _selectedConsignorId   = id;
+                        _selectedConsignorName = c?['name'] as String?;
+                        _consignorError        = null;
+                        _consignorAddresses    = [];
+                      });
+                      _loadCompanyLocations(id, isConsignor: true);
+                    },
+                  ),
+              ],
+              if (_consignorError != null) ...[
+                const SizedBox(height: 4),
+                Text(_consignorError!, style: _inter(size: 11, color: _error)),
+              ],
+              const SizedBox(height: 16),
+
+              // ── Consignee (Load Receiver) ────────────────────────────────
+              Row(children: [
+                Text('Consignee',
+                    style: _inter(size: 12, weight: FontWeight.w700, color: _secondary)),
+                Text(' *', style: _inter(size: 12, weight: FontWeight.w700, color: Colors.red)),
+              ]),
+              const SizedBox(height: 8),
+              if (_partnersLoading)
+                const _PartyLoadingRow()
+              else if (_selectedConsigneeId != null)
+                _PartySelectedChip(
+                  icon: Icons.move_to_inbox_outlined,
+                  name: _selectedConsigneeName ?? 'Consignee selected',
+                  color: const Color(0xFF00796B),
+                  bg: const Color(0xFFE0F2F1),
+                  onClear: () => setState(() {
+                    _selectedConsigneeId    = null;
+                    _selectedConsigneeName  = null;
+                    _consigneePartner       = null;
+                    _consigneeCompanies     = [];
+                  }),
+                )
+              else ...[
+                _PartyDropdown<Map<String, dynamic>>(
+                  hint: 'Select consignee partner (optional)',
+                  icon: Icons.handshake_outlined,
+                  value: _consigneePartner,
+                  items: _partners,
+                  label: (p) => p['name'] as String? ?? '—',
+                  onChanged: (p) {
+                    setState(() {
+                      _consigneePartner   = p;
+                      _consigneeCompanies = [];
+                      _selectedConsigneeId   = null;
+                      _selectedConsigneeName = null;
+                      _consigneeAddresses    = (p?['postal_addresses'] as List? ?? []).cast<Map<String,dynamic>>();
+                    });
+                    if (p != null) _loadPartnerCompanies(p, isConsignor: false);
+                  },
+                ),
+                const SizedBox(height: 8),
+                if (_consigneeCompaniesLoading)
+                  const _PartyLoadingRow()
+                else
+                  _PartyDropdown<Map<String, dynamic>>(
+                    hint: _consigneePartner == null
+                        ? 'Select a partner above first'
+                        : 'Select consignee company',
+                    icon: Icons.business_outlined,
+                    value: _consigneeCompanies.cast<Map<String,dynamic>?>()
+                        .firstWhere((c) => c?['rr_company_id'] == _selectedConsigneeId, orElse: () => null),
+                    items: _consigneePartner == null ? [] : _consigneeCompanies,
+                    label: (c) => c['name'] as String? ?? '—',
+                    onChanged: _consigneePartner == null ? null : (c) {
+                      final id = c?['rr_company_id'] as String?;
+                      setState(() {
+                        _selectedConsigneeId   = id;
+                        _selectedConsigneeName = c?['name'] as String?;
+                        _consigneeError        = null;
+                        _consigneeAddresses    = [];
+                      });
+                      _loadCompanyLocations(id, isConsignor: false);
+                    },
+                  ),
+              ],
+              if (_consigneeError != null) ...[
+                const SizedBox(height: 6),
+                Row(children: [
+                  const Icon(Icons.error_outline, size: 13, color: Colors.red),
+                  const SizedBox(width: 4),
+                  Text(_consigneeError!, style: _inter(size: 11, color: Colors.red)),
+                ]),
+              ],
+              const SizedBox(height: 20),
+
+              // ── RR Sync Details ─────────────────────────────────────────
+              Row(children: [
+                Container(width: 3, height: 14,
+                    decoration: BoxDecoration(color: _primary, borderRadius: BorderRadius.circular(2))),
+                const SizedBox(width: 8),
+                Text('RR Sync Details', style: _manrope(size: 13, weight: FontWeight.w800)),
+              ]),
+              const SizedBox(height: 12),
+
+              // Pickup city
+              Text('Pickup City', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillCityField(
+                controller: _pickupCityCtrl,
+                loading: _pickupCityLoading,
+                confirmed: _pickupCityId != null,
+                results: _pickupCityResults,
+                onChanged: (q) {
+                  setState(() { _pickupCityId = null; _pickupCityResults = []; });
+                  _pickupCityDebounce?.cancel();
+                  if (q.length >= 2) _pickupCityDebounce = Timer(
+                    const Duration(milliseconds: 400),
+                    () => _searchCity(q, isPickup: true),
+                  );
+                },
+                onSelect: (city) => setState(() {
+                  _pickupCityId = city['rr_city_id'] as String;
+                  _pickupCityCtrl.text = city['name'] as String;
+                  _pickupCityResults = [];
+                }),
+                onClear: () => setState(() {
+                  _pickupCityId = null; _pickupCityCtrl.clear(); _pickupCityResults = [];
+                }),
+              ),
+              const SizedBox(height: 12),
+
+              // Drop city
+              Text('Drop City', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillCityField(
+                controller: _dropCityCtrl,
+                loading: _dropCityLoading,
+                confirmed: _dropCityId != null,
+                results: _dropCityResults,
+                onChanged: (q) {
+                  setState(() { _dropCityId = null; _dropCityResults = []; });
+                  _dropCityDebounce?.cancel();
+                  if (q.length >= 2) _dropCityDebounce = Timer(
+                    const Duration(milliseconds: 400),
+                    () => _searchCity(q, isPickup: false),
+                  );
+                },
+                onSelect: (city) => setState(() {
+                  _dropCityId = city['rr_city_id'] as String;
+                  _dropCityCtrl.text = city['name'] as String;
+                  _dropCityResults = [];
+                }),
+                onClear: () => setState(() {
+                  _dropCityId = null; _dropCityCtrl.clear(); _dropCityResults = [];
+                }),
+              ),
+              const SizedBox(height: 12),
+
+              // Material
+              Text('Material', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillCityField(
+                controller: _rrMaterialCtrl,
+                loading: _materialLoading,
+                confirmed: _materialRrId != null,
+                results: _materialResults,
+                onChanged: (q) {
+                  setState(() { _materialRrId = null; _materialResults = []; });
+                  _materialDebounce?.cancel();
+                  _materialDebounce = Timer(
+                    const Duration(milliseconds: 350),
+                    () => _searchMaterial(q),
+                  );
+                },
+                onSelect: (mat) => setState(() {
+                  _materialRrId = mat['rr_material_id'] as String?;
+                  _rrMaterialCtrl.text = mat['name'] as String;
+                  _materialResults = [];
+                }),
+                onClear: () => setState(() {
+                  _materialRrId = null; _rrMaterialCtrl.clear(); _materialResults = [];
+                }),
+              ),
+              const SizedBox(height: 12),
+
+              // Weight + unit
+              Text('Weight', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              Row(children: [
+                Expanded(child: _FulfillTextField(
+                  controller: _weightCtrl,
+                  hint: 'e.g. 20',
+                  inputType: const TextInputType.numberWithOptions(decimal: true),
+                )),
+                const SizedBox(width: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
                     color: _surfaceContainerLow,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: _surfaceContainer),
                   ),
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
-                      value: _selectedVehicleId,
-                      isExpanded: true,
-                      hint: Text('Select vehicle',
-                          style: _inter(size: 13, color: _secondary)),
-                      style: _inter(
-                          size: 13,
-                          color: const Color(0xFF191C1E),
-                          weight: FontWeight.w500),
-                      items: [
-                        DropdownMenuItem<String>(
-                          value: null,
-                          child: Text('None',
-                              style: _inter(size: 13, color: _secondary)),
-                        ),
-                        ...vehicles.map((v) {
-                          final reg = v['registration'] as String? ?? '—';
-                          final id = v['id'] as String?;
-                          return DropdownMenuItem<String>(
-                            value: id,
-                            child: Text(reg),
-                          );
-                        }),
-                      ],
-                      onChanged: (val) =>
-                          setState(() => _selectedVehicleId = val),
+                      value: _quantityUnits.contains(_weightUnit) ? _weightUnit : _quantityUnits.first,
+                      style: _inter(size: 13, color: const Color(0xFF191C1E)),
+                      icon: const Icon(Icons.expand_more_rounded, size: 18),
+                      items: _quantityUnits.map((u) =>
+                          DropdownMenuItem(value: u, child: Text(u))).toList(),
+                      onChanged: (v) { if (v != null) setState(() => _weightUnit = v); },
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+              ]),
+              const SizedBox(height: 12),
+
+              // Invoice value
+              Text('Invoice Value (₹)', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(
+                controller: _invoiceValueCtrl,
+                hint: 'e.g. 150000',
+                inputType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+
+              // Vehicle body type
+              Text('Vehicle Body Type', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _vehicleBodyTypes.isEmpty
+                  ? Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: _surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _surfaceContainer),
+                      ),
+                      child: Row(children: [
+                        const SizedBox(width: 16, height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2)),
+                        const SizedBox(width: 8),
+                        Text('Loading…', style: _inter(size: 13)),
+                      ]),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: _surfaceContainerLow,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _surfaceContainer),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _vehicleBodyType,
+                          hint: Text('Select body type', style: _inter(size: 13)),
+                          isExpanded: true,
+                          style: _inter(size: 13, color: const Color(0xFF191C1E)),
+                          icon: const Icon(Icons.expand_more_rounded, size: 18),
+                          items: _vehicleBodyTypes.map((t) =>
+                              DropdownMenuItem(value: t, child: Text(t))).toList(),
+                          onChanged: (v) => setState(() => _vehicleBodyType = v),
+                        ),
+                      ),
+                    ),
+              if (_rrError != null) ...[
+                const SizedBox(height: 8),
+                Row(children: [
+                  const Icon(Icons.error_outline, size: 13, color: Colors.red),
+                  const SizedBox(width: 4),
+                  Expanded(child: Text(_rrError!, style: _inter(size: 11, color: Colors.red))),
+                ]),
               ],
+              const SizedBox(height: 20),
+
+              // ── Consignor Info ─────────────────────────────────────────────
+              _FulfillSectionHeader(label: 'Consignor Info'),
+              const SizedBox(height: 10),
+              Text('Name', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _consignorNameCtrl, hint: 'e.g. Tata Steel Ltd'),
+              const SizedBox(height: 10),
+              Text('GSTIN', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _consignorGstinCtrl, hint: 'e.g. 27AABCT3518Q1ZV'),
+              const SizedBox(height: 20),
+
+              // ── Consignee Info ─────────────────────────────────────────────
+              _FulfillSectionHeader(label: 'Consignee Info'),
+              const SizedBox(height: 10),
+              Text('Name', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _consigneeNameCtrl, hint: 'e.g. JSW Steel Ltd'),
+              const SizedBox(height: 10),
+              Text('GSTIN', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _consigneeGstinCtrl, hint: 'e.g. 27AABCJ1234P1ZX'),
+              const SizedBox(height: 20),
+
+              // ── Pickup Address ─────────────────────────────────────────────
+              _FulfillSectionHeader(label: 'Pickup Address'),
+              const SizedBox(height: 10),
+              Text('Address Line 1', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _pickupLine1Ctrl, hint: 'Street / area'),
+              const SizedBox(height: 10),
+              Text('Address Line 2', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _pickupLine2Ctrl, hint: 'Landmark / locality'),
+              const SizedBox(height: 10),
+              Text('PIN Code', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _pickupPinCtrl, hint: '6-digit PIN', inputType: TextInputType.number),
+              const SizedBox(height: 8),
+              _FulfillCheckboxRow(
+                label: 'No Entry Zone',
+                value: _pickupNoEntryZone,
+                onChanged: (v) => setState(() => _pickupNoEntryZone = v ?? false),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Unload Address ─────────────────────────────────────────────
+              _FulfillSectionHeader(label: 'Unload Address'),
+              const SizedBox(height: 10),
+              Text('Address Line 1', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _unloadLine1Ctrl, hint: 'Street / area'),
+              const SizedBox(height: 10),
+              Text('Address Line 2', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _unloadLine2Ctrl, hint: 'Landmark / locality'),
+              const SizedBox(height: 10),
+              Text('PIN Code', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _unloadPinCtrl, hint: '6-digit PIN', inputType: TextInputType.number),
+              const SizedBox(height: 8),
+              _FulfillCheckboxRow(
+                label: 'No Entry Zone',
+                value: _unloadNoEntryZone,
+                onChanged: (v) => setState(() => _unloadNoEntryZone = v ?? false),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Parcel Info ────────────────────────────────────────────────
+              _FulfillSectionHeader(label: 'Parcel Info'),
+              const SizedBox(height: 10),
+              Text('Description', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _parcelDescCtrl, hint: 'e.g. Steel coils'),
+              const SizedBox(height: 10),
+              Text('Depot Code', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(controller: _depotCodeCtrl, hint: 'e.g. KNP01'),
+              const SizedBox(height: 8),
+              _FulfillCheckboxRow(
+                label: 'Part Load',
+                value: _partLoad,
+                onChanged: (v) => setState(() => _partLoad = v ?? false),
+              ),
+              const SizedBox(height: 20),
+
+              // ── Vehicle Requirements ───────────────────────────────────────
+              _FulfillSectionHeader(label: 'Vehicle Requirements'),
+              const SizedBox(height: 10),
+              Text('Axle Type', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: _surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _surfaceContainer),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _axleType,
+                    isExpanded: true,
+                    hint: Text('Select axle type', style: _inter(size: 13, color: _secondary)),
+                    style: _inter(size: 13, color: const Color(0xFF191C1E)),
+                    icon: const Icon(Icons.expand_more_rounded, size: 18),
+                    items: _axleTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                    onChanged: (v) => setState(() => _axleType = v),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text('Number of Wheels', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: _surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _surfaceContainer),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: _numberOfWheels,
+                    isExpanded: true,
+                    hint: Text('Select wheel count', style: _inter(size: 13, color: _secondary)),
+                    style: _inter(size: 13, color: const Color(0xFF191C1E)),
+                    icon: const Icon(Icons.expand_more_rounded, size: 18),
+                    items: _wheelOptions.map((w) => DropdownMenuItem<int>(
+                      value: w, child: Text('$w wheels'),
+                    )).toList(),
+                    onChanged: (v) => setState(() => _numberOfWheels = v),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text('Expected Freight (₹)', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+              const SizedBox(height: 6),
+              _FulfillTextField(
+                controller: _expectedFreightCtrl,
+                hint: 'e.g. 45000',
+                inputType: TextInputType.number,
+              ),
+              const SizedBox(height: 20),
+
+              // Vehicle selector
+              Text('Assign Vehicle (optional)',
+                  style: _inter(size: 12, weight: FontWeight.w700, color: _secondary)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: _surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _surfaceContainer),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedVehicleId,
+                    isExpanded: true,
+                    hint: Text('Select vehicle',
+                        style: _inter(size: 13, color: _secondary)),
+                    style: _inter(
+                        size: 13,
+                        color: const Color(0xFF191C1E),
+                        weight: FontWeight.w500),
+                    items: [
+                      DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('None', style: _inter(size: 13, color: _secondary)),
+                      ),
+                      ...vehicles.map((v) {
+                        final reg = v['registration'] as String? ??
+                            v['vehicle_number'] as String? ?? '—';
+                        final make = v['make'] as String? ?? '';
+                        final model = v['model'] as String? ?? '';
+                        final label = [reg, if (make.isNotEmpty || model.isNotEmpty) '$make $model'.trim()]
+                            .join('  ·  ');
+                        return DropdownMenuItem<String>(
+                          value: v['id'] as String?,
+                          child: Text(label, overflow: TextOverflow.ellipsis),
+                        );
+                      }),
+                    ],
+                    onChanged: (val) => setState(() => _selectedVehicleId = val),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Driver selector
+              Text('Assign Driver (optional)',
+                  style: _inter(size: 12, weight: FontWeight.w700, color: _secondary)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: _surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _surfaceContainer),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedDriverId,
+                    isExpanded: true,
+                    hint: Text('Select driver',
+                        style: _inter(size: 13, color: _secondary)),
+                    style: _inter(
+                        size: 13,
+                        color: const Color(0xFF191C1E),
+                        weight: FontWeight.w500),
+                    items: [
+                      DropdownMenuItem<String>(
+                        value: null,
+                        child: Text('None', style: _inter(size: 13, color: _secondary)),
+                      ),
+                      ...drivers.map((d) {
+                        final label = '${d.fullName}  ·  ${d.phone}';
+                        return DropdownMenuItem<String>(
+                          value: d.driverId,
+                          child: Text(label, overflow: TextOverflow.ellipsis),
+                        );
+                      }),
+                    ],
+                    onChanged: (val) => setState(() => _selectedDriverId = val),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // ── RR Ops ────────────────────────────────────────────────────
+              Row(children: [
+                Text('RR Ops',
+                    style: _inter(size: 12, weight: FontWeight.w700, color: _secondary)),
+                Text(' *', style: _inter(size: 12, weight: FontWeight.w700, color: Colors.red)),
+              ]),
+              const SizedBox(height: 8),
+              if (_opsWorkersLoading)
+                const _PartyLoadingRow()
+              else if (_opsWorkers.isEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: _surfaceContainerLow,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _surfaceContainer),
+                  ),
+                  child: Row(children: [
+                    Icon(Icons.info_outline, size: 15, color: _secondary),
+                    const SizedBox(width: 8),
+                    Text('No RR Ops workers found for your company',
+                        style: _inter(size: 12, color: _secondary)),
+                  ]),
+                )
+              else
+                _PartyDropdown<Map<String, dynamic>>(
+                  hint: 'Select RR Ops worker',
+                  icon: Icons.sync_alt,
+                  value: _opsWorkers.cast<Map<String,dynamic>?>()
+                      .firstWhere((w) => w?['rr_user_id'] == _selectedRrOpsId, orElse: () => null),
+                  items: _opsWorkers,
+                  label: (w) {
+                    final name = w['name'] as String? ?? '—';
+                    final phone = (w['phone'] as Map?)?['number'] as String? ?? '';
+                    return phone.isNotEmpty ? '$name · $phone' : name;
+                  },
+                  onChanged: (w) => setState(() {
+                    _selectedRrOpsId      = w?['rr_user_id'] as String?;
+                    _selectedRrOpsLocalId = w?['local_user_id'] as String?;
+                    _selectedRrOpsName    = w?['name'] as String?;
+                    _rrOpsError           = null;
+                  }),
+                ),
+              if (_rrOpsError != null) ...[
+                const SizedBox(height: 6),
+                Row(children: [
+                  const Icon(Icons.error_outline, size: 13, color: Colors.red),
+                  const SizedBox(width: 4),
+                  Text(_rrOpsError!, style: _inter(size: 11, color: Colors.red)),
+                ]),
+              ],
+              const SizedBox(height: 20),
 
               // Transporter search
               Row(
@@ -2213,6 +3326,291 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
   }
 }
 
+// ── Party picker helpers ──────────────────────────────────────────────────────
+
+class _PartyLoadingRow extends StatelessWidget {
+  const _PartyLoadingRow();
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: _surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _surfaceContainer),
+        ),
+        child: const Row(children: [
+          SizedBox(width: 16, height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2)),
+          SizedBox(width: 10),
+          Text('Loading…', style: TextStyle(fontSize: 13, color: _secondary)),
+        ]),
+      );
+}
+
+class _PartySelectedChip extends StatelessWidget {
+  final IconData icon;
+  final String name;
+  final Color color;
+  final Color bg;
+  final VoidCallback onClear;
+  const _PartySelectedChip({
+    required this.icon, required this.name, required this.color,
+    required this.bg, required this.onClear,
+  });
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Row(children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(child: Text(name,
+              style: _inter(size: 13, weight: FontWeight.w600, color: color))),
+          GestureDetector(
+            onTap: onClear,
+            child: Icon(Icons.close, size: 18, color: color),
+          ),
+        ]),
+      );
+}
+
+class _PartyDropdown<T> extends StatelessWidget {
+  final String hint;
+  final IconData icon;
+  final T? value;
+  final List<T> items;
+  final String Function(T) label;
+  final ValueChanged<T?>? onChanged;   // nullable → null disables the dropdown
+  const _PartyDropdown({
+    required this.hint, required this.icon, required this.value,
+    required this.items, required this.label, required this.onChanged,
+  });
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onChanged == null;
+    return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: disabled ? const Color(0xFFF2F4F6) : _surfaceContainerLow,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _surfaceContainer),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<T>(
+            value: value,
+            isExpanded: true,
+            hint: Row(children: [
+              Icon(icon, size: 16, color: _secondary),
+              const SizedBox(width: 8),
+              Text(hint, style: _inter(size: 13, color: _secondary)),
+            ]),
+            style: _inter(size: 13, color: const Color(0xFF191C1E)),
+            icon: Icon(Icons.expand_more_rounded, size: 18,
+                color: disabled ? _surfaceContainer : null),
+            items: disabled ? null : items.map((item) => DropdownMenuItem<T>(
+              value: item,
+              child: Text(label(item), overflow: TextOverflow.ellipsis),
+            )).toList(),
+            onChanged: onChanged,
+          ),
+        ),
+      );
+  }
+}
+
+// ── Fulfill sheet helpers ─────────────────────────────────────────────────────
+
+/// Compact search field used inside the fulfill bottom sheet.
+class _FulfillCityField extends StatelessWidget {
+  final TextEditingController controller;
+  final bool loading;
+  final bool confirmed;
+  final List<Map<String, dynamic>> results;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<Map<String, dynamic>> onSelect;
+  final VoidCallback onClear;
+
+  const _FulfillCityField({
+    required this.controller,
+    required this.loading,
+    required this.confirmed,
+    required this.results,
+    required this.onChanged,
+    required this.onSelect,
+    required this.onClear,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: _surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: confirmed
+                  ? const Color(0xFF4CAF50).withOpacity(0.6)
+                  : _surfaceContainer,
+              width: confirmed ? 1.5 : 1,
+            ),
+          ),
+          child: Row(children: [
+            const SizedBox(width: 12),
+            Icon(
+              confirmed ? Icons.check_circle_rounded : Icons.search_rounded,
+              size: 16,
+              color: confirmed ? const Color(0xFF2E7D32) : _secondary,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                style: _inter(size: 13, color: const Color(0xFF191C1E)),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            if (loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox(width: 14, height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: _primary)),
+              )
+            else if (controller.text.isNotEmpty)
+              IconButton(
+                icon: const Icon(Icons.close_rounded, size: 16, color: _secondary),
+                onPressed: onClear,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              ),
+          ]),
+        ),
+        if (results.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _surfaceContainer),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06),
+                  blurRadius: 6, offset: const Offset(0, 2))],
+            ),
+            constraints: const BoxConstraints(maxHeight: 160),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: results.length,
+                separatorBuilder: (_, __) => Divider(height: 1, color: _surfaceContainer),
+                itemBuilder: (_, i) => InkWell(
+                  onTap: () => onSelect(results[i]),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Text(results[i]['name'] as String? ?? '',
+                        style: _inter(size: 13, color: const Color(0xFF191C1E))),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Compact plain text field used inside the fulfill bottom sheet.
+class _FulfillSectionHeader extends StatelessWidget {
+  final String label;
+  const _FulfillSectionHeader({required this.label});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Container(width: 3, height: 14,
+          decoration: BoxDecoration(color: _primary, borderRadius: BorderRadius.circular(2))),
+      const SizedBox(width: 8),
+      Text(label, style: _manrope(size: 13, weight: FontWeight.w800)),
+    ],
+  );
+}
+
+class _FulfillCheckboxRow extends StatelessWidget {
+  final String label;
+  final bool value;
+  final ValueChanged<bool?> onChanged;
+  const _FulfillCheckboxRow({required this.label, required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      SizedBox(
+        width: 20, height: 20,
+        child: Checkbox(
+          value: value,
+          onChanged: onChanged,
+          activeColor: _primary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+          side: BorderSide(color: _secondary),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Text(label, style: _inter(size: 13, color: const Color(0xFF191C1E))),
+    ],
+  );
+}
+
+class _FulfillTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final TextInputType inputType;
+
+  const _FulfillTextField({
+    required this.controller,
+    required this.hint,
+    this.inputType = TextInputType.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      keyboardType: inputType,
+      style: _inter(size: 13, color: const Color(0xFF191C1E)),
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: _inter(size: 13, color: _secondary),
+        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+        filled: true,
+        fillColor: _surfaceContainerLow,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _surfaceContainer),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: _surfaceContainer),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _primary, width: 1.5),
+        ),
+        isDense: true,
+      ),
+    );
+  }
+}
+
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label, value;
@@ -2330,14 +3728,16 @@ class _RecordsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(completedTripsProvider);
-    final trips = state.trips.where((t) => t.isCompleted).toList()
+    final trips = state.trips
+        .where((t) => t.rrTripId != null && t.rrTripId!.isNotEmpty)
+        .toList()
       ..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
 
     return RefreshIndicator(
       color: _primary,
       onRefresh: () => ref
           .read(completedTripsProvider.notifier)
-          .loadTrips(statusFilter: 'completed'),
+          .loadTrips(rrOnly: true),
       child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
@@ -2350,28 +3750,29 @@ class _RecordsTab extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Trip Records',
+                        Text('RR Web Records',
                             style: _manrope(size: 20, weight: FontWeight.w800)),
-                        Text('All completed trips',
+                        Text('Completed RR Web trips',
                             style: _inter(size: 12, color: _secondary)),
                       ],
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD7F0D9),
-                      borderRadius: BorderRadius.circular(20),
+                  if (!state.isLoading)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F3FC),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        '${trips.length} trips',
+                        style: _inter(
+                            size: 11,
+                            weight: FontWeight.w700,
+                            color: const Color(0xFF1B6CA8)),
+                      ),
                     ),
-                    child: Text(
-                      '${trips.length} completed',
-                      style: _inter(
-                          size: 11,
-                          weight: FontWeight.w700,
-                          color: const Color(0xFF1B5E20)),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -2379,7 +3780,7 @@ class _RecordsTab extends ConsumerWidget {
           if (state.isLoading)
             const SliverFillRemaining(
               child: Center(
-                child: CircularProgressIndicator(),
+                child: CircularProgressIndicator(color: _primary),
               ),
             )
           else if (state.error != null && trips.isEmpty)
@@ -2398,7 +3799,7 @@ class _RecordsTab extends ConsumerWidget {
                     TextButton(
                       onPressed: () => ref
                           .read(completedTripsProvider.notifier)
-                          .loadTrips(statusFilter: 'completed'),
+                          .loadTrips(rrOnly: true),
                       child: const Text('Retry'),
                     ),
                   ],
@@ -2407,37 +3808,45 @@ class _RecordsTab extends ConsumerWidget {
             )
           else if (trips.isEmpty)
             SliverFillRemaining(
+              hasScrollBody: false,
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.folder_copy_outlined,
-                        size: 64,
-                        color: _secondary.withValues(alpha: 0.4)),
-                    const SizedBox(height: 16),
-                    Text('No completed trips yet',
-                        style: _manrope(
-                            size: 15,
-                            weight: FontWeight.w700,
-                            color: _secondary)),
-                    const SizedBox(height: 6),
-                    Text('Completed trips will appear here',
-                        style: _inter(size: 13, color: _secondary)),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.all(40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1B6CA8).withValues(alpha: 0.08),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.sync_alt_rounded,
+                            size: 32, color: Color(0xFF1B6CA8)),
+                      ),
+                      const SizedBox(height: 16),
+                      Text('No RR Web records yet',
+                          style: _manrope(
+                              size: 15,
+                              weight: FontWeight.w700,
+                              color: _secondary)),
+                      const SizedBox(height: 6),
+                      Text('Completed RR Web trips will appear here',
+                          style: _inter(size: 13, color: _secondary),
+                          textAlign: TextAlign.center),
+                    ],
+                  ),
                 ),
               ),
             )
           else
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: OngoingTripCard(trip: trips[i], readOnly: true),
-                  ),
-                  childCount: trips.length,
-                ),
+              sliver: SliverList.separated(
+                itemCount: trips.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (_, i) => RrTripCard(trip: trips[i]),
               ),
             ),
         ],
@@ -2921,7 +4330,7 @@ class _DrawerWorkersTile extends StatelessWidget {
             const SizedBox(width: 14),
             Expanded(
               child: Text(
-                'Workers',
+                'Employees',
                 style: _inter(size: 14, weight: FontWeight.w600, color: _onSurface),
               ),
             ),

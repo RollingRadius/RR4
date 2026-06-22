@@ -231,7 +231,7 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
       itemCount: filteredRoles.length,
       itemBuilder: (context, index) {
         final role = filteredRoles[index];
-        final isAvailable = role.roleKey == 'fleet_manager' || role.roleKey == 'load_owner';
+        final isAvailable = role.roleKey == 'logistic_partner';
         final isSelected = _selectedRole?.id == role.id;
 
         return StaggeredItem(
@@ -357,34 +357,25 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
 
   IconData _getRoleIcon(String roleKey) {
     switch (roleKey.toLowerCase()) {
-      case 'super_admin':
-        return Icons.admin_panel_settings;
+      case 'logistic_partner':
       case 'fleet_manager':
-        return Icons.local_shipping;
-      case 'dispatcher':
-        return Icons.assignment;
+        return Icons.local_shipping_rounded;
+      case 'load_owner':
+        return Icons.inventory_2_outlined;
+      case 'transporter':
+        return Icons.airport_shuttle_rounded;
       case 'driver':
-        return Icons.drive_eta;
-      case 'accountant':
-      case 'finance_manager':
-        return Icons.account_balance;
-      case 'maintenance_manager':
-        return Icons.build;
-      case 'compliance_officer':
-        return Icons.verified_user;
-      case 'operations_manager':
-        return Icons.manage_accounts;
-      case 'maintenance_technician':
-        return Icons.engineering;
-      case 'customer_service':
-        return Icons.support_agent;
-      case 'viewer':
-      case 'analyst':
-        return Icons.analytics;
-      case 'owner':
-        return Icons.business;
+        return Icons.drive_eta_rounded;
+      case 'logistic_partner_worker':
+        return Icons.engineering_rounded;
+      case 'lp_rr_operations':
+        return Icons.sync_alt_rounded;
+      case 'load_receiver':
+        return Icons.warehouse_outlined;
+      case 'super_admin':
+        return Icons.admin_panel_settings_rounded;
       default:
-        return Icons.person;
+        return Icons.person_rounded;
     }
   }
 }

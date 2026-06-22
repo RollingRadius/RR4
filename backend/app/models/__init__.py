@@ -30,6 +30,7 @@ from .dashboard import Dashboard, DashboardWidget
 from .kpi import KPI, KPIHistory
 from .trip import Trip
 from .notification import Notification
+from .material_type import MaterialType
 
 __all__ = [
     "User",
@@ -72,4 +73,5 @@ __all__ = [
     "KPIHistory",
     "Trip",
     "Notification",
+    "MaterialType",
 ]

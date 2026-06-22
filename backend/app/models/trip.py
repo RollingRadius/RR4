@@ -102,6 +102,7 @@ class Trip(Base):
     s3_empty_truck_weight_unit  = Column(String(10),   nullable=True, default='tons')  # 'tons' or 'kg'
     s3_loaded_truck_weight_kg   = Column(String(20),   nullable=True)   # Dharma kanta — after loading (value)
     s3_loaded_truck_weight_unit = Column(String(10),   nullable=True, default='tons')  # 'tons' or 'kg'
+    s3_loaded_weight_slip_url   = Column(String(500),  nullable=True)   # Kanta parchi — loaded weight slip photo
     s3_bilty_url                = Column(String(500),  nullable=True)   # URL path to bilty image
     s3_material_doc_urls        = Column(Text,         nullable=True)   # JSON list of material doc URL paths
     s3_e_way_bill_url           = Column(Text,         nullable=True)   # URL path to e-way bill document
@@ -126,14 +127,95 @@ class Trip(Base):
     # ── Transporter Assignment ────────────────────────────────────────────────────
     # User ID of the transporter assigned by LP to upload the loading slip
     transporter_user_id = Column(UUID(as_uuid=True), nullable=True)
+    # RR company ObjectId used as vehicle_provider_id in POST /create_trip.
+    # Set at assign-transporter time: transporter org's rr_company_id if set,
+    # else Rolling Radius default (62d66794e54f47829a886a1d).
+    transporter_rr_company_id = Column(String(24), nullable=True)
 
-    # ── Stage Authorship (who submitted each stage) ──────────────────────────────
+    # ── Consignee (Load Receiver) ─────────────────────────────────────────────────
+    # Exactly one is set: org-type consignee OR individual user-type consignee
+    consignee_org_id  = Column(UUID(as_uuid=True), nullable=True)
+    consignee_user_id = Column(UUID(as_uuid=True), nullable=True)
+    # RR company ObjectIds — set directly when LP picks from the RR company picker
+    consignor_rr_company_id = Column(String, nullable=True)   # sender / shipper
+    consignee_rr_company_id = Column(String, nullable=True)   # receiver
+    # RR Ops worker assigned to handle this trip's sync
+    rr_ops_user_id    = Column(UUID(as_uuid=True), nullable=True)
+
+# ── Stage Authorship (who submitted each stage) ──────────────────────────────
     s1_submitted_by = Column(UUID(as_uuid=True), nullable=True)
     s2_submitted_by = Column(UUID(as_uuid=True), nullable=True)
     s3_submitted_by = Column(UUID(as_uuid=True), nullable=True)
     s4_submitted_by = Column(UUID(as_uuid=True), nullable=True)
 
     # Stage claim columns removed (claim system disabled)
+
+    # ── RR Sync ──────────────────────────────────────────────────────────────────
+    # City ObjectIds resolved via RR city proxy at form-fill time
+    origin_rr_city_id      = Column(String(24), nullable=True)
+    destination_rr_city_id = Column(String(24), nullable=True)
+
+    # Material ObjectId resolved via RR /material_types proxy at form-fill time
+    material_rr_id = Column(String(24), nullable=True)
+
+    # Structured weight (old free-text `weight` column kept for compatibility)
+    weight_value      = Column(Numeric(10, 3), nullable=True)
+    weight_unit       = Column(String(20),     nullable=True)   # RR-native: TONNES | KILOGRAMS | LITRES | BOX | CUBIC METERS
+    vehicle_body_type = Column(String(50),     nullable=True)   # RR VehicleBodyTypes enum value
+
+    # Required by RR, not yet in RR4 form (short-term: defaults to trip_amount)
+    invoice_value = Column(Numeric(12, 2), nullable=True)
+
+    # ── RR Consignor / Consignee details ─────────────────────────────────────────
+    consignor_name  = Column(String(100), nullable=True)
+    consignor_gstin = Column(String(20),  nullable=True)
+    consignee_name  = Column(String(100), nullable=True)
+    consignee_gstin = Column(String(20),  nullable=True)
+
+    # ── Pickup address ────────────────────────────────────────────────────────────
+    pickup_address_line1 = Column(String(200), nullable=True)
+    pickup_address_line2 = Column(String(200), nullable=True)
+    pickup_pin           = Column(String(10),  nullable=True)
+    pickup_no_entry_zone = Column(Boolean,     nullable=True)
+
+    # ── Unload address ────────────────────────────────────────────────────────────
+    unload_address_line1 = Column(String(200), nullable=True)
+    unload_address_line2 = Column(String(200), nullable=True)
+    unload_pin           = Column(String(10),  nullable=True)
+    unload_no_entry_zone = Column(Boolean,     nullable=True)
+    depot_code           = Column(String(50),  nullable=True)
+
+    # ── Parcel info ───────────────────────────────────────────────────────────────
+    parcel_description = Column(String(100), nullable=True)
+    part_load          = Column(Boolean,     nullable=True, default=False)
+
+    # ── Vehicle requirements ──────────────────────────────────────────────────────
+    vehicle_number   = Column(String(30),    nullable=True)   # manually entered reg. number (no fleet link)
+    rr_vehicle_id    = Column(String(24),    nullable=True)   # RR vehicle ObjectId selected via picker
+    rr_driver_id     = Column(String(24),    nullable=True)   # RR driver user ObjectId (from vehicle crew)
+    axle_type        = Column(String(20),    nullable=True)   # Single | Double | Triple | Multiple
+    number_of_wheels = Column(Integer,       nullable=True)   # 4|6|8|10|12|14|16|18|22
+    expected_freight = Column(Numeric(12,2), nullable=True)
+    booking_amount   = Column(Numeric(12,2), nullable=True)  # LP offline bid price sent to vehicle provider via create_trip
+
+    # RR trip cross-reference
+    rr_trip_id     = Column(String(24), nullable=True)   # RR MongoDB trip _id
+    rr_trip_number = Column(String(30), nullable=True)   # RR generated number e.g. "rr1235"
+
+    # RR parcel reference (auto-created by RR alongside trip)
+    rr_parcel_id   = Column(String(24),  nullable=True)
+    rr_parcel_etag = Column(String(100), nullable=True)  # must be sent with every PATCH
+    rr_booking_id  = Column(String(30),  nullable=True)  # PO booking_id from create_trip response
+
+    # Loading slip (RR web flow)
+    rr_loading_slip_file_id = Column(String(100), nullable=True)  # ObjectId from RR /files
+    rr_loading_slip_url     = Column(String(500), nullable=True)  # our local saved copy
+
+    # Sync state
+    rr_sync_status = Column(String(30), nullable=True, default='not_synced')
+    # Values: not_synced | trip_created | loading_slip_synced | bilty_synced | pod_synced | failed
+    rr_sync_error  = Column(Text,                        nullable=True)
+    rr_synced_at   = Column(TIMESTAMP(timezone=True),    nullable=True)
 
     # ── Draft (cross-device in-progress form data) ───────────────────────────────
     draft_data = Column(JSONB, nullable=True)
@@ -211,6 +293,7 @@ class Trip(Base):
             "s3_empty_truck_weight_unit": self.s3_empty_truck_weight_unit or 'tons',
             "s3_loaded_truck_weight_kg": self.s3_loaded_truck_weight_kg,
             "s3_loaded_truck_weight_unit": self.s3_loaded_truck_weight_unit or 'tons',
+            "s3_loaded_weight_slip_url": self.s3_loaded_weight_slip_url,
             "s3_bilty_url": self.s3_bilty_url,
             "s3_material_doc_urls": self.s3_material_doc_urls,
             "s3_e_way_bill_url": self.s3_e_way_bill_url,
@@ -247,4 +330,55 @@ class Trip(Base):
             "field_attributions": self.field_attributions,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            # RR sync state
+            "rr_trip_id":     self.rr_trip_id,
+            "rr_trip_number": self.rr_trip_number,
+            "rr_parcel_id":   self.rr_parcel_id,
+            "rr_booking_id":           self.rr_booking_id,
+            "rr_loading_slip_file_id": self.rr_loading_slip_file_id,
+            "rr_loading_slip_url":     self.rr_loading_slip_url,
+            "rr_sync_status":          self.rr_sync_status,
+            "rr_sync_error":  self.rr_sync_error,
+            "rr_synced_at":   self.rr_synced_at.isoformat() if self.rr_synced_at else None,
+            # RR party fields
+            "consignor_rr_company_id": self.consignor_rr_company_id,
+            "consignee_rr_company_id": self.consignee_rr_company_id,
+            "rr_ops_user_id": str(self.rr_ops_user_id) if self.rr_ops_user_id else None,
+            # RR route/cargo fields
+            "origin_rr_city_id":      self.origin_rr_city_id,
+            "destination_rr_city_id": self.destination_rr_city_id,
+            "material_rr_id":         self.material_rr_id,
+            "weight_value":           float(self.weight_value) if self.weight_value is not None else None,
+            "weight_unit":            self.weight_unit,
+            "vehicle_body_type":      self.vehicle_body_type,
+            "invoice_value":          float(self.invoice_value) if self.invoice_value is not None else None,
+            "consignee_org_id":       str(self.consignee_org_id) if self.consignee_org_id else None,
+            "consignee_user_id":      str(self.consignee_user_id) if self.consignee_user_id else None,
+            # RR consignor/consignee details
+            "consignor_name":  self.consignor_name,
+            "consignor_gstin": self.consignor_gstin,
+            "consignee_name":  self.consignee_name,
+            "consignee_gstin": self.consignee_gstin,
+            # Pickup address
+            "pickup_address_line1": self.pickup_address_line1,
+            "pickup_address_line2": self.pickup_address_line2,
+            "pickup_pin":           self.pickup_pin,
+            "pickup_no_entry_zone": self.pickup_no_entry_zone,
+            # Unload address
+            "unload_address_line1": self.unload_address_line1,
+            "unload_address_line2": self.unload_address_line2,
+            "unload_pin":           self.unload_pin,
+            "unload_no_entry_zone": self.unload_no_entry_zone,
+            "depot_code":           self.depot_code,
+            # Parcel info
+            "parcel_description": self.parcel_description,
+            "part_load":          self.part_load,
+            # Vehicle requirements
+            "vehicle_number":   self.vehicle_number,
+            "rr_vehicle_id":    self.rr_vehicle_id,
+            "rr_driver_id":     self.rr_driver_id,
+            "axle_type":        self.axle_type,
+            "number_of_wheels": self.number_of_wheels,
+            "expected_freight": float(self.expected_freight) if self.expected_freight is not None else None,
+            "booking_amount":   float(self.booking_amount)   if self.booking_amount   is not None else None,
         }

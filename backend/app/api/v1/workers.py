@@ -202,7 +202,7 @@ def get_leaderboard(
         .join(Role, UserOrganization.role_id == Role.id)
         .filter(
             UserOrganization.organization_id == org_id,
-            Role.role_key.in_(['logistic_partner', 'logistic_partner_worker']),
+            Role.role_key.in_(['logistic_partner', 'logistic_partner_worker', 'lp_rr_operations']),
             UserOrganization.status == 'active',
         )
         .all()
@@ -218,7 +218,7 @@ def get_leaderboard(
             "username":        user.username,
             "phone":           user.phone,
             "role_key":        role.role_key,
-            "role_label":      "Owner" if role.role_key == 'logistic_partner' else "Worker",
+            "role_label":      "Owner" if role.role_key == 'logistic_partner' else ("RR Ops" if role.role_key == 'lp_rr_operations' else "Worker"),
             "s1_count":        s1,
             "s2_count":        s2,
             "s3_count":        s3,
@@ -273,7 +273,7 @@ def get_records(
         .join(Role, UserOrganization.role_id == Role.id)
         .filter(
             UserOrganization.organization_id == org_id,
-            Role.role_key.in_(['logistic_partner', 'logistic_partner_worker']),
+            Role.role_key.in_(['logistic_partner', 'logistic_partner_worker', 'lp_rr_operations']),
             UserOrganization.status == 'active',
         )
         .all()
@@ -336,7 +336,7 @@ def list_workers(
         .join(Role, UserOrganization.role_id == Role.id)
         .filter(
             UserOrganization.organization_id == org_id,
-            Role.role_key.in_(['logistic_partner', 'logistic_partner_worker']),
+            Role.role_key.in_(['logistic_partner', 'logistic_partner_worker', 'lp_rr_operations']),
             UserOrganization.status == 'active',
         )
         .order_by(User.full_name)
@@ -353,7 +353,7 @@ def list_workers(
                 "username":   u.username,
                 "phone":      u.phone,
                 "role_key":   r.role_key,
-                "role_label": "Owner" if r.role_key == 'logistic_partner' else "Worker",
+                "role_label": "Owner" if r.role_key == 'logistic_partner' else ("RR Ops" if r.role_key == 'lp_rr_operations' else "Worker"),
             }
             for u, r in members
         ],

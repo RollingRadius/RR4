@@ -81,6 +81,12 @@ class Settings(BaseSettings):
     # OSRM Route Optimization Service
     OSRM_BASE_URL: str = "http://localhost:5000"
 
+    # RR Sync — integration with RollingRadius main platform
+    RR_API_BASE: str = "https://35.244.19.78:8042"   # test; change to https://rollingradius.com:8042 for prod
+    RR_REFRESH_TOKEN: str = ""                         # obtained via one-time OTP login on RR
+    RR_SYNC_ENABLED: bool = True                       # set True once token is configured
+    RR_SSL_VERIFY: bool = False                        # test server uses self-signed cert
+
     # Observability — OpenTelemetry → SigNoz
     OTEL_ENABLED: bool = False
     OTEL_ENDPOINT: str = "http://localhost:4317"

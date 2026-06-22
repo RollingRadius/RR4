@@ -67,6 +67,7 @@ class TripModel {
   final String? s3EmptyTruckWeightUnit;
   final String? s3LoadedTruckWeightKg;
   final String? s3LoadedTruckWeightUnit;
+  final String? s3LoadedWeightSlipUrl;
   final String? s3BiltyUrl;
   final List<String>? s3MaterialDocUrls;
   final String? s3EWayBillUrl;
@@ -113,6 +114,55 @@ class TripModel {
   final String? transporterUserId;
   final String? transporterName;
   final String? transporterPhone;
+
+  // ── RR route/cargo fields ─────────────────────────────────────────────────────
+  final String? originRrCityId;
+  final String? destinationRrCityId;
+  final String? materialRrId;
+  final double? weightValue;
+  final String? weightUnit;
+  final String? vehicleBodyType;
+  final double? invoiceValue;
+
+  // ── RR parcel / address fields ────────────────────────────────────────────────
+  final String? consignorName;
+  final String? consignorGstin;
+  final String? consigneeName;
+  final String? consigneeGstin;
+  final String? pickupAddressLine1;
+  final String? pickupAddressLine2;
+  final String? pickupPin;
+  final bool?   pickupNoEntryZone;
+  final String? unloadAddressLine1;
+  final String? unloadAddressLine2;
+  final String? unloadPin;
+  final bool?   unloadNoEntryZone;
+  final String? depotCode;
+  final String? parcelDescription;
+  final bool?   partLoad;
+  final String? vehicleNumber;
+  final String? rrVehicleId;
+  final String? axleType;
+  final int?    numberOfWheels;
+  final double? expectedFreight;
+
+  // ── RR party fields ───────────────────────────────────────────────────────────
+  final String? consignorRrCompanyId;
+  final String? consigneeRrCompanyId;
+  final String? rrOpsUserId;
+
+  // ── RR transporter (vehicle provider) ────────────────────────────────────────
+  final String? transporterRrCompanyId;
+
+  // ── RR sync state ─────────────────────────────────────────────────────────────
+  final String? rrTripId;
+  final String? rrTripNumber;
+  final String? rrParcelId;
+  final String? rrBookingId;
+  final String? rrLoadingSlipUrl;
+  final String? rrSyncStatus;
+  final String? rrSyncError;
+  final String? rrSyncedAt;
 
   // ── Draft (cross-device in-progress form data) ────────────────────────────────
   final Map<String, dynamic>? draftData;
@@ -181,6 +231,7 @@ class TripModel {
     this.s3EmptyTruckWeightUnit,
     this.s3LoadedTruckWeightKg,
     this.s3LoadedTruckWeightUnit,
+    this.s3LoadedWeightSlipUrl,
     this.s3BiltyUrl,
     this.s3MaterialDocUrls,
     this.s3EWayBillUrl,
@@ -213,6 +264,45 @@ class TripModel {
     this.transporterUserId,
     this.transporterName,
     this.transporterPhone,
+    this.originRrCityId,
+    this.destinationRrCityId,
+    this.materialRrId,
+    this.weightValue,
+    this.weightUnit,
+    this.vehicleBodyType,
+    this.invoiceValue,
+    this.consignorName,
+    this.consignorGstin,
+    this.consigneeName,
+    this.consigneeGstin,
+    this.pickupAddressLine1,
+    this.pickupAddressLine2,
+    this.pickupPin,
+    this.pickupNoEntryZone,
+    this.unloadAddressLine1,
+    this.unloadAddressLine2,
+    this.unloadPin,
+    this.unloadNoEntryZone,
+    this.depotCode,
+    this.parcelDescription,
+    this.partLoad,
+    this.vehicleNumber,
+    this.rrVehicleId,
+    this.axleType,
+    this.numberOfWheels,
+    this.expectedFreight,
+    this.consignorRrCompanyId,
+    this.consigneeRrCompanyId,
+    this.rrOpsUserId,
+    this.transporterRrCompanyId,
+    this.rrTripId,
+    this.rrTripNumber,
+    this.rrParcelId,
+    this.rrBookingId,
+    this.rrLoadingSlipUrl,
+    this.rrSyncStatus,
+    this.rrSyncError,
+    this.rrSyncedAt,
     this.draftData,
     this.fieldAttributions,
   });
@@ -285,6 +375,7 @@ class TripModel {
       s3EmptyTruckWeightUnit: json['s3_empty_truck_weight_unit'] as String?,
       s3LoadedTruckWeightKg: json['s3_loaded_truck_weight_kg'] as String?,
       s3LoadedTruckWeightUnit: json['s3_loaded_truck_weight_unit'] as String?,
+      s3LoadedWeightSlipUrl: json['s3_loaded_weight_slip_url'] as String?,
       s3BiltyUrl: json['s3_bilty_url'] as String?,
       s3MaterialDocUrls: _parseUrlList(json['s3_material_doc_urls']),
       s3EWayBillUrl: json['s3_e_way_bill_url'] as String?,
@@ -317,8 +408,47 @@ class TripModel {
       transporterUserId:  json['transporter_user_id']   as String?,
       transporterName:    json['transporter_name']       as String?,
       transporterPhone:   json['transporter_phone']      as String?,
-      draftData:          json['draft_data'] as Map<String, dynamic>?,
-      fieldAttributions:  json['field_attributions'] as Map<String, dynamic>?,
+      originRrCityId:       json['origin_rr_city_id']       as String?,
+      destinationRrCityId:  json['destination_rr_city_id']  as String?,
+      materialRrId:         json['material_rr_id']          as String?,
+      weightValue:          (json['weight_value'] as num?)?.toDouble(),
+      weightUnit:           json['weight_unit']             as String?,
+      vehicleBodyType:      json['vehicle_body_type']       as String?,
+      invoiceValue:            (json['invoice_value'] as num?)?.toDouble(),
+      consignorName:           json['consignor_name']           as String?,
+      consignorGstin:          json['consignor_gstin']          as String?,
+      consigneeName:           json['consignee_name']           as String?,
+      consigneeGstin:          json['consignee_gstin']          as String?,
+      pickupAddressLine1:      json['pickup_address_line1']     as String?,
+      pickupAddressLine2:      json['pickup_address_line2']     as String?,
+      pickupPin:               json['pickup_pin']               as String?,
+      pickupNoEntryZone:       json['pickup_no_entry_zone']     as bool?,
+      unloadAddressLine1:      json['unload_address_line1']     as String?,
+      unloadAddressLine2:      json['unload_address_line2']     as String?,
+      unloadPin:               json['unload_pin']               as String?,
+      unloadNoEntryZone:       json['unload_no_entry_zone']     as bool?,
+      depotCode:               json['depot_code']               as String?,
+      parcelDescription:       json['parcel_description']       as String?,
+      partLoad:                json['part_load']                as bool?,
+      vehicleNumber:           json['vehicle_number']           as String?,
+      rrVehicleId:             json['rr_vehicle_id']            as String?,
+      axleType:                json['axle_type']                as String?,
+      numberOfWheels:          json['number_of_wheels']         as int?,
+      expectedFreight:         (json['expected_freight'] as num?)?.toDouble(),
+      consignorRrCompanyId:    json['consignor_rr_company_id'] as String?,
+      consigneeRrCompanyId:    json['consignee_rr_company_id'] as String?,
+      rrOpsUserId:             json['rr_ops_user_id'] as String?,
+      transporterRrCompanyId:  json['transporter_rr_company_id'] as String?,
+      rrTripId:                json['rr_trip_id'] as String?,
+      rrTripNumber:            json['rr_trip_number'] as String?,
+      rrParcelId:              json['rr_parcel_id'] as String?,
+      rrBookingId:             json['rr_booking_id'] as String?,
+      rrLoadingSlipUrl:        json['rr_loading_slip_url'] as String?,
+      rrSyncStatus:            json['rr_sync_status'] as String?,
+      rrSyncError:             json['rr_sync_error'] as String?,
+      rrSyncedAt:              json['rr_synced_at'] as String?,
+      draftData:               json['draft_data'] as Map<String, dynamic>?,
+      fieldAttributions:       json['field_attributions'] as Map<String, dynamic>?,
     );
   }
 

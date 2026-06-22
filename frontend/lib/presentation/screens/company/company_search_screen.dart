@@ -34,6 +34,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
         ?? widget.signupData?['business_type'] as String?;
     switch (role) {
       case 'logistic_partner_worker': return 'logistic_partner';
+      case 'lp_rr_operations':        return 'logistic_partner';
       case 'load_owner_worker':       return 'load_owner';
       default:                        return null; // no filter — show all
     }

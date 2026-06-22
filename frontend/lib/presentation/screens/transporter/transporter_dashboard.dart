@@ -180,23 +180,95 @@ class _TransporterDashboardState extends ConsumerState<TransporterDashboard> {
   Widget build(BuildContext context) {
     final state = ref.watch(transporterTripsProvider);
 
+    return _ComingSoonDashboard(
+      role: 'Transporter',
+      icon: Icons.local_shipping_outlined,
+      onLogout: () async {
+        await ref.read(authProvider.notifier).logout();
+        if (mounted) context.go('/login');
+      },
+    );
+  }
+}
+
+// ─── Coming Soon Dashboard ────────────────────────────────────────────────────
+
+class _ComingSoonDashboard extends StatelessWidget {
+  final String role;
+  final IconData icon;
+  final VoidCallback onLogout;
+
+  const _ComingSoonDashboard({
+    required this.role,
+    required this.icon,
+    required this.onLogout,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      // No drawer — transporter has no sidebar
-      drawer: null,
-      body: IndexedStack(
-        index: _tab,
-        children: [
-          _DashboardTab(state: state),
-          _RecordsTab(state: state),
-          const _LoadsTab(),
-          const _ProfileTab(),
+      appBar: AppBar(
+        backgroundColor: _cardBg,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: _grey2),
+            onSelected: (v) { if (v == 'logout') onLogout(); },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'logout', child: Text('Logout')),
+            ],
+          ),
         ],
       ),
-      bottomNavigationBar: _BottomNav(
-        current: _tab,
-        onTap: _onTabTap,
-        pendingCount: state.pendingCount,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 96,
+                height: 96,
+                decoration: BoxDecoration(
+                  color: _orange.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 42, color: _orange.withValues(alpha: 0.65)),
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+                decoration: BoxDecoration(
+                  color: _orange.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Coming Soon',
+                  style: GoogleFonts.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: _orange),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                '$role Dashboard',
+                style: GoogleFonts.manrope(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: _grey1),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'This dashboard is currently under\ndevelopment and will be available soon.',
+                style: GoogleFonts.inter(fontSize: 13, color: _grey2),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

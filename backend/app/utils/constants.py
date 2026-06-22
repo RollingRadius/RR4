@@ -95,6 +95,18 @@ DEFAULT_ROLES = [
         "is_system_role": True
     },
     {
+        "role_name": "Load Receiver",
+        "role_key": "load_receiver",
+        "description": "Consignee — the party that receives the delivered cargo. Can be an organisation or an individual user.",
+        "is_system_role": True
+    },
+    {
+        "role_name": "RR Operations",
+        "role_key": "lp_rr_operations",
+        "description": "RR Operations worker at a logistic partner company. Handles RR sync and trip data entry. Has a dedicated RR Operations dashboard.",
+        "is_system_role": True
+    },
+    {
         "role_name": "Pending User",
         "role_key": "pending_user",
         "description": "User awaiting role assignment by admin. Assigned when joining existing company.",

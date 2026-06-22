@@ -41,6 +41,8 @@ class AppConstants {
   static const String routeLoadOwnerUpload = '/load-owner/upload';
   static const String routeLoadOwnerTrips = '/load-owner/trips';
   static const String routeLogisticPartnerWorkerHome = '/lp-worker/home';
+  static const String routeLpRrOperationsHome = '/lp-rr-ops/home';
+  static const String routeLoadReceiverHome = '/load-receiver/home';
   static const String routeLoadOwnerWorkerHome = '/lo-worker/home';
   static const String routeWorkerRequests = '/worker-requests';
   static const String routeLpWorkers = '/lp/workers';

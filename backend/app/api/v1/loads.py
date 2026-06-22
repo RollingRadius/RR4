@@ -27,6 +27,7 @@ from app.models.load_requirement import LoadRequirement
 from app.models.trip import Trip
 from app.models.role import Role
 from app.services import fcm_service
+from app.config import settings
 
 router = APIRouter()
 
@@ -377,11 +378,52 @@ async def create_load_requirement_photo(
 
 
 class FulfillPayload(BaseModel):
-    vehicle_id:          Optional[str]   = None
-    driver_id:           Optional[str]   = None
-    trip_amount:         Optional[float] = None   # Agreed freight amount (₹)
-    notes:               Optional[str]   = None
-    transporter_user_id: Optional[str]   = None   # Transporter to upload loading slip
+    vehicle_id:              Optional[str]   = None
+    driver_id:               Optional[str]   = None
+    trip_amount:             Optional[float] = None   # Agreed freight amount (₹)
+    notes:                   Optional[str]   = None
+    transporter_user_id:     Optional[str]   = None   # Transporter to upload loading slip
+    # Consignor (sender/shipper) — picked directly from RR company list
+    consignor_rr_company_id: Optional[str]   = None   # RR company ObjectId
+    # Consignee (load_receiver) — one of the three must be provided
+    consignee_org_id:        Optional[str]   = None   # RR4 load_receiver organisation UUID
+    consignee_user_id:       Optional[str]   = None   # RR4 load_receiver individual user UUID
+    consignee_rr_company_id: Optional[str]   = None   # RR company ObjectId (picked from RR directly)
+    # RR Ops worker assigned to handle this trip's sync
+    rr_ops_user_id:          Optional[str]   = None
+    # RR sync fields
+    origin_rr_city_id:       Optional[str]   = None
+    destination_rr_city_id:  Optional[str]   = None
+    material_rr_id:          Optional[str]   = None
+    weight_value:            Optional[float] = None
+    weight_unit:             Optional[str]   = None
+    invoice_value:           Optional[float] = None
+    vehicle_body_type:       Optional[str]   = None
+    # RR consignor/consignee details
+    consignor_name:  Optional[str] = None
+    consignor_gstin: Optional[str] = None
+    consignee_name:  Optional[str] = None
+    consignee_gstin: Optional[str] = None
+    # Pickup address
+    pickup_address_line1: Optional[str]  = None
+    pickup_address_line2: Optional[str]  = None
+    pickup_pin:           Optional[str]  = None
+    pickup_no_entry_zone: Optional[bool] = None
+    # Unload address
+    unload_address_line1: Optional[str]  = None
+    unload_address_line2: Optional[str]  = None
+    unload_pin:           Optional[str]  = None
+    unload_no_entry_zone: Optional[bool] = None
+    depot_code:           Optional[str]  = None
+    # Parcel info
+    parcel_description: Optional[str]  = None
+    part_load:          Optional[bool] = None
+    # Vehicle requirements
+    axle_type:        Optional[str]   = None
+    number_of_wheels: Optional[int]   = None
+    expected_freight: Optional[float] = None
+    # LP's RR session token — if provided, trip+parcel are created in RR immediately
+    rr_token:                Optional[str]   = None
 
 
 # ── Logistic Partner Endpoints ───────────────────────────────────────────────
@@ -617,6 +659,36 @@ async def fulfill_load_requirement(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid driver_id.")
 
+    # Validate mandatory consignee — one of org UUID, user UUID, or RR company ObjectId must be provided
+    if not payload.consignee_org_id and not payload.consignee_user_id and not payload.consignee_rr_company_id:
+        raise HTTPException(status_code=400, detail="A consignee (load_receiver) is required.")
+
+    consignee_org_uuid = None
+    if payload.consignee_org_id:
+        try:
+            consignee_org_uuid = uuid.UUID(payload.consignee_org_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid consignee_org_id.")
+        if not db.query(Organization).filter(Organization.id == consignee_org_uuid).first():
+            raise HTTPException(status_code=404, detail="Consignee organisation not found.")
+
+    consignee_user_uuid = None
+    if payload.consignee_user_id:
+        try:
+            consignee_user_uuid = uuid.UUID(payload.consignee_user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid consignee_user_id.")
+        if not db.query(User).filter(User.id == consignee_user_uuid).first():
+            raise HTTPException(status_code=404, detail="Consignee user not found.")
+
+    # Parse optional RR Ops worker
+    rr_ops_uuid = None
+    if payload.rr_ops_user_id:
+        try:
+            rr_ops_uuid = uuid.UUID(payload.rr_ops_user_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid rr_ops_user_id.")
+
     # Parse and validate optional transporter
     transporter_uuid = None
     if payload.transporter_user_id:
@@ -651,7 +723,37 @@ async def fulfill_load_requirement(
         vehicle_id=vehicle_uuid,
         driver_id=driver_uuid,
         transporter_user_id=transporter_uuid,
+        consignor_rr_company_id=payload.consignor_rr_company_id or None,
+        consignee_org_id=consignee_org_uuid,
+        consignee_user_id=consignee_user_uuid,
+        consignee_rr_company_id=payload.consignee_rr_company_id or None,
+        rr_ops_user_id=rr_ops_uuid,
         created_by=current_user.id,
+        origin_rr_city_id=payload.origin_rr_city_id,
+        destination_rr_city_id=payload.destination_rr_city_id,
+        material_rr_id=payload.material_rr_id,
+        weight_value=payload.weight_value,
+        weight_unit=payload.weight_unit,
+        invoice_value=payload.invoice_value,
+        vehicle_body_type=payload.vehicle_body_type or None,
+        consignor_name=payload.consignor_name or None,
+        consignor_gstin=payload.consignor_gstin or None,
+        consignee_name=payload.consignee_name or None,
+        consignee_gstin=payload.consignee_gstin or None,
+        pickup_address_line1=payload.pickup_address_line1 or None,
+        pickup_address_line2=payload.pickup_address_line2 or None,
+        pickup_pin=payload.pickup_pin or None,
+        pickup_no_entry_zone=payload.pickup_no_entry_zone,
+        unload_address_line1=payload.unload_address_line1 or None,
+        unload_address_line2=payload.unload_address_line2 or None,
+        unload_pin=payload.unload_pin or None,
+        unload_no_entry_zone=payload.unload_no_entry_zone,
+        depot_code=payload.depot_code or None,
+        parcel_description=payload.parcel_description or None,
+        part_load=payload.part_load or False,
+        axle_type=payload.axle_type or None,
+        number_of_wheels=payload.number_of_wheels,
+        expected_freight=payload.expected_freight,
     )
     if hasattr(Trip, 'load_requirement_id'):
         trip_kwargs['load_requirement_id'] = load.id
@@ -751,6 +853,12 @@ async def fulfill_load_requirement(
         )
     except Exception:
         pass
+
+    # RR Sync: if LP provided their RR token, create trip+parcel in RR immediately
+    if payload.rr_token and settings.RR_SYNC_ENABLED:
+        from app.services.rr_sync_service import sync_all_to_rr
+        await sync_all_to_rr(str(trip.id), payload.rr_token)
+        db.refresh(trip)  # pick up rr_trip_id / rr_parcel_id written by sync
 
     return {
         "success": True,

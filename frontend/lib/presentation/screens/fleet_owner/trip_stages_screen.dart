@@ -13,6 +13,7 @@ import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 import 'package:fleet_management/core/config/app_config.dart';
+import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 
 // ─── Typography & Colours ─────────────────────────────────────────────────────
 TextStyle _manrope({double size = 14, FontWeight weight = FontWeight.w600, Color color = const Color(0xFF191C1E)}) =>
@@ -50,6 +51,7 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
   bool _showStage4 = false;
   bool _stage4Done = false;
   bool _stage5Done = false;
+  bool _syncing = false;
   /// Non-null when re-editing a completed stage (visual dot index 0-5).
   int? _editingStage;
 
@@ -142,6 +144,47 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
   /// No-op: claim blocking is disabled — nothing to release.
   Future<void> _releaseStage(int visualStage) async {}
 
+  /// Trigger a full RR sync for this trip (all available stages).
+  /// Shows an RR login dialog first if no valid session exists.
+  Future<void> _triggerRrSync() async {
+    if (_syncing) return;
+
+    // Step 1: ensure RR session (prompts login if needed)
+    final session = await ensureRrSession(context, ref);
+    if (session == null || !mounted) return;
+
+    // Step 2: trigger sync with the obtained token
+    setState(() => _syncing = true);
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post(
+        '/api/rr/sync/trip/${_trip.id}',
+        data: {'rr_token': session.token},
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sync started — check back shortly',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _success,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Sync failed: ${e.toString().split(':').last.trim()}',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _syncing = false);
+    }
+  }
+
   /// Returns a tap handler for the step indicator.
   /// LP workers get null — they cannot freely switch stages.
   Function(int)? _buildStepTapHandler() {
@@ -167,25 +210,13 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
           onEditDone: _exitEditMode,
         );
       case 2:
-        return _LoadingSlipMini(
-          key: ValueKey('edit_slip_${_trip.id}'),
-          trip: _trip,
-          onUploaded: (updated) {
-            setState(() {
-              _trip = updated;
-              ref.read(tripProvider.notifier).patchTrip(updated);
-            });
-            _exitEditMode();
-          },
-        );
-      case 3:
         return _Stage3Form(
           key: ValueKey('edit_s3_${_trip.id}_$_tripFreshness'),
           providerKey: _providerKey,
           trip: _trip,
           onEditDone: _exitEditMode,
         );
-      case 4:
+      case 3:
         return _Stage4Form(
           key: ValueKey('edit_s4_${_trip.id}_$_tripFreshness'),
           trip: _trip,
@@ -198,7 +229,7 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
             _exitEditMode();
           },
         );
-      case 5:
+      case 4:
       default:
         return _Stage5Form(
           key: ValueKey('edit_s5_${_trip.id}_$_tripFreshness'),
@@ -240,7 +271,22 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
         ),
         actions: [
           _TripStateBadge(trip: _trip),
-          const SizedBox(width: 16),
+          const SizedBox(width: 4),
+          if (_trip.currentStage >= 2)
+            _syncing
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 14),
+                    child: SizedBox(
+                      width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
+                    ),
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.sync_rounded, color: _primary, size: 22),
+                    tooltip: 'Sync to RR',
+                    onPressed: _triggerRrSync,
+                  ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
@@ -274,6 +320,11 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                 ],
               ),
             ),
+          _Stage0Card(
+            key: ValueKey('s0_${_trip.id}_${_trip.rrTripId}_${_trip.rrSyncStatus}'),
+            trip: _trip,
+            onSyncDone: _fetchFreshTrip,
+          ),
           Expanded(
             child: _editingStage != null
                 ? _buildEditForm(_editingStage!)
@@ -317,30 +368,21 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                                     onNextStage: () => setState(() => _showStage4 = true),
                                   )
                                 : stage == 0
-                                    ? _Stage1Form(
-                                        key: ValueKey('s1_${_trip.id}_$_tripFreshness'),
-                                        providerKey: _providerKey,
-                                        trip: _trip,
-                                        onEditDone: null,
-                                      )
+                                    ? (_trip.rrTripId == null
+                                        ? _Stage0LandingView(trip: _trip)
+                                        : _Stage1Form(
+                                            key: ValueKey('s1_${_trip.id}_$_tripFreshness'),
+                                            providerKey: _providerKey,
+                                            trip: _trip,
+                                            onEditDone: null,
+                                          ))
                                     : stage == 1
                                         ? _Stage2Form(
                                             key: ValueKey('s2_${_trip.id}_$_tripFreshness'),
                                             providerKey: _providerKey,
                                             trip: _trip,
                                           )
-                                        : _trip.s2LoadingSlipUrl == null
-                                            ? _LoadingSlipMini(
-                                                key: ValueKey('slip_${_trip.id}'),
-                                                trip: _trip,
-                                                onUploaded: (updated) {
-                                                  setState(() {
-                                                    _trip = updated;
-                                                    ref.read(tripProvider.notifier).patchTrip(updated);
-                                                  });
-                                                },
-                                              )
-                                            : _Stage3Form(
+                                        : _Stage3Form(
                                                 key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
                                                 providerKey: _providerKey,
                                                 trip: _trip,
@@ -386,19 +428,28 @@ class _StepIndicator extends StatefulWidget {
   final TripModel trip;
   final bool stage4Done;
   final bool stage5Done;
+  /// When true (S0 not yet filled), all steps render as pending/grey — no active pulse.
+  final bool rrSetupPending;
   final Function(int)? onStepTap;
-  const _StepIndicator({required this.trip, required this.stage4Done, required this.stage5Done, this.onStepTap});
+  const _StepIndicator({
+    required this.trip,
+    required this.stage4Done,
+    required this.stage5Done,
+    this.rrSetupPending = false,
+    this.onStepTap,
+  });
 
-  static const _labels = ['Details', 'Compliance', 'Slip', 'Arrival', 'Exit', 'Unloading'];
+  static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit', 'Unloading'];
 
   int visualIndex() {
-    if (stage5Done) return 6;
-    if (stage4Done) return 5;
+    if (rrSetupPending) return -1; // nothing active
+    if (stage5Done) return 5;
+    if (stage4Done) return 4;
     final s = trip.currentStage;
-    if (s == 0) return 0;
+    if (s <= 0) return 0;
     if (s == 1) return 1;
-    if (s == 2 && trip.s2LoadingSlipUrl == null) return 2;
-    if (s == 2) return 3;
+    if (s == 2) return 2;
+    if (s == 3) return 3;
     return 4;
   }
 
@@ -434,8 +485,8 @@ class _StepIndicatorState extends State<_StepIndicator>
       color: _surface,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Row(
-        children: List.generate(6, (i) {
-          final stepLabel = i < 2 ? '${i + 1}' : i == 2 ? 'LS' : '$i';
+        children: List.generate(5, (i) {
+          final stepLabel = '${i + 1}';
           final isDone   = visualIdx > i;
           final isActive = visualIdx == i;
           final color   = isDone ? _success : isActive ? _primary : _secondary;
@@ -474,7 +525,7 @@ class _StepIndicatorState extends State<_StepIndicator>
                         child: Center(
                           child: Text(stepLabel,
                               style: _manrope(
-                                  size: i == 2 ? 9 : 11,
+                                  size: 11,
                                   weight: FontWeight.w800,
                                   color: _primary)),
                         ),
@@ -494,7 +545,7 @@ class _StepIndicatorState extends State<_StepIndicator>
                             ? Icon(Icons.check_rounded, color: _success, size: 14)
                             : Text(stepLabel,
                                 style: _manrope(
-                                    size: i == 2 ? 9 : 11,
+                                    size: 11,
                                     weight: FontWeight.w800,
                                     color: color)),
                       ),
@@ -518,7 +569,7 @@ class _StepIndicatorState extends State<_StepIndicator>
                 )
               : dot;
 
-          if (i == 5) return dotWidget;
+          if (i == 4) return dotWidget;
 
           return Expanded(
             child: Row(
@@ -1194,6 +1245,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   bool _s2WeightConfirmed   = false;
   final _emptyWeightCtrl    = TextEditingController();
   final _emptyWeightUnit    = ValueNotifier<String>('tons');
+  XFile? _loadingSlipFile;   // optional loading slip — uploaded with Stage 2
 
   // ── Per-field attribution ─────────────────────────────────────────────────
   final Map<String, String> _fieldAttributions = {};
@@ -1311,6 +1363,230 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
     } catch (_) {}
   }
 
+  Future<void> _pickLoadingSlip(ImageSource source) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    setState(() => _loadingSlipFile = picked);
+  }
+
+  void _showSlipPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Upload Loading Slip', style: _manrope(size: 16, weight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              Text('Attach the loading slip image', style: _inter(size: 12, color: _secondary)),
+              const SizedBox(height: 20),
+              Row(children: [
+                Expanded(child: _PickerOption(
+                  icon: Icons.camera_alt_rounded, label: 'Camera', color: _primary,
+                  onTap: () { Navigator.pop(context); _pickLoadingSlip(ImageSource.camera); },
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: _PickerOption(
+                  icon: Icons.photo_library_rounded, label: 'Gallery', color: _secondary,
+                  onTap: () { Navigator.pop(context); _pickLoadingSlip(ImageSource.gallery); },
+                )),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingSlipTile() {
+    final existingUrl = widget.trip.s2LoadingSlipUrl;
+
+    // New file just picked — show thumbnail via FutureBuilder
+    if (_loadingSlipFile != null) {
+      return Container(
+        decoration: BoxDecoration(
+          color: _success.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _success.withValues(alpha: 0.30)),
+        ),
+        child: Column(
+          children: [
+            FutureBuilder<Uint8List>(
+              future: _loadingSlipFile!.readAsBytes(),
+              builder: (context, snap) {
+                if (!snap.hasData) {
+                  return const SizedBox(height: 140,
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+                }
+                final bytes = snap.data!;
+                return GestureDetector(
+                  onTap: () => _showImagePreview(context, bytes: bytes),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                        child: Image.memory(bytes,
+                            width: double.infinity, height: 140, fit: BoxFit.cover),
+                      ),
+                      Positioned(
+                        top: 8, right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: Colors.black45,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_rounded, size: 16, color: _success),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(_loadingSlipFile!.name,
+                        style: _inter(size: 12, color: _success),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  GestureDetector(
+                    onTap: _showSlipPicker,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text('Retake',
+                          style: _manrope(size: 11, weight: FontWeight.w700, color: _primary)),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _loadingSlipFile = null),
+                    child: const Icon(Icons.delete_outline_rounded, size: 18, color: _error),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Already uploaded to server — show thumbnail preview
+    if (existingUrl != null) {
+      final fullUrl = existingUrl.startsWith('http')
+          ? existingUrl
+          : '${AppConfig.apiBaseUrl}$existingUrl';
+      return Container(
+        decoration: BoxDecoration(
+          color: _success.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: _success.withValues(alpha: 0.30)),
+        ),
+        child: Column(
+          children: [
+            GestureDetector(
+              onTap: () => _showImagePreview(context, url: fullUrl),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+                    child: Image.network(
+                      fullUrl,
+                      width: double.infinity,
+                      height: 140,
+                      fit: BoxFit.cover,
+                      loadingBuilder: (_, child, prog) => prog == null
+                          ? child
+                          : const SizedBox(height: 140,
+                              child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                      errorBuilder: (_, __, ___) => const SizedBox(height: 80,
+                          child: Center(child: Icon(Icons.broken_image_rounded, color: _secondary))),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_done_rounded, size: 16, color: _success),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text('Loading Slip',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                            color: _success, fontFamily: 'Manrope')),
+                  ),
+                  GestureDetector(
+                    onTap: _showSlipPicker,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: Text('Replace',
+                          style: _manrope(size: 11, weight: FontWeight.w700, color: _primary)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Nothing uploaded yet
+    return GestureDetector(
+      onTap: _showSlipPicker,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F4F8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFDDE0E2)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.upload_file_rounded, color: _secondary, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Loading Slip',
+                      style: _manrope(size: 13, weight: FontWeight.w700, color: _onSurface)),
+                  Text('Optional — tap to attach slip image',
+                      style: _inter(size: 11, color: _secondary)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _scrollToKey(GlobalKey key) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final ctx = key.currentContext;
@@ -1378,17 +1654,25 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           .setS2DharamKanta('outside', _emptyWeightCtrl.text.trim(), _emptyWeightUnit.value);
     }
 
-    final ok = await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage2({
-      'specs_verified':          _specsVerified,
-      'docs_verified':           _docsVerified,
-      'driver_docs_valid':       _driverDocsValid,
-      'entry_permission':        _entryPermission,
+    final formData = FormData.fromMap({
+      'specs_verified':          _specsVerified.toString(),
+      'docs_verified':           _docsVerified.toString(),
+      'driver_docs_valid':       _driverDocsValid.toString(),
+      'entry_permission':        _entryPermission.toString(),
       'dharam_kanta_location':   _dharamKantaLoc ?? '',
       if (_dharamKantaLoc == 'outside' && _emptyWeightCtrl.text.trim().isNotEmpty) ...{
         'empty_weight_before_loading': _emptyWeightCtrl.text.trim(),
         'empty_weight_unit':           _emptyWeightUnit.value,
       },
     });
+    if (_loadingSlipFile != null) {
+      final bytes = await _loadingSlipFile!.readAsBytes();
+      formData.files.add(MapEntry(
+        'loading_slip',
+        MultipartFile.fromBytes(bytes, filename: _loadingSlipFile!.name),
+      ));
+    }
+    final ok = await ref.read(tripStagesProvider(widget.providerKey).notifier).submitStage2(formData);
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1617,6 +1901,10 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
             ),
           ),
           const SizedBox(height: 28),
+
+          // ── Loading Slip (optional — can also be uploaded after Stage 2) ──
+          _buildLoadingSlipTile(),
+          const SizedBox(height: 16),
 
           if (_lastSaved != null)
             Padding(
@@ -2148,6 +2436,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   final _loadedTruckWeight = TextEditingController();
   final _emptyWeightUnit   = ValueNotifier<String>('tons');
   final _loadedWeightUnit  = ValueNotifier<String>('tons');
+  ({Uint8List bytes, String name})? _weightSlipData;
 
   // Two-phase: first "Loading Complete", then "Complete Stage"
   bool _loadingComplete = false;
@@ -2225,6 +2514,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _s2DharamKantaLoc   = d['s2_dharam_kanta_loc']    as String?;
     _s2EmptyWeight      = d['s2_empty_weight']         as String?;
     _s2EmptyWeightUnit  = d['s2_empty_weight_unit_s2'] as String?;
+    // Restore loaded weight slip upload
+    final slipB64  = d['weight_slip_b64']  as String?;
+    final slipName = d['weight_slip_name'] as String?;
+    if (slipB64 != null && slipName != null) {
+      _weightSlipData = (bytes: base64Decode(slipB64), name: slipName);
+    }
     // Restore bilty upload
     final biltyB64 = d['bilty_b64'] as String?;
     final biltyName = d['bilty_name'] as String?;
@@ -2295,6 +2590,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             's2_dharam_kanta_loc':    s2Loc,
             's2_empty_weight':        s2Weight ?? '',
             's2_empty_weight_unit_s2': s2Unit ?? 'tons',
+          },
+          // Loaded weight slip upload
+          if (_weightSlipData != null) ...{
+            'weight_slip_b64':  base64Encode(_weightSlipData!.bytes),
+            'weight_slip_name': _weightSlipData!.name,
           },
           // Bilty upload
           if (_biltyData != null) ...{
@@ -2445,6 +2745,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       // draft is cleared by server on submit — nothing extra needed
     }
 
+    if (_weightSlipData != null) {
+      fields['loaded_weight_slip'] = MultipartFile.fromBytes(
+        _weightSlipData!.bytes,
+        filename: _weightSlipData!.name,
+      );
+    }
     if (_biltyData != null) {
       fields['bilty'] = MultipartFile.fromBytes(
         _biltyData!.bytes,
@@ -2619,8 +2925,21 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               note: 'Record the truck weight after loading is done.',
               enabled: true,
               unitNotifier: _loadedWeightUnit,
+              existingSlipUrl: _weightSlipData == null ? widget.trip.s3LoadedWeightSlipUrl : null,
+              initialSlipBytes: _weightSlipData?.bytes,
+              onSlipPicked: (bytes, name) {
+                setState(() => _weightSlipData = (bytes: bytes, name: name));
+                _touchField('loaded_weight_slip');
+                _saveDraft();
+              },
+              onSlipRemoved: () {
+                setState(() => _weightSlipData = null);
+                _touchField('loaded_weight_slip');
+                _saveDraft();
+              },
             ),
             _FieldAttribution(username: _attrOf('loaded_truck_weight')),
+            _FieldAttribution(username: _attrOf('loaded_weight_slip')),
             const SizedBox(height: 20),
 
             // ── Bilty Upload ──────────────────────────────────────────
@@ -3068,6 +3387,10 @@ class _WeighField extends StatefulWidget {
   final String note;
   final bool enabled;
   final ValueNotifier<String>? unitNotifier;
+  final void Function(Uint8List bytes, String name)? onSlipPicked;
+  final VoidCallback? onSlipRemoved;
+  final String? existingSlipUrl;
+  final Uint8List? initialSlipBytes;
 
   const _WeighField({
     super.key,
@@ -3077,6 +3400,10 @@ class _WeighField extends StatefulWidget {
     required this.note,
     this.enabled = true,
     this.unitNotifier,
+    this.onSlipPicked,
+    this.onSlipRemoved,
+    this.existingSlipUrl,
+    this.initialSlipBytes,
   });
 
   @override
@@ -3085,7 +3412,14 @@ class _WeighField extends StatefulWidget {
 
 class _WeighFieldState extends State<_WeighField> {
   Uint8List? _slipBytes;
+  bool _existingCleared = false;
   final _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _slipBytes = widget.initialSlipBytes;
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     final picked = await _picker.pickImage(
@@ -3095,7 +3429,11 @@ class _WeighFieldState extends State<_WeighField> {
     );
     if (picked != null && mounted) {
       final bytes = await picked.readAsBytes();
-      setState(() => _slipBytes = bytes);
+      setState(() {
+        _slipBytes = bytes;
+        _existingCleared = false;
+      });
+      widget.onSlipPicked?.call(bytes, picked.name);
     }
   }
 
@@ -3232,112 +3570,193 @@ class _WeighFieldState extends State<_WeighField> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-
           // Slip upload area
-          if (_slipBytes == null)
-            GestureDetector(
-              onTap: widget.enabled ? _showPickerSheet : null,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: widget.enabled
-                      ? _primary.withValues(alpha: 0.05)
-                      : _border.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: widget.enabled
-                        ? _primary.withValues(alpha: 0.30)
-                        : _border.withValues(alpha: 0.4),
-                    style: BorderStyle.solid,
-                  ),
-                ),
-                child: Column(
-                  children: [
-                    Icon(Icons.upload_file_rounded,
-                        color: widget.enabled ? _primary : _secondary,
-                        size: 24),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Upload Weigh Slip',
-                      style: _inter(
-                          size: 12,
-                          weight: FontWeight.w600,
-                          color: widget.enabled ? _primary : _secondary),
+          const SizedBox(height: 12),
+          if (_slipBytes != null)
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.memory(
+                      _slipBytes!,
+                      width: double.infinity,
+                      height: 160,
+                      fit: BoxFit.cover,
                     ),
-                    const SizedBox(height: 2),
-                    Text('Camera or Gallery',
-                        style: _inter(size: 11, color: _secondary)),
-                  ],
+                  ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: GestureDetector(
+                      onTap: _showPickerSheet,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.edit_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _slipBytes = null);
+                        widget.onSlipRemoved?.call();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: _error.withValues(alpha: 0.85),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 10),
+                      decoration: const BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.vertical(
+                            bottom: Radius.circular(10)),
+                      ),
+                      child: Text('Weigh Slip',
+                          style: _inter(
+                              size: 11,
+                              color: Colors.white,
+                              weight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              )
+            else if (widget.existingSlipUrl != null && !_existingCleared)
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(
+                      widget.existingSlipUrl!,
+                      width: double.infinity,
+                      height: 160,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 160,
+                        decoration: BoxDecoration(
+                          color: _border.withValues(alpha: 0.3),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.broken_image_rounded,
+                              color: _secondary, size: 32),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    right: 6,
+                    child: GestureDetector(
+                      onTap: _showPickerSheet,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.edit_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => _existingCleared = true);
+                        widget.onSlipRemoved?.call();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: _error.withValues(alpha: 0.85),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded,
+                            color: Colors.white, size: 16),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 6, horizontal: 10),
+                      decoration: const BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.vertical(
+                            bottom: Radius.circular(10)),
+                      ),
+                      child: Text('Weigh Slip',
+                          style: _inter(
+                              size: 11,
+                              color: Colors.white,
+                              weight: FontWeight.w600)),
+                    ),
+                  ),
+                ],
+              )
+            else
+              GestureDetector(
+                onTap: widget.enabled ? _showPickerSheet : null,
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: widget.enabled
+                        ? _primary.withValues(alpha: 0.05)
+                        : _border.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: widget.enabled
+                          ? _primary.withValues(alpha: 0.30)
+                          : _border.withValues(alpha: 0.4),
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.upload_file_rounded,
+                          color: widget.enabled ? _primary : _secondary,
+                          size: 24),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Upload Weigh Slip',
+                        style: _inter(
+                            size: 12,
+                            weight: FontWeight.w600,
+                            color: widget.enabled ? _primary : _secondary),
+                      ),
+                      const SizedBox(height: 2),
+                      Text('Camera or Gallery',
+                          style: _inter(size: 11, color: _secondary)),
+                    ],
+                  ),
                 ),
               ),
-            )
-          else
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.memory(
-                    _slipBytes!,
-                    width: double.infinity,
-                    height: 160,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: GestureDetector(
-                    onTap: _showPickerSheet,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: Colors.black54,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.edit_rounded,
-                          color: Colors.white, size: 16),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 6,
-                  left: 6,
-                  child: GestureDetector(
-                    onTap: () => setState(() => _slipBytes = null),
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: _error.withValues(alpha: 0.85),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.close_rounded,
-                          color: Colors.white, size: 16),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 6, horizontal: 10),
-                    decoration: const BoxDecoration(
-                      color: Colors.black45,
-                      borderRadius: BorderRadius.vertical(
-                          bottom: Radius.circular(10)),
-                    ),
-                    child: Text('Weigh Slip',
-                        style: _inter(
-                            size: 11,
-                            color: Colors.white,
-                            weight: FontWeight.w600)),
-                  ),
-                ),
-              ],
-            ),
         ],
       ),
     );
@@ -3407,7 +3826,7 @@ Future<ImageSource?> _showSourcePicker(BuildContext context) {
   );
 }
 
-// ─── Full-screen Image Preview ────────────────────────────────────────────────
+// ─── Full-screen image preview ────────────────────────────────────────────────
 
 void _showImagePreview(BuildContext context, {Uint8List? bytes, String? url}) {
   final Widget image = bytes != null
@@ -3487,7 +3906,7 @@ class _DocUploadTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Newly picked local file — show preview
+    // Newly picked local file — show thumbnail preview
     if (bytes != null) {
       return Container(
         decoration: BoxDecoration(
@@ -3504,9 +3923,7 @@ class _DocUploadTile extends StatelessWidget {
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
                     child: Image.memory(bytes!,
-                        width: double.infinity,
-                        height: 160,
-                        fit: BoxFit.cover),
+                        width: double.infinity, height: 160, fit: BoxFit.cover),
                   ),
                   Positioned(
                     top: 8, right: 8,
@@ -3523,20 +3940,16 @@ class _DocUploadTile extends StatelessWidget {
               ),
             ),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle_rounded,
-                      size: 16, color: _success),
+                  const Icon(Icons.check_circle_rounded, size: 16, color: _success),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       fileName ?? 'Image selected',
                       style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: _success),
+                          fontSize: 12, fontWeight: FontWeight.w500, color: _success),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -3547,15 +3960,12 @@ class _DocUploadTile extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       child: Text('Retake',
                           style: GoogleFonts.manrope(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: _primary)),
+                              fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
                     ),
                   ),
                   IconButton(
                     onPressed: onRemove,
-                    icon: const Icon(Icons.delete_outline_rounded,
-                        size: 18, color: _error),
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: _error),
                     visualDensity: VisualDensity.compact,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -3568,7 +3978,7 @@ class _DocUploadTile extends StatelessWidget {
       );
     }
 
-    // File saved on server (returning to edit) — show image preview
+    // File saved on server (returning to edit) — show image thumbnail preview
     if (existingUrl != null) {
       final fullUrl = existingUrl!.startsWith('http')
           ? existingUrl!
@@ -5479,6 +5889,243 @@ class _SummaryRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis),
         ),
       ],
+    );
+  }
+}
+
+// ─── Stage 0: Landing view (new trip, not yet synced to RR) ──────────────────
+
+class _Stage0LandingView extends StatelessWidget {
+  final TripModel trip;
+  const _Stage0LandingView({required this.trip});
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3E0),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.upload_rounded, size: 36, color: Color(0xFFFF8F00)),
+          ),
+          const SizedBox(height: 20),
+          Text('Stage 0 — RR Sync',
+              style: _manrope(size: 18, weight: FontWeight.w800)),
+          const SizedBox(height: 10),
+          Text(
+            'Before proceeding to Stage 1, complete the following steps:',
+            style: _inter(size: 13, color: _secondary),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 28),
+          _StepRow(
+            number: '1',
+            title: 'Fill Stage 1 — Truck Registration',
+            subtitle: 'Tap Stage 1 in the strip above to enter vehicle & driver details.',
+            done: trip.currentStage >= 1,
+          ),
+          const SizedBox(height: 14),
+          _StepRow(
+            number: '2',
+            title: 'Sync trip to RR',
+            subtitle: 'Once Stage 1 is complete, use the "Send to RR" button above to push the trip.',
+            done: trip.rrTripId != null,
+          ),
+          const SizedBox(height: 14),
+          _StepRow(
+            number: '3',
+            title: 'Continue to Stage 2',
+            subtitle: 'After RR sync, proceed with Pre-Arrival Compliance Check.',
+            done: trip.currentStage >= 2,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepRow extends StatelessWidget {
+  final String number;
+  final String title;
+  final String subtitle;
+  final bool done;
+  const _StepRow({required this.number, required this.title, required this.subtitle, required this.done});
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF2E7D32);
+    const amber = Color(0xFFFF8F00);
+    final color = done ? green : amber;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: color.withValues(alpha: 0.12),
+            border: Border.all(color: color, width: 1.5),
+          ),
+          child: Center(
+            child: done
+                ? const Icon(Icons.check_rounded, size: 14, color: green)
+                : Text(number, style: _inter(size: 11, weight: FontWeight.w700, color: amber)),
+          ),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: _manrope(size: 13, weight: FontWeight.w700)),
+              const SizedBox(height: 3),
+              Text(subtitle, style: _inter(size: 11, color: _secondary)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Stage 0: RR Sync Status Card ─────────────────────────────────────────
+
+class _Stage0Card extends ConsumerStatefulWidget {
+  final TripModel trip;
+  final VoidCallback onSyncDone;
+  const _Stage0Card({super.key, required this.trip, required this.onSyncDone});
+
+  @override
+  ConsumerState<_Stage0Card> createState() => _Stage0CardState();
+}
+
+class _Stage0CardState extends ConsumerState<_Stage0Card> {
+  bool    _sending = false;
+  String? _sendError;
+
+  Future<void> _sendToRr() async {
+    final session = await ensureRrSession(context, ref);
+    if (session == null || !mounted) return;
+    setState(() { _sending = true; _sendError = null; });
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post(
+        '/api/rr/complete-trip/${widget.trip.id}',
+        data: {'rr_token': session.token},
+      );
+      if (!mounted) return;
+      widget.onSyncDone();
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString().split(':').last.trim();
+      setState(() => _sendError = msg);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final trip = widget.trip;
+    final synced = trip.rrTripId != null;
+    final failed = !synced && trip.rrSyncStatus == 'failed';
+
+    const green   = Color(0xFF2E7D32);
+    const bgGreen = Color(0xFFE8F5E9);
+    const bgRed   = Color(0xFFFFEBEE);
+    const bgGrey  = Color(0xFFF5F5F5);
+
+    final Color  cardBg;
+    final Color  accentColor;
+    final IconData icon;
+    final String title;
+    final String subtitle;
+
+    if (synced) {
+      cardBg      = bgGreen;
+      accentColor = green;
+      icon        = Icons.check_circle_rounded;
+      title       = 'Synced to RR Web';
+      subtitle    = [
+        if (trip.rrTripNumber != null) 'Trip: \${trip.rrTripNumber}',
+        if (trip.rrBookingId  != null) 'PO: \${trip.rrBookingId}',
+      ].join('  •  ');
+    } else if (failed) {
+      cardBg      = bgRed;
+      accentColor = _error;
+      icon        = Icons.error_outline_rounded;
+      title       = 'RR sync failed';
+      subtitle    = trip.rrSyncError ?? 'Unknown error';
+    } else {
+      cardBg      = bgGrey;
+      accentColor = const Color(0xFF9E9E9E);
+      icon        = Icons.hourglass_top_rounded;
+      title       = 'Not synced to RR';
+      subtitle    = 'Tap retry to push this trip to RR Web';
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: accentColor, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(title,
+                    style: _manrope(size: 13, weight: FontWeight.w700, color: accentColor)),
+              ),
+              if (!synced && !_sending)
+                GestureDetector(
+                  onTap: _sendToRr,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: accentColor,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      failed ? 'Retry' : 'Send to RR',
+                      style: _manrope(size: 12, weight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ),
+                ),
+              if (_sending)
+                const SizedBox(
+                  width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
+                ),
+            ],
+          ),
+          if (subtitle.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(subtitle,
+                style: _inter(size: 11, color: accentColor.withOpacity(0.85)),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+          if (_sendError != null) ...[
+            const SizedBox(height: 4),
+            Text(_sendError!, style: _inter(size: 11, color: _error),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+        ],
+      ),
     );
   }
 }
