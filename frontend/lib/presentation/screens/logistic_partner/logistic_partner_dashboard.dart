@@ -869,9 +869,6 @@ class _DashboardTab extends ConsumerWidget {
                       ),
               ),
             ),
-          const SizedBox(height: 24),
-
-          _RecentActivity(),
         ],
       ),
     ),
@@ -1218,76 +1215,6 @@ class _TripLoadingShimmer extends StatelessWidget {
   }
 }
 
-// ─── Recent Activity ──────────────────────────────────────────────────────────
-
-class _RecentActivity extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    const activities = [
-      (Icons.check_circle_outline_rounded, _tertiary,
-          'Vehicle MH-12-AB-1234 completed trip', '2h ago'),
-      (Icons.warning_amber_rounded, _error,
-          'Maintenance due for RJ14-GB-9821', '4h ago'),
-      (Icons.local_shipping_rounded, _primary,
-          'New load matched for your fleet', '6h ago'),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Recent Activity',
-            style: _manrope(size: 17, weight: FontWeight.w800)),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            color: _surfaceLowest,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8),
-            ],
-          ),
-          child: Column(
-            children: List.generate(activities.length, (i) {
-              final (icon, color, title, time) = activities[i];
-              return Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 14),
-                    child: Row(
-                      children: [
-                        Icon(icon, color: color, size: 20),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(title,
-                              style: _inter(
-                                  size: 13,
-                                  weight: FontWeight.w500,
-                                  color: _onSurface)),
-                        ),
-                        Text(time,
-                            style:
-                                _inter(size: 11, color: _secondary)),
-                      ],
-                    ),
-                  ),
-                  if (i < activities.length - 1)
-                    const Divider(
-                        height: 1,
-                        indent: 16,
-                        endIndent: 16,
-                        color: Color(0xFFECEEF0)),
-                ],
-              );
-            }),
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 // ─── Available Loads Tab ──────────────────────────────────────────────────────
 
