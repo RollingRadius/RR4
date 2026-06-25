@@ -68,7 +68,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   // ── Enums ─────────────────────────────────────────────────────────────────
   List<String> _quantityUnits    = const ['TONNES', 'KILOGRAMS', 'LITRES', 'BOX', 'CUBIC METERS'];
   List<String> _vehicleBodyTypes = const [];
-  String _weightUnit             = 'TONNES';
+  String _weightUnit             = 'KILOGRAMS';
 
   // ── Partners (shared list for both consignor + consignee) ────────────────
   List<Map<String, dynamic>> _partners = [];
@@ -148,6 +148,29 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   String? _selectedOpsWorkerId;
   String? _selectedOpsWorkerLocalId;
 
+  // ── Field error tracking ──────────────────────────────────────────────────
+  final Map<String, bool>   _fieldErr    = {};
+  final Map<String, String> _fieldErrMsg = {};
+
+  // ── Scroll-to anchors (one GlobalKey per mandatory field) ─────────────────
+  final _keyConsignorCompany = GlobalKey();
+  final _keyPickupCity       = GlobalKey();
+  final _keyUnloadCity       = GlobalKey();
+  final _keyMaterial         = GlobalKey();
+  final _keyWeight           = GlobalKey();
+  final _keyInvoiceValue     = GlobalKey();
+  final _keyExpectedFreight  = GlobalKey();
+  final _keyOpsWorker        = GlobalKey();
+  final _keyVpPhone          = GlobalKey();
+  final _keyVpCompany        = GlobalKey();
+  final _keyVehicle          = GlobalKey();
+  final _keyBookingAmount    = GlobalKey();
+
+  // ── Per-step scroll controllers ───────────────────────────────────────────
+  final _scrollCtrl0 = ScrollController();
+  final _scrollCtrl1 = ScrollController();
+  final _scrollCtrl2 = ScrollController();
+
   // ── Step state ────────────────────────────────────────────────────────────
   int _currentStep  = 0;   // 0 = Trip Info  |  1 = Vehicle  |  2 = Bidding
 
@@ -162,6 +185,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadRrPartyData());
     _vpPhoneCtrl.addListener(_onVpPhoneChanged);
+    _weightCtrl.addListener(() => _clearFieldErr('weight'));
+    _invoiceValueCtrl.addListener(() => _clearFieldErr('invoiceValue'));
+    _expectedFreightCtrl.addListener(() => _clearFieldErr('expectedFreight'));
+    _bookingAmountCtrl.addListener(() => _clearFieldErr('bookingAmount'));
   }
 
   @override
@@ -187,6 +214,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _bookingAmountCtrl.dispose();
     _vpPhoneCtrl.removeListener(_onVpPhoneChanged);
     _vpPhoneCtrl.dispose();
+    _scrollCtrl0.dispose();
+    _scrollCtrl1.dispose();
+    _scrollCtrl2.dispose();
     _pickupDebounce?.cancel();
     _dropDebounce?.cancel();
     _materialDebounce?.cancel();
@@ -338,12 +368,16 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _pickupCityId    = city['rr_city_id'] as String;
     _pickupCtrl.text = city['name'] as String;
     _pickupResults   = [];
+    _fieldErr.remove('pickupCity');
+    _fieldErrMsg.remove('pickupCity');
   });
 
   void _selectDrop(Map<String, dynamic> city) => setState(() {
     _dropCityId    = city['rr_city_id'] as String;
     _dropCtrl.text = city['name'] as String;
     _dropResults   = [];
+    _fieldErr.remove('unloadCity');
+    _fieldErrMsg.remove('unloadCity');
   });
 
   // ── Material search ───────────────────────────────────────────────────────
@@ -371,6 +405,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _materialRrId      = mat['rr_material_id'] as String?;
     _materialCtrl.text = mat['name'] as String;
     _materialResults   = [];
+    _fieldErr.remove('material');
+    _fieldErrMsg.remove('material');
   });
 
   // ── Address auto-fill ─────────────────────────────────────────────────────
@@ -387,6 +423,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _pickupCityId    = cId;
         _pickupCtrl.text = cName;
         _pickupResults   = [];
+        _fieldErr.remove('pickupCity');
+        _fieldErrMsg.remove('pickupCity');
       }
     });
   }
@@ -403,6 +441,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _dropCityId    = cId;
         _dropCtrl.text = cName;
         _dropResults   = [];
+        _fieldErr.remove('unloadCity');
+        _fieldErrMsg.remove('unloadCity');
       }
     });
   }
@@ -505,41 +545,163 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     }
   }
 
-  // ── Step navigation ───────────────────────────────────────────────────────
+  // ── Validation helpers ────────────────────────────────────────────────────
+
+  void _clearFieldErr(String key) {
+    if (_fieldErr.containsKey(key) && mounted) setState(() {
+      _fieldErr.remove(key);
+      _fieldErrMsg.remove(key);
+    });
+  }
+
+  Widget _inlineErr(String fieldKey) {
+    final msg = _fieldErrMsg[fieldKey];
+    if (msg == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(Icons.error_outline_rounded, size: 13, color: _errorClr),
+          ),
+          const SizedBox(width: 5),
+          Expanded(child: Text(msg, style: _inter(size: 12, color: _errorClr))),
+        ],
+      ),
+    );
+  }
+
+  void _scrollToKey(GlobalKey key) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = key.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+        alignment: 0.0,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+      );
+    });
+  }
+
+  // Sets error state, switches step if needed, then scrolls to field.
+  void _failField(int step, GlobalKey key, String fieldKey, String msg) {
+    final bool stepChange = _currentStep != step;
+    setState(() {
+      _fieldErr[fieldKey]    = true;
+      _fieldErrMsg[fieldKey] = msg;
+      if (stepChange) _currentStep = step;
+    });
+    if (stepChange) {
+      // New ListView needs one extra frame to mount and lay out before scrolling.
+      WidgetsBinding.instance.addPostFrameCallback(
+          (_) => WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToKey(key)));
+    } else {
+      _scrollToKey(key);
+    }
+  }
 
   bool _validateStep0() {
+    if (_consignorRrCompanyId == null) {
+      _failField(0, _keyConsignorCompany, 'consignorCompany',
+          'Must select company from dropdown');
+      return false;
+    }
     if (_pickupCityId == null) {
-      setState(() => _submitError = 'Select a Pickup City from the dropdown');
+      _failField(0, _keyPickupCity, 'pickupCity',
+          'Pickup City is required — search and select from the list');
       return false;
     }
     if (_dropCityId == null) {
-      setState(() => _submitError = 'Select an Unload City from the dropdown');
+      _failField(0, _keyUnloadCity, 'unloadCity',
+          'Unload City is required — search and select from the list');
       return false;
     }
     if (_materialRrId == null) {
-      setState(() => _submitError = 'Select a Material / Product Type');
+      _failField(0, _keyMaterial, 'material',
+          'Material / Product Type is required — search and select from the list');
       return false;
     }
     final w = _weightCtrl.text.trim();
     if (w.isEmpty || double.tryParse(w) == null) {
-      setState(() => _submitError = 'Enter a valid Total Weight / Quantity');
+      _failField(0, _keyWeight, 'weight', 'Total Weight / Quantity is required');
+      return false;
+    }
+    final iv = _invoiceValueCtrl.text.trim();
+    if (iv.isEmpty || double.tryParse(iv) == null) {
+      _failField(0, _keyInvoiceValue, 'invoiceValue',
+          'Total Invoice Value (₹) is required — used as parcel cost in RR');
       return false;
     }
     if (_selectedOpsWorkerId == null) {
-      setState(() => _submitError = 'Select a Handled by Person');
+      _failField(0, _keyOpsWorker, 'opsWorker',
+          'Select the RR Ops worker handling this trip');
+      return false;
+    }
+    final ef = _expectedFreightCtrl.text.trim();
+    if (ef.isEmpty || double.tryParse(ef) == null) {
+      _failField(0, _keyExpectedFreight, 'expectedFreight',
+          'Expected Freight Amount (₹) is required by RR create trip');
       return false;
     }
     return true;
   }
 
+  bool _validateStep1() {
+    if (_vpUser == null) {
+      _failField(1, _keyVpPhone, 'vpPhone',
+          'Enter Vehicle Provider phone number and tap the result to select');
+      return false;
+    }
+    if (_vpSelectedCompanyId == null) {
+      _failField(1, _keyVpCompany, 'vpCompany',
+          'Vehicle Provider Company is required — select a company');
+      return false;
+    }
+    if (_vpSelectedVehicleRrId == null) {
+      _failField(1, _keyVehicle, 'vehicle', 'Select a Vehicle');
+      return false;
+    }
+    if (_vpSelectedDriverRrId == null || _vpSelectedDriverRrId!.isEmpty) {
+      _failField(1, _keyVehicle, 'vehicle',
+          'Selected vehicle has no driver assigned in RR — assign a driver to this vehicle first');
+      return false;
+    }
+    return true;
+  }
+
+  // Full cross-step validation — used at submit time.
+  bool _validateAll() {
+    if (!_validateStep0()) return false;
+    if (!_validateStep1()) return false;
+    final ba = double.tryParse(_bookingAmountCtrl.text.trim());
+    if (ba == null || ba <= 0) {
+      _failField(2, _keyBookingAmount, 'bookingAmount',
+          'Booking Amount (₹) is required and must be greater than 0');
+      return false;
+    }
+    return true;
+  }
+
+  // ── Step navigation ───────────────────────────────────────────────────────
+
   void _goNext() {
-    setState(() => _submitError = null);
+    setState(() { _submitError = null; _fieldErr.clear(); _fieldErrMsg.clear(); });
     if (_currentStep == 0 && !_validateStep0()) return;
+    if (_currentStep == 1 && !_validateStep1()) return;
     if (_currentStep < 2) setState(() => _currentStep++);
   }
 
   void _goBack() {
-    setState(() { _submitError = null; if (_currentStep > 0) _currentStep--; });
+    setState(() {
+      _submitError = null;
+      _fieldErr.clear();
+      _fieldErrMsg.clear();
+      if (_currentStep > 0) _currentStep--;
+    });
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -547,11 +709,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   Future<void> _submit() async {
     if (_submitting) return;
 
-    final baVal = double.tryParse(_bookingAmountCtrl.text.trim());
-    if (baVal == null || baVal <= 0) {
-      setState(() => _submitError = 'Enter Vehicle Provider Booking Amount');
-      return;
-    }
+    setState(() { _submitError = null; _fieldErr.clear(); _fieldErrMsg.clear(); });
+    if (!_validateAll()) return;
 
     setState(() { _submitting = true; _submitError = null; });
 
@@ -686,6 +845,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             // STEP 0 · TRIP INFO
             // ═══════════════════════════════════════════════════════════
             if (_currentStep == 0) Expanded(child: ListView(
+              controller: _scrollCtrl0,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               children: [
 
@@ -740,7 +900,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             _TextInput(controller: _consignorNameCtrl, hint: 'e.g. Tata Steel Ltd'),
 
             const SizedBox(height: 10),
-            _FieldLabel(label: 'Select Consignor Company'),
+            _FieldLabel(key: _keyConsignorCompany, label: 'Select Consignor Company *'),
             const SizedBox(height: 6),
             _consignorCompaniesLoading
                 ? const _LoadingChip(label: 'Loading companies…')
@@ -754,6 +914,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                         }),
                       )
                     : _DropdownField<String>(
+                        hasError: _fieldErr['consignorCompany'] == true,
                         value: _consignorRrCompanyId,
                         hint: _consignorPartner == null ? 'Select a partner above first' : 'Select company',
                         items: _consignorCompanies.map((c) => DropdownMenuItem<String>(
@@ -769,11 +930,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                             _consignorRrCompanyId  = v;
                             _consignorCompanyName  = c['name'] as String?;
                             _consignorGstinCtrl.text = c['gstin'] as String? ?? '';
-                            _consignorAddresses    = [];  // will refill from operation_locations
+                            _consignorAddresses    = [];
+                            _fieldErr.remove('consignorCompany');
+                            _fieldErrMsg.remove('consignorCompany');
                           });
                           _loadCompanyLocations(v, isConsignor: true);
                         },
                       ),
+            _inlineErr('consignorCompany'),
 
             const SizedBox(height: 10),
             _FieldLabel(label: 'Consignor GSTIN'),
@@ -823,9 +987,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             _CountedTextInput(controller: _pickupLine2Ctrl, hint: 'Landmark / locality', maxLength: 200),
 
             const SizedBox(height: 10),
-            _FieldLabel(label: 'Pickup City Name *'),
+            _FieldLabel(key: _keyPickupCity, label: 'Pickup City Name *'),
             const SizedBox(height: 6),
             _SearchField(
+              hasError: _fieldErr['pickupCity'] == true,
               controller: _pickupCtrl,
               hint: 'Search city…',
               loading: _pickupLoading,
@@ -833,6 +998,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               onChanged: _onPickupTyped,
               onClear: () => setState(() { _pickupCityId = null; _pickupCtrl.clear(); _pickupResults = []; }),
             ),
+            _inlineErr('pickupCity'),
             if (_pickupResults.isNotEmpty)
               _ResultsCard(items: _pickupResults, labelKey: 'name', onSelect: _selectPickup),
 
@@ -984,9 +1150,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             _CountedTextInput(controller: _unloadLine2Ctrl, hint: 'Landmark / locality', maxLength: 200),
 
             const SizedBox(height: 10),
-            _FieldLabel(label: 'Unload City Name'),
+            _FieldLabel(key: _keyUnloadCity, label: 'Unload City Name *'),
             const SizedBox(height: 6),
             _SearchField(
+              hasError: _fieldErr['unloadCity'] == true,
               controller: _dropCtrl,
               hint: 'Search city…',
               loading: _dropLoading,
@@ -994,6 +1161,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               onChanged: _onDropTyped,
               onClear: () => setState(() { _dropCityId = null; _dropCtrl.clear(); _dropResults = []; }),
             ),
+            _inlineErr('unloadCity'),
             if (_dropResults.isNotEmpty)
               _ResultsCard(items: _dropResults, labelKey: 'name', onSelect: _selectDrop),
 
@@ -1021,13 +1189,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             _SectionHeader(label: 'Parcel / Load Information'),
             const SizedBox(height: 12),
 
-            _FieldLabel(label: 'Material / Product Type *'),
+            _FieldLabel(key: _keyMaterial, label: 'Material / Product Type *'),
             const SizedBox(height: 6),
             Focus(
               onFocusChange: (focused) {
                 if (focused && _materialCtrl.text.isEmpty) _searchMaterial('');
               },
               child: _SearchField(
+                hasError: _fieldErr['material'] == true,
                 controller: _materialCtrl,
                 hint: 'Search material…',
                 loading: _materialLoading,
@@ -1036,27 +1205,32 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 onClear: () => setState(() { _materialRrId = null; _materialCtrl.clear(); _materialResults = []; }),
               ),
             ),
+            _inlineErr('material'),
             if (_materialResults.isNotEmpty)
               _ResultsCard(items: _materialResults, labelKey: 'name', onSelect: _selectMaterial),
 
             const SizedBox(height: 10),
-            _FieldLabel(label: 'Total Weight / Quantity *'),
+            _FieldLabel(key: _keyWeight, label: 'Total Weight / Quantity *'),
             const SizedBox(height: 6),
             _WeightRow(
+              hasError: _fieldErr['weight'] == true,
               controller: _weightCtrl,
               unit: _quantityUnits.contains(_weightUnit) ? _weightUnit : _quantityUnits.first,
               units: _quantityUnits,
               onUnitChanged: (u) => setState(() => _weightUnit = u),
             ),
+            _inlineErr('weight'),
 
             const SizedBox(height: 10),
-            _FieldLabel(label: 'Total Invoice Value (₹) *'),
+            _FieldLabel(key: _keyInvoiceValue, label: 'Total Invoice Value (₹) *'),
             const SizedBox(height: 6),
             _TextInput(
+              hasError: _fieldErr['invoiceValue'] == true,
               controller: _invoiceValueCtrl,
               hint: 'e.g. 150000',
               inputType: TextInputType.number,
             ),
+            _inlineErr('invoiceValue'),
 
             const SizedBox(height: 10),
             _FieldLabel(label: 'Description of Parcel'),
@@ -1075,11 +1249,12 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             _SectionHeader(label: 'Trip Handled By'),
             const SizedBox(height: 12),
 
-            _FieldLabel(label: 'Handled by Person *'),
+            _FieldLabel(key: _keyOpsWorker, label: 'Handled by Person *'),
             const SizedBox(height: 6),
             _opsWorkersLoading
                 ? const _LoadingChip(label: 'Loading workers…')
                 : _DropdownField<String>(
+                    hasError: _fieldErr['opsWorker'] == true,
                     value: _selectedOpsWorkerId,
                     hint: 'Select RR Ops worker',
                     items: _opsWorkers.map((w) => DropdownMenuItem<String>(
@@ -1096,18 +1271,23 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       setState(() {
                         _selectedOpsWorkerId      = v;
                         _selectedOpsWorkerLocalId = w['local_user_id'] as String?;
+                        _fieldErr.remove('opsWorker');
+                        _fieldErrMsg.remove('opsWorker');
                       });
                     },
                   ),
+            _inlineErr('opsWorker'),
 
             const SizedBox(height: 16),
-            _FieldLabel(label: 'Expected Freight Amount (₹)'),
+            _FieldLabel(key: _keyExpectedFreight, label: 'Expected Freight Amount (₹) *'),
             const SizedBox(height: 6),
             _TextInput(
+              hasError: _fieldErr['expectedFreight'] == true,
               controller: _expectedFreightCtrl,
               hint: 'e.g. 45000',
               inputType: TextInputType.number,
             ),
+            _inlineErr('expectedFreight'),
 
             ], // end step 0 content
             )), // end step 0 Expanded+ListView
@@ -1115,6 +1295,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             // STEP 1 · VEHICLE
             // ═══════════════════════════════════════════════════════════
             if (_currentStep == 1) Expanded(child: ListView(
+              controller: _scrollCtrl1,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               children: [
 
@@ -1124,13 +1305,15 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 style: _inter(size: 12, color: _secondary)),
             const SizedBox(height: 12),
 
-            _FieldLabel(label: 'Vehicle Provider Phone *'),
+            _FieldLabel(key: _keyVpPhone, label: 'Vehicle Provider Phone *'),
             const SizedBox(height: 6),
             _TextInput(
+              hasError: _fieldErr['vpPhone'] == true,
               controller: _vpPhoneCtrl,
               hint: 'e.g. 8960281816 — auto-searches at 10 digits',
               inputType: TextInputType.phone,
             ),
+            _inlineErr('vpPhone'),
             if (_vpLookingUp) ...[
               const SizedBox(height: 8),
               const _LoadingChip(label: 'Looking up…'),
@@ -1145,7 +1328,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               GestureDetector(
                 onTap: () async {
                   final session = await ensureRrSession(context, ref);
-                  if (session != null && mounted) _selectVpUser(session.token);
+                  if (session != null && mounted) {
+                    setState(() { _fieldErr.remove('vpPhone'); _fieldErrMsg.remove('vpPhone'); });
+                    _selectVpUser(session.token);
+                  }
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1176,7 +1362,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 icon: Icons.person_outline_rounded,
               ),
               const SizedBox(height: 12),
-              _FieldLabel(label: 'Select Provider Company'),
+              _FieldLabel(key: _keyVpCompany, label: 'Select Provider Company *'),
               const SizedBox(height: 6),
               _vpCompaniesLoading
                   ? const _LoadingChip(label: 'Loading companies…')
@@ -1184,6 +1370,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       ? Text('No companies — vehicle from personal fleet below',
                             style: _inter(size: 12, color: _secondary))
                       : _DropdownField<String>(
+                          hasError: _fieldErr['vpCompany'] == true,
                           value: _vpSelectedCompanyId,
                           hint: 'Select company',
                           items: _vpCompanies.map((c) => DropdownMenuItem<String>(
@@ -1197,14 +1384,17 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                               _vpSelectedCompanyId     = v;
                               _vpSelectedCompanyName   = c['name'] as String?;
                               _vpSelectedVehicleRrId   = null;
+                              _fieldErr.remove('vpCompany');
+                              _fieldErrMsg.remove('vpCompany');
                               _vpSelectedVehicleNumber = null;
                             });
                             final session = await ensureRrSession(context, ref);
                             if (session != null && mounted) _loadVpCompanyVehicles(v, session.token);
                           },
                         ),
+              _inlineErr('vpCompany'),
               const SizedBox(height: 12),
-              _FieldLabel(label: 'Select Vehicle *'),
+              _FieldLabel(key: _keyVehicle, label: 'Select Vehicle *'),
               const SizedBox(height: 6),
               _vpVehiclesLoading
                   ? const _LoadingChip(label: 'Loading vehicles…')
@@ -1219,6 +1409,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                         );
                       }
                       return _DropdownField<String>(
+                        hasError: _fieldErr['vehicle'] == true,
                         value: _vpSelectedVehicleRrId,
                         hint: 'Select vehicle',
                         items: all.map((v) {
@@ -1244,10 +1435,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                             _vpSelectedVehicleNumber = veh['number'] as String?;
                             _vpSelectedDriverRrId    = (veh['driver_id'] as String?)
                                 ?.isNotEmpty == true ? veh['driver_id'] as String : null;
+                            _fieldErr.remove('vehicle');
+                            _fieldErrMsg.remove('vehicle');
                           });
                         },
                       );
                     }(),
+              _inlineErr('vehicle'),
             ],
 
             const SizedBox(height: 20),
@@ -1300,6 +1494,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             // STEP 2 · BIDDING AMOUNT
             // ═══════════════════════════════════════════════════════════
             if (_currentStep == 2) Expanded(child: ListView(
+              controller: _scrollCtrl2,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               children: [
 
@@ -1309,17 +1504,19 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 style: _inter(size: 12, color: _secondary)),
             const SizedBox(height: 20),
 
-            _FieldLabel(label: 'Vehicle Provider Booking Amount (₹) *'),
+            _FieldLabel(key: _keyBookingAmount, label: 'Vehicle Provider Booking Amount (₹) *'),
             const SizedBox(height: 6),
             _TextInput(
+              hasError: _fieldErr['bookingAmount'] == true,
               controller: _bookingAmountCtrl,
               hint: 'e.g. 42000  (offline bid sent to vehicle provider)',
               inputType: TextInputType.number,
             ),
+            _inlineErr('bookingAmount'),
 
             ], // end step 2 content
             )), // end step 2 Expanded+ListView
-            // ── Error banner (all steps) ──────────────────────────────
+            // ── API error banner (trip creation failed) ───────────────
             if (_submitError != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -1371,7 +1568,7 @@ class _SectionHeader extends StatelessWidget {
 
 class _FieldLabel extends StatelessWidget {
   final String label;
-  const _FieldLabel({required this.label});
+  const _FieldLabel({super.key, required this.label});
 
   @override
   Widget build(BuildContext context) =>
@@ -1408,6 +1605,7 @@ class _SearchField extends StatelessWidget {
   final String hint;
   final bool loading;
   final bool confirmed;
+  final bool hasError;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
 
@@ -1418,18 +1616,20 @@ class _SearchField extends StatelessWidget {
     required this.confirmed,
     required this.onChanged,
     required this.onClear,
+    this.hasError = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final Color borderColor = confirmed
+        ? _successClr.withOpacity(0.6)
+        : (hasError ? _errorClr : _border);
+    final double borderWidth = (confirmed || hasError) ? 1.5 : 1;
     return Container(
       decoration: BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: confirmed ? _successClr.withOpacity(0.6) : _border,
-          width: confirmed ? 1.5 : 1,
-        ),
+        border: Border.all(color: borderColor, width: borderWidth),
       ),
       child: Row(children: [
         const SizedBox(width: 12),
@@ -1520,12 +1720,14 @@ class _WeightRow extends StatelessWidget {
   final String unit;
   final List<String> units;
   final ValueChanged<String> onUnitChanged;
+  final bool hasError;
 
   const _WeightRow({
     required this.controller,
     required this.unit,
     required this.units,
     required this.onUnitChanged,
+    this.hasError = false,
   });
 
   @override
@@ -1533,6 +1735,7 @@ class _WeightRow extends StatelessWidget {
     return Row(children: [
       Expanded(
         child: _TextInput(
+          hasError: hasError,
           controller: controller,
           hint: 'e.g. 20',
           inputType: const TextInputType.numberWithOptions(decimal: true),
@@ -1566,11 +1769,13 @@ class _TextInput extends StatelessWidget {
   final TextEditingController controller;
   final String hint;
   final TextInputType inputType;
+  final bool hasError;
 
   const _TextInput({
     required this.controller,
     required this.hint,
     this.inputType = TextInputType.text,
+    this.hasError = false,
   });
 
   @override
@@ -1579,7 +1784,10 @@ class _TextInput extends StatelessWidget {
       decoration: BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _border),
+        border: Border.all(
+          color: hasError ? _errorClr : _border,
+          width: hasError ? 1.5 : 1,
+        ),
       ),
       child: TextField(
         controller: controller,
@@ -1673,12 +1881,14 @@ class _DropdownField<T> extends StatelessWidget {
   final String hint;
   final List<DropdownMenuItem<T>> items;
   final ValueChanged<T?>? onChanged;
+  final bool hasError;
 
   const _DropdownField({
     required this.value,
     required this.hint,
     required this.items,
     required this.onChanged,
+    this.hasError = false,
   });
 
   @override
@@ -1688,7 +1898,10 @@ class _DropdownField<T> extends StatelessWidget {
       decoration: BoxDecoration(
         color: disabled ? const Color(0xFFF2F4F6) : _surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _border),
+        border: Border.all(
+          color: hasError ? _errorClr : _border,
+          width: hasError ? 1.5 : 1,
+        ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: DropdownButtonHideUnderline(
@@ -1696,6 +1909,7 @@ class _DropdownField<T> extends StatelessWidget {
           value: value,
           hint: Text(hint, style: _inter(size: 13, color: _secondary)),
           isExpanded: true,
+          menuMaxHeight: 220,
           style: _inter(size: 13, color: _onSurface),
           icon: Icon(Icons.expand_more_rounded, size: 18,
               color: disabled ? _border : _secondary),
