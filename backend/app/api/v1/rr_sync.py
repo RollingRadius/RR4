@@ -67,21 +67,25 @@ async def get_rr_cities(
 @router.get("/materials", summary="Search RR material types")
 async def get_materials(
     q: str = Query("", description="Material name prefix to search"),
+    rr_token: str = Query("", description="LP's RR session token"),
     _: User = Depends(get_current_user),
 ):
     """
     Proxy to RR GET /material_types endpoint.
     Returns a list of {rr_material_id, name} matches for the given prefix.
+    rr_token required on RR 3.6 (prod) where material_types is not public.
     """
     import json
     params: dict = {"max_results": 20}
     if q:
         params["where"] = json.dumps({"name": {"$regex": f"^{q}", "$options": "i"}})
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
     try:
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
             resp = await client.get(
                 f"{settings.RR_API_BASE}/material_types",
                 params=params,
+                headers=headers,
             )
             resp.raise_for_status()
             items = resp.json().get("_items", [])

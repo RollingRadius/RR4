@@ -391,7 +391,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   Future<void> _searchMaterial(String q) async {
     setState(() => _materialLoading = true);
     try {
-      final resp = await ref.read(dioProvider).get('/api/rr/materials', queryParameters: {'q': q});
+      final session = ref.read(rrSessionProvider);
+      final params = <String, dynamic>{'q': q};
+      if (session != null && session.isValid) params['rr_token'] = session.token;
+      final resp = await ref.read(dioProvider).get('/api/rr/materials', queryParameters: params);
       final items = (resp.data['items'] as List? ?? []).cast<Map<String, dynamic>>();
       if (!mounted) return;
       setState(() { _materialResults = items; _materialLoading = false; });
