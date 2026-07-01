@@ -215,9 +215,7 @@ async def rr_auth_login(
     user_record   = data.get("user_record") or {}
     rr_user_id    = str(user_record.get("_id",     "")) if user_record else ""
     company_raw   = user_record.get("current_company") if user_record else None
-    logger.warning(f"RR auth user_record keys: {list(user_record.keys()) if user_record else []}")
-    logger.warning(f"RR auth company_raw: {company_raw!r}")
-    # company may be a plain ObjectId string or an embedded dict
+    # current_company may be a plain ObjectId string or an embedded dict
     if isinstance(company_raw, dict):
         rr_company_id = str(company_raw.get("_id", ""))
     elif company_raw:
@@ -225,7 +223,11 @@ async def rr_auth_login(
     else:
         rr_company_id = ""
 
-    # Auto-populate org's rr_company_id on first RR login (never overwrite once set).
+    # Auto-populate on first RR login (never overwrite once set).
+    needs_commit = False
+    if rr_user_id and not current_user.rr_company_id:
+        current_user.rr_company_id = rr_user_id
+        needs_commit = True
     if rr_company_id:
         from app.models import UserOrganization
         user_org = db.query(UserOrganization).filter(
@@ -234,7 +236,9 @@ async def rr_auth_login(
         ).first()
         if user_org and user_org.organization and not user_org.organization.rr_company_id:
             user_org.organization.rr_company_id = rr_company_id
-            db.commit()
+            needs_commit = True
+    if needs_commit:
+        db.commit()
 
     return {"token": token, "rr_user_id": rr_user_id}
 
