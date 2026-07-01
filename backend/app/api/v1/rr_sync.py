@@ -214,7 +214,16 @@ async def rr_auth_login(
 
     user_record   = data.get("user_record") or {}
     rr_user_id    = str(user_record.get("_id",     "")) if user_record else ""
-    rr_company_id = str(user_record.get("company", "")) if user_record else ""
+    company_raw   = user_record.get("company") if user_record else None
+    logger.info(f"RR auth user_record keys: {list(user_record.keys()) if user_record else []}")
+    logger.info(f"RR auth company_raw: {company_raw!r}")
+    # company may be a plain ObjectId string or an embedded dict
+    if isinstance(company_raw, dict):
+        rr_company_id = str(company_raw.get("_id", ""))
+    elif company_raw:
+        rr_company_id = str(company_raw)
+    else:
+        rr_company_id = ""
 
     # Auto-populate org's rr_company_id on first RR login (never overwrite once set).
     if rr_company_id:
