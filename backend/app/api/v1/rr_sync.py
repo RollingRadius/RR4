@@ -176,7 +176,8 @@ class RrAuthRequest(BaseModel):
 @router.post("/auth/login", summary="Authenticate with RR and obtain an access token")
 async def rr_auth_login(
     body: RrAuthRequest,
-    _: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """
     Proxy to RR GET /persons/authenticate (Basic Auth).
@@ -211,8 +212,20 @@ async def rr_auth_login(
         logger.error(f"RR auth response missing token: {resp.text[:200]}")
         raise HTTPException(status_code=500, detail="RR auth response missing token")
 
-    user_record = data.get("user_record") or {}
-    rr_user_id = str(user_record.get("_id", "")) if user_record else ""
+    user_record   = data.get("user_record") or {}
+    rr_user_id    = str(user_record.get("_id",     "")) if user_record else ""
+    rr_company_id = str(user_record.get("company", "")) if user_record else ""
+
+    # Auto-populate org's rr_company_id on first RR login (never overwrite once set).
+    if rr_company_id:
+        from app.models import UserOrganization
+        user_org = db.query(UserOrganization).filter(
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.status == "active",
+        ).first()
+        if user_org and user_org.organization and not user_org.organization.rr_company_id:
+            user_org.organization.rr_company_id = rr_company_id
+            db.commit()
 
     return {"token": token, "rr_user_id": rr_user_id}
 
