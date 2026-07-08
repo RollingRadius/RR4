@@ -1832,7 +1832,9 @@ class _CountedTextInputState extends State<_CountedTextInput> {
     widget.controller.addListener(_onChanged);
   }
 
-  void _onChanged() => setState(() {});
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {

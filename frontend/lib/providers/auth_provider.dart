@@ -207,6 +207,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
     } catch (e) {
       print('Error loading stored auth: $e');
+      // Undecryptable secure-storage entry (e.g. Keystore key rotated after
+      // reinstall) would otherwise fail identically on every future launch.
+      await _storage.delete(key: AppConfig.tokenKey);
       state = state.copyWith(isInitialized: true);
     }
   }
@@ -450,11 +453,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Firebase subscriptions survive app restarts, so this only runs once
   /// per device install when the user's role is first known.
   Future<void> _subscribeToTopicsIfNeeded(UserModel user) async {
-    final alreadySubscribed = await _storage.read(key: 'fcm_topics_subscribed');
-    if (alreadySubscribed == 'true') return;
-    await _fcmService.subscribeToRoleTopic(user);
-    await _storage.write(key: 'fcm_topics_subscribed', value: 'true');
-    print('✅ FCM role topics subscribed');
+    try {
+      final alreadySubscribed =
+          await _storage.read(key: 'fcm_topics_subscribed');
+      if (alreadySubscribed == 'true') return;
+      await _fcmService.subscribeToRoleTopic(user);
+      await _storage.write(key: 'fcm_topics_subscribed', value: 'true');
+      print('✅ FCM role topics subscribed');
+    } catch (e) {
+      // A stale/undecryptable secure-storage entry (e.g. Keystore key
+      // rotated after reinstall) must not fail the calling login flow.
+      print('⚠️ FCM topic subscription check failed (non-critical): $e');
+      await _storage.delete(key: 'fcm_topics_subscribed');
+    }
   }
 
   /// Clear error
