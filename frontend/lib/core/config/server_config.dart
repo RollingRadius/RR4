@@ -13,7 +13,7 @@ class _ServerDetails {
 /// Main configuration class for server settings
 class ServerConfig {
   /// Current environment — change this one line to switch servers
-  static const ServerEnvironment _environment = ServerEnvironment.test;
+  static const ServerEnvironment _environment = ServerEnvironment.production;
   // static const ServerEnvironment _environment = ServerEnvironment.production;
 
   /// Server configurations
