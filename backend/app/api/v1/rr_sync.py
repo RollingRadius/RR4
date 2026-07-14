@@ -11,7 +11,7 @@ from typing import List
 import httpx
 import mimetypes
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, Response, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -391,6 +391,230 @@ async def retry_stage_sync(
         "trip_id": str(trip.id),
         "retried_stages": retryable_stages,
     }
+
+
+@router.get("/identity-status/{trip_id}", summary="Check driver/vehicle doc sync status against RR")
+async def get_identity_status(
+    trip_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    For the trip's driver + vehicle, reports each of the 8 tracked Stage 1 doc
+    types: whether WE have pushed it (ours_synced, from local tracking columns)
+    and whether RR already has ANY entry for that id_name (rr_has_entry) — which
+    may be a different document than ours, since our auto-sync skips pushing
+    when RR already has an entry rather than silently overwriting it. Use
+    /identity-override to explicitly replace RR's copy with ours after preview.
+    """
+    from app.models import UserOrganization
+    from app.models.vehicle import Vehicle
+    from app.models.driver import Driver
+    from app.services.rr_sync_service import driver_doc_items, vehicle_doc_items
+    from app.services.rr_org_token_service import get_org_rr_token
+
+    _require_rr_session_role(current_user, db)
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.organization_id == user_org.organization_id,
+    ).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    token = await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
+    vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first() if trip.vehicle_id else None
+    driver  = db.query(Driver).filter(Driver.id == trip.driver_id).first()   if trip.driver_id  else None
+
+    results = []
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=20) as client:
+        auth_hdr = {"Authorization": f"Bearer {token}"}
+
+        if driver and driver.rr_user_id:
+            rr_entries: dict = {}
+            try:
+                resp = await client.get(f"{settings.RR_API_BASE}/users/{driver.rr_user_id}", headers=auth_hdr)
+                if resp.status_code == 200:
+                    for entry in (resp.json().get("identities") or []):
+                        name = entry.get("id_name")
+                        photos = entry.get("photos") or []
+                        if name and photos:
+                            rr_entries[name] = str(photos[0].get("photo"))
+            except Exception:
+                pass
+            for item in driver_doc_items(trip):
+                results.append({
+                    "entity_type": "driver",
+                    "id_name": item["id_name"],
+                    "ours_synced": bool(getattr(driver, item["front_attr"])),
+                    "rr_has_entry": item["id_name"] in rr_entries,
+                    "rr_file_id": rr_entries.get(item["id_name"]),
+                })
+
+        if vehicle and vehicle.rr_vehicle_id:
+            rr_entries: dict = {}
+            try:
+                resp = await client.get(f"{settings.RR_API_BASE}/vehicles/{vehicle.rr_vehicle_id}", headers=auth_hdr)
+                if resp.status_code == 200:
+                    for entry in (resp.json().get("identities") or []):
+                        name = entry.get("id_name")
+                        photos = entry.get("photos") or []
+                        if name and photos:
+                            rr_entries[name] = str(photos[0].get("photo"))
+            except Exception:
+                pass
+            for item in vehicle_doc_items(trip):
+                results.append({
+                    "entity_type": "vehicle",
+                    "id_name": item["id_name"],
+                    "ours_synced": bool(getattr(vehicle, item["front_attr"])),
+                    "rr_has_entry": item["id_name"] in rr_entries,
+                    "rr_file_id": rr_entries.get(item["id_name"]),
+                })
+
+    return {"items": results}
+
+
+@router.get("/file-preview/{rr_file_id}", summary="Proxy an RR file's content for preview")
+async def get_rr_file_preview(
+    rr_file_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Proxies GET {RR_API_BASE}/files/{id} using the org's RR session and decodes
+    Eve's base64 media response into raw bytes, so the Flutter app can just do
+    Image.network(...) against this URL with no RR auth handling of its own.
+    """
+    import base64
+    from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_org_rr_token
+
+    _require_rr_session_role(current_user, db)
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    token = await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=20) as client:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/files/{rr_file_id}",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Could not reach RR server: {exc}")
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR /files returned {resp.status_code}")
+
+    data = resp.json()
+    file_b64 = data.get("file")
+    if not file_b64:
+        raise HTTPException(status_code=502, detail="RR /files response missing file content")
+
+    try:
+        file_bytes = base64.b64decode(file_b64)
+    except Exception:
+        raise HTTPException(status_code=502, detail="RR /files content could not be decoded")
+
+    content_type = data.get("content_type") or "application/octet-stream"
+    return Response(content=file_bytes, media_type=content_type)
+
+
+class RrIdentityOverrideRequest(BaseModel):
+    trip_id: str
+    entity_type: str   # "driver" | "vehicle"
+    id_name: str
+
+
+@router.post("/identity-override", summary="Force-replace an RR driver/vehicle doc with ours")
+async def override_identity(
+    body: RrIdentityOverrideRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Deliberate human action (LP/RR-ops, after previewing what RR already has via
+    /identity-status + /file-preview): removes RR's existing identities[] entry
+    for this id_name and replaces it with our copy. Auto-sync never does this on
+    its own — _push_identities always skips on conflict to avoid silently
+    clobbering RR's data.
+    """
+    from app.models import UserOrganization
+    from app.models.vehicle import Vehicle
+    from app.models.driver import Driver
+    from app.services.rr_sync_service import driver_doc_items, vehicle_doc_items, _override_identity
+    from app.services.rr_org_token_service import get_org_rr_token
+
+    _require_rr_session_role(current_user, db)
+
+    if body.entity_type not in ("driver", "vehicle"):
+        raise HTTPException(status_code=400, detail="entity_type must be 'driver' or 'vehicle'")
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    trip = db.query(Trip).filter(
+        Trip.id == body.trip_id,
+        Trip.organization_id == user_org.organization_id,
+    ).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    token = await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
+    if body.entity_type == "driver":
+        if not trip.driver_id:
+            raise HTTPException(status_code=422, detail="Trip has no driver assigned")
+        entity = db.query(Driver).filter(Driver.id == trip.driver_id).first()
+        if not entity or not entity.rr_user_id:
+            raise HTTPException(status_code=422, detail="Driver not found in RR")
+        entity_collection, rr_id = "users", entity.rr_user_id
+        items = {i["id_name"]: i for i in driver_doc_items(trip)}
+    else:
+        if not trip.vehicle_id:
+            raise HTTPException(status_code=422, detail="Trip has no vehicle assigned")
+        entity = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
+        if not entity or not entity.rr_vehicle_id:
+            raise HTTPException(status_code=422, detail="Vehicle not found in RR")
+        entity_collection, rr_id = "vehicles", entity.rr_vehicle_id
+        items = {i["id_name"]: i for i in vehicle_doc_items(trip)}
+
+    item = items.get(body.id_name)
+    if not item:
+        raise HTTPException(status_code=400, detail=f"Unknown id_name: {body.id_name}")
+
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+        ok, err = await _override_identity(entity, entity_collection, rr_id, item, client, token, db)
+
+    if not ok:
+        raise HTTPException(status_code=502, detail=err)
+
+    return {"success": True, "id_name": body.id_name}
 
 
 def _extract_gstin(obj: dict) -> str:

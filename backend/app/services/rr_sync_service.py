@@ -248,6 +248,93 @@ async def _push_identities(
     return True, None
 
 
+def driver_doc_items(trip) -> list[dict]:
+    """Shared by _sync_stage1_docs and the identity-status/override endpoints."""
+    return [
+        {"id_name": "Driving Licence", "front_url": trip.s1_driving_license_url,
+         "back_url": trip.s1_driving_license_back_url,
+         "front_attr": "rr_dl_file_id", "back_attr": "rr_dl_back_file_id"},
+        {"id_name": "Aadhaar Card", "front_url": trip.s1_aadhaar_url,
+         "back_url": trip.s1_aadhaar_back_url,
+         "front_attr": "rr_aadhaar_file_id", "back_attr": "rr_aadhaar_back_file_id"},
+        {"id_name": "PAN Card", "front_url": trip.s1_pan, "back_url": None,
+         "front_attr": "rr_pan_file_id", "back_attr": None},
+        {"id_name": "Tax Declaration Slip", "front_url": trip.s1_tax_declaration, "back_url": None,
+         "front_attr": "rr_tax_declaration_file_id", "back_attr": None},
+    ]
+
+
+def vehicle_doc_items(trip) -> list[dict]:
+    """Shared by _sync_stage1_docs and the identity-status/override endpoints."""
+    return [
+        {"id_name": "Registration Certificate", "front_url": trip.s1_rc, "back_url": None,
+         "front_attr": "rr_rc_file_id", "back_attr": None},
+        {"id_name": "PUC Certificate", "front_url": trip.s1_pollution, "back_url": None,
+         "front_attr": "rr_puc_file_id", "back_attr": None},
+        {"id_name": "Fitness Certificate", "front_url": trip.s1_fitness, "back_url": None,
+         "front_attr": "rr_fitness_file_id", "back_attr": None},
+        {"id_name": "Permit", "front_url": trip.s1_permit, "back_url": None,
+         "front_attr": "rr_permit_file_id", "back_attr": None},
+    ]
+
+
+async def _override_identity(
+    entity, entity_collection: str, rr_id: str, item: dict,
+    client: httpx.AsyncClient, token: str, db,
+) -> tuple[bool, str | None]:
+    """
+    Explicit human action (LP/RR-ops tapping "Override" after previewing what RR
+    already has): removes any existing identities[] entries for item['id_name']
+    and replaces them with a fresh upload of our copy — unlike _push_identities'
+    automatic skip-on-conflict behavior, this always writes.
+    """
+    if not item["front_url"]:
+        return False, "No local document to upload for this doc type"
+
+    try:
+        get_resp = await client.get(
+            f"{settings.RR_API_BASE}/{entity_collection}/{rr_id}", headers=_auth_header(token)
+        )
+    except Exception as exc:
+        return False, f"GET {entity_collection} exception: {exc}"
+    if get_resp.status_code != 200:
+        return False, f"GET {entity_collection} HTTP {get_resp.status_code}: {get_resp.text[:300]}"
+
+    data = get_resp.json()
+    etag = data.get("_etag")
+    identities = [i for i in (data.get("identities") or []) if i.get("id_name") != item["id_name"]]
+
+    front_id = await _upload_file(item["front_url"], client, token)
+    if not front_id:
+        return False, "Front photo upload to RR failed"
+    photos = [{"photo": front_id, "side": "Front"}]
+
+    back_id = None
+    if item["back_url"]:
+        back_id = await _upload_file(item["back_url"], client, token)
+        if back_id:
+            photos.append({"photo": back_id, "side": "Back"})
+
+    identities.append({"id_name": item["id_name"], "photos": photos})
+
+    try:
+        patch_resp = await client.patch(
+            f"{settings.RR_API_BASE}/{entity_collection}/{rr_id}",
+            json={"identities": identities},
+            headers={**_json_header(token), "If-Match": etag},
+        )
+    except Exception as exc:
+        return False, f"PATCH {entity_collection} exception: {exc}"
+    if patch_resp.status_code not in (200, 201):
+        return False, f"PATCH {entity_collection} HTTP {patch_resp.status_code}: {patch_resp.text[:300]}"
+
+    setattr(entity, item["front_attr"], front_id)
+    if item["back_attr"] and back_id:
+        setattr(entity, item["back_attr"], back_id)
+    db.commit()
+    return True, None
+
+
 async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> None:
     """
     Push driver KYC docs (DL, Aadhaar, PAN, tax declaration) to users.identities[]
@@ -271,18 +358,8 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
 
     if driver and driver.rr_user_id:
         attempted = True
-        ok, err = await _push_identities(driver, "users", driver.rr_user_id, [
-            {"id_name": "Driving Licence", "front_url": trip.s1_driving_license_url,
-             "back_url": trip.s1_driving_license_back_url,
-             "front_attr": "rr_dl_file_id", "back_attr": "rr_dl_back_file_id"},
-            {"id_name": "Aadhaar Card", "front_url": trip.s1_aadhaar_url,
-             "back_url": trip.s1_aadhaar_back_url,
-             "front_attr": "rr_aadhaar_file_id", "back_attr": "rr_aadhaar_back_file_id"},
-            {"id_name": "PAN Card", "front_url": trip.s1_pan, "back_url": None,
-             "front_attr": "rr_pan_file_id", "back_attr": None},
-            {"id_name": "Tax Declaration Slip", "front_url": trip.s1_tax_declaration, "back_url": None,
-             "front_attr": "rr_tax_declaration_file_id", "back_attr": None},
-        ], client, token, db)
+        ok, err = await _push_identities(driver, "users", driver.rr_user_id,
+                                          driver_doc_items(trip), client, token, db)
         if not ok:
             errors.append(f"Driver docs: {err}")
     elif trip.driver_id:
@@ -290,16 +367,8 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
 
     if vehicle and vehicle.rr_vehicle_id:
         attempted = True
-        ok, err = await _push_identities(vehicle, "vehicles", vehicle.rr_vehicle_id, [
-            {"id_name": "Registration Certificate", "front_url": trip.s1_rc, "back_url": None,
-             "front_attr": "rr_rc_file_id", "back_attr": None},
-            {"id_name": "PUC Certificate", "front_url": trip.s1_pollution, "back_url": None,
-             "front_attr": "rr_puc_file_id", "back_attr": None},
-            {"id_name": "Fitness Certificate", "front_url": trip.s1_fitness, "back_url": None,
-             "front_attr": "rr_fitness_file_id", "back_attr": None},
-            {"id_name": "Permit", "front_url": trip.s1_permit, "back_url": None,
-             "front_attr": "rr_permit_file_id", "back_attr": None},
-        ], client, token, db)
+        ok, err = await _push_identities(vehicle, "vehicles", vehicle.rr_vehicle_id,
+                                          vehicle_doc_items(trip), client, token, db)
         if not ok:
             errors.append(f"Vehicle docs: {err}")
     elif trip.vehicle_id:
@@ -377,6 +446,7 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
       - documents.bilty              — bilty number string
       - documents.weight_receipt     — loaded weight kg + slip photo
       - documents.consignor_invoice  — first 2 material doc photos
+      - loading.truck_reach_datetime / loading.start_datetime
     Also attaches bilty photo to trip_documents (type "Bilty") if present.
     """
     if not trip.rr_parcel_id:
@@ -434,15 +504,27 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
         if photos:
             documents["consignor_invoice"] = {"photos": photos}
 
+    # ── Loading reach/start datetimes ───────────────────────────────────────────
+    loading: dict = {}
+    if trip.s3_vehicle_reach_datetime:
+        loading["truck_reach_datetime"] = trip.s3_vehicle_reach_datetime.strftime("%Y-%m-%dT%H:%M:%S")
+    if trip.s3_loading_start_datetime:
+        loading["start_datetime"] = trip.s3_loading_start_datetime.strftime("%Y-%m-%dT%H:%M:%S")
+
     # ── PATCH parcel ──────────────────────────────────────────────────────────
-    if not documents:
+    patch_body: dict = {}
+    if documents:
+        patch_body["documents"] = documents
+    if loading:
+        patch_body["loading"] = loading
+    if not patch_body:
         logger.info(f"[RR Sync S3] Trip {trip.trip_number} — no S3 data to sync, skipping")
         return
 
     try:
         patch_resp = await client.patch(
             f"{settings.RR_API_BASE}/parcels/{trip.rr_parcel_id}",
-            json={"documents": documents},
+            json=patch_body,
             headers={**_json_header(token), "If-Match": etag},
         )
     except Exception as exc:
@@ -535,51 +617,81 @@ async def _attach_bilty_photo_to_trip(trip, client: httpx.AsyncClient, token: st
 # ── Stage 4: Fuel/diesel receipt ───────────────────────────────────────────────
 
 async def _sync_stage4_fuel_slip(trip, client: httpx.AsyncClient, token: str, db) -> None:
-    """Upload diesel receipt to RR /files then POST /post_loading_slip with fuel_slip."""
-    if not trip.s4_diesel_receipt_url:
+    """
+    Two independent pushes for Stage 4:
+      - fuel_slip photo   → POST /post_loading_slip (trip_documents, "Fuel Slip")
+      - loading.end_datetime (vehicle exit) → PATCH /parcels/{id} (needs its own
+        etag fetch — different RR endpoint from post_loading_slip entirely)
+    Either part runs independently of the other being present.
+    """
+    if not trip.s4_diesel_receipt_url and not trip.s4_vehicle_exit_datetime:
         return
 
-    if not trip.rr_trip_id:
-        logger.info(f"[RR Sync S4] Trip {trip.trip_number} has no rr_trip_id yet — pending trip creation")
-        trip.rr_s4_sync_status = "pending_trip_creation"
-        db.commit()
+    errors: list[str] = []
+    attempted = False
+
+    # ── Fuel slip photo ──────────────────────────────────────────────────────────
+    if trip.s4_diesel_receipt_url:
+        attempted = True
+        if not trip.rr_trip_id:
+            trip.rr_s4_sync_status = "pending_trip_creation"
+            db.commit()
+            return
+        rr_file_id = await _upload_file(trip.s4_diesel_receipt_url, client, token)
+        if not rr_file_id:
+            errors.append("Diesel receipt file upload to RR failed")
+        else:
+            try:
+                resp = await client.post(
+                    f"{settings.RR_API_BASE}/post_loading_slip",
+                    json={"trip_id": trip.rr_trip_id, "fuel_slip": rr_file_id},
+                    headers=_json_header(token),
+                )
+            except Exception as exc:
+                errors.append(f"post_loading_slip exception: {exc}")
+            else:
+                if resp.status_code not in (200, 201):
+                    errors.append(f"post_loading_slip HTTP {resp.status_code}: {resp.text[:300]}")
+                else:
+                    logger.info(f"[RR Sync S4] Trip {trip.trip_number} fuel slip synced (rr_file_id={rr_file_id})")
+
+    # ── Vehicle exit datetime (loading.end_datetime) ─────────────────────────────
+    if trip.s4_vehicle_exit_datetime:
+        attempted = True
+        if not trip.rr_parcel_id:
+            trip.rr_s4_sync_status = "pending_trip_creation"
+            db.commit()
+            return
+        etag = await _fetch_parcel_etag(trip.rr_parcel_id, client, token)
+        if not etag:
+            errors.append("Could not fetch parcel etag from RR for loading.end_datetime")
+        else:
+            try:
+                patch_resp = await client.patch(
+                    f"{settings.RR_API_BASE}/parcels/{trip.rr_parcel_id}",
+                    json={"loading": {"end_datetime": trip.s4_vehicle_exit_datetime.strftime("%Y-%m-%dT%H:%M:%S")}},
+                    headers={**_json_header(token), "If-Match": etag},
+                )
+            except Exception as exc:
+                errors.append(f"PATCH parcel (loading.end_datetime) exception: {exc}")
+            else:
+                if patch_resp.status_code not in (200, 201):
+                    errors.append(f"PATCH parcel (loading.end_datetime) HTTP {patch_resp.status_code}: {patch_resp.text[:300]}")
+                else:
+                    trip.rr_parcel_etag = patch_resp.json().get("_etag", etag)
+                    logger.info(f"[RR Sync S4] Trip {trip.trip_number} loading.end_datetime synced")
+
+    if not attempted:
         return
 
-    rr_file_id = await _upload_file(trip.s4_diesel_receipt_url, client, token)
-    if not rr_file_id:
+    if errors:
         trip.rr_s4_sync_status = "failed"
-        trip.rr_s4_sync_error = "Diesel receipt file upload to RR failed"
-        db.commit()
-        return
-
-    try:
-        resp = await client.post(
-            f"{settings.RR_API_BASE}/post_loading_slip",
-            json={"trip_id": trip.rr_trip_id, "fuel_slip": rr_file_id},
-            headers=_json_header(token),
-        )
-    except Exception as exc:
-        logger.error(f"[RR Sync S4] post_loading_slip (fuel_slip) exception: {exc}")
-        trip.rr_s4_sync_status = "failed"
-        trip.rr_s4_sync_error = f"post_loading_slip exception: {exc}"[:500]
-        db.commit()
-        return
-
-    if resp.status_code in (200, 201):
+        trip.rr_s4_sync_error = "; ".join(errors)[:800]
+    else:
         trip.rr_s4_sync_status = "synced"
         trip.rr_s4_synced_at = datetime.utcnow()
         trip.rr_s4_sync_error = None
-        db.commit()
-        logger.info(
-            f"[RR Sync S4] Trip {trip.trip_number} fuel slip synced (rr_file_id={rr_file_id})"
-        )
-    else:
-        logger.error(
-            f"[RR Sync S4] post_loading_slip (fuel_slip) failed ({resp.status_code}): {resp.text[:300]}"
-        )
-        trip.rr_s4_sync_status = "failed"
-        trip.rr_s4_sync_error = f"HTTP {resp.status_code}: {resp.text[:400]}"
-        db.commit()
+    db.commit()
 
 
 # ── Stage 5: POD ──────────────────────────────────────────────────────────────
@@ -590,6 +702,7 @@ async def _sync_stage5(trip, client: httpx.AsyncClient, token: str, db) -> None:
       - documents.pod.{datetime, photos}  — POD photo (no "side" key — matches
         rr_kanpur's verified shape, unlike weight_receipt/consignor_invoice which do use it)
       - unloading.halting_charge          — halting charge, NOT under documents
+      - unloading.truck_reach_datetime / start_datetime / end_datetime
     """
     if not trip.rr_parcel_id:
         logger.info(f"[RR Sync S5] Trip {trip.trip_number} has no rr_parcel_id yet — pending trip creation")
@@ -597,7 +710,10 @@ async def _sync_stage5(trip, client: httpx.AsyncClient, token: str, db) -> None:
         db.commit()
         return
 
-    if not trip.s5_pod_url and trip.s5_halting_charge is None:
+    has_unloading_times = (
+        trip.s5_vehicle_reach_datetime or trip.s5_unloading_start_datetime or trip.s5_unloading_end_datetime
+    )
+    if not trip.s5_pod_url and trip.s5_halting_charge is None and not has_unloading_times:
         return
 
     etag = await _fetch_parcel_etag(trip.rr_parcel_id, client, token)
@@ -626,8 +742,17 @@ async def _sync_stage5(trip, client: httpx.AsyncClient, token: str, db) -> None:
             }
         }
 
+    unloading: dict = {}
     if trip.s5_halting_charge is not None:
-        patch_body["unloading"] = {"halting_charge": float(trip.s5_halting_charge)}
+        unloading["halting_charge"] = float(trip.s5_halting_charge)
+    if trip.s5_vehicle_reach_datetime:
+        unloading["truck_reach_datetime"] = trip.s5_vehicle_reach_datetime.strftime("%Y-%m-%dT%H:%M:%S")
+    if trip.s5_unloading_start_datetime:
+        unloading["start_datetime"] = trip.s5_unloading_start_datetime.strftime("%Y-%m-%dT%H:%M:%S")
+    if trip.s5_unloading_end_datetime:
+        unloading["end_datetime"] = trip.s5_unloading_end_datetime.strftime("%Y-%m-%dT%H:%M:%S")
+    if unloading:
+        patch_body["unloading"] = unloading
 
     if not patch_body:
         return

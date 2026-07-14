@@ -2398,6 +2398,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   bool _wheelStoppers      = false;
   bool _safetyGear         = false;
 
+  // RR loading.truck_reach_datetime / loading.start_datetime
+  DateTime? _vehicleReachDatetime;
+  DateTime? _loadingStartDatetime;
+  bool _showDatetimeErrors = false;
+
   // ── Per-field attribution ─────────────────────────────────────────────────
   final Map<String, String> _fieldAttributions = {};
   final Set<String> _touchedByMe = {};
@@ -2411,6 +2416,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   final _driverExitedCabinKey = GlobalKey();
   final _wheelStoppersKey     = GlobalKey();
   final _safetyGearKey        = GlobalKey();
+  final _vehicleReachKey      = GlobalKey();
+  final _loadingStartKey      = GlobalKey();
 
   final _emptyTruckWeight  = TextEditingController();
   final _loadedTruckWeight = TextEditingController();
@@ -2467,6 +2474,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
         _loadedTruckWeight.text = trip.s3LoadedTruckWeightKg ?? '';
         _emptyWeightUnit.value  = trip.s3EmptyTruckWeightUnit ?? 'tons';
         _loadedWeightUnit.value = trip.s3LoadedTruckWeightUnit ?? 'tons';
+        if (trip.s3VehicleReachDatetime != null) {
+          _vehicleReachDatetime = DateTime.tryParse(trip.s3VehicleReachDatetime!);
+        }
+        if (trip.s3LoadingStartDatetime != null) {
+          _loadingStartDatetime = DateTime.tryParse(trip.s3LoadingStartDatetime!);
+        }
       }
       return;
     }
@@ -2626,7 +2639,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
   bool get _allChecked =>
       _driverParked && _docsSubmitted && _securityVerified &&
-      _driverExitedCabin && _wheelStoppers && _safetyGear;
+      _driverExitedCabin && _wheelStoppers && _safetyGear &&
+      _vehicleReachDatetime != null && _loadingStartDatetime != null;
 
   void _scrollToKey3(GlobalKey key) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2645,6 +2659,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       (_driverExitedCabinKey, _driverExitedCabin),
       (_wheelStoppersKey,     _wheelStoppers),
       (_safetyGearKey,        _safetyGear),
+      (_vehicleReachKey,      _vehicleReachDatetime != null),
+      (_loadingStartKey,      _loadingStartDatetime != null),
     ];
     for (final (key, checked) in checks) {
       if (!checked) {
@@ -2656,6 +2672,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
   void _onLoadingComplete() {
     if (!_allChecked) {
+      setState(() => _showDatetimeErrors = true);
       _scrollToFirstUnchecked();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -2691,6 +2708,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       'empty_truck_weight_unit':  weightFromS2 ? (stagesState.s2EmptyWeightUnit ?? _s2EmptyWeightUnit ?? 'tons') : _emptyWeightUnit.value,
       'loaded_truck_weight_kg':   _loadedTruckWeight.text.trim(),
       'loaded_truck_weight_unit': _loadedWeightUnit.value,
+      'vehicle_reach_datetime':   _vehicleReachDatetime!.toIso8601String(),
+      'loading_start_datetime':   _loadingStartDatetime!.toIso8601String(),
     };
 
     if (_lastSaved != null) {
@@ -2806,6 +2825,31 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             ),
           ),
           const SizedBox(height: 20),
+
+          _SectionHeader(icon: Icons.schedule_rounded, title: 'Loading Timing'),
+          _DateTimeField(
+            fieldKey: _vehicleReachKey,
+            label: 'Vehicle Reach Date And Time',
+            value: _vehicleReachDatetime,
+            showError: _showDatetimeErrors && _vehicleReachDatetime == null,
+            onChanged: (dt) {
+              setState(() => _vehicleReachDatetime = dt);
+              _touchField('vehicle_reach_datetime');
+              _saveDraft();
+            },
+          ),
+          _DateTimeField(
+            fieldKey: _loadingStartKey,
+            label: 'Loading Start Date And Time',
+            value: _loadingStartDatetime,
+            showError: _showDatetimeErrors && _loadingStartDatetime == null,
+            onChanged: (dt) {
+              setState(() => _loadingStartDatetime = dt);
+              _touchField('loading_start_datetime');
+              _saveDraft();
+            },
+          ),
+          const SizedBox(height: 8),
 
           // Dharma Kanta — Empty Weight (hidden when already captured in Stage 2)
           if (!weightFromS2) ...[
@@ -3302,6 +3346,81 @@ class _CheckItem extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Combined date+time picker field, styled to match the other stage form fields.
+/// Tapping opens a date picker then a time picker and merges them into one DateTime.
+class _DateTimeField extends StatelessWidget {
+  final String label;
+  final DateTime? value;
+  final ValueChanged<DateTime> onChanged;
+  final bool showError;
+  final Key? fieldKey;
+
+  const _DateTimeField({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.showError = false,
+    this.fieldKey,
+  });
+
+  Future<void> _pick(BuildContext context) async {
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: value ?? now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 1),
+    );
+    if (date == null || !context.mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: value != null ? TimeOfDay.fromDateTime(value!) : TimeOfDay.now(),
+    );
+    if (time == null) return;
+    onChanged(DateTime(date.year, date.month, date.day, time.hour, time.minute));
+  }
+
+  String _format(DateTime dt) {
+    final two = (int n) => n.toString().padLeft(2, '0');
+    return '${two(dt.day)}/${two(dt.month)}/${dt.year} ${two(dt.hour)}:${two(dt.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasValue = value != null;
+    return Container(
+      key: fieldKey,
+      margin: const EdgeInsets.only(bottom: 14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => _pick(context),
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: _inter(size: 13, color: showError ? _error : _secondary),
+            suffixIcon: Icon(Icons.calendar_today_rounded, size: 18,
+                color: showError ? _error : _secondary),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: showError ? _error : const Color(0xFFE0E0E0)),
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            errorText: showError ? '$label is required' : null,
+          ),
+          child: Text(
+            hasValue ? _format(value!) : 'Select date & time',
+            style: _manrope(
+              size: 14,
+              weight: FontWeight.w600,
+              color: hasValue ? _onSurface : const Color(0xFFAAAAAA),
+            ),
+          ),
         ),
       ),
     );
@@ -4257,6 +4376,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   bool _materialChecked = false;
   bool _checklistSubmitting = false;
 
+  // RR loading.end_datetime
+  DateTime? _vehicleExitDatetime;
+  bool _showExitDatetimeError = false;
+
   // ── Phase 2: Diesel receipt ───────────────────────────────────────────────
   bool _showDiesel    = false;   // true after checklist submitted or if re-editing
   ({Uint8List bytes, String name})? _dieselFile;
@@ -4298,6 +4421,9 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
         _biltyChecked    = trip.s4BiltyChecked      ?? false;
         _weightChecked   = trip.s4WeightChecked     ?? false;
         _materialChecked = trip.s4MaterialChecked   ?? false;
+        if (trip.s4VehicleExitDatetime != null) {
+          _vehicleExitDatetime = DateTime.tryParse(trip.s4VehicleExitDatetime!);
+        }
       }
       return;
     }
@@ -4357,11 +4483,16 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   }
 
   bool get _allChecklistDone =>
-      _truckMoved && _securityCheck && _biltyChecked && _weightChecked && _materialChecked;
+      _truckMoved && _securityCheck && _biltyChecked && _weightChecked && _materialChecked &&
+      _vehicleExitDatetime != null;
 
   // ── Phase 1 submit: checklist only ────────────────────────────────────────
   Future<void> _submitChecklist() async {
-    if (!_allChecklistDone || _checklistSubmitting) return;
+    if (!_allChecklistDone) {
+      setState(() => _showExitDatetimeError = true);
+      return;
+    }
+    if (_checklistSubmitting) return;
     setState(() => _checklistSubmitting = true);
     try {
       final dio = ref.read(dioProvider);
@@ -4371,6 +4502,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
         'bilty_checked':      _biltyChecked,
         'weight_checked':     _weightChecked,
         'material_checked':   _materialChecked,
+        'vehicle_exit_datetime': _vehicleExitDatetime!.toIso8601String(),
       });
       if (mounted) setState(() { _checklistSubmitting = false; _showDiesel = true; });
     } catch (e) {
@@ -4608,7 +4740,21 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
               label: 'Material Documents',
               onChanged: (v) { setState(() => _materialChecked = v ?? false); _touchField('material_checked'); _onCheckChanged(); },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
+
+            _SectionHeader(icon: Icons.schedule_rounded, title: 'Exit Timing'),
+            const SizedBox(height: 8),
+            _DateTimeField(
+              label: 'Vehicle Exit Date And Time',
+              value: _vehicleExitDatetime,
+              showError: _showExitDatetimeError && _vehicleExitDatetime == null,
+              onChanged: (dt) {
+                setState(() => _vehicleExitDatetime = dt);
+                _touchField('vehicle_exit_datetime');
+                _saveDraft();
+              },
+            ),
+            const SizedBox(height: 8),
 
             if (!_allChecklistDone)
               Container(
@@ -4874,6 +5020,12 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
   String? _errorMsg;
   DateTime? _lastSaved;
 
+  // RR unloading.{truck_reach_datetime,start_datetime,end_datetime}
+  DateTime? _vehicleReachDatetime;
+  DateTime? _unloadingStartDatetime;
+  DateTime? _unloadingEndDatetime;
+  bool _showDatetimeErrors = false;
+
   // ── Per-field attribution ─────────────────────────────────────────────────
   final Map<String, String> _fieldAttributions = {};
   final Set<String> _touchedByMe = {};
@@ -4911,10 +5063,21 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
 
     final draft = trip.draftData;
     if (draft == null || draft['stage'] != 5) {
-      if (trip.currentStage >= 5 && trip.s5HaltingCharge != null) {
-        final hc = trip.s5HaltingCharge!;
-        _haltingChargeCtrl.text =
-            hc % 1 == 0 ? hc.toInt().toString() : hc.toStringAsFixed(2);
+      if (trip.currentStage >= 5) {
+        if (trip.s5HaltingCharge != null) {
+          final hc = trip.s5HaltingCharge!;
+          _haltingChargeCtrl.text =
+              hc % 1 == 0 ? hc.toInt().toString() : hc.toStringAsFixed(2);
+        }
+        if (trip.s5VehicleReachDatetime != null) {
+          _vehicleReachDatetime = DateTime.tryParse(trip.s5VehicleReachDatetime!);
+        }
+        if (trip.s5UnloadingStartDatetime != null) {
+          _unloadingStartDatetime = DateTime.tryParse(trip.s5UnloadingStartDatetime!);
+        }
+        if (trip.s5UnloadingEndDatetime != null) {
+          _unloadingEndDatetime = DateTime.tryParse(trip.s5UnloadingEndDatetime!);
+        }
       }
       return;
     }
@@ -5004,6 +5167,10 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
       setState(() => _errorMsg = 'Please upload the Proof of Delivery document');
       return;
     }
+    if (_vehicleReachDatetime == null || _unloadingStartDatetime == null || _unloadingEndDatetime == null) {
+      setState(() => _showDatetimeErrors = true);
+      return;
+    }
     setState(() { _uploading = true; _errorMsg = null; });
     try {
       final dio = ref.read(dioProvider);
@@ -5012,6 +5179,9 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           'pod': MultipartFile.fromBytes(_podFile!.bytes, filename: _podFile!.name),
         if (_haltingChargeCtrl.text.trim().isNotEmpty)
           'halting_charge': _haltingChargeCtrl.text.trim(),
+        'vehicle_reach_datetime':   _vehicleReachDatetime!.toIso8601String(),
+        'unloading_start_datetime': _unloadingStartDatetime!.toIso8601String(),
+        'unloading_end_datetime':   _unloadingEndDatetime!.toIso8601String(),
       });
       final resp = await dio.post(
           '/api/trips/${widget.trip.id}/stage/5', data: formData);
@@ -5227,6 +5397,41 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           ),
           _FieldAttribution(username: _attrOf('pod_doc')),
           const SizedBox(height: 24),
+
+          // ── Unloading Timing ────────────────────────────────────────────────
+          _SectionHeader(icon: Icons.schedule_rounded, title: 'Unloading Timing'),
+          const SizedBox(height: 8),
+          _DateTimeField(
+            label: 'Vehicle Reach Date And Time',
+            value: _vehicleReachDatetime,
+            showError: _showDatetimeErrors && _vehicleReachDatetime == null,
+            onChanged: (dt) {
+              setState(() => _vehicleReachDatetime = dt);
+              _touchField('vehicle_reach_datetime');
+              _saveDraft();
+            },
+          ),
+          _DateTimeField(
+            label: 'Unloading Start Date And Time',
+            value: _unloadingStartDatetime,
+            showError: _showDatetimeErrors && _unloadingStartDatetime == null,
+            onChanged: (dt) {
+              setState(() => _unloadingStartDatetime = dt);
+              _touchField('unloading_start_datetime');
+              _saveDraft();
+            },
+          ),
+          _DateTimeField(
+            label: 'Unloading End Date And Time',
+            value: _unloadingEndDatetime,
+            showError: _showDatetimeErrors && _unloadingEndDatetime == null,
+            onChanged: (dt) {
+              setState(() => _unloadingEndDatetime = dt);
+              _touchField('unloading_end_datetime');
+              _saveDraft();
+            },
+          ),
+          const SizedBox(height: 8),
 
           // ── Halting Charge ────────────────────────────────────────────────
           _SectionHeader(
@@ -6077,14 +6282,25 @@ class _RrPerStageSyncPanelState extends ConsumerState<_RrPerStageSyncPanel> {
             children: _stageLabels.entries.map((e) {
               final status = statuses[e.key];
               final color = _colorFor(status);
-              return Row(
+              final chip = Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(_iconFor(status), size: 13, color: color),
                   const SizedBox(width: 3),
                   Text(e.value, style: _inter(size: 10.5, color: color)),
+                  if (e.key == 1 && canManageRr) ...[
+                    const SizedBox(width: 2),
+                    Icon(Icons.chevron_right_rounded, size: 13, color: color),
+                  ],
                 ],
               );
+              if (e.key == 1 && canManageRr) {
+                return GestureDetector(
+                  onTap: () => RrIdentityDocsSheet.show(context, ref, widget.trip),
+                  child: chip,
+                );
+              }
+              return chip;
             }).toList(),
           ),
           if (firstError != null) ...[
@@ -6093,6 +6309,246 @@ class _RrPerStageSyncPanelState extends ConsumerState<_RrPerStageSyncPanel> {
                 maxLines: 2, overflow: TextOverflow.ellipsis),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Lists Stage 1 driver/vehicle docs against what RR already has, so LP/RR-ops
+/// can see WHY a doc didn't sync (RR already had an entry for that id_name —
+/// auto-sync always skips on conflict rather than silently overwriting RR's
+/// data) and, after previewing, explicitly override it with our copy.
+class RrIdentityDocsSheet extends ConsumerStatefulWidget {
+  final TripModel trip;
+  const RrIdentityDocsSheet({super.key, required this.trip});
+
+  static Future<void> show(BuildContext context, WidgetRef ref, TripModel trip) {
+    return showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        expand: false,
+        builder: (_, scrollController) => RrIdentityDocsSheet(trip: trip),
+      ),
+    );
+  }
+
+  @override
+  ConsumerState<RrIdentityDocsSheet> createState() => _RrIdentityDocsSheetState();
+}
+
+class _RrIdentityDocsSheetState extends ConsumerState<RrIdentityDocsSheet> {
+  bool _loading = true;
+  String? _loadError;
+  List<Map<String, dynamic>> _items = [];
+  final Set<String> _overriding = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  String _errMsg(Object e) => e is DioException
+      ? (e.response?.data?['detail'] as String? ?? 'Request failed')
+      : e.toString();
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _loadError = null; });
+    try {
+      final dio = ref.read(dioProvider);
+      final resp = await dio.get('/api/rr/identity-status/${widget.trip.id}');
+      if (!mounted) return;
+      setState(() {
+        _items = List<Map<String, dynamic>>.from(resp.data['items'] as List);
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _loading = false; _loadError = _errMsg(e); });
+    }
+  }
+
+  Future<void> _previewFile(String fileId) async {
+    try {
+      final dio = ref.read(dioProvider);
+      final resp = await dio.get(
+        '/api/rr/file-preview/$fileId',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      final bytes = Uint8List.fromList(resp.data as List<int>);
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (_) => Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: const EdgeInsets.all(12),
+          child: Stack(children: [
+            InteractiveViewer(child: Image.memory(bytes, fit: BoxFit.contain)),
+            Positioned(
+              top: 8, right: 8,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                  child: const Icon(Icons.close, color: Colors.white, size: 18),
+                ),
+              ),
+            ),
+          ]),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Preview failed: ${_errMsg(e)}', style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: _error,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  Future<void> _override(Map<String, dynamic> item) async {
+    final session = await ensureRrSession(context, ref);
+    if (session == null || !mounted) return;
+
+    final key = '${item['entity_type']}_${item['id_name']}';
+    setState(() => _overriding.add(key));
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/rr/identity-override', data: {
+        'trip_id': widget.trip.id,
+        'entity_type': item['entity_type'],
+        'id_name': item['id_name'],
+      });
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(_errMsg(e), style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _overriding.remove(key));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.watch(authProvider).user;
+    final canOverride = user?.isLogisticPartner == true || user?.isLpRrOperations == true;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36, height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+              ),
+            ),
+            Text('Driver & Vehicle RR Docs', style: _manrope(size: 16, weight: FontWeight.w800)),
+            const SizedBox(height: 4),
+            Text('Status of each Stage 1 document against RR web',
+                style: _inter(size: 12, color: _secondary)),
+            const SizedBox(height: 16),
+            if (_loading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_loadError != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Text(_loadError!, style: _inter(size: 13, color: _error)),
+              )
+            else if (_items.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Text('No driver/vehicle assigned to this trip yet.',
+                    style: _inter(size: 13, color: _secondary)),
+              )
+            else
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: _items.length,
+                  separatorBuilder: (_, __) => const Divider(height: 20),
+                  itemBuilder: (_, i) {
+                    final item = _items[i];
+                    final oursSynced = item['ours_synced'] == true;
+                    final rrHasEntry = item['rr_has_entry'] == true;
+                    final fileId = item['rr_file_id'] as String?;
+                    final key = '${item['entity_type']}_${item['id_name']}';
+                    final busy = _overriding.contains(key);
+
+                    final String statusText;
+                    final Color statusColor;
+                    if (oursSynced) {
+                      statusText = 'Synced by us';
+                      statusColor = _success;
+                    } else if (rrHasEntry) {
+                      statusText = 'RR already has a different doc';
+                      statusColor = const Color(0xFFB07800);
+                    } else {
+                      statusText = 'Not on RR yet';
+                      statusColor = _secondary;
+                    }
+
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${item['entity_type'] == 'driver' ? 'Driver' : 'Vehicle'} — ${item['id_name']}',
+                                style: _manrope(size: 13, weight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(statusText, style: _inter(size: 11.5, color: statusColor)),
+                            ],
+                          ),
+                        ),
+                        if (rrHasEntry && fileId != null)
+                          TextButton(
+                            onPressed: () => _previewFile(fileId),
+                            child: Text('Preview', style: _manrope(size: 12, weight: FontWeight.w700, color: _primary)),
+                          ),
+                        if (canOverride && !oursSynced)
+                          busy
+                              ? const SizedBox(
+                                  width: 16, height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
+                                )
+                              : TextButton(
+                                  onPressed: () => _override(item),
+                                  child: Text(
+                                    rrHasEntry ? 'Override' : 'Upload',
+                                    style: _manrope(size: 12, weight: FontWeight.w700, color: _error),
+                                  ),
+                                ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

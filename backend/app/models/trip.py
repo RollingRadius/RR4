@@ -106,6 +106,9 @@ class Trip(Base):
     s3_bilty_url                = Column(String(500),  nullable=True)   # URL path to bilty image
     s3_material_doc_urls        = Column(Text,         nullable=True)   # JSON list of material doc URL paths
     s3_completed_at             = Column(TIMESTAMP(timezone=True), nullable=True)
+    # RR parcels.loading.{truck_reach_datetime,start_datetime}
+    s3_vehicle_reach_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
+    s3_loading_start_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Stage 4 — Truck Exit From Factory
     s4_truck_moved      = Column(Boolean, nullable=True)
@@ -116,12 +119,18 @@ class Trip(Base):
     s4_completed_at       = Column(TIMESTAMP(timezone=True), nullable=True)
     s4_notified_at        = Column(TIMESTAMP(timezone=True), nullable=True)
     s4_diesel_receipt_url = Column(Text, nullable=True)   # uploaded after truck exits factory
+    # RR parcels.loading.end_datetime
+    s4_vehicle_exit_datetime = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Stage 5 — Unloading (Proof of Delivery + Halting Charge)
     s5_pod_url        = Column(Text,                    nullable=True)
     s5_halting_charge = Column(Numeric(12, 2),          nullable=True)
     s5_submitted_by   = Column(UUID(as_uuid=True),      nullable=True)
     s5_completed_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    # RR parcels.unloading.{truck_reach_datetime,start_datetime,end_datetime}
+    s5_vehicle_reach_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
+    s5_unloading_start_datetime = Column(TIMESTAMP(timezone=True), nullable=True)
+    s5_unloading_end_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # ── Transporter Assignment ────────────────────────────────────────────────────
     # User ID of the transporter assigned by LP to upload the loading slip
@@ -314,6 +323,8 @@ class Trip(Base):
             "s3_bilty_url": self.s3_bilty_url,
             "s3_material_doc_urls": self.s3_material_doc_urls,
             "s3_completed_at": self.s3_completed_at.isoformat() if self.s3_completed_at else None,
+            "s3_vehicle_reach_datetime": self.s3_vehicle_reach_datetime.isoformat() if self.s3_vehicle_reach_datetime else None,
+            "s3_loading_start_datetime": self.s3_loading_start_datetime.isoformat() if self.s3_loading_start_datetime else None,
             # Stage 4
             "s4_truck_moved": self.s4_truck_moved,
             "s4_security_verified": self.s4_security_verified,
@@ -323,11 +334,15 @@ class Trip(Base):
             "s4_completed_at": self.s4_completed_at.isoformat() if self.s4_completed_at else None,
             "s4_notified_at": self.s4_notified_at.isoformat() if self.s4_notified_at else None,
             "s4_diesel_receipt_url": self.s4_diesel_receipt_url,
+            "s4_vehicle_exit_datetime": self.s4_vehicle_exit_datetime.isoformat() if self.s4_vehicle_exit_datetime else None,
             # Stage 5 — Unloading
             "s5_pod_url": self.s5_pod_url,
             "s5_halting_charge": float(self.s5_halting_charge) if self.s5_halting_charge is not None else None,
             "s5_submitted_by": str(self.s5_submitted_by) if self.s5_submitted_by else None,
             "s5_completed_at": self.s5_completed_at.isoformat() if self.s5_completed_at else None,
+            "s5_vehicle_reach_datetime": self.s5_vehicle_reach_datetime.isoformat() if self.s5_vehicle_reach_datetime else None,
+            "s5_unloading_start_datetime": self.s5_unloading_start_datetime.isoformat() if self.s5_unloading_start_datetime else None,
+            "s5_unloading_end_datetime": self.s5_unloading_end_datetime.isoformat() if self.s5_unloading_end_datetime else None,
             # Stage authorship
             "s1_submitted_by": str(self.s1_submitted_by) if self.s1_submitted_by else None,
             "s2_submitted_by": str(self.s2_submitted_by) if self.s2_submitted_by else None,

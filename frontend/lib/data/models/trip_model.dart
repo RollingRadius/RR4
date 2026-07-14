@@ -64,6 +64,8 @@ class TripModel {
   final String? s3LoadedWeightSlipUrl;
   final String? s3BiltyUrl;
   final List<String>? s3MaterialDocUrls;
+  final String? s3VehicleReachDatetime;   // RR loading.truck_reach_datetime
+  final String? s3LoadingStartDatetime;   // RR loading.start_datetime
 
   // ── Stage 4 fields ───────────────────────────────────────────────────────────
   final bool? s4TruckMoved;
@@ -74,12 +76,16 @@ class TripModel {
   final String? s4CompletedAt;
   final String? s4NotifiedAt;
   final String? s4DieselReceiptUrl;   // uploaded after truck exits factory
+  final String? s4VehicleExitDatetime;   // RR loading.end_datetime
 
   // ── Stage 5 fields — Unloading ────────────────────────────────────────────────
   final String?  s5PodUrl;
   final double?  s5HaltingCharge;
   final String?  s5SubmittedBy;
   final String?  s5CompletedAt;
+  final String?  s5VehicleReachDatetime;     // RR unloading.truck_reach_datetime
+  final String?  s5UnloadingStartDatetime;   // RR unloading.start_datetime
+  final String?  s5UnloadingEndDatetime;     // RR unloading.end_datetime
 
   // ── Stage authorship (who submitted each stage) ───────────────────────────────
   final String? s1SubmittedBy;
@@ -231,6 +237,8 @@ class TripModel {
     this.s3LoadedWeightSlipUrl,
     this.s3BiltyUrl,
     this.s3MaterialDocUrls,
+    this.s3VehicleReachDatetime,
+    this.s3LoadingStartDatetime,
     this.s4TruckMoved,
     this.s4SecurityVerified,
     this.s4BiltyChecked,
@@ -239,10 +247,14 @@ class TripModel {
     this.s4CompletedAt,
     this.s4NotifiedAt,
     this.s4DieselReceiptUrl,
+    this.s4VehicleExitDatetime,
     this.s5PodUrl,
     this.s5HaltingCharge,
     this.s5SubmittedBy,
     this.s5CompletedAt,
+    this.s5VehicleReachDatetime,
+    this.s5UnloadingStartDatetime,
+    this.s5UnloadingEndDatetime,
     this.s1SubmittedBy,
     this.s2SubmittedBy,
     this.s3SubmittedBy,
@@ -376,6 +388,8 @@ class TripModel {
       s3LoadedWeightSlipUrl: json['s3_loaded_weight_slip_url'] as String?,
       s3BiltyUrl: json['s3_bilty_url'] as String?,
       s3MaterialDocUrls: _parseUrlList(json['s3_material_doc_urls']),
+      s3VehicleReachDatetime: json['s3_vehicle_reach_datetime'] as String?,
+      s3LoadingStartDatetime: json['s3_loading_start_datetime'] as String?,
       s4TruckMoved:       json['s4_truck_moved']       as bool?,
       s4SecurityVerified: json['s4_security_verified'] as bool?,
       s4BiltyChecked:     json['s4_bilty_checked']     as bool?,
@@ -384,10 +398,14 @@ class TripModel {
       s4CompletedAt:      json['s4_completed_at']        as String?,
       s4NotifiedAt:       json['s4_notified_at']         as String?,
       s4DieselReceiptUrl: json['s4_diesel_receipt_url']  as String?,
+      s4VehicleExitDatetime: json['s4_vehicle_exit_datetime'] as String?,
       s5PodUrl:           json['s5_pod_url']             as String?,
       s5HaltingCharge:    (json['s5_halting_charge'] as num?)?.toDouble(),
       s5SubmittedBy:      json['s5_submitted_by']        as String?,
       s5CompletedAt:      json['s5_completed_at']        as String?,
+      s5VehicleReachDatetime:     json['s5_vehicle_reach_datetime'] as String?,
+      s5UnloadingStartDatetime:   json['s5_unloading_start_datetime'] as String?,
+      s5UnloadingEndDatetime:     json['s5_unloading_end_datetime'] as String?,
       s1SubmittedBy:          json['s1_submitted_by']           as String?,
       s2SubmittedBy:          json['s2_submitted_by']           as String?,
       s3SubmittedBy:          json['s3_submitted_by']           as String?,

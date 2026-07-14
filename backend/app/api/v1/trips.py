@@ -608,7 +608,7 @@ async def submit_stage1(
 
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
@@ -742,7 +742,7 @@ async def submit_stage2(
 
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
@@ -837,6 +837,8 @@ async def submit_stage3(
     loaded_weight_slip:      Optional[UploadFile] = File(None),
     bilty:                   Optional[UploadFile] = File(None),
     material_docs:           Optional[List[UploadFile]] = File(None),
+    vehicle_reach_datetime:  str = Form(...),
+    loading_start_datetime:  str = Form(...),
     background_tasks: BackgroundTasks = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -848,8 +850,14 @@ async def submit_stage3(
 
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
+
+    try:
+        parsed_vehicle_reach_dt = datetime.fromisoformat(vehicle_reach_datetime)
+        parsed_loading_start_dt = datetime.fromisoformat(loading_start_datetime)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date/time format for vehicle reach or loading start")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
     if trip.current_stage < 2:
@@ -925,6 +933,8 @@ async def submit_stage3(
         trip.s3_bilty_url = bilty_url
     if material_urls:
         trip.s3_material_doc_urls = json.dumps(material_urls)
+    trip.s3_vehicle_reach_datetime   = parsed_vehicle_reach_dt
+    trip.s3_loading_start_datetime   = parsed_loading_start_dt
     trip.s3_submitted_by             = current_user.id
     trip.s3_claimed_by               = None  # release claim on submit
     trip.s3_claimed_at               = None
@@ -964,12 +974,14 @@ class Stage4Payload(BaseModel):
     bilty_checked:     bool
     weight_checked:    bool
     material_checked:  bool
+    vehicle_exit_datetime: str
 
 
 @router.post("/trips/{trip_id}/stage/4", status_code=200)
 def submit_stage4(
     trip_id: str,
     body: Stage4Payload,
+    background_tasks: BackgroundTasks = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -978,7 +990,7 @@ def submit_stage4(
 
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
@@ -990,6 +1002,11 @@ def submit_stage4(
         if str(trip.s4_submitted_by) != str(current_user.id):
             raise HTTPException(status_code=409, detail="Stage 4 has already been completed by another worker.")
 
+    try:
+        parsed_vehicle_exit_dt = datetime.fromisoformat(body.vehicle_exit_datetime)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date/time format for vehicle exit")
+
     was_already_submitted = trip.current_stage >= 4
 
     _draft_flush_attributions(trip, current_user, role_key)
@@ -999,6 +1016,7 @@ def submit_stage4(
     trip.s4_bilty_checked     = body.bilty_checked
     trip.s4_weight_checked    = body.weight_checked
     trip.s4_material_checked  = body.material_checked
+    trip.s4_vehicle_exit_datetime = parsed_vehicle_exit_dt
     trip.s4_submitted_by      = current_user.id
     trip.s4_claimed_by        = None  # release claim on submit
     trip.s4_claimed_at        = None
@@ -1009,6 +1027,11 @@ def submit_stage4(
 
     db.commit()
     db.refresh(trip)
+
+    if background_tasks is not None:
+        from app.services.rr_sync_service import sync_stage
+        background_tasks.add_task(sync_stage, str(trip.id), 4)
+
     msg = "Stage 4 updated." if was_already_submitted else "Truck exit recorded. You can now notify the load owner."
     return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
@@ -1035,7 +1058,7 @@ async def submit_stage4_diesel(
 
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
@@ -1066,6 +1089,9 @@ async def submit_stage5(
     trip_id: str,
     pod: UploadFile = File(...),
     halting_charge: Optional[str] = Form(None),
+    vehicle_reach_datetime:   str = Form(...),
+    unloading_start_datetime: str = Form(...),
+    unloading_end_datetime:   str = Form(...),
     background_tasks: BackgroundTasks = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -1077,7 +1103,7 @@ async def submit_stage5(
 
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker'):
+    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
@@ -1085,6 +1111,13 @@ async def submit_stage5(
         raise HTTPException(status_code=409, detail="Complete Stage 4 first")
     if not trip.s4_diesel_receipt_url:
         raise HTTPException(status_code=409, detail="Upload diesel receipt in Stage 4 first")
+
+    try:
+        parsed_vehicle_reach_dt   = datetime.fromisoformat(vehicle_reach_datetime)
+        parsed_unloading_start_dt = datetime.fromisoformat(unloading_start_datetime)
+        parsed_unloading_end_dt   = datetime.fromisoformat(unloading_end_datetime)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date/time format for unloading timestamps")
 
     trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
     trip_dir.mkdir(parents=True, exist_ok=True)
@@ -1105,6 +1138,9 @@ async def submit_stage5(
             trip.s5_halting_charge = decimal.Decimal(halting_charge.strip())
         except decimal.InvalidOperation:
             pass
+    trip.s5_vehicle_reach_datetime   = parsed_vehicle_reach_dt
+    trip.s5_unloading_start_datetime = parsed_unloading_start_dt
+    trip.s5_unloading_end_datetime   = parsed_unloading_end_dt
     trip.s5_submitted_by = current_user.id
     trip.s5_completed_at = datetime.now(timezone.utc)
     trip.draft_data      = None
