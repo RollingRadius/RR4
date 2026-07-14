@@ -336,7 +336,7 @@ class RrSyncRetryRequest(BaseModel):
     rr_refresh_token: str | None = None
 
 
-@router.post("/sync/retry/{trip_id}", summary="Retry any stalled per-stage RR sync for a trip")
+@router.post("/sync/retry/{trip_id}", summary="Sync all completed stages of a trip to RR")
 async def retry_stage_sync(
     trip_id: str,
     body: RrSyncRetryRequest,
@@ -345,13 +345,13 @@ async def retry_stage_sync(
     current_user: User = Depends(get_current_user),
 ):
     """
-    LP/RR-ops calls this after resolving an auth_required state (via a fresh RR
-    login) to resume automatic per-stage sync. If a fresh token is supplied, it's
-    persisted onto the org first; then every stage whose status is
-    failed/auth_required/pending_trip_creation is retried.
+    LP/RR-ops calls this (via the trip's "Sync to RR" action) to push every
+    stage submitted so far. Stages no longer auto-sync as they're submitted —
+    this is the single sync trigger, so it attempts every stage up to
+    current_stage regardless of prior status (not just previously-failed ones).
+    If a fresh RR token is supplied, it's persisted onto the org first.
     """
     from app.models import UserOrganization
-    from app.services.rr_sync_service import sync_stage, _STAGE_STATUS_FIELDS
 
     _require_rr_session_role(current_user, db)
 
@@ -375,21 +375,16 @@ async def retry_stage_sync(
             user_org.organization, db, body.rr_token, body.rr_refresh_token, current_user.id
         )
 
-    retryable_stages = []
-    if trip.rr_sync_status in ("failed", "auth_required", "pending_trip_creation"):
-        retryable_stages.append(2)
-    for stage, (status_field, _) in _STAGE_STATUS_FIELDS.items():
-        if getattr(trip, status_field) in ("failed", "auth_required", "pending_trip_creation"):
-            retryable_stages.append(stage)
-
-    for stage in retryable_stages:
+    from app.services.rr_sync_service import sync_stage
+    stages_to_sync = [s for s in (1, 2, 3, 4, 5) if s <= (trip.current_stage or 0)]
+    for stage in stages_to_sync:
         background_tasks.add_task(sync_stage, str(trip.id), stage)
 
     return {
-        "message": f"Retrying sync for {len(retryable_stages)} stage(s)" if retryable_stages
-                   else "Nothing to retry — no stalled stages",
+        "message": f"Syncing {len(stages_to_sync)} stage(s) to RR" if stages_to_sync
+                   else "No stages completed yet — nothing to sync",
         "trip_id": str(trip.id),
-        "retried_stages": retryable_stages,
+        "synced_stages": stages_to_sync,
     }
 
 
@@ -1442,7 +1437,6 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
 async def complete_trip_in_rr(
     trip_id: str,
     body: RrCompleteTripRequest,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -1476,11 +1470,6 @@ async def complete_trip_in_rr(
         trip.rr_sync_error  = str(exc)[:500]
         db.commit()
         raise HTTPException(status_code=503, detail=str(exc))
-
-    # Any stages already submitted locally before this trip existed in RR could
-    # only have marked themselves pending_trip_creation — push them now.
-    from app.services.rr_sync_service import sync_pending_stages_for_trip
-    background_tasks.add_task(sync_pending_stages_for_trip, str(trip.id))
 
     return {
         "success":       True,

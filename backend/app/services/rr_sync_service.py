@@ -1176,31 +1176,6 @@ async def sync_stage(trip_id: str, stage: int) -> None:
         db.close()
 
 
-async def sync_pending_stages_for_trip(trip_id: str) -> None:
-    """
-    Catch-up sweep: called right after a trip is successfully pushed to RR
-    (POST /create_trip succeeds) so any stages submitted locally *before* that
-    point — which could only mark themselves pending_trip_creation — get pushed now.
-    Stage 1 (driver/vehicle docs) doesn't depend on the trip existing in RR, but
-    re-running it here is harmless (identities are de-duped by _push_identities).
-    """
-    from app.database import SessionLocal
-    from app.models.trip import Trip
-
-    db = SessionLocal()
-    try:
-        trip = db.query(Trip).filter(Trip.id == trip_id).first()
-        if not trip:
-            return
-        current_stage = trip.current_stage or 0
-    finally:
-        db.close()
-
-    for stage in (1, 2, 3, 4, 5):
-        if stage <= current_stage:
-            await sync_stage(trip_id, stage)
-
-
 # ── Top-level entry point (sync button) ──────────────────────────────────────────
 
 async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:

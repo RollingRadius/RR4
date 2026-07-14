@@ -5546,6 +5546,81 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
   bool _completing  = false;
   bool _completed   = false;
 
+  bool _syncingToRr = false;
+  bool _rrSynced    = false;
+  String? _rrSyncPromptError;
+
+  bool get _canManageRr {
+    final user = ref.read(authProvider).user;
+    return user?.isLogisticPartner == true || user?.isLpRrOperations == true;
+  }
+
+  bool get _alreadySyncedToRr => widget.trip.rrSyncStatus == 'pod_synced';
+
+  @override
+  void initState() {
+    super.initState();
+    // Stages are no longer auto-synced as they're submitted — this is the
+    // single sync trigger point, so proactively prompt LP/RR-ops the moment
+    // all 5 stages are done, instead of relying on the easy-to-miss AppBar icon.
+    if (widget.trip.rrTripId != null && !_alreadySyncedToRr && _canManageRr) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showSyncPrompt();
+      });
+    }
+  }
+
+  Future<void> _showSyncPrompt() async {
+    final doSync = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('All stages complete', style: _manrope(size: 16, weight: FontWeight.w800)),
+        content: Text(
+          'This trip is fully completed. Sync all uploads and data to RR web now?',
+          style: _inter(size: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Later', style: _manrope(size: 13, weight: FontWeight.w700, color: _secondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white),
+            child: Text('Sync Now', style: _manrope(size: 13, weight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (doSync == true) await _syncToRr();
+  }
+
+  Future<void> _syncToRr() async {
+    if (_syncingToRr) return;
+    final session = await ensureRrSession(context, ref);
+    if (session == null || !mounted) return;
+
+    setState(() { _syncingToRr = true; _rrSyncPromptError = null; });
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/rr/sync/retry/${widget.trip.id}', data: {});
+      if (!mounted) return;
+      setState(() { _syncingToRr = false; _rrSynced = true; });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Synced to RR web', style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: _success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is DioException
+          ? (e.response?.data?['detail'] as String? ?? 'Sync failed')
+          : e.toString();
+      setState(() { _syncingToRr = false; _rrSyncPromptError = msg; });
+    }
+  }
+
   Future<void> _notify() async {
     if (_notifying || _notified) return;
     setState(() => _notifying = true);
@@ -5733,7 +5808,63 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
             textAlign: TextAlign.center,
             style: _inter(size: 13, color: _secondary),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
+
+          // ── Sync to RR (LP/RR-ops only) ──
+          if (trip.rrTripId != null && _canManageRr) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: (_alreadySyncedToRr || _rrSynced) ? _success.withValues(alpha: 0.08) : _surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: (_alreadySyncedToRr || _rrSynced) ? _success.withValues(alpha: 0.3) : _border,
+                ),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        (_alreadySyncedToRr || _rrSynced) ? Icons.check_circle_rounded : Icons.cloud_upload_outlined,
+                        size: 18,
+                        color: (_alreadySyncedToRr || _rrSynced) ? _success : _primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          (_alreadySyncedToRr || _rrSynced) ? 'Synced to RR web' : 'Not yet synced to RR web',
+                          style: _manrope(size: 13, weight: FontWeight.w700,
+                              color: (_alreadySyncedToRr || _rrSynced) ? _success : _onSurface),
+                        ),
+                      ),
+                      if (!(_alreadySyncedToRr || _rrSynced))
+                        _syncingToRr
+                            ? const SizedBox(
+                                width: 18, height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
+                              )
+                            : ElevatedButton(
+                                onPressed: _syncToRr,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                ),
+                                child: Text('Sync Now', style: _manrope(size: 12, weight: FontWeight.w700)),
+                              ),
+                    ],
+                  ),
+                  if (_rrSyncPromptError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(_rrSyncPromptError!, style: _inter(size: 11.5, color: _error)),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+          ],
 
           // Summary info row
           Container(
