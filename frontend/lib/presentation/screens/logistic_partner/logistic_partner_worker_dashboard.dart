@@ -645,7 +645,6 @@ class _WorkerHomeTab extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 14),
                   child: RrTripCard(
                     trip: t,
-                    workerMode: true,
                     onRefresh: () => ref
                         .read(tripProvider.notifier)
                         .loadTrips(statusFilter: 'ongoing,pending', rrWeb: true),
@@ -1031,7 +1030,7 @@ class _WorkerRecordsTab extends ConsumerWidget {
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) => Padding(
                     padding: const EdgeInsets.only(bottom: 14),
-                    child: RrTripCard(trip: trips[i], workerMode: true),
+                    child: RrTripCard(trip: trips[i]),
                   ),
                   childCount: trips.length,
                 ),
