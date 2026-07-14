@@ -25,6 +25,31 @@ from app.models.user import User
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+# Only LP owners and RR-ops workers may authenticate to RR / drive sync. LP-workers
+# (and drivers/transporters) can submit stage data locally but must never obtain or
+# use an RR session — enforced here, not just hidden in the Flutter UI.
+_RR_SESSION_ROLES = ('logistic_partner', 'lp_rr_operations', 'super_admin')
+
+
+def _require_rr_session_role(current_user: User, db: Session) -> None:
+    from app.models import UserOrganization
+    from app.models.role import Role
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    role = db.query(Role).filter(Role.id == user_org.role_id).first()
+    role_key = role.role_key if role else ''
+    if role_key not in _RR_SESSION_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail="Only Logistic Partner owners or RR Ops workers can sign in to / sync with RR",
+        )
+
 
 # ── City proxy ────────────────────────────────────────────────────────────────
 
@@ -187,6 +212,8 @@ async def rr_auth_login(
     if not settings.RR_SYNC_ENABLED:
         raise HTTPException(status_code=503, detail="RR sync is disabled on this server")
 
+    _require_rr_session_role(current_user, db)
+
     # RR requires full phone with country code (e.g. 918905393266).
     # Auto-prepend India country code if a bare 10-digit number is supplied.
     rr_username = body.username.strip()
@@ -211,6 +238,7 @@ async def rr_auth_login(
     if not token:
         logger.error(f"RR auth response missing token: {resp.text[:200]}")
         raise HTTPException(status_code=500, detail="RR auth response missing token")
+    refresh_token = data.get("refresh_token")
 
     user_record   = data.get("user_record") or {}
     rr_user_id    = str(user_record.get("_id",     "")) if user_record else ""
@@ -228,17 +256,25 @@ async def rr_auth_login(
     if rr_user_id and not current_user.rr_company_id:
         current_user.rr_company_id = rr_user_id
         needs_commit = True
-    if rr_company_id:
-        from app.models import UserOrganization
-        user_org = db.query(UserOrganization).filter(
-            UserOrganization.user_id == current_user.id,
-            UserOrganization.status == "active",
-        ).first()
-        if user_org and user_org.organization and not user_org.organization.rr_company_id:
-            user_org.organization.rr_company_id = rr_company_id
-            needs_commit = True
+
+    from app.models import UserOrganization
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if rr_company_id and user_org and user_org.organization and not user_org.organization.rr_company_id:
+        user_org.organization.rr_company_id = rr_company_id
+        needs_commit = True
     if needs_commit:
         db.commit()
+
+    # Persist this session on the org so background stage-sync tasks can reuse it
+    # (LP or RR-ops signing in is what unblocks any pending/auth_required stage syncs).
+    if user_org and user_org.organization and refresh_token:
+        from app.services.rr_org_token_service import store_org_rr_session
+        store_org_rr_session(
+            user_org.organization, db, token, refresh_token, current_user.id
+        )
 
     return {"token": token, "rr_user_id": rr_user_id}
 
@@ -263,6 +299,8 @@ async def trigger_sync(
     """
     from app.services import rr_sync_service
     from app.models import UserOrganization
+
+    _require_rr_session_role(current_user, db)
 
     user_org = db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id,
@@ -290,6 +328,68 @@ async def trigger_sync(
         "message": "Sync triggered — check status in a few seconds",
         "trip_id": str(trip.id),
         "trip_number": trip.trip_number,
+    }
+
+
+class RrSyncRetryRequest(BaseModel):
+    rr_token: str | None = None
+    rr_refresh_token: str | None = None
+
+
+@router.post("/sync/retry/{trip_id}", summary="Retry any stalled per-stage RR sync for a trip")
+async def retry_stage_sync(
+    trip_id: str,
+    body: RrSyncRetryRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    LP/RR-ops calls this after resolving an auth_required state (via a fresh RR
+    login) to resume automatic per-stage sync. If a fresh token is supplied, it's
+    persisted onto the org first; then every stage whose status is
+    failed/auth_required/pending_trip_creation is retried.
+    """
+    from app.models import UserOrganization
+    from app.services.rr_sync_service import sync_stage, _STAGE_STATUS_FIELDS
+
+    _require_rr_session_role(current_user, db)
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.organization_id == user_org.organization_id,
+    ).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    if body.rr_token and body.rr_refresh_token:
+        from app.services.rr_org_token_service import store_org_rr_session
+        store_org_rr_session(
+            user_org.organization, db, body.rr_token, body.rr_refresh_token, current_user.id
+        )
+
+    retryable_stages = []
+    if trip.rr_sync_status in ("failed", "auth_required", "pending_trip_creation"):
+        retryable_stages.append(2)
+    for stage, (status_field, _) in _STAGE_STATUS_FIELDS.items():
+        if getattr(trip, status_field) in ("failed", "auth_required", "pending_trip_creation"):
+            retryable_stages.append(stage)
+
+    for stage in retryable_stages:
+        background_tasks.add_task(sync_stage, str(trip.id), stage)
+
+    return {
+        "message": f"Retrying sync for {len(retryable_stages)} stage(s)" if retryable_stages
+                   else "Nothing to retry — no stalled stages",
+        "trip_id": str(trip.id),
+        "retried_stages": retryable_stages,
     }
 
 
@@ -1118,11 +1218,14 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
 async def complete_trip_in_rr(
     trip_id: str,
     body: RrCompleteTripRequest,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """Calls _do_create_trip_in_rr after auth + ownership checks."""
     from app.models import UserOrganization
+
+    _require_rr_session_role(current_user, db)
 
     user_org = db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id,
@@ -1149,6 +1252,11 @@ async def complete_trip_in_rr(
         trip.rr_sync_error  = str(exc)[:500]
         db.commit()
         raise HTTPException(status_code=503, detail=str(exc))
+
+    # Any stages already submitted locally before this trip existed in RR could
+    # only have marked themselves pending_trip_creation — push them now.
+    from app.services.rr_sync_service import sync_pending_stages_for_trip
+    background_tasks.add_task(sync_pending_stages_for_trip, str(trip.id))
 
     return {
         "success":       True,

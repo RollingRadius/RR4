@@ -14,6 +14,7 @@ import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/auth_provider.dart' show apiServiceProvider;
 import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
+import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _rrBlue    = Color(0xFF1B6CA8);
@@ -242,32 +243,49 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
 
   // ── Build ───────────────────────────────────────────────────────────────────
 
+  /// Tapping the card (outside the inline loading-slip controls, which have
+  /// their own tap handlers and win the hit-test first) opens the full S1-S5
+  /// stage process — same screen normal trips use — so RR web trips get the
+  /// full checkbox/upload flow, not just the quick loading-slip shortcut here.
+  void _openStages(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)),
+    ).then((_) => widget.onRefresh?.call());
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: _white,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: _rrBlue.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
+        onTap: () => _openStages(context),
+        child: Container(
+          decoration: BoxDecoration(
+            color: _white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: _rrBlue.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
-        ],
-      ),
-      clipBehavior: Clip.hardEdge,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(),
-          _buildStepRow(),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F4F8)),
-          _buildStep1Tile(),
-          if (_step1Expanded) _buildStep1Info(),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F4F8)),
-          _buildStep2Tile(),
-        ],
+          clipBehavior: Clip.hardEdge,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              _buildStepRow(),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFF0F4F8)),
+              _buildStep1Tile(),
+              if (_step1Expanded) _buildStep1Info(),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFF0F4F8)),
+              _buildStep2Tile(),
+            ],
+          ),
+        ),
       ),
     );
   }

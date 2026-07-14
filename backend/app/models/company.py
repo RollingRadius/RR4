@@ -3,7 +3,7 @@ Organization/Company Model
 Represents companies in the fleet management system
 """
 
-from sqlalchemy import Column, String, Text, Date, DateTime, CheckConstraint
+from sqlalchemy import Column, String, Text, Date, DateTime, TIMESTAMP, CheckConstraint, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -47,6 +47,13 @@ class Organization(Base):
 
     # RR Sync
     rr_company_id = Column(String(24), nullable=True)  # MongoDB ObjectId in RR — set once by admin
+
+    # RR persisted session — populated on LP/RR-ops login, silently refreshed by
+    # rr_org_token_service so background stage-sync tasks don't need a human logged in.
+    rr_access_token     = Column(Text, nullable=True)
+    rr_refresh_token    = Column(Text, nullable=True)
+    rr_token_expires_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_token_updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
     # Status
     status = Column(String(20), nullable=False, default='active')

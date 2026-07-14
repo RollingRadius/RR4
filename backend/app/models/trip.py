@@ -210,11 +210,29 @@ class Trip(Base):
     rr_loading_slip_file_id = Column(String(100), nullable=True)  # ObjectId from RR /files
     rr_loading_slip_url     = Column(String(500), nullable=True)  # our local saved copy
 
-    # Sync state
+    # Sync state (overall/legacy — stage 2 loading slip still reported here)
     rr_sync_status = Column(String(30), nullable=True, default='not_synced')
     # Values: not_synced | trip_created | loading_slip_synced | bilty_synced | pod_synced | failed
     rr_sync_error  = Column(Text,                        nullable=True)
     rr_synced_at   = Column(TIMESTAMP(timezone=True),    nullable=True)
+
+    # Per-stage RR sync tracking (stages 1, 3, 4, 5 — auto-fired on stage submit)
+    # Values: not_synced | pending_trip_creation | synced | failed | auth_required
+    rr_s1_sync_status = Column(String(30), nullable=False, default='not_synced')
+    rr_s1_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_s1_sync_error  = Column(Text, nullable=True)
+
+    rr_s3_sync_status = Column(String(30), nullable=False, default='not_synced')
+    rr_s3_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_s3_sync_error  = Column(Text, nullable=True)
+
+    rr_s4_sync_status = Column(String(30), nullable=False, default='not_synced')
+    rr_s4_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_s4_sync_error  = Column(Text, nullable=True)
+
+    rr_s5_sync_status = Column(String(30), nullable=False, default='not_synced')
+    rr_s5_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_s5_sync_error  = Column(Text, nullable=True)
 
     # ── Draft (cross-device in-progress form data) ───────────────────────────────
     draft_data = Column(JSONB, nullable=True)
@@ -338,6 +356,19 @@ class Trip(Base):
             "rr_sync_status":          self.rr_sync_status,
             "rr_sync_error":  self.rr_sync_error,
             "rr_synced_at":   self.rr_synced_at.isoformat() if self.rr_synced_at else None,
+            # Per-stage RR sync tracking
+            "rr_s1_sync_status": self.rr_s1_sync_status,
+            "rr_s1_sync_error":  self.rr_s1_sync_error,
+            "rr_s1_synced_at":   self.rr_s1_synced_at.isoformat() if self.rr_s1_synced_at else None,
+            "rr_s3_sync_status": self.rr_s3_sync_status,
+            "rr_s3_sync_error":  self.rr_s3_sync_error,
+            "rr_s3_synced_at":   self.rr_s3_synced_at.isoformat() if self.rr_s3_synced_at else None,
+            "rr_s4_sync_status": self.rr_s4_sync_status,
+            "rr_s4_sync_error":  self.rr_s4_sync_error,
+            "rr_s4_synced_at":   self.rr_s4_synced_at.isoformat() if self.rr_s4_synced_at else None,
+            "rr_s5_sync_status": self.rr_s5_sync_status,
+            "rr_s5_sync_error":  self.rr_s5_sync_error,
+            "rr_s5_synced_at":   self.rr_s5_synced_at.isoformat() if self.rr_s5_synced_at else None,
             # RR party fields
             "consignor_rr_company_id": self.consignor_rr_company_id,
             "consignee_rr_company_id": self.consignee_rr_company_id,

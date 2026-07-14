@@ -157,6 +157,16 @@ class TripModel {
   final String? rrSyncError;
   final String? rrSyncedAt;
 
+  // ── Per-stage RR sync tracking (stages 1, 3, 4, 5 — stage 2 uses rrSyncStatus above) ──
+  final String? rrS1SyncStatus;
+  final String? rrS1SyncError;
+  final String? rrS3SyncStatus;
+  final String? rrS3SyncError;
+  final String? rrS4SyncStatus;
+  final String? rrS4SyncError;
+  final String? rrS5SyncStatus;
+  final String? rrS5SyncError;
+
   // ── Draft (cross-device in-progress form data) ────────────────────────────────
   final Map<String, dynamic>? draftData;
 
@@ -289,6 +299,14 @@ class TripModel {
     this.rrSyncStatus,
     this.rrSyncError,
     this.rrSyncedAt,
+    this.rrS1SyncStatus,
+    this.rrS1SyncError,
+    this.rrS3SyncStatus,
+    this.rrS3SyncError,
+    this.rrS4SyncStatus,
+    this.rrS4SyncError,
+    this.rrS5SyncStatus,
+    this.rrS5SyncError,
     this.draftData,
     this.fieldAttributions,
   });
@@ -426,6 +444,14 @@ class TripModel {
       rrSyncStatus:            json['rr_sync_status'] as String?,
       rrSyncError:             json['rr_sync_error'] as String?,
       rrSyncedAt:              json['rr_synced_at'] as String?,
+      rrS1SyncStatus:          json['rr_s1_sync_status'] as String?,
+      rrS1SyncError:           json['rr_s1_sync_error'] as String?,
+      rrS3SyncStatus:          json['rr_s3_sync_status'] as String?,
+      rrS3SyncError:           json['rr_s3_sync_error'] as String?,
+      rrS4SyncStatus:          json['rr_s4_sync_status'] as String?,
+      rrS4SyncError:           json['rr_s4_sync_error'] as String?,
+      rrS5SyncStatus:          json['rr_s5_sync_status'] as String?,
+      rrS5SyncError:           json['rr_s5_sync_error'] as String?,
       draftData:               json['draft_data'] as Map<String, dynamic>?,
       fieldAttributions:       json['field_attributions'] as Map<String, dynamic>?,
     );

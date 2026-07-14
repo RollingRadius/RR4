@@ -12,7 +12,7 @@ import json
 import uuid as _uuid_module
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query, UploadFile, File, Form
 from pydantic import BaseModel
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -598,6 +598,7 @@ async def submit_stage1(
     pan_doc:              Optional[UploadFile] = File(None),
     tax_declaration_doc:  Optional[UploadFile] = File(None),
     cancelled_cheque_doc: Optional[UploadFile] = File(None),
+    background_tasks: BackgroundTasks = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -711,6 +712,10 @@ async def submit_stage1(
         except Exception:
             pass
 
+    if background_tasks is not None:
+        from app.services.rr_sync_service import sync_stage
+        background_tasks.add_task(sync_stage, str(trip.id), 1)
+
     msg = "Stage 1 updated." if was_already_submitted else "Stage 1 saved. Proceed to compliance check."
     return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
@@ -726,6 +731,7 @@ async def submit_stage2(
     empty_weight_before_loading: Optional[str] = Form(None),
     empty_weight_unit:           Optional[str] = Form(None),
     loading_slip:                Optional[UploadFile] = File(None),
+    background_tasks: BackgroundTasks = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -807,6 +813,10 @@ async def submit_stage2(
         except Exception:
             pass
 
+    if background_tasks is not None:
+        from app.services.rr_sync_service import sync_stage
+        background_tasks.add_task(sync_stage, str(trip.id), 2)
+
     msg = "Stage 2 updated." if was_already_submitted else "Entry permission issued. Coordinate truck arrival."
     return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
@@ -827,6 +837,7 @@ async def submit_stage3(
     loaded_weight_slip:      Optional[UploadFile] = File(None),
     bilty:                   Optional[UploadFile] = File(None),
     material_docs:           Optional[List[UploadFile]] = File(None),
+    background_tasks: BackgroundTasks = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -939,6 +950,10 @@ async def submit_stage3(
         except Exception:
             pass
 
+    if background_tasks is not None:
+        from app.services.rr_sync_service import sync_stage
+        background_tasks.add_task(sync_stage, str(trip.id), 3)
+
     msg = "Stage 3 updated." if was_already_submitted else "Truck intake complete. Trip is now active."
     return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 
@@ -1011,6 +1026,7 @@ class DraftPayload(BaseModel):
 async def submit_stage4_diesel(
     trip_id: str,
     receipt: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -1037,6 +1053,11 @@ async def submit_stage4_diesel(
     _apply_attributions(trip, ['diesel_receipt'], current_user, role_key)
     db.commit()
     db.refresh(trip)
+
+    if background_tasks is not None:
+        from app.services.rr_sync_service import sync_stage
+        background_tasks.add_task(sync_stage, str(trip.id), 4)
+
     return {"success": True, "message": "Diesel receipt uploaded.", "trip": _enrich(trip, db)}
 
 
@@ -1045,6 +1066,7 @@ async def submit_stage5(
     trip_id: str,
     pod: UploadFile = File(...),
     halting_charge: Optional[str] = Form(None),
+    background_tasks: BackgroundTasks = None,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -1091,6 +1113,11 @@ async def submit_stage5(
 
     db.commit()
     db.refresh(trip)
+
+    if background_tasks is not None:
+        from app.services.rr_sync_service import sync_stage
+        background_tasks.add_task(sync_stage, str(trip.id), 5)
+
     msg = "Unloading stage updated." if was_already_submitted else "Unloading stage completed."
     return {"success": True, "message": msg, "trip": _enrich(trip, db)}
 

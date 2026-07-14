@@ -46,6 +46,13 @@ class Vehicle(Base):
     # RR Sync
     rr_vehicle_id = Column(String(24), nullable=True)  # MongoDB ObjectId in RR — cached on first lookup
 
+    # RR file ids for Stage 1 compliance docs already pushed to vehicles.identities[] —
+    # set once, lets _sync_stage1_docs skip re-pushing on later trips for this vehicle.
+    rr_rc_file_id      = Column(String(100), nullable=True)
+    rr_puc_file_id     = Column(String(100), nullable=True)
+    rr_fitness_file_id = Column(String(100), nullable=True)
+    rr_permit_file_id  = Column(String(100), nullable=True)
+
     notes = Column(Text, nullable=True)
     photo = Column(LargeBinary, nullable=True)
     photo_content_type = Column(String(50), nullable=True)

@@ -325,6 +325,15 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
             trip: _trip,
             onSyncDone: _fetchFreshTrip,
           ),
+          if (_trip.rrTripId != null)
+            _RrPerStageSyncPanel(
+              key: ValueKey(
+                's_sync_${_trip.id}_${_trip.rrS1SyncStatus}_${_trip.rrSyncStatus}_'
+                '${_trip.rrS3SyncStatus}_${_trip.rrS4SyncStatus}_${_trip.rrS5SyncStatus}',
+              ),
+              trip: _trip,
+              onRetryDone: _fetchFreshTrip,
+            ),
           Expanded(
             child: _editingStage != null
                 ? _buildEditForm(_editingStage!)
@@ -5910,6 +5919,177 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
           if (_sendError != null) ...[
             const SizedBox(height: 4),
             Text(_sendError!, style: _inter(size: 11, color: _error),
+                maxLines: 2, overflow: TextOverflow.ellipsis),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact per-stage RR sync status row (S1 driver/vehicle docs, S2 loading slip,
+/// S3 bilty/weight receipt, S4 fuel slip, S5 POD + halting charge). Each stage
+/// syncs automatically in the background as it's submitted — this panel just
+/// reflects that state and, for LP/RR-ops, offers a way to resume a stalled sync.
+class _RrPerStageSyncPanel extends ConsumerStatefulWidget {
+  final TripModel trip;
+  final VoidCallback onRetryDone;
+  const _RrPerStageSyncPanel({super.key, required this.trip, required this.onRetryDone});
+
+  @override
+  ConsumerState<_RrPerStageSyncPanel> createState() => _RrPerStageSyncPanelState();
+}
+
+class _RrPerStageSyncPanelState extends ConsumerState<_RrPerStageSyncPanel> {
+  bool _retrying = false;
+
+  static const Map<int, String> _stageLabels = {
+    1: 'S1 Docs',
+    2: 'S2 Slip',
+    3: 'S3 Docs',
+    4: 'S4 Fuel',
+    5: 'S5 POD',
+  };
+
+  String? _statusFor(int stage) {
+    final t = widget.trip;
+    switch (stage) {
+      case 1: return t.rrS1SyncStatus;
+      case 2: return t.rrSyncStatus;   // stage 2 shares the legacy overall column
+      case 3: return t.rrS3SyncStatus;
+      case 4: return t.rrS4SyncStatus;
+      case 5: return t.rrS5SyncStatus;
+    }
+    return null;
+  }
+
+  String? _errorFor(int stage) {
+    final t = widget.trip;
+    switch (stage) {
+      case 1: return t.rrS1SyncError;
+      case 2: return t.rrSyncError;
+      case 3: return t.rrS3SyncError;
+      case 4: return t.rrS4SyncError;
+      case 5: return t.rrS5SyncError;
+    }
+    return null;
+  }
+
+  Color _colorFor(String? status) {
+    switch (status) {
+      case 'synced':
+      case 'loading_slip_synced':
+      case 'bilty_synced':
+      case 'pod_synced':
+      case 'trip_created':
+        return const Color(0xFF2E7D32);
+      case 'failed':
+        return _error;
+      case 'auth_required':
+        return const Color(0xFFB07800);
+      case 'pending_trip_creation':
+      case 'not_synced':
+      default:
+        return const Color(0xFF9E9E9E);
+    }
+  }
+
+  IconData _iconFor(String? status) {
+    switch (status) {
+      case 'synced':
+      case 'loading_slip_synced':
+      case 'bilty_synced':
+      case 'pod_synced':
+      case 'trip_created':
+        return Icons.check_circle_rounded;
+      case 'failed':
+        return Icons.error_outline_rounded;
+      case 'auth_required':
+        return Icons.lock_outline_rounded;
+      default:
+        return Icons.hourglass_top_rounded;
+    }
+  }
+
+  Future<void> _retry() async {
+    final session = await ensureRrSession(context, ref);
+    if (session == null || !mounted) return;
+    setState(() => _retrying = true);
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/rr/sync/retry/${widget.trip.id}', data: {});
+      if (!mounted) return;
+      widget.onRetryDone();
+    } catch (_) {
+      // Errors surface naturally on next fetch via the per-stage error fields.
+    } finally {
+      if (mounted) setState(() => _retrying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.watch(authProvider).user;
+    final canManageRr = user?.isLogisticPartner == true || user?.isLpRrOperations == true;
+
+    final statuses = {for (final s in _stageLabels.keys) s: _statusFor(s)};
+    final hasAuthRequired = statuses.values.any((s) => s == 'auth_required');
+    final hasFailed = statuses.values.any((s) => s == 'failed');
+    final firstError = _stageLabels.keys
+        .map((s) => _errorFor(s))
+        .firstWhere((e) => e != null && e.isNotEmpty, orElse: () => null);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Text('RR Sync', style: _manrope(size: 12, weight: FontWeight.w700, color: const Color(0xFF616161))),
+              const Spacer(),
+              if (canManageRr && (hasAuthRequired || hasFailed))
+                GestureDetector(
+                  onTap: _retrying ? null : _retry,
+                  child: _retrying
+                      ? const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
+                        )
+                      : Text(
+                          hasAuthRequired ? 'Sign in to RR' : 'Retry',
+                          style: _manrope(size: 11, weight: FontWeight.w700, color: _primary),
+                        ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 10,
+            runSpacing: 6,
+            children: _stageLabels.entries.map((e) {
+              final status = statuses[e.key];
+              final color = _colorFor(status);
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_iconFor(status), size: 13, color: color),
+                  const SizedBox(width: 3),
+                  Text(e.value, style: _inter(size: 10.5, color: color)),
+                ],
+              );
+            }).toList(),
+          ),
+          if (firstError != null) ...[
+            const SizedBox(height: 4),
+            Text(firstError, style: _inter(size: 10.5, color: _error),
                 maxLines: 2, overflow: TextOverflow.ellipsis),
           ],
         ],
