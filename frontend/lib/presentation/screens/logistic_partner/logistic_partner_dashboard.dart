@@ -801,11 +801,11 @@ class _DashboardTab extends ConsumerWidget {
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Logistic Partner';
 
-    // Fleet status: RR web form trips not yet loading-slip synced.
-    const _done = {'loading_slip_synced', 'bilty_synced', 'pod_synced'};
-    final ongoingTrips = tripState.activeTrips
-        .where((t) => t.consignorName != null && !_done.contains(t.rrSyncStatus))
-        .toList();
+    // Fleet status: backend (rr_web=true) already scopes this to trips not yet
+    // fully synced (current_stage < 5 or rr_sync_status != 'pod_synced') — no
+    // extra client-side filtering here, it used to wrongly drop trips as soon
+    // as their loading slip synced.
+    final ongoingTrips = tripState.activeTrips;
 
     return RefreshIndicator(
       color: _primary,

@@ -1211,11 +1211,10 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
     rr_token: LP's RR access token (from POST /auth/login). If None, falls back
               to the global token service (used by bulk sync).
 
-    Sequence:
-      1. If trip not yet in RR → auto-resolve IDs + pre-flight + POST /trips + POST /parcels
-      2. Sync loading slip if not yet done
-      3. Sync S3 data (bilty, weight receipt, material docs) if available and not yet synced
-      4. Sync S5 POD if available and not yet synced
+    Sequence: trip must already be in RR (via Complete Trip); then re-runs every
+    stage's sync function (S1 docs, S2 loading slip, S3 docs+loading times,
+    S4 fuel slip+exit time, S5 POD+unloading times) — each is a no-op if that
+    stage has nothing new to push.
     """
     if not settings.RR_SYNC_ENABLED:
         return
@@ -1243,7 +1242,7 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
 
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
 
-            # ── Step 1: Trip must already exist in RR via complete-trip ───────
+            # ── Trip must already exist in RR via complete-trip ────────────────
             if not trip.rr_parcel_id:
                 logger.info(
                     f"[RR Sync All] Trip {trip.trip_number} not yet in RR — "
@@ -1251,8 +1250,11 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                 )
                 return
 
-            # Steps 2-4 (loading slip, S3, S5) — not active yet.
-            # Will be enabled in a future phase.
+            await _sync_stage1_docs(trip, client, token, db)
+            await _sync_loading_slip(trip, client, token, db)
+            await _sync_stage3(trip, client, token, db)
+            await _sync_stage4_fuel_slip(trip, client, token, db)
+            await _sync_stage5(trip, client, token, db)
 
     except Exception as exc:
         logger.exception(f"[RR Sync All] Unexpected error for trip {trip_id}: {exc}")

@@ -191,11 +191,11 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     final tripState = ref.watch(tripProvider);
     final session   = ref.watch(rrSessionProvider);
 
-    // Fleet status: RR web form trips not yet loading-slip synced.
-    const _done = {'loading_slip_synced', 'bilty_synced', 'pod_synced'};
-    final rrTrips = tripState.trips
-        .where((t) => t.consignorName != null && !_done.contains(t.rrSyncStatus))
-        .toList();
+    // Fleet status: backend (rr_web=true) already scopes this to trips not yet
+    // fully synced (current_stage < 5 or rr_sync_status != 'pod_synced') — no
+    // extra client-side filtering here, it used to wrongly drop trips as soon
+    // as their loading slip synced.
+    final rrTrips = tripState.trips;
 
     return Scaffold(
       backgroundColor: _bg,

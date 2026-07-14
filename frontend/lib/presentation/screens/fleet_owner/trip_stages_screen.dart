@@ -153,14 +153,14 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
     final session = await ensureRrSession(context, ref);
     if (session == null || !mounted) return;
 
-    // Step 2: trigger sync with the obtained token
+    // Step 2: retry any stalled per-stage sync (loading slip synced separately
+    // via post_loading_slip; S1/S3/S4/S5 — including the loading/unloading
+    // datetime fields — retried here). /sync/trip's sync_all_to_rr is dead for
+    // stages 2-5, so this AppBar button must hit /sync/retry, not /sync/trip.
     setState(() => _syncing = true);
     try {
       final dio = ref.read(dioProvider);
-      await dio.post(
-        '/api/rr/sync/trip/${_trip.id}',
-        data: {'rr_token': session.token},
-      );
+      await dio.post('/api/rr/sync/retry/${_trip.id}', data: {});
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
