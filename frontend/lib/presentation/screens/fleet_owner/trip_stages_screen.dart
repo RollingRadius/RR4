@@ -2484,17 +2484,22 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       return;
     }
     final d = draft['data'] as Map<String, dynamic>? ?? {};
-    _driverParked       = d['driver_parked']       as bool? ?? false;
-    _docsSubmitted      = d['docs_submitted']       as bool? ?? false;
-    _securityVerified   = d['security_verified']    as bool? ?? false;
-    _driverExitedCabin  = d['driver_exited_cabin']  as bool? ?? false;
-    _wheelStoppers      = d['wheel_stoppers']       as bool? ?? false;
-    _safetyGear         = d['safety_gear']          as bool? ?? false;
     _loadingComplete    = d['loading_complete']     as bool? ?? false;
+    // Checkboxes aren't drafted individually — if loading_complete was true,
+    // all 6 were necessarily true when it was set, so re-derive them here
+    // rather than silently resubmitting false checklist values on restore.
+    if (_loadingComplete) {
+      _driverParked = _docsSubmitted = _securityVerified =
+          _driverExitedCabin = _wheelStoppers = _safetyGear = true;
+    }
     _emptyTruckWeight.text = d['empty_truck_weight']      as String? ?? '';
     _loadedTruckWeight.text = d['loaded_truck_weight']    as String? ?? '';
     _emptyWeightUnit.value = d['empty_truck_weight_unit'] as String? ?? 'tons';
     _loadedWeightUnit.value = d['loaded_truck_weight_unit'] as String? ?? 'tons';
+    final vehicleReachStr = d['vehicle_reach_datetime'] as String?;
+    if (vehicleReachStr != null) _vehicleReachDatetime = DateTime.tryParse(vehicleReachStr);
+    final loadingStartStr = d['loading_start_datetime'] as String?;
+    if (loadingStartStr != null) _loadingStartDatetime = DateTime.tryParse(loadingStartStr);
     // Restore Stage 2 Dharam Kanta data (if weight was recorded outside factory)
     _s2DharamKantaLoc   = d['s2_dharam_kanta_loc']    as String?;
     _s2EmptyWeight      = d['s2_empty_weight']         as String?;
@@ -2553,17 +2558,18 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
         'stage': 3,
         'data': {
-          'driver_parked':           _driverParked,
-          'docs_submitted':          _docsSubmitted,
-          'security_verified':       _securityVerified,
-          'driver_exited_cabin':     _driverExitedCabin,
-          'wheel_stoppers':          _wheelStoppers,
-          'safety_gear':             _safetyGear,
+          // Checkboxes are intentionally not drafted — loading_complete alone
+          // gates phase 2, and can only be true if all 6 were checked when it
+          // was set, so they're re-derived as true on restore (see prefill).
           'loading_complete':        _loadingComplete,
           'empty_truck_weight':      _emptyTruckWeight.text.trim(),
           'empty_truck_weight_unit': _emptyWeightUnit.value,
           'loaded_truck_weight':     _loadedTruckWeight.text.trim(),
           'loaded_truck_weight_unit': _loadedWeightUnit.value,
+          if (_vehicleReachDatetime != null)
+            'vehicle_reach_datetime': _vehicleReachDatetime!.toIso8601String(),
+          if (_loadingStartDatetime != null)
+            'loading_start_datetime': _loadingStartDatetime!.toIso8601String(),
           // Persist S2 Dharam Kanta so it survives re-entry
           if (s2Loc != null) ...{
             's2_dharam_kanta_loc':    s2Loc,
@@ -2690,6 +2696,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   }
 
   Future<void> _completeStage() async {
+    if (_vehicleReachDatetime == null || _loadingStartDatetime == null) {
+      // Shouldn't happen (guarded by _onLoadingComplete/_allChecked), but never
+      // crash on a stale/rebuilt widget — bounce back to phase 1 instead.
+      setState(() { _loadingComplete = false; _showDatetimeErrors = true; });
+      return;
+    }
     final stagesState = ref.read(tripStagesProvider(widget.providerKey));
     final s2Weight = stagesState.s2EmptyWeight ?? _s2EmptyWeight ?? '';
     final weightFromS2 =
@@ -4428,17 +4440,15 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
       return;
     }
     final d = draft['data'] as Map<String, dynamic>? ?? {};
-    _truckMoved      = d['truck_moved']      as bool? ?? false;
-    _securityCheck   = d['security_check']   as bool? ?? false;
-    _biltyChecked    = d['bilty_checked']    as bool? ?? false;
-    _weightChecked   = d['weight_checked']   as bool? ?? false;
-    _materialChecked = d['material_checked'] as bool? ?? false;
+    // Checkboxes aren't drafted — restored as unchecked, user re-confirms them.
     // Restore diesel bytes if saved in draft
     final b64  = d['diesel_bytes'] as String?;
     final name = d['diesel_name']  as String? ?? 'diesel_receipt.jpg';
     if (b64 != null && b64.isNotEmpty) {
       try { _dieselFile = (bytes: base64Decode(b64), name: name); } catch (_) {}
     }
+    final exitDtStr = d['vehicle_exit_datetime'] as String?;
+    if (exitDtStr != null) _vehicleExitDatetime = DateTime.tryParse(exitDtStr);
     // Draft attributions override persistent ones
     final attrs = draft['attributions'] as Map<String, dynamic>?;
     if (attrs != null) {
@@ -4461,13 +4471,13 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
       await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
         'stage': 4,
         'data': {
-          'truck_moved':      _truckMoved,
-          'security_check':   _securityCheck,
-          'bilty_checked':    _biltyChecked,
-          'weight_checked':   _weightChecked,
-          'material_checked': _materialChecked,
+          // Checkboxes intentionally not drafted — checklist submission is a
+          // real network call, not a local phase gate, so on restore the user
+          // just re-confirms them before submitting (no data-loss risk).
           if (_dieselFile != null) 'diesel_bytes': base64Encode(_dieselFile!.bytes),
           if (_dieselFile != null) 'diesel_name':  _dieselFile!.name,
+          if (_vehicleExitDatetime != null)
+            'vehicle_exit_datetime': _vehicleExitDatetime!.toIso8601String(),
         },
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
@@ -5088,6 +5098,12 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
       try { _podFile = (bytes: base64Decode(b64), name: name); } catch (_) {}
     }
     _haltingChargeCtrl.text = data['halting_charge'] as String? ?? '';
+    final vehicleReachStr = data['vehicle_reach_datetime'] as String?;
+    if (vehicleReachStr != null) _vehicleReachDatetime = DateTime.tryParse(vehicleReachStr);
+    final unloadStartStr = data['unloading_start_datetime'] as String?;
+    if (unloadStartStr != null) _unloadingStartDatetime = DateTime.tryParse(unloadStartStr);
+    final unloadEndStr = data['unloading_end_datetime'] as String?;
+    if (unloadEndStr != null) _unloadingEndDatetime = DateTime.tryParse(unloadEndStr);
     // Draft attributions override persistent ones
     final attrs = draft['attributions'] as Map<String, dynamic>?;
     if (attrs != null) {
@@ -5108,6 +5124,12 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           if (_podFile != null) 'pod_bytes': base64Encode(_podFile!.bytes),
           if (_podFile != null) 'pod_name':  _podFile!.name,
           if (_haltingChargeCtrl.text.isNotEmpty) 'halting_charge': _haltingChargeCtrl.text,
+          if (_vehicleReachDatetime != null)
+            'vehicle_reach_datetime': _vehicleReachDatetime!.toIso8601String(),
+          if (_unloadingStartDatetime != null)
+            'unloading_start_datetime': _unloadingStartDatetime!.toIso8601String(),
+          if (_unloadingEndDatetime != null)
+            'unloading_end_datetime': _unloadingEndDatetime!.toIso8601String(),
         },
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
