@@ -255,23 +255,22 @@ def list_trips(
             query = query.filter(Trip.status.in_(statuses))
 
     if rr_only:
-        # Records: trips already synced to RR (have rr_trip_id)
+        # Records: trips fully completed (all 5 stages done), synced to RR.
+        # Uses current_stage, not rr_sync_status — a trip only belongs in
+        # Records once every stage is submitted, not as soon as any RR doc syncs.
         query = query.filter(
             Trip.rr_trip_id.isnot(None),
             Trip.rr_trip_id != '',
+            Trip.current_stage >= 5,
         )
 
     if rr_web:
-        # Fleet status: RR web form trips not yet loading-slip synced.
-        # Excludes trips that have progressed to loading_slip_synced or beyond —
-        # those belong in Records.
-        _done = ['loading_slip_synced', 'bilty_synced', 'pod_synced']
+        # Fleet status: RR web form trips still in progress (any stage not yet
+        # complete) — stays here through loading slip / bilty / POD syncing,
+        # only moves to Records once current_stage reaches 5.
         query = query.filter(
             Trip.consignor_name.isnot(None),
-            or_(
-                Trip.rr_sync_status.is_(None),
-                Trip.rr_sync_status.notin_(_done),
-            ),
+            Trip.current_stage < 5,
         )
 
     total = query.count()
