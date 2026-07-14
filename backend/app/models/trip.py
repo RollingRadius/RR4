@@ -99,9 +99,9 @@ class Trip(Base):
     s3_wheel_stoppers           = Column(Boolean,      nullable=True)
     s3_safety_gear              = Column(Boolean,      nullable=True)
     s3_empty_truck_weight_kg    = Column(String(20),   nullable=True)   # Dharma kanta — before loading (value)
-    s3_empty_truck_weight_unit  = Column(String(10),   nullable=True, default='tons')  # 'tons' or 'kg'
+    s3_empty_truck_weight_unit  = Column(String(10),   nullable=True, default='kg')  # 'tons' or 'kg'
     s3_loaded_truck_weight_kg   = Column(String(20),   nullable=True)   # Dharma kanta — after loading (value)
-    s3_loaded_truck_weight_unit = Column(String(10),   nullable=True, default='tons')  # 'tons' or 'kg'
+    s3_loaded_truck_weight_unit = Column(String(10),   nullable=True, default='kg')  # 'tons' or 'kg'
     s3_loaded_weight_slip_url   = Column(String(500),  nullable=True)   # Kanta parchi — loaded weight slip photo
     s3_bilty_url                = Column(String(500),  nullable=True)   # URL path to bilty image
     s3_material_doc_urls        = Column(Text,         nullable=True)   # JSON list of material doc URL paths
@@ -225,11 +225,19 @@ class Trip(Base):
     rr_sync_error  = Column(Text,                        nullable=True)
     rr_synced_at   = Column(TIMESTAMP(timezone=True),    nullable=True)
 
-    # Per-stage RR sync tracking (stages 1, 3, 4, 5 — auto-fired on stage submit)
+    # Per-stage RR sync tracking (each stage's own status — see sync_stage() /
+    # rr_sync_service.py. rr_sync_status above stays as a legacy "overall/latest"
+    # indicator other screens read, but is NOT authoritative per-stage: it gets
+    # overwritten by whichever stage's sync last completed, so relying on it to
+    # judge one specific stage's success is wrong — use these columns instead.)
     # Values: not_synced | pending_trip_creation | synced | failed | auth_required
     rr_s1_sync_status = Column(String(30), nullable=False, default='not_synced')
     rr_s1_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
     rr_s1_sync_error  = Column(Text, nullable=True)
+
+    rr_s2_sync_status = Column(String(30), nullable=False, default='not_synced')
+    rr_s2_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_s2_sync_error  = Column(Text, nullable=True)
 
     rr_s3_sync_status = Column(String(30), nullable=False, default='not_synced')
     rr_s3_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
@@ -316,9 +324,9 @@ class Trip(Base):
             "s3_wheel_stoppers": self.s3_wheel_stoppers,
             "s3_safety_gear": self.s3_safety_gear,
             "s3_empty_truck_weight_kg": self.s3_empty_truck_weight_kg,
-            "s3_empty_truck_weight_unit": self.s3_empty_truck_weight_unit or 'tons',
+            "s3_empty_truck_weight_unit": self.s3_empty_truck_weight_unit or 'kg',
             "s3_loaded_truck_weight_kg": self.s3_loaded_truck_weight_kg,
-            "s3_loaded_truck_weight_unit": self.s3_loaded_truck_weight_unit or 'tons',
+            "s3_loaded_truck_weight_unit": self.s3_loaded_truck_weight_unit or 'kg',
             "s3_loaded_weight_slip_url": self.s3_loaded_weight_slip_url,
             "s3_bilty_url": self.s3_bilty_url,
             "s3_material_doc_urls": self.s3_material_doc_urls,
@@ -375,6 +383,9 @@ class Trip(Base):
             "rr_s1_sync_status": self.rr_s1_sync_status,
             "rr_s1_sync_error":  self.rr_s1_sync_error,
             "rr_s1_synced_at":   self.rr_s1_synced_at.isoformat() if self.rr_s1_synced_at else None,
+            "rr_s2_sync_status": self.rr_s2_sync_status,
+            "rr_s2_sync_error":  self.rr_s2_sync_error,
+            "rr_s2_synced_at":   self.rr_s2_synced_at.isoformat() if self.rr_s2_synced_at else None,
             "rr_s3_sync_status": self.rr_s3_sync_status,
             "rr_s3_sync_error":  self.rr_s3_sync_error,
             "rr_s3_synced_at":   self.rr_s3_synced_at.isoformat() if self.rr_s3_synced_at else None,

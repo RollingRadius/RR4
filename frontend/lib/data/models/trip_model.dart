@@ -163,9 +163,11 @@ class TripModel {
   final String? rrSyncError;
   final String? rrSyncedAt;
 
-  // ── Per-stage RR sync tracking (stages 1, 3, 4, 5 — stage 2 uses rrSyncStatus above) ──
+  // ── Per-stage RR sync tracking ──
   final String? rrS1SyncStatus;
   final String? rrS1SyncError;
+  final String? rrS2SyncStatus;
+  final String? rrS2SyncError;
   final String? rrS3SyncStatus;
   final String? rrS3SyncError;
   final String? rrS4SyncStatus;
@@ -313,6 +315,8 @@ class TripModel {
     this.rrSyncedAt,
     this.rrS1SyncStatus,
     this.rrS1SyncError,
+    this.rrS2SyncStatus,
+    this.rrS2SyncError,
     this.rrS3SyncStatus,
     this.rrS3SyncError,
     this.rrS4SyncStatus,
@@ -464,6 +468,8 @@ class TripModel {
       rrSyncedAt:              json['rr_synced_at'] as String?,
       rrS1SyncStatus:          json['rr_s1_sync_status'] as String?,
       rrS1SyncError:           json['rr_s1_sync_error'] as String?,
+      rrS2SyncStatus:          json['rr_s2_sync_status'] as String?,
+      rrS2SyncError:           json['rr_s2_sync_error'] as String?,
       rrS3SyncStatus:          json['rr_s3_sync_status'] as String?,
       rrS3SyncError:           json['rr_s3_sync_error'] as String?,
       rrS4SyncStatus:          json['rr_s4_sync_status'] as String?,

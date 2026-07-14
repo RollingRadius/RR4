@@ -370,9 +370,9 @@ class _TripStagesScreenState extends ConsumerState<TripStagesScreen> {
                                 ? _CompletionView(
                                     trip: _trip,
                                     emptyWeightKg: state.emptyWeightKg,
-                                    emptyWeightUnit: state.emptyWeightUnit ?? 'tons',
+                                    emptyWeightUnit: state.emptyWeightUnit ?? 'kg',
                                     loadedWeightKg: state.loadedWeightKg,
-                                    loadedWeightUnit: state.loadedWeightUnit ?? 'tons',
+                                    loadedWeightUnit: state.loadedWeightUnit ?? 'kg',
                                     onDone: () => Navigator.of(context).pop(),
                                     onNextStage: () => setState(() => _showStage4 = true),
                                   )
@@ -1253,7 +1253,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   String? _dharamKantaLoc;  // 'inside' | 'outside'
   bool _s2WeightConfirmed   = false;
   final _emptyWeightCtrl    = TextEditingController();
-  final _emptyWeightUnit    = ValueNotifier<String>('tons');
+  final _emptyWeightUnit    = ValueNotifier<String>('kg');
   XFile? _loadingSlipFile;   // optional loading slip — uploaded with Stage 2
 
   // ── Per-field attribution ─────────────────────────────────────────────────
@@ -1304,7 +1304,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
       _dharamKantaLoc   = d['dharam_kanta_location']       as String?;
       _s2WeightConfirmed = d['s2_weight_confirmed']        as bool?   ?? false;
       _emptyWeightCtrl.text = d['empty_weight_before_loading'] as String? ?? '';
-      _emptyWeightUnit.value = d['empty_weight_unit']      as String? ?? 'tons';
+      _emptyWeightUnit.value = d['empty_weight_unit']      as String? ?? 'kg';
       // Draft attributions override persistent ones
       final attrs = draft['attributions'] as Map<String, dynamic>?;
       if (attrs != null) {
@@ -1328,7 +1328,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
         if (trip.s2DharamKantaLoc == 'outside' &&
             trip.s2EmptyWeightKg != null && trip.s2EmptyWeightKg!.isNotEmpty) {
           _emptyWeightCtrl.text = trip.s2EmptyWeightKg!;
-          _emptyWeightUnit.value = trip.s2EmptyWeightUnit ?? 'tons';
+          _emptyWeightUnit.value = trip.s2EmptyWeightUnit ?? 'kg';
           _s2WeightConfirmed = true;
         }
       }
@@ -2421,8 +2421,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
   final _emptyTruckWeight  = TextEditingController();
   final _loadedTruckWeight = TextEditingController();
-  final _emptyWeightUnit   = ValueNotifier<String>('tons');
-  final _loadedWeightUnit  = ValueNotifier<String>('tons');
+  final _emptyWeightUnit   = ValueNotifier<String>('kg');
+  final _loadedWeightUnit  = ValueNotifier<String>('kg');
   ({Uint8List bytes, String name})? _weightSlipData;
 
   // Two-phase: first "Loading Complete", then "Complete Stage"
@@ -2453,7 +2453,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         ref.read(tripStagesProvider(widget.providerKey).notifier)
-            .setS2DharamKanta('outside', _s2EmptyWeight!, _s2EmptyWeightUnit ?? 'tons');
+            .setS2DharamKanta('outside', _s2EmptyWeight!, _s2EmptyWeightUnit ?? 'kg');
       });
     }
   }
@@ -2472,8 +2472,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       if (trip.currentStage >= 3) {
         _emptyTruckWeight.text  = trip.s3EmptyTruckWeightKg  ?? '';
         _loadedTruckWeight.text = trip.s3LoadedTruckWeightKg ?? '';
-        _emptyWeightUnit.value  = trip.s3EmptyTruckWeightUnit ?? 'tons';
-        _loadedWeightUnit.value = trip.s3LoadedTruckWeightUnit ?? 'tons';
+        _emptyWeightUnit.value  = trip.s3EmptyTruckWeightUnit ?? 'kg';
+        _loadedWeightUnit.value = trip.s3LoadedTruckWeightUnit ?? 'kg';
         if (trip.s3VehicleReachDatetime != null) {
           _vehicleReachDatetime = DateTime.tryParse(trip.s3VehicleReachDatetime!);
         }
@@ -2494,8 +2494,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     }
     _emptyTruckWeight.text = d['empty_truck_weight']      as String? ?? '';
     _loadedTruckWeight.text = d['loaded_truck_weight']    as String? ?? '';
-    _emptyWeightUnit.value = d['empty_truck_weight_unit'] as String? ?? 'tons';
-    _loadedWeightUnit.value = d['loaded_truck_weight_unit'] as String? ?? 'tons';
+    _emptyWeightUnit.value = d['empty_truck_weight_unit'] as String? ?? 'kg';
+    _loadedWeightUnit.value = d['loaded_truck_weight_unit'] as String? ?? 'kg';
     final vehicleReachStr = d['vehicle_reach_datetime'] as String?;
     if (vehicleReachStr != null) _vehicleReachDatetime = DateTime.tryParse(vehicleReachStr);
     final loadingStartStr = d['loading_start_datetime'] as String?;
@@ -2574,7 +2574,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           if (s2Loc != null) ...{
             's2_dharam_kanta_loc':    s2Loc,
             's2_empty_weight':        s2Weight ?? '',
-            's2_empty_weight_unit_s2': s2Unit ?? 'tons',
+            's2_empty_weight_unit_s2': s2Unit ?? 'kg',
           },
           // Loaded weight slip upload
           if (_weightSlipData != null) ...{
@@ -2717,7 +2717,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       'safety_gear':              _safetyGear.toString(),
       // Use Stage 2 weight if it was captured there, otherwise Stage 3 entry
       'empty_truck_weight_kg':    weightFromS2 ? s2Weight : _emptyTruckWeight.text.trim(),
-      'empty_truck_weight_unit':  weightFromS2 ? (stagesState.s2EmptyWeightUnit ?? _s2EmptyWeightUnit ?? 'tons') : _emptyWeightUnit.value,
+      'empty_truck_weight_unit':  weightFromS2 ? (stagesState.s2EmptyWeightUnit ?? _s2EmptyWeightUnit ?? 'kg') : _emptyWeightUnit.value,
       'loaded_truck_weight_kg':   _loadedTruckWeight.text.trim(),
       'loaded_truck_weight_unit': _loadedWeightUnit.value,
       'vehicle_reach_datetime':   _vehicleReachDatetime!.toIso8601String(),
@@ -3021,9 +3021,9 @@ class _CompletionView extends StatelessWidget {
     required this.onDone,
     required this.onNextStage,
     this.emptyWeightKg,
-    this.emptyWeightUnit = 'tons',
+    this.emptyWeightUnit = 'kg',
     this.loadedWeightKg,
-    this.loadedWeightUnit = 'tons',
+    this.loadedWeightUnit = 'kg',
   });
 
   @override
@@ -3372,6 +3372,11 @@ class _DateTimeField extends StatelessWidget {
   final ValueChanged<DateTime> onChanged;
   final bool showError;
   final Key? fieldKey;
+  // RR's unloading.{truck_reach_datetime,start_datetime,end_datetime} schema
+  // has is_restricted_future_date — a future value gets rejected with a 422
+  // at sync time. Set true for those fields so it can't be picked in the
+  // first place. RR's loading.* fields have no such restriction.
+  final bool disallowFuture;
 
   const _DateTimeField({
     required this.label,
@@ -3379,15 +3384,16 @@ class _DateTimeField extends StatelessWidget {
     required this.onChanged,
     this.showError = false,
     this.fieldKey,
+    this.disallowFuture = false,
   });
 
   Future<void> _pick(BuildContext context) async {
     final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
-      initialDate: value ?? now,
+      initialDate: (value != null && (!disallowFuture || !value!.isAfter(now))) ? value! : now,
       firstDate: DateTime(now.year - 1),
-      lastDate: DateTime(now.year + 1),
+      lastDate: disallowFuture ? now : DateTime(now.year + 1),
     );
     if (date == null || !context.mounted) return;
     final time = await showTimePicker(
@@ -3395,7 +3401,19 @@ class _DateTimeField extends StatelessWidget {
       initialTime: value != null ? TimeOfDay.fromDateTime(value!) : TimeOfDay.now(),
     );
     if (time == null) return;
-    onChanged(DateTime(date.year, date.month, date.day, time.hour, time.minute));
+    var picked = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    if (disallowFuture && picked.isAfter(now)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('$label can\'t be a future date/time — using current time instead',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+      picked = now;
+    }
+    onChanged(picked);
   }
 
   String _format(DateTime dt) {
@@ -3586,7 +3604,7 @@ class _WeighFieldState extends State<_WeighField> {
           ),
           const SizedBox(height: 12),
           ValueListenableBuilder<String>(
-            valueListenable: unitNotifier ?? ValueNotifier('tons'),
+            valueListenable: unitNotifier ?? ValueNotifier('kg'),
             builder: (_, unit, __) => TextFormField(
               controller: widget.controller,
               enabled: widget.enabled,
@@ -4302,7 +4320,7 @@ class _UnitToggle extends StatelessWidget {
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: ['tons', 'kg'].map((unit) {
+          children: ['kg', 'tons'].map((unit) {
             final active = selected == unit;
             return GestureDetector(
               onTap: enabled ? () => onChanged(unit) : null,
@@ -5427,6 +5445,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
             label: 'Vehicle Reach Date And Time',
             value: _vehicleReachDatetime,
             showError: _showDatetimeErrors && _vehicleReachDatetime == null,
+            disallowFuture: true,
             onChanged: (dt) {
               setState(() => _vehicleReachDatetime = dt);
               _touchField('vehicle_reach_datetime');
@@ -5437,6 +5456,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
             label: 'Unloading Start Date And Time',
             value: _unloadingStartDatetime,
             showError: _showDatetimeErrors && _unloadingStartDatetime == null,
+            disallowFuture: true,
             onChanged: (dt) {
               setState(() => _unloadingStartDatetime = dt);
               _touchField('unloading_start_datetime');
@@ -5447,6 +5467,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
             label: 'Unloading End Date And Time',
             value: _unloadingEndDatetime,
             showError: _showDatetimeErrors && _unloadingEndDatetime == null,
+            disallowFuture: true,
             onChanged: (dt) {
               setState(() => _unloadingEndDatetime = dt);
               _touchField('unloading_end_datetime');
@@ -6313,7 +6334,7 @@ class _RrPerStageSyncPanelState extends ConsumerState<_RrPerStageSyncPanel> {
     final t = widget.trip;
     switch (stage) {
       case 1: return t.rrS1SyncStatus;
-      case 2: return t.rrSyncStatus;   // stage 2 shares the legacy overall column
+      case 2: return t.rrS2SyncStatus;
       case 3: return t.rrS3SyncStatus;
       case 4: return t.rrS4SyncStatus;
       case 5: return t.rrS5SyncStatus;
@@ -6325,7 +6346,7 @@ class _RrPerStageSyncPanelState extends ConsumerState<_RrPerStageSyncPanel> {
     final t = widget.trip;
     switch (stage) {
       case 1: return t.rrS1SyncError;
-      case 2: return t.rrSyncError;
+      case 2: return t.rrS2SyncError;
       case 3: return t.rrS3SyncError;
       case 4: return t.rrS4SyncError;
       case 5: return t.rrS5SyncError;

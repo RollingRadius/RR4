@@ -391,20 +391,25 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
 # ── Stage 2: Loading slip ─────────────────────────────────────────────────────
 
 async def _sync_loading_slip(trip, client: httpx.AsyncClient, token: str, db) -> None:
-    """Upload loading slip to RR /files then POST /post_loading_slip."""
+    """
+    Upload loading slip to RR /files then POST /post_loading_slip.
+    Writes to rr_s2_sync_status (dedicated) — NOT just the legacy rr_sync_status,
+    which stages 3/5 also write to and would otherwise stomp this stage's own
+    result once they run afterward in the same sync batch.
+    """
     if not trip.s2_loading_slip_url:
         return
 
     if not trip.rr_trip_id:
         logger.info(f"[RR Sync] Trip {trip.trip_number} has no rr_trip_id yet — pending trip creation")
-        trip.rr_sync_status = "pending_trip_creation"
+        trip.rr_s2_sync_status = "pending_trip_creation"
         db.commit()
         return
 
     rr_file_id = await _upload_file(trip.s2_loading_slip_url, client, token)
     if not rr_file_id:
-        trip.rr_sync_status = "failed"
-        trip.rr_sync_error = "Loading slip file upload to RR failed"
+        trip.rr_s2_sync_status = "failed"
+        trip.rr_s2_sync_error = "Loading slip file upload to RR failed"
         db.commit()
         return
 
@@ -416,8 +421,8 @@ async def _sync_loading_slip(trip, client: httpx.AsyncClient, token: str, db) ->
         )
     except Exception as exc:
         logger.error(f"[RR Sync] post_loading_slip exception: {exc}")
-        trip.rr_sync_status = "failed"
-        trip.rr_sync_error = f"post_loading_slip exception: {exc}"[:500]
+        trip.rr_s2_sync_status = "failed"
+        trip.rr_s2_sync_error = f"post_loading_slip exception: {exc}"[:500]
         db.commit()
         return
 
@@ -425,6 +430,9 @@ async def _sync_loading_slip(trip, client: httpx.AsyncClient, token: str, db) ->
         trip.rr_sync_status = "loading_slip_synced"
         trip.rr_synced_at = datetime.utcnow()
         trip.rr_sync_error = None
+        trip.rr_s2_sync_status = "synced"
+        trip.rr_s2_synced_at = datetime.utcnow()
+        trip.rr_s2_sync_error = None
         db.commit()
         logger.info(
             f"[RR Sync] Trip {trip.trip_number} loading slip synced (rr_file_id={rr_file_id})"
@@ -433,8 +441,8 @@ async def _sync_loading_slip(trip, client: httpx.AsyncClient, token: str, db) ->
         logger.error(
             f"[RR Sync] post_loading_slip failed ({resp.status_code}): {resp.text[:300]}"
         )
-        trip.rr_sync_status = "failed"
-        trip.rr_sync_error = f"HTTP {resp.status_code}: {resp.text[:400]}"
+        trip.rr_s2_sync_status = "failed"
+        trip.rr_s2_sync_error = f"HTTP {resp.status_code}: {resp.text[:400]}"
         db.commit()
 
 
@@ -511,8 +519,25 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
     if trip.s3_loading_start_datetime:
         loading["start_datetime"] = trip.s3_loading_start_datetime.strftime("%Y-%m-%dT%H:%M:%S")
 
+    # ── Actual Dharam Kanta weight ────────────────────────────────────────────
+    # RR's "Actual Dharam Kanta Weight" on the web UI is the top-level
+    # parcels.actual_kanta_weight field — NOT documents.weight_receipt above
+    # (that's just the receipt photo's metadata). Mirrors our loaded truck weight.
+    actual_kanta_weight = None
+    if trip.s3_loaded_truck_weight_kg:
+        try:
+            unit_map = {"tons": "TONNES", "kg": "KILOGRAMS"}
+            actual_kanta_weight = {
+                "weight": float(trip.s3_loaded_truck_weight_kg),
+                "weight_unit": unit_map.get((trip.s3_loaded_truck_weight_unit or "kg").lower(), "KILOGRAMS"),
+            }
+        except (ValueError, TypeError):
+            pass
+
     # ── PATCH parcel ──────────────────────────────────────────────────────────
     patch_body: dict = {}
+    if actual_kanta_weight:
+        patch_body["actual_kanta_weight"] = actual_kanta_weight
     if documents:
         patch_body["documents"] = documents
     if loading:
@@ -1112,6 +1137,7 @@ async def _assign_vehicle_to_rr_trip(
 
 _STAGE_STATUS_FIELDS = {
     1: ("rr_s1_sync_status", "rr_s1_sync_error"),
+    2: ("rr_s2_sync_status", "rr_s2_sync_error"),
     3: ("rr_s3_sync_status", "rr_s3_sync_error"),
     4: ("rr_s4_sync_status", "rr_s4_sync_error"),
     5: ("rr_s5_sync_status", "rr_s5_sync_error"),
@@ -1148,13 +1174,9 @@ async def sync_stage(trip_id: str, stage: int) -> None:
 
         token = await get_org_rr_token(org, db)
         if not token:
-            if stage == 2:
-                trip.rr_sync_status = "auth_required"
-                trip.rr_sync_error = _AUTH_REQUIRED_MSG
-            else:
-                status_field, error_field = _STAGE_STATUS_FIELDS[stage]
-                setattr(trip, status_field, "auth_required")
-                setattr(trip, error_field, _AUTH_REQUIRED_MSG)
+            status_field, error_field = _STAGE_STATUS_FIELDS[stage]
+            setattr(trip, status_field, "auth_required")
+            setattr(trip, error_field, _AUTH_REQUIRED_MSG)
             db.commit()
             logger.info(f"[RR Sync Stage {stage}] Trip {trip.trip_number} — no RR session available, marked auth_required")
             return

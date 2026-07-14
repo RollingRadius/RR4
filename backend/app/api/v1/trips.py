@@ -787,7 +787,7 @@ async def submit_stage2(
     trip.s2_dharam_kanta_loc = dk_loc
     if dk_loc == 'outside' and empty_weight_before_loading:
         trip.s2_empty_weight_kg   = empty_weight_before_loading.strip()
-        trip.s2_empty_weight_unit = (empty_weight_unit or 'tons').strip()
+        trip.s2_empty_weight_unit = (empty_weight_unit or 'kg').strip()
     else:
         trip.s2_empty_weight_kg   = None
         trip.s2_empty_weight_unit = None
@@ -827,9 +827,9 @@ async def submit_stage3(
     wheel_stoppers:          str = Form(...),
     safety_gear:             str = Form(...),
     empty_truck_weight_kg:   Optional[str] = Form(None),
-    empty_truck_weight_unit: Optional[str] = Form('tons'),
+    empty_truck_weight_unit: Optional[str] = Form('kg'),
     loaded_truck_weight_kg:  Optional[str] = Form(None),
-    loaded_truck_weight_unit: Optional[str] = Form('tons'),
+    loaded_truck_weight_unit: Optional[str] = Form('kg'),
     loaded_weight_slip:      Optional[UploadFile] = File(None),
     bilty:                   Optional[UploadFile] = File(None),
     material_docs:           Optional[List[UploadFile]] = File(None),
@@ -919,9 +919,9 @@ async def submit_stage3(
     trip.s3_wheel_stoppers           = _form_bool(wheel_stoppers)
     trip.s3_safety_gear              = _form_bool(safety_gear)
     trip.s3_empty_truck_weight_kg    = empty_truck_weight_kg
-    trip.s3_empty_truck_weight_unit  = empty_truck_weight_unit or 'tons'
+    trip.s3_empty_truck_weight_unit  = empty_truck_weight_unit or 'kg'
     trip.s3_loaded_truck_weight_kg   = loaded_truck_weight_kg
-    trip.s3_loaded_truck_weight_unit = loaded_truck_weight_unit or 'tons'
+    trip.s3_loaded_truck_weight_unit = loaded_truck_weight_unit or 'kg'
     if loaded_weight_slip_url:
         trip.s3_loaded_weight_slip_url = loaded_weight_slip_url
     if bilty_url:
