@@ -14,7 +14,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query, UploadFile, File, Form
 from pydantic import BaseModel
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -254,23 +254,28 @@ def list_trips(
         elif len(statuses) > 1:
             query = query.filter(Trip.status.in_(statuses))
 
+    # A trip is "done" only once Stage 5 is submitted locally AND its data has
+    # actually finished syncing to RR — pod_synced is only set by _sync_stage5
+    # on a successful PATCH, which itself only happens once LP/RR-ops's RR
+    # login has let the background per-stage sync go through. current_stage
+    # alone isn't enough: a trip can hit stage 5 locally before its sync clears.
+    _rr_fully_synced = and_(Trip.current_stage >= 5, Trip.rr_sync_status == 'pod_synced')
+
     if rr_only:
-        # Records: trips fully completed (all 5 stages done), synced to RR.
-        # Uses current_stage, not rr_sync_status — a trip only belongs in
-        # Records once every stage is submitted, not as soon as any RR doc syncs.
+        # Records: fully completed AND fully synced to RR — see _rr_fully_synced above.
         query = query.filter(
             Trip.rr_trip_id.isnot(None),
             Trip.rr_trip_id != '',
-            Trip.current_stage >= 5,
+            _rr_fully_synced,
         )
 
     if rr_web:
-        # Fleet status: RR web form trips still in progress (any stage not yet
-        # complete) — stays here through loading slip / bilty / POD syncing,
-        # only moves to Records once current_stage reaches 5.
+        # Fleet status: everything not yet fully synced stays here — holds the
+        # trip through loading slip / bilty / POD syncing for all three roles
+        # (LP, LP-worker/FE, RR-ops) until RR sync actually completes.
         query = query.filter(
             Trip.consignor_name.isnot(None),
-            Trip.current_stage < 5,
+            ~_rr_fully_synced,
         )
 
     total = query.count()
