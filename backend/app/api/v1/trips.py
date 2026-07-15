@@ -581,6 +581,32 @@ def _get_fleet_trip(trip_id: str, user_org, db: Session) -> Trip:
     return trip
 
 
+class S1RequiredUpdate(BaseModel):
+    required: bool
+
+
+@router.patch("/trips/{trip_id}/s1-required", status_code=200)
+def set_s1_required(
+    trip_id: str,
+    body: S1RequiredUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """LP/RR-ops toggle whether Field Executives must fill Stage 1 for this
+    trip — a live switch, not a one-time decision, so it can be flipped at any
+    point while the trip is active. Never restricts LP/RR-ops themselves."""
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'lp_rr_operations', 'super_admin'):
+        raise HTTPException(status_code=403, detail="LP / RR-ops only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    trip.s1_required = body.required
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "trip": _enrich(trip, db)}
+
+
 @router.post("/trips/{trip_id}/stage/1", status_code=200)
 async def submit_stage1(
     trip_id: str,
@@ -745,7 +771,7 @@ async def submit_stage2(
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
-    if trip.current_stage < 1:
+    if trip.current_stage < 1 and trip.s1_required:
         raise HTTPException(status_code=409, detail="Complete Stage 1 first")
 
     # Stage lock: first worker to submit owns this stage; owners can always re-edit

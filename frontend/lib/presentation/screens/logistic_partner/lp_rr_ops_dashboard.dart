@@ -81,10 +81,13 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
   }
 
-  void _showRrTripPopup(String value) {
+  void _showRrTripPopup(String value, String? tripId) {
     ref.read(pendingRrTripNumberProvider.notifier).state = null;
+    ref.read(pendingCreatedTripIdProvider.notifier).state = null;
     final isFailed = value.startsWith('__failed__:');
-    showDialog<void>(
+
+    bool closed = false;
+    final popupFuture = showDialog<void>(
       context: context,
       barrierDismissible: true,
       builder: (_) => isFailed
@@ -170,7 +173,55 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                 ),
               ],
             ),
-    );
+    ).then((_) {
+      closed = true;
+      if (mounted && tripId != null) _showS1RequiredPopup(tripId);
+    });
+
+    Timer(const Duration(seconds: 3), () {
+      if (!closed && mounted) {
+        Navigator.of(context, rootNavigator: true).maybePop();
+      }
+    });
+  }
+
+  void _showS1RequiredPopup(String tripId) {
+    showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Field Executive — Stage 1', style: _manrope(size: 15, weight: FontWeight.w800)),
+        content: Text(
+          'Allow the Field Executive to fill Stage 1 (Truck Detail Registration) docs for this trip?\n\n'
+          'You can change this later from the trip card.',
+          style: _inter(size: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
+            child: Text('No', style: _inter(size: 14, weight: FontWeight.w600)),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: _rrBlue,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
+            child: Text('Yes', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+          ),
+        ],
+      ),
+    ).then((allow) async {
+      if (allow == false) {
+        try {
+          await ref.read(dioProvider).patch(
+            '/api/trips/$tripId/s1-required',
+            data: {'required': false},
+          );
+        } catch (_) {
+          // Non-fatal — LP/RR-ops can retry via the toggle on the trip card.
+        }
+      }
+    });
   }
 
   @override
@@ -183,7 +234,8 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   Widget build(BuildContext context) {
     ref.listen<String?>(pendingRrTripNumberProvider, (_, next) {
       if (next != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _showRrTripPopup(next));
+        final tripId = ref.read(pendingCreatedTripIdProvider);
+        WidgetsBinding.instance.addPostFrameCallback((_) => _showRrTripPopup(next, tripId));
       }
     });
 

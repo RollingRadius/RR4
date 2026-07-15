@@ -171,6 +171,17 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
   Future<void> _enterStage(int visualStage) async {
     final user = ref.read(authProvider).user;
     if (user == null) return;
+    if (visualStage == 0 && _isFieldExecutive && !_trip.s1Required) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Filling S1 is not necessary for this trip.',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _secondary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     setState(() => _editingStage = visualStage);
   }
 
@@ -226,13 +237,24 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
     return user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
   }
 
+  bool get _isFieldExecutive {
+    final user = ref.read(authProvider).user;
+    return user?.isLogisticPartnerWorker == true;
+  }
+
+  /// True when this FE should never see Stage 1 for this trip — LP/RR-ops
+  /// decided the selected driver/vehicle's docs already exist on RR web, so
+  /// FE lands straight on Stage 2 instead. LP/RR-ops are never affected.
+  bool get _skipS1ForFe => _isFieldExecutive && !_trip.s1Required;
+
   /// Returns a tap handler for the step indicator. LP, RR-ops, and FE can all
   /// freely move between any stage while the trip is in progress — clicking
-  /// any dot (e.g. "Compliance") jumps straight there. Once the trip is fully
-  /// completed and viewed from Records, `readOnly` disables this entirely for
-  /// everyone (FE can't even open it — see RrTripCard._openStages).
+  /// any dot (e.g. "Compliance") jumps straight there. In `readOnly` mode
+  /// (Records, LP/RR-ops only — FE can't even open it, see
+  /// RrTripCard._openStages) navigation between stages stays enabled so
+  /// history can be reviewed stage by stage; the AbsorbPointer around the
+  /// form itself is what keeps everything non-editable.
   Function(int)? _buildStepTapHandler() {
-    if (widget.readOnly) return null;
     return (int i) => _enterStage(i);
   }
 
@@ -246,6 +268,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
     if (_stage4Done) return 4;      // _Stage5Form — Unloading
     if (_showStage4) return 3;      // _Stage4Form — Exit
     if (stage == 3) return 2;       // _CompletionView — reviewing Stage 3 (Arrival)
+    if (stage == 0 && _skipS1ForFe) return 1;  // _Stage2Form substituted for FE — Compliance
     if (stage == 0) return 0;       // _Stage1Form — Details
     if (stage == 1) return 1;       // _Stage2Form — Compliance
     return 2;                       // stage == 2 → _Stage3Form — Arrival
@@ -259,6 +282,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
           providerKey: _providerKey,
           trip: _trip,
           onEditDone: _exitEditMode,
+          readOnly: widget.readOnly,
         );
       case 1:
         return _Stage2Form(
@@ -266,6 +290,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
           providerKey: _providerKey,
           trip: _trip,
           onEditDone: _exitEditMode,
+          readOnly: widget.readOnly,
         );
       case 2:
         return _Stage3Form(
@@ -273,11 +298,13 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
           providerKey: _providerKey,
           trip: _trip,
           onEditDone: _exitEditMode,
+          readOnly: widget.readOnly,
         );
       case 3:
         return _Stage4Form(
           key: ValueKey('edit_s4_${_trip.id}_$_tripFreshness'),
           trip: _trip,
+          readOnly: widget.readOnly,
           onComplete: (updated) {
             setState(() {
               _trip = updated;
@@ -292,6 +319,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
         return _Stage5Form(
           key: ValueKey('edit_s5_${_trip.id}_$_tripFreshness'),
           trip: _trip,
+          readOnly: widget.readOnly,
           onComplete: (updated) {
             setState(() {
               _trip = updated;
@@ -432,40 +460,57 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                 ],
               ),
             ),
-          AbsorbPointer(
-            absorbing: widget.readOnly,
-            child: _Stage0Card(
-              key: ValueKey('s0_${_trip.id}_${_trip.rrTripId}_${_trip.rrSyncStatus}'),
-              trip: _trip,
-              onSyncDone: _fetchFreshTrip,
-            ),
-          ),
-          if (_trip.rrTripId != null)
-            AbsorbPointer(
-              absorbing: widget.readOnly,
-              child: _RrPerStageSyncPanel(
-                key: ValueKey(
-                  's_sync_${_trip.id}_${_trip.rrS1SyncStatus}_${_trip.rrSyncStatus}_'
-                  '${_trip.rrS3SyncStatus}_${_trip.rrS4SyncStatus}_${_trip.rrS5SyncStatus}',
-                ),
-                trip: _trip,
-                onRetryDone: _fetchFreshTrip,
+          if (!widget.readOnly && _skipS1ForFe && stage == 0 && _editingStage == null)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: theme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: theme.primary.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline_rounded, color: theme.primary, size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Filling S1 is not necessary for this trip.',
+                        style: _manrope(size: 12.5, weight: FontWeight.w700, color: theme.primary)),
+                  ),
+                ],
               ),
             ),
+          _Stage0Card(
+            key: ValueKey('s0_${_trip.id}_${_trip.rrTripId}_${_trip.rrSyncStatus}'),
+            trip: _trip,
+            onSyncDone: _fetchFreshTrip,
+            readOnly: widget.readOnly,
+          ),
+          if (_trip.rrTripId != null)
+            _RrPerStageSyncPanel(
+              key: ValueKey(
+                's_sync_${_trip.id}_${_trip.rrS1SyncStatus}_${_trip.rrSyncStatus}_'
+                '${_trip.rrS3SyncStatus}_${_trip.rrS4SyncStatus}_${_trip.rrS5SyncStatus}',
+              ),
+              trip: _trip,
+              onRetryDone: _fetchFreshTrip,
+              readOnly: widget.readOnly,
+            ),
           Expanded(
-            child: AbsorbPointer(
-            absorbing: widget.readOnly,
             child: _editingStage != null
                 ? _buildEditForm(_editingStage!)
                 : _stage5Done
                     ? _Stage4CompleteView(
                         trip: _trip,
                         onDone: () => Navigator.of(context).pop(),
+                        readOnly: widget.readOnly,
                       )
                     : _stage4Done
                         ? _Stage5Form(
                             key: ValueKey('s5_${_trip.id}_$_tripFreshness'),
                             trip: _trip,
+                            readOnly: widget.readOnly,
                             onComplete: (updated) {
                               setState(() {
                                 _trip = updated;
@@ -478,6 +523,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                             ? _Stage4Form(
                                 key: ValueKey('s4_${_trip.id}_$_tripFreshness'),
                                 trip: _trip,
+                                readOnly: widget.readOnly,
                                 onComplete: (updated) {
                                   setState(() {
                                     _trip = updated;
@@ -496,6 +542,13 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                                     onDone: () => Navigator.of(context).pop(),
                                     onNextStage: () => setState(() => _showStage4 = true),
                                   )
+                                : stage == 0 && _skipS1ForFe
+                                    ? _Stage2Form(
+                                        key: ValueKey('s2_skip1_${_trip.id}_$_tripFreshness'),
+                                        providerKey: _providerKey,
+                                        trip: _trip,
+                                        readOnly: widget.readOnly,
+                                      )
                                 : stage == 0
                                     ? (_trip.rrTripId == null
                                         ? _Stage0LandingView(trip: _trip)
@@ -504,19 +557,21 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                                             providerKey: _providerKey,
                                             trip: _trip,
                                             onEditDone: null,
+                                            readOnly: widget.readOnly,
                                           ))
                                     : stage == 1
                                         ? _Stage2Form(
                                             key: ValueKey('s2_${_trip.id}_$_tripFreshness'),
                                             providerKey: _providerKey,
                                             trip: _trip,
+                                            readOnly: widget.readOnly,
                                           )
                                         : _Stage3Form(
                                                 key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
                                                 providerKey: _providerKey,
                                                 trip: _trip,
+                                                readOnly: widget.readOnly,
                                               ),
-            ),
           ),
         ],
       ),
@@ -527,8 +582,13 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
 // ─── Trip state badge (5-state: Pending / Ongoing / In Transit / Completed / Cancelled) ──
 
 (String, Color, Color) _tripStateColors(TripModel trip) {
+  // A trip is "complete" either via the explicit /complete action (trip.status)
+  // or by reaching Records (all 5 stages done + fully synced to RR) — the
+  // latter never touches trip.status, so both must be checked here or the
+  // badge stays stuck on "IN TRANSIT" for trips sitting in Records.
+  final isRecordsComplete = trip.currentStage >= 5 && trip.rrSyncStatus == 'pod_synced';
   if (trip.isCancelled) return ('CANCELLED', const Color(0xFFFFDAD6), const Color(0xFFBA1A1A));
-  if (trip.isCompleted) return ('COMPLETED', const Color(0xFFECEEF0), const Color(0xFF546067));
+  if (trip.isCompleted || isRecordsComplete) return ('COMPLETED', const Color(0xFFECEEF0), const Color(0xFF546067));
   if (trip.currentStage >= 4) return ('IN TRANSIT', const Color(0xFFD7F0D9), const Color(0xFF1B5E20));
   if (trip.currentStage >= 1) return ('ONGOING', const Color(0xFFFFE8D5), const Color(0xFFFF6B00));
   return ('PENDING', const Color(0xFFFFF3E0), const Color(0xFFE65100));
@@ -669,7 +729,8 @@ class _Stage1Form extends ConsumerStatefulWidget {
   final TripModel trip;
   /// Called after a successful update-submit when the user was editing stage 1 from stage 2.
   final VoidCallback? onEditDone;
-  const _Stage1Form({super.key, required this.providerKey, required this.trip, this.onEditDone});
+  final bool readOnly;
+  const _Stage1Form({super.key, required this.providerKey, required this.trip, this.onEditDone, this.readOnly = false});
 
   @override
   ConsumerState<_Stage1Form> createState() => _Stage1FormState();
@@ -1033,6 +1094,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 if (fieldKey != null) _touchField(fieldKey);
                 onRemove();
               },
+              readOnly: widget.readOnly,
             ),
           ),
           _FieldAttribution(username: fieldKey != null ? _attrOf(fieldKey) : null),
@@ -1255,7 +1317,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: busy ? null : _submit,
+                onPressed: (busy || widget.readOnly) ? null : _submit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _StageTheme.rrWeb.primary,
                   foregroundColor: Colors.white,
@@ -1290,7 +1352,8 @@ class _Stage2Form extends ConsumerStatefulWidget {
   final (String, int) providerKey;
   final TripModel trip;
   final VoidCallback? onEditDone;
-  const _Stage2Form({super.key, required this.providerKey, required this.trip, this.onEditDone});
+  final bool readOnly;
+  const _Stage2Form({super.key, required this.providerKey, required this.trip, this.onEditDone, this.readOnly = false});
 
   @override
   ConsumerState<_Stage2Form> createState() => _Stage2FormState();
@@ -1884,7 +1947,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                     hint: 'e.g. 12.5',
                     note: 'Weight recorded outside factory (before loading).',
                     unitNotifier: _emptyWeightUnit,
-                    enabled: !_s2WeightConfirmed,
+                    enabled: !_s2WeightConfirmed && !widget.readOnly,
                   ),
                   _FieldAttribution(username: _attrOf('empty_weight_before_loading')),
                   const SizedBox(height: 10),
@@ -1983,7 +2046,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: busy ? null : () {
+              onPressed: (busy || widget.readOnly) ? null : () {
                 setState(() => _entryPermission = true);
                 _submit();
               },
@@ -2436,7 +2499,8 @@ class _Stage3Form extends ConsumerStatefulWidget {
   final (String, int) providerKey;
   final TripModel trip;
   final VoidCallback? onEditDone;
-  const _Stage3Form({super.key, required this.providerKey, required this.trip, this.onEditDone});
+  final bool readOnly;
+  const _Stage3Form({super.key, required this.providerKey, required this.trip, this.onEditDone, this.readOnly = false});
 
   @override
   ConsumerState<_Stage3Form> createState() => _Stage3FormState();
@@ -2477,7 +2541,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   final _loadedWeightUnit  = ValueNotifier<String>('kg');
   ({Uint8List bytes, String name})? _weightSlipData;
 
-  // Two-phase: first "Loading Complete", then "Complete Stage"
+  // "Loading Completed" checkbox — part of the checklist required before
+  // Complete Stage; no longer gates visibility of the rest of the form.
   bool _loadingComplete = false;
 
   // Stage 2 Dharam Kanta data — persisted in draft for cross-session restore
@@ -2695,10 +2760,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _saveDraft();
   }
 
-  bool get _allChecked =>
+  bool get _checklistDone =>
       _driverParked && _docsSubmitted && _securityVerified &&
       _driverExitedCabin && _wheelStoppers && _safetyGear &&
       _vehicleReachDatetime != null && _loadingStartDatetime != null;
+
+  bool get _allChecked => _checklistDone && _loadingComplete;
 
   void _scrollToKey3(GlobalKey key) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2728,8 +2795,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     }
   }
 
-  void _onLoadingComplete() {
-    if (!_allChecked) {
+  void _onLoadingCompleteToggle(bool v) {
+    if (v && !_checklistDone) {
       setState(() => _showDatetimeErrors = true);
       _scrollToFirstUnchecked();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2743,15 +2810,35 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       );
       return;
     }
-    setState(() => _loadingComplete = true);
+    setState(() => _loadingComplete = v);
     _saveDraft();
   }
 
   Future<void> _completeStage() async {
-    if (_vehicleReachDatetime == null || _loadingStartDatetime == null) {
-      // Shouldn't happen (guarded by _onLoadingComplete/_allChecked), but never
-      // crash on a stale/rebuilt widget — bounce back to phase 1 instead.
-      setState(() { _loadingComplete = false; _showDatetimeErrors = true; });
+    if (!_checklistDone) {
+      setState(() => _showDatetimeErrors = true);
+      _scrollToFirstUnchecked();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('All steps must be completed before completing the stage.',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+    if (!_loadingComplete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please check "Loading Completed" before completing the stage.',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
       return;
     }
     final stagesState = ref.read(tripStagesProvider(widget.providerKey));
@@ -2923,60 +3010,37 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               label: 'Empty Truck Weight',
               hint: 'e.g. 12.5',
               note: 'Record the empty truck weight before loading.',
-              enabled: !_loadingComplete,
+              enabled: !widget.readOnly,
               unitNotifier: _emptyWeightUnit,
             ),
             _FieldAttribution(username: _attrOf('empty_truck_weight')),
             const SizedBox(height: 20),
           ],
 
-          // Phase 1 button — "Loading Complete"
-          if (!_loadingComplete) ...[
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _onLoadingComplete,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _allChecked ? _primary : _secondary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  textStyle: GoogleFonts.manrope(fontSize: 15, fontWeight: FontWeight.w700),
-                ),
-                child: const Text('Loading Complete →'),
-              ),
+          // Loading Completed — one more checklist item, required (with the rest) to Complete Stage
+          Container(
+            decoration: BoxDecoration(
+              color: _loadingComplete ? _success.withValues(alpha: 0.08) : _surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                  color: _loadingComplete ? _success.withValues(alpha: 0.30) : _border),
             ),
-          ],
-
-          // Phase 2 — Loaded weight + Complete Stage button
-          if (_loadingComplete) ...[
-            // Confirmation banner
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: _success.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: _success.withValues(alpha: 0.30)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle_rounded, color: _success, size: 16),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Loading complete. Record loaded truck weight.',
-                        style: _inter(size: 12, color: _success, weight: FontWeight.w600)),
-                  ),
-                ],
-              ),
+            child: _CheckItem(
+              label: 'Loading Completed',
+              value: _loadingComplete,
+              activeColor: _success,
+              onChanged: widget.readOnly ? (_) {} : _onLoadingCompleteToggle,
             ),
-            const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 20),
 
-            _WeighField(
+          // Loaded weight + Bilty + Material Documents + Complete Stage
+          _WeighField(
               controller: _loadedTruckWeight,
               label: 'Loaded Truck Weight',
               hint: 'e.g. 28.5',
               note: 'Record the truck weight after loading is done.',
-              enabled: true,
+              enabled: !widget.readOnly,
               unitNotifier: _loadedWeightUnit,
               existingSlipUrl: _weightSlipData == null ? widget.trip.s3LoadedWeightSlipUrl : null,
               initialSlipBytes: _weightSlipData?.bytes,
@@ -3005,6 +3069,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               existingUrl: _biltyData == null ? widget.trip.s3BiltyUrl : null,
               onPickSource: _pickBilty,
               onRemove: () { setState(() => _biltyData = null); _touchField('bilty_doc'); _saveDraft(); },
+              readOnly: widget.readOnly,
             ),
             _FieldAttribution(username: _attrOf('bilty_doc')),
             const SizedBox(height: 20),
@@ -3017,6 +3082,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               bytesList: _materialDocs.map((d) => d.bytes).toList(),
               onPickSource: _pickMaterialDocs,
               onRemove: _removeMaterialDoc,
+              readOnly: widget.readOnly,
             ),
             _FieldAttribution(username: _attrOf('material_docs')),
             const SizedBox(height: 28),
@@ -3036,7 +3102,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: busy ? null : _completeStage,
+                onPressed: (busy || widget.readOnly) ? null : _completeStage,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _success,
                   foregroundColor: Colors.white,
@@ -3050,7 +3116,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                     : const Text('Complete Stage ✓'),
               ),
             ),
-          ],
         ],
       ),
     );
@@ -3734,41 +3799,43 @@ class _WeighFieldState extends State<_WeighField> {
                       child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
                     ),
                   ),
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: GestureDetector(
-                      onTap: _showPickerSheet,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: Colors.black54,
-                          shape: BoxShape.circle,
+                  if (widget.enabled) ...[
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: GestureDetector(
+                        onTap: _showPickerSheet,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.edit_rounded,
+                              color: Colors.white, size: 16),
                         ),
-                        child: const Icon(Icons.edit_rounded,
-                            color: Colors.white, size: 16),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _slipBytes = null);
-                        widget.onSlipRemoved?.call();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: _error.withValues(alpha: 0.85),
-                          shape: BoxShape.circle,
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() => _slipBytes = null);
+                          widget.onSlipRemoved?.call();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: _error.withValues(alpha: 0.85),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded,
+                              color: Colors.white, size: 16),
                         ),
-                        child: const Icon(Icons.close_rounded,
-                            color: Colors.white, size: 16),
                       ),
                     ),
-                  ),
+                  ],
                   Positioned(
                     bottom: 0,
                     left: 0,
@@ -3828,41 +3895,43 @@ class _WeighFieldState extends State<_WeighField> {
                       child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
                     ),
                   ),
-                  Positioned(
-                    top: 6,
-                    right: 6,
-                    child: GestureDetector(
-                      onTap: _showPickerSheet,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                          color: Colors.black54,
-                          shape: BoxShape.circle,
+                  if (widget.enabled) ...[
+                    Positioned(
+                      top: 6,
+                      right: 6,
+                      child: GestureDetector(
+                        onTap: _showPickerSheet,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.edit_rounded,
+                              color: Colors.white, size: 16),
                         ),
-                        child: const Icon(Icons.edit_rounded,
-                            color: Colors.white, size: 16),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    top: 6,
-                    left: 6,
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _existingCleared = true);
-                        widget.onSlipRemoved?.call();
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: _error.withValues(alpha: 0.85),
-                          shape: BoxShape.circle,
+                    Positioned(
+                      top: 6,
+                      left: 6,
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() => _existingCleared = true);
+                          widget.onSlipRemoved?.call();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: _error.withValues(alpha: 0.85),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded,
+                              color: Colors.white, size: 16),
                         ),
-                        child: const Icon(Icons.close_rounded,
-                            color: Colors.white, size: 16),
                       ),
                     ),
-                  ),
+                  ],
                   Positioned(
                     bottom: 0,
                     left: 0,
@@ -4053,6 +4122,8 @@ class _DocUploadTile extends StatelessWidget {
   final String? existingUrl;
   final Future<void> Function(ImageSource) onPickSource;
   final VoidCallback onRemove;
+  /// When true, only the tap-to-preview affordance is active — no pick/retake/remove.
+  final bool readOnly;
 
   const _DocUploadTile({
     required this.label,
@@ -4062,6 +4133,7 @@ class _DocUploadTile extends StatelessWidget {
     this.existingUrl,
     required this.onPickSource,
     required this.onRemove,
+    this.readOnly = false,
   });
 
   Future<void> _pick(BuildContext context) async {
@@ -4119,22 +4191,24 @@ class _DocUploadTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  GestureDetector(
-                    onTap: () => _pick(context),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('Retake',
-                          style: GoogleFonts.manrope(
-                              fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+                  if (!readOnly) ...[
+                    GestureDetector(
+                      onTap: () => _pick(context),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('Retake',
+                            style: GoogleFonts.manrope(
+                                fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: onRemove,
-                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: _error),
-                    visualDensity: VisualDensity.compact,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
+                    IconButton(
+                      onPressed: onRemove,
+                      icon: const Icon(Icons.delete_outline_rounded, size: 18, color: _error),
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -4201,15 +4275,16 @@ class _DocUploadTile extends StatelessWidget {
                             fontSize: 12, fontWeight: FontWeight.w700, color: _success),
                         maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
-                  GestureDetector(
-                    onTap: () => _pick(context),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Text('Replace',
-                          style: GoogleFonts.manrope(
-                              fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+                  if (!readOnly)
+                    GestureDetector(
+                      onTap: () => _pick(context),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('Replace',
+                            style: GoogleFonts.manrope(
+                                fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -4219,7 +4294,7 @@ class _DocUploadTile extends StatelessWidget {
     }
 
     return GestureDetector(
-      onTap: () => _pick(context),
+      onTap: readOnly ? null : () => _pick(context),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
         decoration: BoxDecoration(
@@ -4273,6 +4348,8 @@ class _MultiDocUploadTile extends StatelessWidget {
   final List<Uint8List> bytesList;
   final Future<void> Function(ImageSource) onPickSource;
   final void Function(int) onRemove;
+  /// When true, only tap-to-preview stays active — no add/remove.
+  final bool readOnly;
 
   const _MultiDocUploadTile({
     required this.label,
@@ -4280,6 +4357,7 @@ class _MultiDocUploadTile extends StatelessWidget {
     required this.bytesList,
     required this.onPickSource,
     required this.onRemove,
+    this.readOnly = false,
   });
 
   Future<void> _pick(BuildContext context) async {
@@ -4323,28 +4401,30 @@ class _MultiDocUploadTile extends StatelessWidget {
                       child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 14),
                     ),
                   ),
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: GestureDetector(
-                      onTap: () => onRemove(i),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          shape: BoxShape.circle,
+                  if (!readOnly)
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => onRemove(i),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.55),
+                            shape: BoxShape.circle,
+                          ),
+                          padding: const EdgeInsets.all(3),
+                          child: const Icon(Icons.close_rounded,
+                              size: 12, color: Colors.white),
                         ),
-                        padding: const EdgeInsets.all(3),
-                        child: const Icon(Icons.close_rounded,
-                            size: 12, color: Colors.white),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
           ),
           const SizedBox(height: 10),
         ],
+        if (!readOnly)
         GestureDetector(
           onTap: () => _pick(context),
           child: Container(
@@ -4494,7 +4574,8 @@ class _PickerOption extends StatelessWidget {
 class _Stage4Form extends ConsumerStatefulWidget {
   final TripModel trip;
   final void Function(TripModel updated) onComplete;
-  const _Stage4Form({super.key, required this.trip, required this.onComplete});
+  final bool readOnly;
+  const _Stage4Form({super.key, required this.trip, required this.onComplete, this.readOnly = false});
 
   @override
   ConsumerState<_Stage4Form> createState() => _Stage4FormState();
@@ -4923,7 +5004,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: (_allChecklistDone && !_checklistSubmitting) ? _submitChecklist : null,
+                onPressed: (_allChecklistDone && !_checklistSubmitting && !widget.readOnly) ? _submitChecklist : null,
                 icon: _checklistSubmitting
                     ? const SizedBox(width: 18, height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -4966,30 +5047,32 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
             _SectionHeader(icon: Icons.local_gas_station_rounded, title: 'Diesel Receipt'),
             const SizedBox(height: 12),
 
-            GestureDetector(
-              onTap: _showDieselPicker,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: _surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: _dieselFile != null
-                        ? _success.withValues(alpha: 0.50)
-                        : showExistingDiesel
-                            ? _success.withValues(alpha: 0.30)
-                            : _border,
-                    width: (_dieselFile != null || showExistingDiesel) ? 1.5 : 1,
-                  ),
+            Container(
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _dieselFile != null
+                      ? _success.withValues(alpha: 0.50)
+                      : showExistingDiesel
+                          ? _success.withValues(alpha: 0.30)
+                          : _border,
+                  width: (_dieselFile != null || showExistingDiesel) ? 1.5 : 1,
                 ),
-                child: _dieselFile != null
-                    ? Stack(
-                        children: [
-                          ClipRRect(
+              ),
+              child: _dieselFile != null
+                  ? Stack(
+                      children: [
+                        GestureDetector(
+                          onTap: () => _showImagePreview(context, bytes: _dieselFile!.bytes),
+                          child: ClipRRect(
                             borderRadius: BorderRadius.circular(13),
                             child: Image.memory(_dieselFile!.bytes,
                                 height: 200, width: double.infinity, fit: BoxFit.cover),
                           ),
+                        ),
+                        if (!widget.readOnly)
                           Positioned(
                             top: 8, right: 8,
                             child: GestureDetector(
@@ -5001,25 +5084,27 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                               ),
                             ),
                           ),
-                          Positioned(
-                            bottom: 8, right: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(20)),
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
-                                const SizedBox(width: 4),
-                                Text('Ready to Upload',
-                                    style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
-                              ]),
-                            ),
+                        Positioned(
+                          bottom: 8, right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(20)),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+                              const SizedBox(width: 4),
+                              Text('Ready to Upload',
+                                  style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+                            ]),
                           ),
-                        ],
-                      )
-                    : showExistingDiesel
-                        ? Stack(
-                            children: [
-                              ClipRRect(
+                        ),
+                      ],
+                    )
+                  : showExistingDiesel
+                      ? Stack(
+                          children: [
+                            GestureDetector(
+                              onTap: () => _showImagePreview(context, url: '${AppConfig.apiBaseUrl}$existingDieselUrl'),
+                              child: ClipRRect(
                                 borderRadius: BorderRadius.circular(13),
                                 child: Image.network(
                                   '${AppConfig.apiBaseUrl}$existingDieselUrl',
@@ -5032,33 +5117,40 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                                       child: Center(child: Icon(Icons.broken_image_rounded))),
                                 ),
                               ),
-                              Positioned(
-                                top: 8, left: 8,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(20)),
-                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                    const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
-                                    const SizedBox(width: 4),
-                                    Text('Uploaded', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
-                                  ]),
-                                ),
+                            ),
+                            Positioned(
+                              top: 8, left: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(20)),
+                                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                  const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+                                  const SizedBox(width: 4),
+                                  Text('Uploaded', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+                                ]),
                               ),
+                            ),
+                            if (!widget.readOnly)
                               Positioned(
                                 bottom: 8, right: 8,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
-                                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                    const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 12),
-                                    const SizedBox(width: 4),
-                                    Text('Tap to replace', style: _inter(size: 11, color: Colors.white)),
-                                  ]),
+                                child: GestureDetector(
+                                  onTap: _showDieselPicker,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+                                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                      const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 12),
+                                      const SizedBox(width: 4),
+                                      Text('Tap to replace', style: _inter(size: 11, color: Colors.white)),
+                                    ]),
+                                  ),
                                 ),
                               ),
-                            ],
-                          )
-                        : Padding(
+                          ],
+                        )
+                      : GestureDetector(
+                          onTap: widget.readOnly ? null : _showDieselPicker,
+                          child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 36),
                             child: Column(
                               children: [
@@ -5073,7 +5165,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                               ],
                             ),
                           ),
-              ),
+                        ),
             ),
             _FieldAttribution(username: _attrOf('diesel_receipt')),
 
@@ -5109,7 +5201,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: (_dieselFile != null && !_dieselUploading) ? _uploadDiesel : null,
+                  onPressed: (_dieselFile != null && !_dieselUploading && !widget.readOnly) ? _uploadDiesel : null,
                   icon: _dieselUploading
                       ? const SizedBox(width: 18, height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -5138,7 +5230,8 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
 class _Stage5Form extends ConsumerStatefulWidget {
   final TripModel trip;
   final void Function(TripModel updated) onComplete;
-  const _Stage5Form({super.key, required this.trip, required this.onComplete});
+  final bool readOnly;
+  const _Stage5Form({super.key, required this.trip, required this.onComplete, this.readOnly = false});
 
   @override
   ConsumerState<_Stage5Form> createState() => _Stage5FormState();
@@ -5415,29 +5508,31 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           _SectionHeader(icon: Icons.receipt_long_rounded, title: 'Proof of Delivery (POD)'),
           const SizedBox(height: 12),
 
-          GestureDetector(
-            onTap: _showPodPicker,
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: _surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: _podFile != null
-                      ? _success.withValues(alpha: 0.50)
-                      : showExisting
-                          ? _success.withValues(alpha: 0.30)
-                          : _border,
-                  width: (_podFile != null || showExisting) ? 1.5 : 1,
-                ),
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: _surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: _podFile != null
+                    ? _success.withValues(alpha: 0.50)
+                    : showExisting
+                        ? _success.withValues(alpha: 0.30)
+                        : _border,
+                width: (_podFile != null || showExisting) ? 1.5 : 1,
               ),
-              child: _podFile != null
-                  ? Stack(children: [
-                      ClipRRect(
+            ),
+            child: _podFile != null
+                ? Stack(children: [
+                    GestureDetector(
+                      onTap: () => _showImagePreview(context, bytes: _podFile!.bytes),
+                      child: ClipRRect(
                         borderRadius: BorderRadius.circular(13),
                         child: Image.memory(_podFile!.bytes,
                             height: 200, width: double.infinity, fit: BoxFit.cover),
                       ),
+                    ),
+                    if (!widget.readOnly)
                       Positioned(
                         top: 8, right: 8,
                         child: GestureDetector(
@@ -5450,25 +5545,27 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                           ),
                         ),
                       ),
-                      Positioned(
-                        bottom: 8, right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                              color: _success, borderRadius: BorderRadius.circular(20)),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
-                            const SizedBox(width: 4),
-                            Text('Ready to Upload',
-                                style: _inter(size: 11, color: Colors.white,
-                                    weight: FontWeight.w600)),
-                          ]),
-                        ),
+                    Positioned(
+                      bottom: 8, right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                            color: _success, borderRadius: BorderRadius.circular(20)),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+                          const SizedBox(width: 4),
+                          Text('Ready to Upload',
+                              style: _inter(size: 11, color: Colors.white,
+                                  weight: FontWeight.w600)),
+                        ]),
                       ),
-                    ])
-                  : showExisting
-                      ? Stack(children: [
-                          ClipRRect(
+                    ),
+                  ])
+                : showExisting
+                    ? Stack(children: [
+                        GestureDetector(
+                          onTap: () => _showImagePreview(context, url: podImageUrl),
+                          child: ClipRRect(
                             borderRadius: BorderRadius.circular(13),
                             child: Image.network(
                               podImageUrl!,
@@ -5484,43 +5581,50 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                                       child: Icon(Icons.broken_image_rounded))),
                             ),
                           ),
-                          Positioned(
-                            top: 8, left: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                  color: _success,
-                                  borderRadius: BorderRadius.circular(20)),
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                const Icon(Icons.check_circle_rounded,
-                                    color: Colors.white, size: 12),
-                                const SizedBox(width: 4),
-                                Text('POD Uploaded',
-                                    style: _inter(size: 11, color: Colors.white,
-                                        weight: FontWeight.w600)),
-                              ]),
-                            ),
+                        ),
+                        Positioned(
+                          top: 8, left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                                color: _success,
+                                borderRadius: BorderRadius.circular(20)),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              const Icon(Icons.check_circle_rounded,
+                                  color: Colors.white, size: 12),
+                              const SizedBox(width: 4),
+                              Text('POD Uploaded',
+                                  style: _inter(size: 11, color: Colors.white,
+                                      weight: FontWeight.w600)),
+                            ]),
                           ),
+                        ),
+                        if (!widget.readOnly)
                           Positioned(
                             bottom: 8, right: 8,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(20)),
-                              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                                const Icon(Icons.swap_horiz_rounded,
-                                    color: Colors.white, size: 12),
-                                const SizedBox(width: 4),
-                                Text('Tap to replace',
-                                    style: _inter(size: 11, color: Colors.white)),
-                              ]),
+                            child: GestureDetector(
+                              onTap: _showPodPicker,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(20)),
+                                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                  const Icon(Icons.swap_horiz_rounded,
+                                      color: Colors.white, size: 12),
+                                  const SizedBox(width: 4),
+                                  Text('Tap to replace',
+                                      style: _inter(size: 11, color: Colors.white)),
+                                ]),
+                              ),
                             ),
                           ),
-                        ])
-                      : Padding(
+                      ])
+                    : GestureDetector(
+                        onTap: widget.readOnly ? null : _showPodPicker,
+                        child: Padding(
                           padding: const EdgeInsets.symmetric(vertical: 36),
                           child: Column(children: [
                             Icon(Icons.add_photo_alternate_rounded,
@@ -5536,7 +5640,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                                     color: _secondary.withValues(alpha: 0.7))),
                           ]),
                         ),
-            ),
+                      ),
           ),
           _FieldAttribution(username: _attrOf('pod_doc')),
           const SizedBox(height: 24),
@@ -5646,7 +5750,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: !_uploading ? _submit : null,
+              onPressed: (!_uploading && !widget.readOnly) ? _submit : null,
               icon: _uploading
                   ? const SizedBox(
                       width: 18, height: 18,
@@ -5678,7 +5782,8 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
 class _Stage4CompleteView extends ConsumerStatefulWidget {
   final TripModel trip;
   final VoidCallback onDone;
-  const _Stage4CompleteView({required this.trip, required this.onDone});
+  final bool readOnly;
+  const _Stage4CompleteView({required this.trip, required this.onDone, this.readOnly = false});
 
   @override
   ConsumerState<_Stage4CompleteView> createState() => _Stage4CompleteViewState();
@@ -5709,7 +5814,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
     // Stages are no longer auto-synced as they're submitted — this is the
     // single sync trigger point, so proactively prompt LP/RR-ops the moment
     // all 5 stages are done, instead of relying on the easy-to-miss AppBar icon.
-    if (widget.trip.rrTripId != null && !_alreadySyncedToRr && _canManageRr) {
+    if (widget.trip.rrTripId != null && !_alreadySyncedToRr && _canManageRr && !widget.readOnly) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showSyncPrompt();
       });
@@ -5960,7 +6065,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
           const SizedBox(height: 20),
 
           // ── Sync to RR (LP/RR-ops only) ──
-          if (trip.rrTripId != null && _canManageRr) ...[
+          if (trip.rrTripId != null && _canManageRr && !widget.readOnly) ...[
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -6048,7 +6153,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: (_notifying || _notified) ? null : _notify,
+                onPressed: (_notifying || _notified || widget.readOnly) ? null : _notify,
                 icon: _notifying
                     ? const SizedBox(width: 18, height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -6078,7 +6183,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: (_notifyingLP || _notifiedLP) ? null : _notifyLP,
+              onPressed: (_notifyingLP || _notifiedLP || widget.readOnly) ? null : _notifyLP,
               icon: _notifyingLP
                   ? const SizedBox(width: 18, height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -6107,7 +6212,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: (_completing || _completed) ? null : _completeTrip,
+                onPressed: (_completing || _completed || widget.readOnly) ? null : _completeTrip,
                 icon: _completing
                     ? const SizedBox(width: 18, height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
@@ -6283,7 +6388,8 @@ class _StepRow extends StatelessWidget {
 class _Stage0Card extends ConsumerStatefulWidget {
   final TripModel trip;
   final VoidCallback onSyncDone;
-  const _Stage0Card({super.key, required this.trip, required this.onSyncDone});
+  final bool readOnly;
+  const _Stage0Card({super.key, required this.trip, required this.onSyncDone, this.readOnly = false});
 
   @override
   ConsumerState<_Stage0Card> createState() => _Stage0CardState();
@@ -6369,7 +6475,7 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
                 child: Text(title,
                     style: _manrope(size: 13, weight: FontWeight.w700, color: accentColor)),
               ),
-              if (!synced && !_sending)
+              if (!synced && !_sending && !widget.readOnly)
                 GestureDetector(
                   onTap: _sendToRr,
                   child: Container(
@@ -6415,7 +6521,8 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
 class _RrPerStageSyncPanel extends ConsumerStatefulWidget {
   final TripModel trip;
   final VoidCallback onRetryDone;
-  const _RrPerStageSyncPanel({super.key, required this.trip, required this.onRetryDone});
+  final bool readOnly;
+  const _RrPerStageSyncPanel({super.key, required this.trip, required this.onRetryDone, this.readOnly = false});
 
   @override
   ConsumerState<_RrPerStageSyncPanel> createState() => _RrPerStageSyncPanelState();
@@ -6511,7 +6618,7 @@ class _RrPerStageSyncPanelState extends ConsumerState<_RrPerStageSyncPanel> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
-    final canManageRr = user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
+    final canManageRr = (user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true) && !widget.readOnly;
 
     final statuses = {for (final s in _stageLabels.keys) s: _statusFor(s)};
     final hasAuthRequired = statuses.values.any((s) => s == 'auth_required');

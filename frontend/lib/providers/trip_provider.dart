@@ -199,3 +199,8 @@ final completedTripsProvider =
 /// Holds the RR trip number to show as a success popup on the LP dashboard
 /// after trip creation. Set by CreateTripScreen, consumed + cleared by LP dashboard.
 final pendingRrTripNumberProvider = StateProvider<String?>((ref) => null);
+
+/// Local trip ID for the just-created trip, set alongside
+/// [pendingRrTripNumberProvider] — used to show the "Allow Field Executive to
+/// fill S1 docs?" follow-up popup right after the trip-number popup closes.
+final pendingCreatedTripIdProvider = StateProvider<String?>((ref) => null);

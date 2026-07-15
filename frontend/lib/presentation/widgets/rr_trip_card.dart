@@ -50,8 +50,37 @@ class RrTripCard extends ConsumerStatefulWidget {
 
 class _RrTripCardState extends ConsumerState<RrTripCard> {
   bool _tripInfoExpanded = false;
+  bool _togglingS1 = false;
+  /// Local override so the switch reflects the toggle immediately, before
+  /// the parent's next refresh brings back an updated TripModel.
+  bool? _s1RequiredOverride;
 
   TripModel get trip => widget.trip;
+
+  bool get _canManageRr {
+    final user = ref.read(authProvider).user;
+    return user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
+  }
+
+  Future<void> _toggleS1Required(bool value) async {
+    setState(() { _togglingS1 = true; _s1RequiredOverride = value; });
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch('/api/trips/${trip.id}/s1-required', data: {'required': value});
+    } catch (e) {
+      if (mounted) {
+        setState(() => _s1RequiredOverride = !value);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Failed to update — try again',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _togglingS1 = false);
+    }
+  }
 
   // ── Build ───────────────────────────────────────────────────────────────────
 
@@ -67,9 +96,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   /// RR doc sync all happen for this particular trip.
   void _openStages(BuildContext context) {
     if (_isRecordsTrip) {
-      final user = ref.read(authProvider).user;
-      final canManageRr = user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
-      if (!canManageRr) {
+      if (!_canManageRr) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Completed trips are view only',
               style: _inter(size: 13, color: Colors.white)),
@@ -112,6 +139,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(),
+              _buildS1ToggleRow(),
               const Divider(height: 1, thickness: 1, color: Color(0xFFF0F4F8)),
               _buildStep1Tile(),
               if (_tripInfoExpanded) _buildStep1Info(),
@@ -185,6 +213,34 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           style: _inter(size: 12, color: _white.withOpacity(0.8)),
           overflow: TextOverflow.ellipsis,
         ),
+      ]),
+    );
+  }
+
+  // ── S1-required toggle (LP/RR-ops only, Fleet Status only) ────────────────────
+
+  Widget _buildS1ToggleRow() {
+    if (_isRecordsTrip || !_canManageRr) return const SizedBox.shrink();
+    final required = _s1RequiredOverride ?? trip.s1Required;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+      child: Row(children: [
+        const Icon(Icons.badge_outlined, color: _rrBlue, size: 16),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text('Allow FE to fill Stage 1',
+              style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
+        ),
+        _togglingS1
+            ? const SizedBox(
+                width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: _rrBlue),
+              )
+            : Switch(
+                value: required,
+                activeColor: _rrBlue,
+                onChanged: _toggleS1Required,
+              ),
       ]),
     );
   }

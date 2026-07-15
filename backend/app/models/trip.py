@@ -59,6 +59,11 @@ class Trip(Base):
 
     # ── Trip Stages ──────────────────────────────────────────────────────────────
     current_stage = Column(Integer, nullable=False, default=0)
+    # Whether Field Executives must fill Stage 1 for this trip. LP/RR-ops can
+    # toggle this live at any point while the trip is active (e.g. when the
+    # selected driver/vehicle already has KYC docs on file on RR web) — it
+    # only gates FE's access to Stage 1, never LP/RR-ops'.
+    s1_required = Column(Boolean, nullable=False, default=True)
 
     # Stage 1 — Truck Detail Registration
     s1_driver_name          = Column(String(100), nullable=True)
@@ -287,6 +292,7 @@ class Trip(Base):
             "end_date": str(self.end_date) if self.end_date else None,
             "load_requirement_id": str(self.load_requirement_id) if self.load_requirement_id else None,
             "current_stage": self.current_stage,
+            "s1_required": self.s1_required,
             "transporter_user_id": str(self.transporter_user_id) if self.transporter_user_id else None,
             # Stage 1
             "s1_driver_name": self.s1_driver_name,
