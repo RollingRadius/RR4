@@ -218,13 +218,37 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
     }
   }
 
-  /// Returns a tap handler for the step indicator.
-  /// LP workers get null — they cannot freely switch stages.
+  /// Only LP owners and RR-ops workers hold RR credentials — FE/LP-worker
+  /// should never see RR-sync controls (the AppBar sync icon, etc.), only the
+  /// stage forms themselves.
+  bool get _canManageRr {
+    final user = ref.read(authProvider).user;
+    return user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
+  }
+
+  /// Returns a tap handler for the step indicator. LP, RR-ops, and FE can all
+  /// freely move between any stage while the trip is in progress — clicking
+  /// any dot (e.g. "Compliance") jumps straight there. Once the trip is fully
+  /// completed and viewed from Records, `readOnly` disables this entirely for
+  /// everyone (FE can't even open it — see RrTripCard._openStages).
   Function(int)? _buildStepTapHandler() {
     if (widget.readOnly) return null;
-    final user = ref.read(authProvider).user;
-    if (user?.isLogisticPartnerWorker == true) return null;
     return (int i) => _enterStage(i);
+  }
+
+  /// Which step-indicator dot (0-4) is "where the user is right now" —
+  /// mirrors, condition-for-condition, the exact logic in build() that picks
+  /// which form is on screen, so the indicator can never show a different
+  /// stage than what's actually rendered.
+  int _activeDotIndex(int stage) {
+    if (_editingStage != null) return _editingStage!;
+    if (_stage5Done) return 4;      // _Stage4CompleteView — Unloading, all done
+    if (_stage4Done) return 4;      // _Stage5Form — Unloading
+    if (_showStage4) return 3;      // _Stage4Form — Exit
+    if (stage == 3) return 2;       // _CompletionView — reviewing Stage 3 (Arrival)
+    if (stage == 0) return 0;       // _Stage1Form — Details
+    if (stage == 1) return 1;       // _Stage2Form — Compliance
+    return 2;                       // stage == 2 → _Stage3Form — Arrival
   }
 
   Widget _buildEditForm(int visualStage) {
@@ -286,6 +310,39 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
     final stage = state.currentStage;
     final theme = _StageTheme.rrWeb;
 
+    // Stage 1/2/3 submit through tripStagesProvider, which patches the
+    // *global* tripProvider list but never touches this screen's local _trip
+    // copy — so the step indicator (which reads _trip.currentStage) used to
+    // stay stuck on the old stage until you left the screen and reopened it.
+    // Stage 4/5 happened to work because their forms call onComplete directly.
+    //
+    // ONLY react to currentStage actually advancing — that's the one signal
+    // that means a stage genuinely completed. Do NOT trigger on rrSyncStatus/
+    // updatedAt: those tick constantly from unrelated background noise (the
+    // dashboard's periodic refresh keeps running underneath this pushed route
+    // and touches the same global list), and bumping _tripFreshness recreates
+    // the active stage form from scratch — wiping whatever the user has typed
+    // but not yet submitted. Also skip entirely while mid-edit on a past stage
+    // (_editingStage != null) so reviewing/fixing an earlier stage is never
+    // interrupted by a stage-progress signal meant for the main flow.
+    ref.listen(tripProvider, (previous, next) {
+      if (_editingStage != null) return;
+      final updated = next.trips.where((t) => t.id == _trip.id).firstOrNull;
+      if (updated == null) return;
+      if (updated.currentStage <= _trip.currentStage) return;
+      setState(() {
+        _trip = updated;
+        _tripFreshness++;
+        if (updated.currentStage >= 5) {
+          _showStage4 = true; _stage4Done = true; _stage5Done = true;
+        } else if (updated.currentStage >= 4 && updated.s4DieselReceiptUrl != null) {
+          _showStage4 = true; _stage4Done = true;
+        } else if (updated.currentStage >= 4) {
+          _showStage4 = true;
+        }
+      });
+    });
+
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -307,7 +364,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
         actions: [
           _TripStateBadge(trip: _trip),
           const SizedBox(width: 4),
-          if (_trip.currentStage >= 2 && !widget.readOnly)
+          if (_trip.currentStage >= 2 && !widget.readOnly && _canManageRr)
             _syncing
                 ? Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -334,9 +391,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
               color: theme.primary,
             ),
           _StepIndicator(
-            trip: _trip,
-            stage4Done: _stage4Done,
-            stage5Done: _stage5Done,
+            activeIndex: _activeDotIndex(stage),
             onStepTap: _buildStepTapHandler(),
             activeColor: theme.primary,
           ),
@@ -499,177 +554,89 @@ class _TripStateBadge extends StatelessWidget {
 
 // ─── Step Indicator ───────────────────────────────────────────────────────────
 
-class _StepIndicator extends StatefulWidget {
-  final TripModel trip;
-  final bool stage4Done;
-  final bool stage5Done;
-  /// When true (S0 not yet filled), all steps render as pending/grey — no active pulse.
-  final bool rrSetupPending;
+class _StepIndicator extends StatelessWidget {
+  /// Which dot (0-4) is "where the user is right now" — computed directly by
+  /// the parent from the exact same state that decides which form is on
+  /// screen, so the two can never disagree. Not derived from trip.currentStage
+  /// here — that was the old approach and it went stale after a same-session
+  /// stage submit until the screen was reopened.
+  final int activeIndex;
   final Function(int)? onStepTap;
-  /// Active-step color — swapped to the RR theme's blue for RR-web trips.
+  /// Active-step color — the RR theme's blue.
   final Color activeColor;
   const _StepIndicator({
-    required this.trip,
-    required this.stage4Done,
-    required this.stage5Done,
-    this.rrSetupPending = false,
+    required this.activeIndex,
     this.onStepTap,
     this.activeColor = _primary,
   });
 
   static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit', 'Unloading'];
 
-  int visualIndex() {
-    if (rrSetupPending) return -1; // nothing active
-    if (stage5Done) return 5;
-    if (stage4Done) return 4;
-    final s = trip.currentStage;
-    if (s <= 0) return 0;
-    if (s == 1) return 1;
-    if (s == 2) return 2;
-    if (s == 3) return 3;
-    return 4;
-  }
-
-  @override
-  State<_StepIndicator> createState() => _StepIndicatorState();
-}
-
-class _StepIndicatorState extends State<_StepIndicator>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulseCtrl;
-  late Animation<double> _pulseAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1400))
-      ..repeat(reverse: true);
-    _pulseAnim = CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut);
-  }
-
-  @override
-  void dispose() {
-    _pulseCtrl.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final visualIdx = widget.visualIndex();
-
     return Container(
       color: _surface,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       child: Row(
         children: List.generate(5, (i) {
-          final stepLabel = '${i + 1}';
-          final isDone   = visualIdx > i;
-          final isActive = visualIdx == i;
-          final color   = isDone ? _success : isActive ? widget.activeColor : _secondary;
-          final bgColor = isDone
-              ? _success.withValues(alpha: 0.12)
-              : isActive
-                  ? widget.activeColor.withValues(alpha: 0.10)
-                  : _border;
+          final isActive = activeIndex == i;
+          final color   = isActive ? activeColor : _secondary;
+          final bgColor = isActive ? activeColor.withValues(alpha: 0.12) : _border;
 
-          // Static green glow for done; animated orange/blue glow for active
-          final circleShadow = isDone
-              ? [BoxShadow(color: _success.withValues(alpha: 0.45), blurRadius: 8, spreadRadius: 1)]
-              : <BoxShadow>[];
-
-          final dot = Column(
-            children: [
-              // AnimatedScale makes the current stage visibly "pop" the moment
-              // you switch to it — the biggest single cue that you're now here.
-              AnimatedScale(
-                scale: isActive ? 1.18 : 1.0,
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeOutBack,
-                child: isActive
-                    // Only the active circle rebuilds on every frame (pulse glow)
-                    ? AnimatedBuilder(
-                        animation: _pulseAnim,
-                        builder: (_, __) => AnimatedContainer(
-                          duration: const Duration(milliseconds: 350),
-                          curve: Curves.easeOut,
-                          width: 28,
-                          height: 28,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: bgColor,
-                            border: Border.all(color: widget.activeColor, width: 2),
-                            boxShadow: [
-                              BoxShadow(
-                                color: widget.activeColor.withValues(alpha: 0.28 + _pulseAnim.value * 0.30),
-                                blurRadius: 8 + _pulseAnim.value * 8,
-                                spreadRadius: 1 + _pulseAnim.value * 1.5,
-                              ),
-                            ],
-                          ),
-                          child: Center(
-                            child: Text(stepLabel,
-                                style: _manrope(
-                                    size: 11,
-                                    weight: FontWeight.w800,
-                                    color: widget.activeColor)),
-                          ),
-                        ),
-                      )
-                    : AnimatedContainer(
-                        duration: const Duration(milliseconds: 350),
-                        curve: Curves.easeOut,
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: bgColor,
-                          border: Border.all(color: color, width: isDone ? 2 : 1),
-                          boxShadow: circleShadow,
-                        ),
-                        child: Center(
-                          // Cross-fades + scales between the step number and the
-                          // checkmark the moment a stage flips from active → done.
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            transitionBuilder: (child, anim) => ScaleTransition(
-                              scale: anim,
-                              child: FadeTransition(opacity: anim, child: child),
-                            ),
-                            child: isDone
-                                ? Icon(Icons.check_rounded, key: const ValueKey('done'), color: _success, size: 14)
-                                : Text(stepLabel,
-                                    key: const ValueKey('pending'),
-                                    style: _manrope(
-                                        size: 11,
-                                        weight: FontWeight.w800,
-                                        color: color)),
-                          ),
-                        ),
-                      ),
+          final dot = AnimatedScale(
+            // The active dot visibly grows the moment you land on it — the
+            // one signal this indicator exists to give: "you are here".
+            scale: isActive ? 1.2 : 1.0,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isActive ? activeColor : bgColor,
+                border: Border.all(color: isActive ? activeColor : _border, width: isActive ? 0 : 1),
+                boxShadow: isActive
+                    ? [BoxShadow(color: activeColor.withValues(alpha: 0.35), blurRadius: 8, spreadRadius: 1)]
+                    : [],
               ),
-              const SizedBox(height: 5),
-              AnimatedDefaultTextStyle(
-                duration: const Duration(milliseconds: 300),
-                style: _inter(
-                    size: 8,
-                    weight: isActive ? FontWeight.w700 : FontWeight.w400,
-                    color: color),
-                child: Text(
-                  _StepIndicator._labels[i],
-                  textAlign: TextAlign.center,
-                ),
+              child: Center(
+                child: Text('${i + 1}',
+                    style: _manrope(
+                        size: 12,
+                        weight: FontWeight.w800,
+                        color: isActive ? Colors.white : color)),
               ),
-            ],
+            ),
           );
 
-          final Widget dotWidget = isDone && widget.onStepTap != null
-              ? GestureDetector(
-                  onTap: () => widget.onStepTap!(i),
+          // Fixed width regardless of label length — "Compliance"/"Unloading"
+          // are longer words than "Arrival"/"Exit"/"Details", so without this
+          // each dot's surrounding gap was as wide as its own label text,
+          // making some stages look tightly packed and others wide open.
+          final dotWidget = SizedBox(
+            width: 58,
+            child: Column(
+              children: [
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onStepTap != null ? () => onStepTap!(i) : null,
                   child: dot,
-                )
-              : dot;
+                ),
+                const SizedBox(height: 5),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 250),
+                  style: _inter(
+                      size: 8.5,
+                      weight: isActive ? FontWeight.w700 : FontWeight.w400,
+                      color: color),
+                  child: Text(_labels[i], textAlign: TextAlign.center),
+                ),
+              ],
+            ),
+          );
 
           if (i == 4) return dotWidget;
 
@@ -680,17 +647,9 @@ class _StepIndicatorState extends State<_StepIndicator>
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 22),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 500),
-                      curve: Curves.easeOut,
-                      height: isDone ? 3 : 2,
-                      decoration: BoxDecoration(
-                        color: isDone ? _success : _border,
-                        borderRadius: BorderRadius.circular(2),
-                        boxShadow: isDone
-                            ? [BoxShadow(color: _success.withValues(alpha: 0.40), blurRadius: 6)]
-                            : [],
-                      ),
+                    child: Container(
+                      height: 2,
+                      color: _border,
                     ),
                   ),
                 ),
@@ -3665,6 +3624,12 @@ class _WeighFieldState extends State<_WeighField> {
   @override
   Widget build(BuildContext context) {
     final unitNotifier = widget.unitNotifier;
+    final existingSlipUrl = widget.existingSlipUrl;
+    final fullSlipUrl = existingSlipUrl == null
+        ? null
+        : existingSlipUrl.startsWith('http')
+            ? existingSlipUrl
+            : '${AppConfig.apiBaseUrl}$existingSlipUrl';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -3745,13 +3710,28 @@ class _WeighFieldState extends State<_WeighField> {
           if (_slipBytes != null)
               Stack(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.memory(
-                      _slipBytes!,
-                      width: double.infinity,
-                      height: 160,
-                      fit: BoxFit.cover,
+                  GestureDetector(
+                    onTap: () => _showImagePreview(context, bytes: _slipBytes),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.memory(
+                        _slipBytes!,
+                        width: double.infinity,
+                        height: 160,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 6,
+                    right: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
                     ),
                   ),
                   Positioned(
@@ -3810,27 +3790,42 @@ class _WeighFieldState extends State<_WeighField> {
                   ),
                 ],
               )
-            else if (widget.existingSlipUrl != null && !_existingCleared)
+            else if (fullSlipUrl != null && !_existingCleared)
               Stack(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      widget.existingSlipUrl!,
-                      width: double.infinity,
-                      height: 160,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
+                  GestureDetector(
+                    onTap: () => _showImagePreview(context, url: fullSlipUrl),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.network(
+                        fullSlipUrl,
+                        width: double.infinity,
                         height: 160,
-                        decoration: BoxDecoration(
-                          color: _border.withValues(alpha: 0.3),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Center(
-                          child: Icon(Icons.broken_image_rounded,
-                              color: _secondary, size: 32),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 160,
+                          decoration: BoxDecoration(
+                            color: _border.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Center(
+                            child: Icon(Icons.broken_image_rounded,
+                                color: _secondary, size: 32),
+                          ),
                         ),
                       ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 6,
+                    right: 6,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 16),
                     ),
                   ),
                   Positioned(
@@ -4306,12 +4301,27 @@ class _MultiDocUploadTile extends StatelessWidget {
               separatorBuilder: (_, __) => const SizedBox(width: 8),
               itemBuilder: (_, i) => Stack(
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: Image.memory(bytesList[i],
-                        width: 90,
-                        height: 100,
-                        fit: BoxFit.cover),
+                  GestureDetector(
+                    onTap: () => _showImagePreview(context, bytes: bytesList[i]),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.memory(bytesList[i],
+                          width: 90,
+                          height: 100,
+                          fit: BoxFit.cover),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 4,
+                    left: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 14),
+                    ),
                   ),
                   Positioned(
                     top: 4,
@@ -5688,7 +5698,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
 
   bool get _canManageRr {
     final user = ref.read(authProvider).user;
-    return user?.isLogisticPartner == true || user?.isLpRrOperations == true;
+    return user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
   }
 
   bool get _alreadySyncedToRr => widget.trip.rrSyncStatus == 'pod_synced';
@@ -6310,8 +6320,13 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
     final synced = trip.rrTripId != null;
     final failed = !synced && trip.rrSyncStatus == 'failed';
 
-    const green   = Color(0xFF2E7D32);
-    const bgGreen = Color(0xFFE8F5E9);
+    // Nothing actionable to show once synced — no "Synced to RR Web" banner.
+    if (synced) return const SizedBox.shrink();
+
+    final user = ref.read(authProvider).user;
+    final canManageRr = user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
+    if (!canManageRr) return const SizedBox.shrink();
+
     const bgRed   = Color(0xFFFFEBEE);
     const bgGrey  = Color(0xFFF5F5F5);
 
@@ -6321,16 +6336,7 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
     final String title;
     final String subtitle;
 
-    if (synced) {
-      cardBg      = bgGreen;
-      accentColor = green;
-      icon        = Icons.check_circle_rounded;
-      title       = 'Synced to RR Web';
-      subtitle    = [
-        if (trip.rrTripNumber != null) 'Trip: \${trip.rrTripNumber}',
-        if (trip.rrBookingId  != null) 'PO: \${trip.rrBookingId}',
-      ].join('  •  ');
-    } else if (failed) {
+    if (failed) {
       cardBg      = bgRed;
       accentColor = _error;
       icon        = Icons.error_outline_rounded;
@@ -6505,7 +6511,7 @@ class _RrPerStageSyncPanelState extends ConsumerState<_RrPerStageSyncPanel> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
-    final canManageRr = user?.isLogisticPartner == true || user?.isLpRrOperations == true;
+    final canManageRr = user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
 
     final statuses = {for (final s in _stageLabels.keys) s: _statusFor(s)};
     final hasAuthRequired = statuses.values.any((s) => s == 'auth_required');
@@ -6715,7 +6721,7 @@ class _RrIdentityDocsSheetState extends ConsumerState<RrIdentityDocsSheet> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authProvider).user;
-    final canOverride = user?.isLogisticPartner == true || user?.isLpRrOperations == true;
+    final canOverride = user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
 
     return SafeArea(
       child: Padding(

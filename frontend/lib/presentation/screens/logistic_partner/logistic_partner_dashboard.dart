@@ -18,7 +18,7 @@ import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
-import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
+import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 import 'package:fleet_management/presentation/screens/fleet/fleet_hub_screen.dart';
@@ -2318,7 +2318,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       final nav = Navigator.of(context);
       nav.pop();
       nav.push(
-        MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)),
+        MaterialPageRoute(builder: (_) => RrTripStagesScreen(trip: trip)),
       ).then((_) {
         trips.loadTrips(statusFilter: 'ongoing,pending');
       });

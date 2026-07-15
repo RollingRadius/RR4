@@ -68,10 +68,10 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   void _openStages(BuildContext context) {
     if (_isRecordsTrip) {
       final user = ref.read(authProvider).user;
-      final canManageRr = user?.isLogisticPartner == true || user?.isLpRrOperations == true;
+      final canManageRr = user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
       if (!canManageRr) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Completed trips are view-only for LP/RR-Ops',
+          content: Text('Completed trips are view only',
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _secondary,
           behavior: SnackBarBehavior.floating,
