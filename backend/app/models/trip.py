@@ -206,6 +206,21 @@ class Trip(Base):
     vehicle_number   = Column(String(30),    nullable=True)   # manually entered reg. number (no fleet link)
     rr_vehicle_id    = Column(String(24),    nullable=True)   # RR vehicle ObjectId selected via picker
     rr_driver_id     = Column(String(24),    nullable=True)   # RR driver user ObjectId (from vehicle crew)
+
+    # RR identity-doc file ids — cache for trips using the RR picker (rr_vehicle_id/
+    # rr_driver_id above) where there's no local Driver/Vehicle row to cache on.
+    # Mirrors drivers.rr_*_file_id / vehicles.rr_*_file_id, used as the fallback
+    # entity by _sync_stage1_docs / get_identity_status / identity-override.
+    rr_dl_file_id              = Column(String(100), nullable=True)
+    rr_dl_back_file_id         = Column(String(100), nullable=True)
+    rr_aadhaar_file_id         = Column(String(100), nullable=True)
+    rr_aadhaar_back_file_id    = Column(String(100), nullable=True)
+    rr_pan_file_id             = Column(String(100), nullable=True)
+    rr_tax_declaration_file_id = Column(String(100), nullable=True)
+    rr_rc_file_id              = Column(String(100), nullable=True)
+    rr_puc_file_id             = Column(String(100), nullable=True)
+    rr_fitness_file_id         = Column(String(100), nullable=True)
+    rr_permit_file_id          = Column(String(100), nullable=True)
     axle_type        = Column(String(20),    nullable=True)   # Single | Double | Triple | Multiple
     number_of_wheels = Column(Integer,       nullable=True)   # 4|6|8|10|12|14|16|18|22
     expected_freight = Column(Numeric(12,2), nullable=True)

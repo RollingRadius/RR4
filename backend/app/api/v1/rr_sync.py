@@ -431,14 +431,29 @@ async def get_identity_status(
     vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first() if trip.vehicle_id else None
     driver  = db.query(Driver).filter(Driver.id == trip.driver_id).first()   if trip.driver_id  else None
 
+    # Prefer the local Driver/Vehicle row; fall back to the RR-picker id with
+    # the trip itself as the cache entity when no local row exists — same
+    # resolution as _sync_stage1_docs, so status shown here matches what a
+    # sync/retry would actually do.
+    driver_entity, driver_rr_id = (
+        (driver, driver.rr_user_id) if driver and driver.rr_user_id
+        else (trip, trip.rr_driver_id) if trip.rr_driver_id
+        else (None, None)
+    )
+    vehicle_entity, vehicle_rr_id = (
+        (vehicle, vehicle.rr_vehicle_id) if vehicle and vehicle.rr_vehicle_id
+        else (trip, trip.rr_vehicle_id) if trip.rr_vehicle_id
+        else (None, None)
+    )
+
     results = []
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=20) as client:
         auth_hdr = {"Authorization": f"Bearer {token}"}
 
-        if driver and driver.rr_user_id:
+        if driver_entity is not None:
             rr_entries: dict = {}
             try:
-                resp = await client.get(f"{settings.RR_API_BASE}/users/{driver.rr_user_id}", headers=auth_hdr)
+                resp = await client.get(f"{settings.RR_API_BASE}/users/{driver_rr_id}", headers=auth_hdr)
                 if resp.status_code == 200:
                     for entry in (resp.json().get("identities") or []):
                         name = entry.get("id_name")
@@ -451,15 +466,15 @@ async def get_identity_status(
                 results.append({
                     "entity_type": "driver",
                     "id_name": item["id_name"],
-                    "ours_synced": bool(getattr(driver, item["front_attr"])),
+                    "ours_synced": bool(getattr(driver_entity, item["front_attr"])),
                     "rr_has_entry": item["id_name"] in rr_entries,
                     "rr_file_id": rr_entries.get(item["id_name"]),
                 })
 
-        if vehicle and vehicle.rr_vehicle_id:
+        if vehicle_entity is not None:
             rr_entries: dict = {}
             try:
-                resp = await client.get(f"{settings.RR_API_BASE}/vehicles/{vehicle.rr_vehicle_id}", headers=auth_hdr)
+                resp = await client.get(f"{settings.RR_API_BASE}/vehicles/{vehicle_rr_id}", headers=auth_hdr)
                 if resp.status_code == 200:
                     for entry in (resp.json().get("identities") or []):
                         name = entry.get("id_name")
@@ -472,7 +487,7 @@ async def get_identity_status(
                 results.append({
                     "entity_type": "vehicle",
                     "id_name": item["id_name"],
-                    "ours_synced": bool(getattr(vehicle, item["front_attr"])),
+                    "ours_synced": bool(getattr(vehicle_entity, item["front_attr"])),
                     "rr_has_entry": item["id_name"] in rr_entries,
                     "rr_file_id": rr_entries.get(item["id_name"]),
                 })
@@ -583,20 +598,24 @@ async def override_identity(
         raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
 
     if body.entity_type == "driver":
-        if not trip.driver_id:
-            raise HTTPException(status_code=422, detail="Trip has no driver assigned")
-        entity = db.query(Driver).filter(Driver.id == trip.driver_id).first()
-        if not entity or not entity.rr_user_id:
+        local_driver = db.query(Driver).filter(Driver.id == trip.driver_id).first() if trip.driver_id else None
+        if local_driver and local_driver.rr_user_id:
+            entity, rr_id = local_driver, local_driver.rr_user_id
+        elif trip.rr_driver_id:
+            entity, rr_id = trip, trip.rr_driver_id
+        else:
             raise HTTPException(status_code=422, detail="Driver not found in RR")
-        entity_collection, rr_id = "users", entity.rr_user_id
+        entity_collection = "users"
         items = {i["id_name"]: i for i in driver_doc_items(trip)}
     else:
-        if not trip.vehicle_id:
-            raise HTTPException(status_code=422, detail="Trip has no vehicle assigned")
-        entity = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
-        if not entity or not entity.rr_vehicle_id:
+        local_vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first() if trip.vehicle_id else None
+        if local_vehicle and local_vehicle.rr_vehicle_id:
+            entity, rr_id = local_vehicle, local_vehicle.rr_vehicle_id
+        elif trip.rr_vehicle_id:
+            entity, rr_id = trip, trip.rr_vehicle_id
+        else:
             raise HTTPException(status_code=422, detail="Vehicle not found in RR")
-        entity_collection, rr_id = "vehicles", entity.rr_vehicle_id
+        entity_collection = "vehicles"
         items = {i["id_name"]: i for i in vehicle_doc_items(trip)}
 
     item = items.get(body.id_name)

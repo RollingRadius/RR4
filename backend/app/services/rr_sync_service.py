@@ -341,11 +341,19 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
     and vehicle compliance docs (RC, PUC, fitness, permit) to vehicles.identities[].
     Insurance and cancelled cheque have no RR field and are never pushed — same for
     the boolean checklist fields elsewhere in Stage 1-4, which have no RR equivalent.
+
+    Trips created via the RR vehicle/driver picker (the current, and only, trip
+    creation flow) set trip.rr_vehicle_id/rr_driver_id directly and never have a
+    local Driver/Vehicle row — a local row is preferred when present (its cache
+    columns are shared across all of that driver/vehicle's trips), falling back
+    to pushing straight to RR using the picker id with the trip itself as the
+    cache entity (trip.rr_dl_file_id etc., added alongside rr_vehicle_id/
+    rr_driver_id for exactly this).
     """
     from app.models.vehicle import Vehicle
     from app.models.driver import Driver
 
-    if not trip.vehicle_id and not trip.driver_id:
+    if not (trip.vehicle_id or trip.driver_id or trip.rr_vehicle_id or trip.rr_driver_id):
         return  # nothing assigned to this trip yet — leave as not_synced
 
     await _try_resolve_rr_ids(trip, client, token, db)
@@ -353,21 +361,32 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
     vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first() if trip.vehicle_id else None
     driver  = db.query(Driver).filter(Driver.id == trip.driver_id).first()   if trip.driver_id  else None
 
+    driver_entity, driver_rr_id = (
+        (driver, driver.rr_user_id) if driver and driver.rr_user_id
+        else (trip, trip.rr_driver_id) if trip.rr_driver_id
+        else (None, None)
+    )
+    vehicle_entity, vehicle_rr_id = (
+        (vehicle, vehicle.rr_vehicle_id) if vehicle and vehicle.rr_vehicle_id
+        else (trip, trip.rr_vehicle_id) if trip.rr_vehicle_id
+        else (None, None)
+    )
+
     errors: list[str] = []
     attempted = False
 
-    if driver and driver.rr_user_id:
+    if driver_entity is not None:
         attempted = True
-        ok, err = await _push_identities(driver, "users", driver.rr_user_id,
+        ok, err = await _push_identities(driver_entity, "users", driver_rr_id,
                                           driver_doc_items(trip), client, token, db)
         if not ok:
             errors.append(f"Driver docs: {err}")
     elif trip.driver_id:
         errors.append("Driver not found in RR — driver must exist in RR web first")
 
-    if vehicle and vehicle.rr_vehicle_id:
+    if vehicle_entity is not None:
         attempted = True
-        ok, err = await _push_identities(vehicle, "vehicles", vehicle.rr_vehicle_id,
+        ok, err = await _push_identities(vehicle_entity, "vehicles", vehicle_rr_id,
                                           vehicle_doc_items(trip), client, token, db)
         if not ok:
             errors.append(f"Vehicle docs: {err}")
