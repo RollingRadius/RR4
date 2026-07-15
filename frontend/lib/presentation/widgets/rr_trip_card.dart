@@ -1,5 +1,5 @@
 /// RR Web trip card — used for trips synced via POST /create_trip.
-/// Read-only trip info summary; tapping the card opens TripStagesScreen for
+/// Read-only trip info summary; tapping the card opens RrTripStagesScreen for
 /// the full S1-S5 process (checkboxes, uploads, per-stage RR doc sync).
 library;
 
@@ -8,7 +8,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fleet_management/data/models/trip_model.dart';
-import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
+import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _rrBlue    = Color(0xFF1B6CA8);
@@ -54,13 +55,36 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
 
   // ── Build ───────────────────────────────────────────────────────────────────
 
+  /// A Records trip (fully completed + synced — same condition the backend
+  /// uses to move it into Records) opens read-only for LP/RR-ops and not at
+  /// all for FE/LP-worker. Anything still in Fleet Status opens normally for
+  /// whoever has access, unchanged.
+  bool get _isRecordsTrip => trip.currentStage >= 5 && trip.rrSyncStatus == 'pod_synced';
+
   /// Tapping the card (outside the "Trip Info" expand toggle, which has its own
   /// tap handler and wins the hit-test first) opens the full S1-S5 stage process
   /// — same screen normal trips use — where checkboxes, uploads, and per-stage
   /// RR doc sync all happen for this particular trip.
   void _openStages(BuildContext context) {
+    if (_isRecordsTrip) {
+      final user = ref.read(authProvider).user;
+      final canManageRr = user?.isLogisticPartner == true || user?.isLpRrOperations == true;
+      if (!canManageRr) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Completed trips are view-only for LP/RR-Ops',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _secondary,
+          behavior: SnackBarBehavior.floating,
+        ));
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => RrTripStagesScreen(trip: trip, readOnly: true)),
+      );
+      return;
+    }
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)),
+      MaterialPageRoute(builder: (_) => RrTripStagesScreen(trip: trip)),
     ).then((_) => widget.onRefresh?.call());
   }
 
