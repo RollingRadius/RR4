@@ -184,6 +184,14 @@ async def _push_identities(
     tracking each doc's RR file id locally (on `entity`) so re-submits skip
     straight past docs already pushed instead of re-checking RR every time.
 
+    Conflict handling is per SIDE, not per id_name: if RR already has an
+    entry for an id_name (e.g. Driving Licence submitted independently
+    through RR's own crew-assignment flow) but is missing a side we have
+    locally, that missing side is filled in — RR's existing side(s) are never
+    touched or replaced. An id_name is only skipped entirely once RR already
+    has every side we'd otherwise push; genuinely replacing an existing side
+    is left to the explicit /identity-override action, never done silently.
+
     items: list of {id_name, front_url, back_url, front_attr, back_attr}
     front_attr/back_attr are column names on `entity` that cache the RR file id.
     Returns (success, error_message).
@@ -206,14 +214,44 @@ async def _push_identities(
 
     data = get_resp.json()
     etag = data.get("_etag")
-    identities = data.get("identities") or []
-    existing_names = {i.get("id_name") for i in identities}
+    identities = list(data.get("identities") or [])
+    # id_name -> (index in `identities`, set of sides RR already has photos for)
+    existing_by_name: dict[str, tuple[int, set]] = {}
+    for idx, entry in enumerate(identities):
+        name = entry.get("id_name")
+        if name:
+            sides = {p.get("side") for p in (entry.get("photos") or [])}
+            existing_by_name[name] = (idx, sides)
 
     new_entries = []
+    patches: dict[int, list[dict]] = {}  # index into `identities` -> photos to append
     local_updates: list[tuple[str, str]] = []  # (attr, rr_file_id)
+
     for it in to_push:
-        if it["id_name"] in existing_names:
-            continue  # already on RR (pushed via another channel) — nothing to attach locally
+        existing = existing_by_name.get(it["id_name"])
+        if existing is not None:
+            idx, sides = existing
+            missing_front = "Front" not in sides
+            missing_back = bool(it["back_url"]) and "Back" not in sides
+            if not missing_front and not missing_back:
+                continue  # RR already has every side we have — true conflict, leave for /identity-override
+            fill = []
+            if missing_front:
+                front_id = await _upload_file(it["front_url"], client, token)
+                if front_id:
+                    fill.append({"photo": front_id, "side": "Front"})
+                    local_updates.append((it["front_attr"], front_id))
+            if missing_back:
+                back_id = await _upload_file(it["back_url"], client, token)
+                if back_id:
+                    fill.append({"photo": back_id, "side": "Back"})
+                    if it["back_attr"]:
+                        local_updates.append((it["back_attr"], back_id))
+            if fill:
+                patches[idx] = fill
+            continue
+
+        # RR has no entry for this id_name at all — push a fresh one.
         photos = []
         front_id = await _upload_file(it["front_url"], client, token)
         if front_id:
@@ -228,8 +266,14 @@ async def _push_identities(
         if photos:
             new_entries.append({"id_name": it["id_name"], "photos": photos})
 
-    if not new_entries:
+    if not new_entries and not patches:
         return True, None
+
+    for idx, fill in patches.items():
+        identities[idx] = {
+            **identities[idx],
+            "photos": [*(identities[idx].get("photos") or []), *fill],
+        }
 
     try:
         patch_resp = await client.patch(
