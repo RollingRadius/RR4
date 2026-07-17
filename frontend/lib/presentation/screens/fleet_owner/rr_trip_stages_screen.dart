@@ -1186,7 +1186,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 textCapitalization: TextCapitalization.characters,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]')),
-                  LengthLimitingTextInputFormatter(20),
+                  LengthLimitingTextInputFormatter(18),
                 ],
                 decoration: _dec('Driving License No.'),
               ),
