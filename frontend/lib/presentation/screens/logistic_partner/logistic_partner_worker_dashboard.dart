@@ -594,11 +594,11 @@ class _WorkerHomeTab extends ConsumerWidget {
     final tripState = ref.watch(tripProvider);
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Worker';
-    // Fleet status: RR web form trips not yet loading-slip synced.
-    const _done = {'loading_slip_synced', 'bilty_synced', 'pod_synced'};
-    final ongoingTrips = tripState.activeTrips
-        .where((t) => t.consignorName != null && !_done.contains(t.rrSyncStatus))
-        .toList();
+    // Fleet status: backend (rr_web=true) already scopes this to trips not yet
+    // fully synced (current_stage < 5 or rr_sync_status != 'pod_synced') — no
+    // extra client-side filtering here, it used to wrongly drop trips as soon
+    // as their loading slip synced.
+    final ongoingTrips = tripState.activeTrips;
 
     return RefreshIndicator(
       color: _primary,
@@ -645,7 +645,6 @@ class _WorkerHomeTab extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: 14),
                   child: RrTripCard(
                     trip: t,
-                    workerMode: true,
                     onRefresh: () => ref
                         .read(tripProvider.notifier)
                         .loadTrips(statusFilter: 'ongoing,pending', rrWeb: true),
@@ -1031,7 +1030,7 @@ class _WorkerRecordsTab extends ConsumerWidget {
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) => Padding(
                     padding: const EdgeInsets.only(bottom: 14),
-                    child: RrTripCard(trip: trips[i], workerMode: true),
+                    child: RrTripCard(trip: trips[i]),
                   ),
                   childCount: trips.length,
                 ),

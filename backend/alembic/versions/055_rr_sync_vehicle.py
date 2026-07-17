@@ -1,14 +1,14 @@
 """Add rr_vehicle_id to vehicles for RR sync.
 
 Revision ID: 055
-Revises: 073
+Revises: 054_rr_sync_org
 Create Date: 2026-05-23
 """
 from alembic import op
 import sqlalchemy as sa
 
 revision = '055'
-down_revision = '073'
+down_revision = '054_rr_sync_org'
 branch_labels = None
 depends_on = None
 

@@ -18,7 +18,7 @@ import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
-import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
+import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 import 'package:fleet_management/presentation/screens/fleet/fleet_hub_screen.dart';
@@ -88,13 +88,19 @@ class _LogisticPartnerDashboardState
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadAllData());
   }
 
-  void _showRrTripPopup(String value) {
+  void _showRrTripPopup(String value, String? tripId) {
     // Clear the provider immediately so it doesn't re-trigger
     ref.read(pendingRrTripNumberProvider.notifier).state = null;
+    ref.read(pendingCreatedTripIdProvider.notifier).state = null;
 
     final isFailed = value.startsWith('__failed__:');
 
-    showDialog<void>(
+    // The trip-number popup closes on whichever comes first — the 3s timer or
+    // the user tapping Continue/OK/the barrier — then the S1-required popup
+    // follows immediately. showDialog's Future resolves on any of those, so
+    // chaining off it (rather than the button's onPressed) covers all three.
+    bool closed = false;
+    final popupFuture = showDialog<void>(
       context: context,
       barrierDismissible: true,
       builder: (_) => isFailed
@@ -191,7 +197,55 @@ class _LogisticPartnerDashboardState
                 ),
               ],
             ),
-    );
+    ).then((_) {
+      closed = true;
+      if (mounted && tripId != null) _showS1RequiredPopup(tripId);
+    });
+
+    Timer(const Duration(seconds: 3), () {
+      if (!closed && mounted) {
+        Navigator.of(context, rootNavigator: true).maybePop();
+      }
+    });
+  }
+
+  void _showS1RequiredPopup(String tripId) {
+    showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text('Field Executive — Stage 1', style: _manrope(size: 15, weight: FontWeight.w800)),
+        content: Text(
+          'Allow the Field Executive to fill Stage 1 (Truck Detail Registration) docs for this trip?\n\n'
+          'You can change this later from the trip card.',
+          style: _inter(size: 13, color: const Color(0xFF546067)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
+            child: Text('No', style: _inter(size: 14, weight: FontWeight.w600, color: const Color(0xFF546067))),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF6B00),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
+            child: Text('Yes', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+          ),
+        ],
+      ),
+    ).then((allow) async {
+      if (allow == false) {
+        try {
+          await ref.read(dioProvider).patch(
+            '/api/trips/$tripId/s1-required',
+            data: {'required': false},
+          );
+        } catch (_) {
+          // Non-fatal — LP/RR-ops can retry via the toggle on the trip card.
+        }
+      }
+    });
   }
 
   /// Load all dashboard data. Called on init and whenever Dashboard tab
@@ -225,7 +279,8 @@ class _LogisticPartnerDashboardState
     // Show RR trip number popup whenever a new trip is created via CreateTripScreen
     ref.listen<String?>(pendingRrTripNumberProvider, (_, next) {
       if (next != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _showRrTripPopup(next));
+        final tripId = ref.read(pendingCreatedTripIdProvider);
+        WidgetsBinding.instance.addPostFrameCallback((_) => _showRrTripPopup(next, tripId));
       }
     });
 
@@ -801,11 +856,11 @@ class _DashboardTab extends ConsumerWidget {
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Logistic Partner';
 
-    // Fleet status: RR web form trips not yet loading-slip synced.
-    const _done = {'loading_slip_synced', 'bilty_synced', 'pod_synced'};
-    final ongoingTrips = tripState.activeTrips
-        .where((t) => t.consignorName != null && !_done.contains(t.rrSyncStatus))
-        .toList();
+    // Fleet status: backend (rr_web=true) already scopes this to trips not yet
+    // fully synced (current_stage < 5 or rr_sync_status != 'pod_synced') — no
+    // extra client-side filtering here, it used to wrongly drop trips as soon
+    // as their loading slip synced.
+    final ongoingTrips = tripState.activeTrips;
 
     return RefreshIndicator(
       color: _primary,
@@ -2318,7 +2373,7 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
       final nav = Navigator.of(context);
       nav.pop();
       nav.push(
-        MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)),
+        MaterialPageRoute(builder: (_) => RrTripStagesScreen(trip: trip)),
       ).then((_) {
         trips.loadTrips(statusFilter: 'ongoing,pending');
       });

@@ -27,6 +27,9 @@ class TripModel {
   final String? createdAt;
   final String? updatedAt;
   final int currentStage;
+  /// Whether Field Executives must fill Stage 1 for this trip — a live
+  /// LP/RR-ops-controlled switch, defaults to true.
+  final bool s1Required;
 
   // ── Stage 1 fields ───────────────────────────────────────────────────────────
   final String? s1DriverName;
@@ -57,20 +60,19 @@ class TripModel {
   final String? s2EmptyWeightUnit;
 
   // ── Stage 3 fields ───────────────────────────────────────────────────────────
-  final bool? s3DriverParked;
-  final bool? s3DocsSubmitted;
-  final bool? s3SecurityVerified;
-  final bool? s3DriverExitedCabin;
-  final bool? s3WheelStoppers;
-  final bool? s3SafetyGear;
   final String? s3EmptyTruckWeightKg;
   final String? s3EmptyTruckWeightUnit;
   final String? s3LoadedTruckWeightKg;
   final String? s3LoadedTruckWeightUnit;
   final String? s3LoadedWeightSlipUrl;
-  final String? s3BiltyUrl;
+  final String? s3BiltyUrl;   // legacy — replaced by e-way bill, no longer written
   final List<String>? s3MaterialDocUrls;
-  final String? s3EWayBillUrl;
+  final String? s3VehicleReachDatetime;   // RR loading.truck_reach_datetime
+  final String? s3LoadingStartDatetime;   // RR loading.start_datetime
+  final String? s3EwayBillNumber;
+  final String? s3EwayBillUrl;
+  final String? s3EwayBillIssueDate;
+  final String? s3EwayBillExpiryDate;
 
   // ── Stage 4 fields ───────────────────────────────────────────────────────────
   final bool? s4TruckMoved;
@@ -81,12 +83,16 @@ class TripModel {
   final String? s4CompletedAt;
   final String? s4NotifiedAt;
   final String? s4DieselReceiptUrl;   // uploaded after truck exits factory
+  final String? s4VehicleExitDatetime;   // RR loading.end_datetime
 
   // ── Stage 5 fields — Unloading ────────────────────────────────────────────────
   final String?  s5PodUrl;
   final double?  s5HaltingCharge;
   final String?  s5SubmittedBy;
   final String?  s5CompletedAt;
+  final String?  s5VehicleReachDatetime;     // RR unloading.truck_reach_datetime
+  final String?  s5UnloadingStartDatetime;   // RR unloading.start_datetime
+  final String?  s5UnloadingEndDatetime;     // RR unloading.end_datetime
 
   // ── Stage authorship (who submitted each stage) ───────────────────────────────
   final String? s1SubmittedBy;
@@ -164,6 +170,18 @@ class TripModel {
   final String? rrSyncError;
   final String? rrSyncedAt;
 
+  // ── Per-stage RR sync tracking ──
+  final String? rrS1SyncStatus;
+  final String? rrS1SyncError;
+  final String? rrS2SyncStatus;
+  final String? rrS2SyncError;
+  final String? rrS3SyncStatus;
+  final String? rrS3SyncError;
+  final String? rrS4SyncStatus;
+  final String? rrS4SyncError;
+  final String? rrS5SyncStatus;
+  final String? rrS5SyncError;
+
   // ── Draft (cross-device in-progress form data) ────────────────────────────────
   final Map<String, dynamic>? draftData;
 
@@ -197,6 +215,7 @@ class TripModel {
     this.createdAt,
     this.updatedAt,
     this.currentStage = 0,
+    this.s1Required = true,
     this.s1DriverName,
     this.s1DriverPhone,
     this.s1DrivingLicense,
@@ -221,12 +240,6 @@ class TripModel {
     this.s2DharamKantaLoc,
     this.s2EmptyWeightKg,
     this.s2EmptyWeightUnit,
-    this.s3DriverParked,
-    this.s3DocsSubmitted,
-    this.s3SecurityVerified,
-    this.s3DriverExitedCabin,
-    this.s3WheelStoppers,
-    this.s3SafetyGear,
     this.s3EmptyTruckWeightKg,
     this.s3EmptyTruckWeightUnit,
     this.s3LoadedTruckWeightKg,
@@ -234,7 +247,12 @@ class TripModel {
     this.s3LoadedWeightSlipUrl,
     this.s3BiltyUrl,
     this.s3MaterialDocUrls,
-    this.s3EWayBillUrl,
+    this.s3VehicleReachDatetime,
+    this.s3LoadingStartDatetime,
+    this.s3EwayBillNumber,
+    this.s3EwayBillUrl,
+    this.s3EwayBillIssueDate,
+    this.s3EwayBillExpiryDate,
     this.s4TruckMoved,
     this.s4SecurityVerified,
     this.s4BiltyChecked,
@@ -243,10 +261,14 @@ class TripModel {
     this.s4CompletedAt,
     this.s4NotifiedAt,
     this.s4DieselReceiptUrl,
+    this.s4VehicleExitDatetime,
     this.s5PodUrl,
     this.s5HaltingCharge,
     this.s5SubmittedBy,
     this.s5CompletedAt,
+    this.s5VehicleReachDatetime,
+    this.s5UnloadingStartDatetime,
+    this.s5UnloadingEndDatetime,
     this.s1SubmittedBy,
     this.s2SubmittedBy,
     this.s3SubmittedBy,
@@ -303,6 +325,16 @@ class TripModel {
     this.rrSyncStatus,
     this.rrSyncError,
     this.rrSyncedAt,
+    this.rrS1SyncStatus,
+    this.rrS1SyncError,
+    this.rrS2SyncStatus,
+    this.rrS2SyncError,
+    this.rrS3SyncStatus,
+    this.rrS3SyncError,
+    this.rrS4SyncStatus,
+    this.rrS4SyncError,
+    this.rrS5SyncStatus,
+    this.rrS5SyncError,
     this.draftData,
     this.fieldAttributions,
   });
@@ -341,6 +373,7 @@ class TripModel {
       createdAt: json['created_at'] as String?,
       updatedAt: json['updated_at'] as String?,
       currentStage: json['current_stage'] as int? ?? 0,
+      s1Required: json['s1_required'] as bool? ?? true,
       s1DriverName: json['s1_driver_name'] as String?,
       s1DriverPhone: json['s1_driver_phone'] as String?,
       s1DrivingLicense: json['s1_driving_license'] as String?,
@@ -365,12 +398,6 @@ class TripModel {
       s2DharamKantaLoc: json['s2_dharam_kanta_loc'] as String?,
       s2EmptyWeightKg: json['s2_empty_weight_kg'] as String?,
       s2EmptyWeightUnit: json['s2_empty_weight_unit'] as String?,
-      s3DriverParked:       json['s3_driver_parked']        as bool?,
-      s3DocsSubmitted:      json['s3_docs_submitted']        as bool?,
-      s3SecurityVerified:   json['s3_security_verified']     as bool?,
-      s3DriverExitedCabin:  json['s3_driver_exited_cabin']   as bool?,
-      s3WheelStoppers:      json['s3_wheel_stoppers']        as bool?,
-      s3SafetyGear:         json['s3_safety_gear']           as bool?,
       s3EmptyTruckWeightKg: json['s3_empty_truck_weight_kg'] as String?,
       s3EmptyTruckWeightUnit: json['s3_empty_truck_weight_unit'] as String?,
       s3LoadedTruckWeightKg: json['s3_loaded_truck_weight_kg'] as String?,
@@ -378,7 +405,12 @@ class TripModel {
       s3LoadedWeightSlipUrl: json['s3_loaded_weight_slip_url'] as String?,
       s3BiltyUrl: json['s3_bilty_url'] as String?,
       s3MaterialDocUrls: _parseUrlList(json['s3_material_doc_urls']),
-      s3EWayBillUrl: json['s3_e_way_bill_url'] as String?,
+      s3VehicleReachDatetime: json['s3_vehicle_reach_datetime'] as String?,
+      s3LoadingStartDatetime: json['s3_loading_start_datetime'] as String?,
+      s3EwayBillNumber: json['s3_eway_bill_number'] as String?,
+      s3EwayBillUrl: json['s3_eway_bill_url'] as String?,
+      s3EwayBillIssueDate: json['s3_eway_bill_issue_date'] as String?,
+      s3EwayBillExpiryDate: json['s3_eway_bill_expiry_date'] as String?,
       s4TruckMoved:       json['s4_truck_moved']       as bool?,
       s4SecurityVerified: json['s4_security_verified'] as bool?,
       s4BiltyChecked:     json['s4_bilty_checked']     as bool?,
@@ -387,10 +419,14 @@ class TripModel {
       s4CompletedAt:      json['s4_completed_at']        as String?,
       s4NotifiedAt:       json['s4_notified_at']         as String?,
       s4DieselReceiptUrl: json['s4_diesel_receipt_url']  as String?,
+      s4VehicleExitDatetime: json['s4_vehicle_exit_datetime'] as String?,
       s5PodUrl:           json['s5_pod_url']             as String?,
       s5HaltingCharge:    (json['s5_halting_charge'] as num?)?.toDouble(),
       s5SubmittedBy:      json['s5_submitted_by']        as String?,
       s5CompletedAt:      json['s5_completed_at']        as String?,
+      s5VehicleReachDatetime:     json['s5_vehicle_reach_datetime'] as String?,
+      s5UnloadingStartDatetime:   json['s5_unloading_start_datetime'] as String?,
+      s5UnloadingEndDatetime:     json['s5_unloading_end_datetime'] as String?,
       s1SubmittedBy:          json['s1_submitted_by']           as String?,
       s2SubmittedBy:          json['s2_submitted_by']           as String?,
       s3SubmittedBy:          json['s3_submitted_by']           as String?,
@@ -447,6 +483,16 @@ class TripModel {
       rrSyncStatus:            json['rr_sync_status'] as String?,
       rrSyncError:             json['rr_sync_error'] as String?,
       rrSyncedAt:              json['rr_synced_at'] as String?,
+      rrS1SyncStatus:          json['rr_s1_sync_status'] as String?,
+      rrS1SyncError:           json['rr_s1_sync_error'] as String?,
+      rrS2SyncStatus:          json['rr_s2_sync_status'] as String?,
+      rrS2SyncError:           json['rr_s2_sync_error'] as String?,
+      rrS3SyncStatus:          json['rr_s3_sync_status'] as String?,
+      rrS3SyncError:           json['rr_s3_sync_error'] as String?,
+      rrS4SyncStatus:          json['rr_s4_sync_status'] as String?,
+      rrS4SyncError:           json['rr_s4_sync_error'] as String?,
+      rrS5SyncStatus:          json['rr_s5_sync_status'] as String?,
+      rrS5SyncError:           json['rr_s5_sync_error'] as String?,
       draftData:               json['draft_data'] as Map<String, dynamic>?,
       fieldAttributions:       json['field_attributions'] as Map<String, dynamic>?,
     );

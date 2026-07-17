@@ -82,6 +82,15 @@ class Driver(Base):
     # RR Sync
     rr_user_id = Column(String(24), nullable=True)  # MongoDB user ObjectId in RR — looked up by phone
 
+    # RR file ids for Stage 1 identity docs already pushed to users.identities[] —
+    # set once, lets _sync_stage1_docs skip re-pushing on later trips for this driver.
+    rr_dl_file_id             = Column(String(100), nullable=True)
+    rr_dl_back_file_id        = Column(String(100), nullable=True)
+    rr_aadhaar_file_id        = Column(String(100), nullable=True)
+    rr_aadhaar_back_file_id   = Column(String(100), nullable=True)
+    rr_pan_file_id            = Column(String(100), nullable=True)
+    rr_tax_declaration_file_id = Column(String(100), nullable=True)
+
     # GPS Tracking
     tracking_enabled = Column(Boolean, nullable=False, default=False, server_default='false')
 

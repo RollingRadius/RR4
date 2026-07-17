@@ -140,7 +140,7 @@ def _count_points(user_id, org_id, start, end, db: Session):
             if v:
                 s3 += 1
         # Document uploads
-        if t.s3_bilty_url:
+        if t.s3_eway_bill_url:
             s3 += 1
         if t.s3_material_doc_urls:
             s3 += 1

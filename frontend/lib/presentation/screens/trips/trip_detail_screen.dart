@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
-import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
+import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _primary = Color(0xFFFF6B00);
@@ -224,7 +224,7 @@ class _GoToStageButton extends ConsumerWidget {
     final stage = trip.currentStage;
     return GestureDetector(
       onTap: () => Navigator.of(context)
-          .push(MaterialPageRoute(builder: (_) => TripStagesScreen(trip: trip)))
+          .push(MaterialPageRoute(builder: (_) => RrTripStagesScreen(trip: trip)))
           .then((_) {
         ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing,pending');
       }),

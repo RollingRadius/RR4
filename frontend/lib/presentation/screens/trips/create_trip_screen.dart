@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:fleet_management/providers/trip_provider.dart' show tripProvider, pendingRrTripNumberProvider;
+import 'package:fleet_management/providers/trip_provider.dart' show tripProvider, pendingRrTripNumberProvider, pendingCreatedTripIdProvider;
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
@@ -810,9 +810,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     // Store RR trip number so dashboard can show the popup over itself
     if (rrNum != null && rrNum.isNotEmpty) {
       ref.read(pendingRrTripNumberProvider.notifier).state = rrNum;
+      ref.read(pendingCreatedTripIdProvider.notifier).state = trip.id;
     } else if (syncStatus == 'failed') {
       ref.read(pendingRrTripNumberProvider.notifier).state =
           '__failed__:${trip.rrSyncError ?? 'unknown error'}';
+      ref.read(pendingCreatedTripIdProvider.notifier).state = trip.id;
     }
 
     if (!mounted) return;

@@ -8,7 +8,7 @@ import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_detail_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
-import 'package:fleet_management/presentation/screens/fleet_owner/trip_stages_screen.dart';
+import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _primary = Color(0xFFFF6B00);
@@ -181,7 +181,7 @@ class OngoingTripCard extends ConsumerWidget {
                   GestureDetector(
                     onTap: () => Navigator.of(context)
                         .push(MaterialPageRoute(
-                            builder: (_) => TripStagesScreen(trip: trip)))
+                            builder: (_) => RrTripStagesScreen(trip: trip)))
                         .then((_) {
                       ref
                           .read(tripProvider.notifier)
@@ -876,7 +876,7 @@ class _StageSlidingPanel extends StatelessWidget {
             return GestureDetector(
               onTap: () => Navigator.of(context)
                   .push(MaterialPageRoute(
-                      builder: (_) => TripStagesScreen(trip: trip)))
+                      builder: (_) => RrTripStagesScreen(trip: trip)))
                   .then((_) => onRefresh()),
               child: Container(
                 width: 78,
@@ -957,7 +957,7 @@ class _StageSlidingPanel extends StatelessWidget {
           return GestureDetector(
             onTap: () => Navigator.of(context)
                 .push(MaterialPageRoute(
-                    builder: (_) => TripStagesScreen(trip: trip, initialStage: idx)))
+                    builder: (_) => RrTripStagesScreen(trip: trip, initialStage: idx)))
                 .then((_) => onRefresh()),
             child: Container(
               width: 78,

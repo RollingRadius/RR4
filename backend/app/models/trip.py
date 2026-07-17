@@ -59,6 +59,11 @@ class Trip(Base):
 
     # ── Trip Stages ──────────────────────────────────────────────────────────────
     current_stage = Column(Integer, nullable=False, default=0)
+    # Whether Field Executives must fill Stage 1 for this trip. LP/RR-ops can
+    # toggle this live at any point while the trip is active (e.g. when the
+    # selected driver/vehicle already has KYC docs on file on RR web) — it
+    # only gates FE's access to Stage 1, never LP/RR-ops'.
+    s1_required = Column(Boolean, nullable=False, default=True)
 
     # Stage 1 — Truck Detail Registration
     s1_driver_name          = Column(String(100), nullable=True)
@@ -99,14 +104,22 @@ class Trip(Base):
     s3_wheel_stoppers           = Column(Boolean,      nullable=True)
     s3_safety_gear              = Column(Boolean,      nullable=True)
     s3_empty_truck_weight_kg    = Column(String(20),   nullable=True)   # Dharma kanta — before loading (value)
-    s3_empty_truck_weight_unit  = Column(String(10),   nullable=True, default='tons')  # 'tons' or 'kg'
+    s3_empty_truck_weight_unit  = Column(String(10),   nullable=True, default='kg')  # 'tons' or 'kg'
     s3_loaded_truck_weight_kg   = Column(String(20),   nullable=True)   # Dharma kanta — after loading (value)
-    s3_loaded_truck_weight_unit = Column(String(10),   nullable=True, default='tons')  # 'tons' or 'kg'
+    s3_loaded_truck_weight_unit = Column(String(10),   nullable=True, default='kg')  # 'tons' or 'kg'
     s3_loaded_weight_slip_url   = Column(String(500),  nullable=True)   # Kanta parchi — loaded weight slip photo
-    s3_bilty_url                = Column(String(500),  nullable=True)   # URL path to bilty image
+    s3_bilty_url                = Column(String(500),  nullable=True)   # legacy — replaced by e-way bill, no longer written
     s3_material_doc_urls        = Column(Text,         nullable=True)   # JSON list of material doc URL paths
     s3_e_way_bill_url           = Column(Text,         nullable=True)   # URL path to e-way bill document
     s3_completed_at             = Column(TIMESTAMP(timezone=True), nullable=True)
+    # RR parcels.loading.{truck_reach_datetime,start_datetime}
+    s3_vehicle_reach_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
+    s3_loading_start_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
+    # RR parcels.documents.eway_bill.{number,photos,issue_date,expiry_date}
+    s3_eway_bill_number         = Column(String(50),   nullable=True)
+    s3_eway_bill_url            = Column(String(500),  nullable=True)   # URL path to e-way bill photo
+    s3_eway_bill_issue_date     = Column(TIMESTAMP(timezone=True), nullable=True)
+    s3_eway_bill_expiry_date    = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Stage 4 — Truck Exit From Factory
     s4_truck_moved      = Column(Boolean, nullable=True)
@@ -117,12 +130,18 @@ class Trip(Base):
     s4_completed_at       = Column(TIMESTAMP(timezone=True), nullable=True)
     s4_notified_at        = Column(TIMESTAMP(timezone=True), nullable=True)
     s4_diesel_receipt_url = Column(Text, nullable=True)   # uploaded after truck exits factory
+    # RR parcels.loading.end_datetime
+    s4_vehicle_exit_datetime = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Stage 5 — Unloading (Proof of Delivery + Halting Charge)
     s5_pod_url        = Column(Text,                    nullable=True)
     s5_halting_charge = Column(Numeric(12, 2),          nullable=True)
     s5_submitted_by   = Column(UUID(as_uuid=True),      nullable=True)
     s5_completed_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    # RR parcels.unloading.{truck_reach_datetime,start_datetime,end_datetime}
+    s5_vehicle_reach_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
+    s5_unloading_start_datetime = Column(TIMESTAMP(timezone=True), nullable=True)
+    s5_unloading_end_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # ── Transporter Assignment ────────────────────────────────────────────────────
     # User ID of the transporter assigned by LP to upload the loading slip
@@ -193,6 +212,21 @@ class Trip(Base):
     vehicle_number   = Column(String(30),    nullable=True)   # manually entered reg. number (no fleet link)
     rr_vehicle_id    = Column(String(24),    nullable=True)   # RR vehicle ObjectId selected via picker
     rr_driver_id     = Column(String(24),    nullable=True)   # RR driver user ObjectId (from vehicle crew)
+
+    # RR identity-doc file ids — cache for trips using the RR picker (rr_vehicle_id/
+    # rr_driver_id above) where there's no local Driver/Vehicle row to cache on.
+    # Mirrors drivers.rr_*_file_id / vehicles.rr_*_file_id, used as the fallback
+    # entity by _sync_stage1_docs / get_identity_status / identity-override.
+    rr_dl_file_id              = Column(String(100), nullable=True)
+    rr_dl_back_file_id         = Column(String(100), nullable=True)
+    rr_aadhaar_file_id         = Column(String(100), nullable=True)
+    rr_aadhaar_back_file_id    = Column(String(100), nullable=True)
+    rr_pan_file_id             = Column(String(100), nullable=True)
+    rr_tax_declaration_file_id = Column(String(100), nullable=True)
+    rr_rc_file_id              = Column(String(100), nullable=True)
+    rr_puc_file_id             = Column(String(100), nullable=True)
+    rr_fitness_file_id         = Column(String(100), nullable=True)
+    rr_permit_file_id          = Column(String(100), nullable=True)
     axle_type        = Column(String(20),    nullable=True)   # Single | Double | Triple | Multiple
     number_of_wheels = Column(Integer,       nullable=True)   # 4|6|8|10|12|14|16|18|22
     expected_freight = Column(Numeric(12,2), nullable=True)
@@ -211,11 +245,37 @@ class Trip(Base):
     rr_loading_slip_file_id = Column(String(100), nullable=True)  # ObjectId from RR /files
     rr_loading_slip_url     = Column(String(500), nullable=True)  # our local saved copy
 
-    # Sync state
+    # Sync state (overall/legacy — stage 2 loading slip still reported here)
     rr_sync_status = Column(String(30), nullable=True, default='not_synced')
     # Values: not_synced | trip_created | loading_slip_synced | bilty_synced | pod_synced | failed
     rr_sync_error  = Column(Text,                        nullable=True)
     rr_synced_at   = Column(TIMESTAMP(timezone=True),    nullable=True)
+
+    # Per-stage RR sync tracking (each stage's own status — see sync_stage() /
+    # rr_sync_service.py. rr_sync_status above stays as a legacy "overall/latest"
+    # indicator other screens read, but is NOT authoritative per-stage: it gets
+    # overwritten by whichever stage's sync last completed, so relying on it to
+    # judge one specific stage's success is wrong — use these columns instead.)
+    # Values: not_synced | pending_trip_creation | synced | failed | auth_required
+    rr_s1_sync_status = Column(String(30), nullable=False, default='not_synced')
+    rr_s1_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_s1_sync_error  = Column(Text, nullable=True)
+
+    rr_s2_sync_status = Column(String(30), nullable=False, default='not_synced')
+    rr_s2_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_s2_sync_error  = Column(Text, nullable=True)
+
+    rr_s3_sync_status = Column(String(30), nullable=False, default='not_synced')
+    rr_s3_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_s3_sync_error  = Column(Text, nullable=True)
+
+    rr_s4_sync_status = Column(String(30), nullable=False, default='not_synced')
+    rr_s4_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_s4_sync_error  = Column(Text, nullable=True)
+
+    rr_s5_sync_status = Column(String(30), nullable=False, default='not_synced')
+    rr_s5_synced_at   = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_s5_sync_error  = Column(Text, nullable=True)
 
     # ── Draft (cross-device in-progress form data) ───────────────────────────────
     draft_data = Column(JSONB, nullable=True)
@@ -253,6 +313,7 @@ class Trip(Base):
             "end_date": str(self.end_date) if self.end_date else None,
             "load_requirement_id": str(self.load_requirement_id) if self.load_requirement_id else None,
             "current_stage": self.current_stage,
+            "s1_required": self.s1_required,
             "transporter_user_id": str(self.transporter_user_id) if self.transporter_user_id else None,
             # Stage 1
             "s1_driver_name": self.s1_driver_name,
@@ -290,14 +351,20 @@ class Trip(Base):
             "s3_wheel_stoppers": self.s3_wheel_stoppers,
             "s3_safety_gear": self.s3_safety_gear,
             "s3_empty_truck_weight_kg": self.s3_empty_truck_weight_kg,
-            "s3_empty_truck_weight_unit": self.s3_empty_truck_weight_unit or 'tons',
+            "s3_empty_truck_weight_unit": self.s3_empty_truck_weight_unit or 'kg',
             "s3_loaded_truck_weight_kg": self.s3_loaded_truck_weight_kg,
-            "s3_loaded_truck_weight_unit": self.s3_loaded_truck_weight_unit or 'tons',
+            "s3_loaded_truck_weight_unit": self.s3_loaded_truck_weight_unit or 'kg',
             "s3_loaded_weight_slip_url": self.s3_loaded_weight_slip_url,
             "s3_bilty_url": self.s3_bilty_url,
             "s3_material_doc_urls": self.s3_material_doc_urls,
             "s3_e_way_bill_url": self.s3_e_way_bill_url,
             "s3_completed_at": self.s3_completed_at.isoformat() if self.s3_completed_at else None,
+            "s3_vehicle_reach_datetime": self.s3_vehicle_reach_datetime.isoformat() if self.s3_vehicle_reach_datetime else None,
+            "s3_loading_start_datetime": self.s3_loading_start_datetime.isoformat() if self.s3_loading_start_datetime else None,
+            "s3_eway_bill_number": self.s3_eway_bill_number,
+            "s3_eway_bill_url": self.s3_eway_bill_url,
+            "s3_eway_bill_issue_date": self.s3_eway_bill_issue_date.isoformat() if self.s3_eway_bill_issue_date else None,
+            "s3_eway_bill_expiry_date": self.s3_eway_bill_expiry_date.isoformat() if self.s3_eway_bill_expiry_date else None,
             # Stage 4
             "s4_truck_moved": self.s4_truck_moved,
             "s4_security_verified": self.s4_security_verified,
@@ -307,11 +374,15 @@ class Trip(Base):
             "s4_completed_at": self.s4_completed_at.isoformat() if self.s4_completed_at else None,
             "s4_notified_at": self.s4_notified_at.isoformat() if self.s4_notified_at else None,
             "s4_diesel_receipt_url": self.s4_diesel_receipt_url,
+            "s4_vehicle_exit_datetime": self.s4_vehicle_exit_datetime.isoformat() if self.s4_vehicle_exit_datetime else None,
             # Stage 5 — Unloading
             "s5_pod_url": self.s5_pod_url,
             "s5_halting_charge": float(self.s5_halting_charge) if self.s5_halting_charge is not None else None,
             "s5_submitted_by": str(self.s5_submitted_by) if self.s5_submitted_by else None,
             "s5_completed_at": self.s5_completed_at.isoformat() if self.s5_completed_at else None,
+            "s5_vehicle_reach_datetime": self.s5_vehicle_reach_datetime.isoformat() if self.s5_vehicle_reach_datetime else None,
+            "s5_unloading_start_datetime": self.s5_unloading_start_datetime.isoformat() if self.s5_unloading_start_datetime else None,
+            "s5_unloading_end_datetime": self.s5_unloading_end_datetime.isoformat() if self.s5_unloading_end_datetime else None,
             # Stage authorship
             "s1_submitted_by": str(self.s1_submitted_by) if self.s1_submitted_by else None,
             "s2_submitted_by": str(self.s2_submitted_by) if self.s2_submitted_by else None,
@@ -340,6 +411,22 @@ class Trip(Base):
             "rr_sync_status":          self.rr_sync_status,
             "rr_sync_error":  self.rr_sync_error,
             "rr_synced_at":   self.rr_synced_at.isoformat() if self.rr_synced_at else None,
+            # Per-stage RR sync tracking
+            "rr_s1_sync_status": self.rr_s1_sync_status,
+            "rr_s1_sync_error":  self.rr_s1_sync_error,
+            "rr_s1_synced_at":   self.rr_s1_synced_at.isoformat() if self.rr_s1_synced_at else None,
+            "rr_s2_sync_status": self.rr_s2_sync_status,
+            "rr_s2_sync_error":  self.rr_s2_sync_error,
+            "rr_s2_synced_at":   self.rr_s2_synced_at.isoformat() if self.rr_s2_synced_at else None,
+            "rr_s3_sync_status": self.rr_s3_sync_status,
+            "rr_s3_sync_error":  self.rr_s3_sync_error,
+            "rr_s3_synced_at":   self.rr_s3_synced_at.isoformat() if self.rr_s3_synced_at else None,
+            "rr_s4_sync_status": self.rr_s4_sync_status,
+            "rr_s4_sync_error":  self.rr_s4_sync_error,
+            "rr_s4_synced_at":   self.rr_s4_synced_at.isoformat() if self.rr_s4_synced_at else None,
+            "rr_s5_sync_status": self.rr_s5_sync_status,
+            "rr_s5_sync_error":  self.rr_s5_sync_error,
+            "rr_s5_synced_at":   self.rr_s5_synced_at.isoformat() if self.rr_s5_synced_at else None,
             # RR party fields
             "consignor_rr_company_id": self.consignor_rr_company_id,
             "consignee_rr_company_id": self.consignee_rr_company_id,

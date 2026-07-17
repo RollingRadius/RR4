@@ -671,21 +671,21 @@ class _Stage3Card extends StatelessWidget {
               ],
             ),
           ],
-          // Bilty image
-          if (trip.s3BiltyUrl != null) ...[
+          // E-way bill image
+          if (trip.s3EwayBillUrl != null) ...[
             const Divider(height: 24),
             _DocImageSection(
-              title: 'Bilty',
+              title: 'E-way Bill',
               icon: Icons.receipt_long_rounded,
-              urls: [trip.s3BiltyUrl!],
+              urls: [trip.s3EwayBillUrl!],
             ),
           ],
-          // Material documents
+          // Invoice document
           if (trip.s3MaterialDocUrls != null &&
               trip.s3MaterialDocUrls!.isNotEmpty) ...[
             const Divider(height: 24),
             _DocImageSection(
-              title: 'Material Documents',
+              title: 'Invoice',
               icon: Icons.folder_open_rounded,
               urls: trip.s3MaterialDocUrls!,
             ),
@@ -779,7 +779,7 @@ class _Stage4Card extends StatelessWidget {
           const SizedBox(height: 14),
           _CheckRow(label: 'Truck moved to exit gate',      value: trip.s4TruckMoved),
           _CheckRow(label: 'Security verified documents',   value: trip.s4SecurityVerified),
-          _CheckRow(label: 'Bilty checked',                 value: trip.s4BiltyChecked),
+          _CheckRow(label: 'E-way bill checked',             value: trip.s4BiltyChecked),
           _CheckRow(label: 'Loaded weight slip checked',    value: trip.s4WeightChecked),
           _CheckRow(label: 'Material documents checked',    value: trip.s4MaterialChecked),
           const SizedBox(height: 8),
