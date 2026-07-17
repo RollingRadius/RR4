@@ -5793,6 +5793,13 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
 
   bool _syncingToRr = false;
   String? _rrSyncPromptError;
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   bool get _canManageRr {
     final user = ref.read(authProvider).user;
@@ -5827,14 +5834,19 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
 
   void _autoCloseOnSync() {
     if (_completing || _notifying || _notifyingLP) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('Trip synced', style: _inter(size: 13, color: Colors.white)),
-      backgroundColor: _success,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-    ));
-    Future.delayed(const Duration(milliseconds: 900), () {
-      if (mounted) widget.onDone();
+    // didUpdateWidget runs during the build phase — showSnackBar() and any
+    // other ScaffoldMessenger mutation must be deferred to after the frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _disposed) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Trip synced', style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: _success,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+      Future.delayed(const Duration(milliseconds: 900), () {
+        if (mounted && !_disposed) widget.onDone();
+      });
     });
   }
 
@@ -5845,10 +5857,17 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
   // ref.listen/didUpdateWidget, which does the actual close — nothing here
   // assumes success itself.
   Future<void> _pollForSyncCompletion() async {
-    for (var i = 0; i < 6 && mounted; i++) {
+    for (var i = 0; i < 6 && mounted && !_disposed; i++) {
       await Future.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
-      await ref.read(tripProvider.notifier).fetchSingleTrip(widget.trip.id);
+      if (!mounted || _disposed) return;
+      try {
+        await ref.read(tripProvider.notifier).fetchSingleTrip(widget.trip.id);
+      } catch (_) {
+        // Widget may have been deactivated (e.g. popped by _autoCloseOnSync)
+        // between the mounted check above and this call — mounted alone
+        // doesn't guard against that race, so just stop polling.
+        return;
+      }
     }
   }
 

@@ -170,6 +170,155 @@ async def _try_resolve_rr_ids(trip, client: httpx.AsyncClient, token: str, db) -
 
 # ── Stage 1: Driver KYC + vehicle compliance docs ─────────────────────────────
 
+async def _fetch_driver_identities_via_vehicle(
+    vehicle_rr_id: str | None, driver_rr_id: str, client: httpx.AsyncClient, token: str,
+) -> list[dict] | None:
+    """
+    Read a driver's current identities[] via the vehicle they're assigned to.
+
+    GET /users/<id> is restricted to the record's own owner and 404s for an
+    LP/RR-ops session even with a correct id — but the driver's full user doc
+    (including identities) comes back embedded on the vehicle via
+    embedded={"crew.worker": 1}, which the vehicle's owning company *can*
+    read. Returns None if it can't be determined (caller treats that as
+    "unknown", not "empty", to avoid overwriting docs it never saw).
+    """
+    if not vehicle_rr_id:
+        return None
+    try:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/vehicles/{vehicle_rr_id}",
+            params={"embedded": json.dumps({"crew.worker": 1})},
+            headers=_auth_header(token),
+        )
+    except Exception as exc:
+        logger.warning(f"[RR Sync] Fetch driver identities via vehicle failed: {exc}")
+        return None
+    if resp.status_code != 200:
+        return None
+    for member in resp.json().get("crew") or []:
+        worker = member.get("worker")
+        if isinstance(worker, dict) and str(worker.get("_id")) == driver_rr_id:
+            return list(worker.get("identities") or [])
+    return None
+
+
+async def _push_driver_identities(
+    entity,
+    driver_rr_id: str,
+    vehicle_rr_id: str | None,
+    company_id: str | None,
+    items: list[dict],
+    client: httpx.AsyncClient,
+    token: str,
+    db,
+) -> tuple[bool, str | None]:
+    """
+    Push driver identity docs (DL/Aadhaar/PAN/Tax Declaration) via RR's
+    POST /users/save_identities — the only way an LP/RR-ops session can write
+    to a driver's user record, since GET/PATCH /users/<id> itself 404s (item
+    access is restricted to the record's own owner; _push_identities' normal
+    GET-then-PATCH flow only works for vehicles, not users).
+
+    save_identities wholesale-replaces `identities[]` server-side (no merge),
+    so we read the driver's current identities first via
+    _fetch_driver_identities_via_vehicle and send back the full merged set —
+    same fill-missing-side/skip-if-complete semantics _push_identities uses.
+    """
+    to_push = [
+        it for it in items
+        if it["front_url"] and not getattr(entity, it["front_attr"])
+    ]
+    if not to_push:
+        return True, None  # everything already pushed for this driver
+
+    existing = await _fetch_driver_identities_via_vehicle(vehicle_rr_id, driver_rr_id, client, token)
+    if existing is None:
+        # Unknown current state — proceed with an empty baseline rather than
+        # failing outright, but this risks not detecting sides RR already
+        # has (worst case: we re-upload a photo RR already had, never data
+        # loss, since save_identities only receives what we send below).
+        existing = []
+
+    existing_by_name: dict[str, tuple[int, set]] = {}
+    for idx, entry in enumerate(existing):
+        name = entry.get("id_name")
+        if name:
+            sides = {p.get("side") for p in (entry.get("photos") or [])}
+            existing_by_name[name] = (idx, sides)
+
+    local_updates: list[tuple[str, str]] = []
+
+    for it in to_push:
+        existing_entry = existing_by_name.get(it["id_name"])
+        if existing_entry is not None:
+            idx, sides = existing_entry
+            missing_front = "Front" not in sides
+            missing_back = bool(it["back_url"]) and "Back" not in sides
+            if not missing_front and not missing_back:
+                continue  # RR already has every side we have
+            photos = list(existing[idx].get("photos") or [])
+            if missing_front:
+                front_id = await _upload_file(it["front_url"], client, token)
+                if front_id:
+                    photos.append({"photo": front_id, "side": "Front"})
+                    local_updates.append((it["front_attr"], front_id))
+            if missing_back:
+                back_id = await _upload_file(it["back_url"], client, token)
+                if back_id:
+                    photos.append({"photo": back_id, "side": "Back"})
+                    if it["back_attr"]:
+                        local_updates.append((it["back_attr"], back_id))
+            existing[idx] = {**existing[idx], "photos": photos}
+            continue
+
+        photos = []
+        front_id = await _upload_file(it["front_url"], client, token)
+        if front_id:
+            photos.append({"photo": front_id, "side": "Front"})
+            local_updates.append((it["front_attr"], front_id))
+        if it["back_url"]:
+            back_id = await _upload_file(it["back_url"], client, token)
+            if back_id:
+                photos.append({"photo": back_id, "side": "Back"})
+                if it["back_attr"]:
+                    local_updates.append((it["back_attr"], back_id))
+        if photos:
+            existing.append({"id_name": it["id_name"], "photos": photos})
+
+    if not local_updates:
+        return True, None  # every upload attempt above failed — nothing to save
+
+    # RR's save_identities silently drops any identity entry carrying
+    # expiry_date (server-side indentation bug in RR's own code) — none of
+    # our driver doc types set one today, but strip defensively so a future
+    # addition can't silently vanish instead of erroring loudly.
+    clean_identities = [
+        {k: v for k, v in entry.items() if k != "expiry_date"}
+        for entry in existing
+    ]
+
+    body: dict = {"user_id": driver_rr_id, "identities": clean_identities}
+    if company_id:
+        body["company_id"] = company_id
+
+    try:
+        resp = await client.post(
+            f"{settings.RR_API_BASE}/users/save_identities",
+            json=body,
+            headers=_json_header(token),
+        )
+    except Exception as exc:
+        return False, f"POST save_identities exception: {exc}"
+    if resp.status_code != 200:
+        return False, f"POST save_identities HTTP {resp.status_code}: {resp.text[:400]}"
+
+    for attr, rr_file_id in local_updates:
+        setattr(entity, attr, rr_file_id)
+    db.commit()
+    return True, None
+
+
 async def _push_identities(
     entity,
     entity_collection: str,
@@ -421,8 +570,10 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
 
     if driver_entity is not None:
         attempted = True
-        ok, err = await _push_identities(driver_entity, "users", driver_rr_id,
-                                          driver_doc_items(trip), client, token, db)
+        ok, err = await _push_driver_identities(
+            driver_entity, driver_rr_id, vehicle_rr_id, trip.transporter_rr_company_id,
+            driver_doc_items(trip), client, token, db,
+        )
         if not ok:
             errors.append(f"Driver docs: {err}")
     elif trip.driver_id:
