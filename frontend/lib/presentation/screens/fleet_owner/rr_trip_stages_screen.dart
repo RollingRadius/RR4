@@ -141,8 +141,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
     } on DioException catch (e) {
       if (!mounted) return;
       setState(() => _fetchingFresh = false);
-      final msg = e.response?.data?['detail'] as String? ??
-          'Failed to load trip details. Please try again.';
+      final msg = _dioErrorDetail(e, 'Failed to load trip details. Please try again.');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg),
@@ -1371,12 +1370,32 @@ InputDecoration _stageFieldDec(String label) => InputDecoration(
       borderSide: const BorderSide(color: _primary, width: 1.5)),
 );
 
+// Safely extracts a human-readable message from a DioException's response
+// body. FastAPI returns `detail` as a String for a plain HTTPException, but
+// as a List of {loc, msg, type} objects for a 422 request-validation error —
+// a naive `as String?` cast throws on every validation error instead of
+// showing it, which is exactly what crashed Stage 5's resubmit-without-a-
+// new-photo flow.
+String _dioErrorDetail(DioException e, String fallback) {
+  final data = e.response?.data;
+  final detail = data is Map ? data['detail'] : null;
+  if (detail is String && detail.isNotEmpty) return detail;
+  if (detail is List) {
+    final msgs = detail
+        .map((d) => d is Map ? (d['msg']?.toString() ?? d.toString()) : d.toString())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (msgs.isNotEmpty) return msgs.join('; ');
+  }
+  return fallback;
+}
+
 // Surfaces a draft-save failure so it's visible instead of silently dropped
 // (Stage 1's _saveDraft already did this; Stages 2-5 share this one helper).
 void _showDraftSaveError(BuildContext context, Object e) {
   final status = e is DioException ? e.response?.statusCode : null;
   final detail = e is DioException
-      ? (e.response?.data?['detail'] as String? ?? e.message ?? 'Unknown error')
+      ? _dioErrorDetail(e, e.message ?? 'Unknown error')
       : e.toString();
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
     content: Text('Draft save failed ($status): $detail',
@@ -2246,7 +2265,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
       if (mounted) widget.onUploaded(updated);
     } catch (e) {
       final msg = e is DioException
-          ? (e.response?.data?['detail'] as String? ?? 'Upload failed')
+          ? _dioErrorDetail(e, 'Upload failed')
           : e.toString();
       setState(() { _uploading = false; _errorMsg = msg; });
     }
@@ -4781,7 +4800,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
       if (mounted) widget.onComplete(updated);
     } catch (e) {
       final msg = e is DioException
-          ? (e.response?.data?['detail'] as String? ?? 'Upload failed')
+          ? _dioErrorDetail(e, 'Upload failed')
           : e.toString();
       if (mounted) setState(() { _dieselUploading = false; _dieselError = msg; });
     }
@@ -5420,7 +5439,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
       if (mounted) widget.onComplete(updated);
     } catch (e) {
       final msg = e is DioException
-          ? (e.response?.data?['detail'] as String? ?? 'Upload failed')
+          ? _dioErrorDetail(e, 'Upload failed')
           : e.toString();
       if (mounted) setState(() { _uploading = false; _errorMsg = msg; });
     }
@@ -5917,7 +5936,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
     } catch (e) {
       if (!mounted) return;
       final msg = e is DioException
-          ? (e.response?.data?['detail'] as String? ?? 'Sync failed')
+          ? _dioErrorDetail(e, 'Sync failed')
           : e.toString();
       setState(() { _syncingToRr = false; _rrSyncPromptError = msg; });
     }
@@ -6676,7 +6695,7 @@ class _RrIdentityDocsSheetState extends ConsumerState<RrIdentityDocsSheet> {
   }
 
   String _errMsg(Object e) => e is DioException
-      ? (e.response?.data?['detail'] as String? ?? 'Request failed')
+      ? _dioErrorDetail(e, 'Request failed')
       : e.toString();
 
   Future<void> _load() async {

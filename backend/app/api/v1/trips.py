@@ -1116,7 +1116,7 @@ async def submit_stage4_diesel(
 @router.post("/trips/{trip_id}/stage/5", status_code=200)
 async def submit_stage5(
     trip_id: str,
-    pod: UploadFile = File(...),
+    pod: Optional[UploadFile] = File(None),
     halting_charge: Optional[str] = Form(None),
     vehicle_reach_datetime:   str = Form(...),
     unloading_start_datetime: str = Form(...),
@@ -1140,6 +1140,14 @@ async def submit_stage5(
     if not trip.s4_diesel_receipt_url:
         raise HTTPException(status_code=409, detail="Upload diesel receipt in Stage 4 first")
 
+    # Stage lock: first worker to submit owns this stage; owners can always re-edit
+    if trip.s5_submitted_by is not None and role_key == 'logistic_partner_worker':
+        if str(trip.s5_submitted_by) != str(current_user.id):
+            raise HTTPException(status_code=409, detail="Stage 5 has already been completed by another worker.")
+
+    if not pod and not trip.s5_pod_url:
+        raise HTTPException(status_code=422, detail="Proof of Delivery photo is required")
+
     try:
         parsed_vehicle_reach_dt   = datetime.fromisoformat(vehicle_reach_datetime)
         parsed_unloading_start_dt = datetime.fromisoformat(unloading_start_datetime)
@@ -1147,20 +1155,23 @@ async def submit_stage5(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date/time format for unloading timestamps")
 
-    trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
-    trip_dir.mkdir(parents=True, exist_ok=True)
-    ext = Path(pod.filename).suffix if pod.filename else '.jpg'
-    filename = f"pod_{_uuid_module.uuid4().hex}{ext}"
-    content = await pod.read()
-    (trip_dir / filename).write_bytes(content)
+    pod_url = None
+    if pod and pod.filename:
+        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
+        trip_dir.mkdir(parents=True, exist_ok=True)
+        ext = Path(pod.filename).suffix or '.jpg'
+        filename = f"pod_{_uuid_module.uuid4().hex}{ext}"
+        content = await pod.read()
+        (trip_dir / filename).write_bytes(content)
+        pod_url = f"/uploads/trips/{trip_id}/{filename}"
 
     was_already_submitted = trip.current_stage >= 5
 
     # Flush draft attributions + auto-attribute the POD upload
     _draft_flush_attributions(trip, current_user, role_key)
-    _apply_attributions(trip, ['pod_doc'], current_user, role_key)
-
-    trip.s5_pod_url      = f"/uploads/trips/{trip_id}/{filename}"
+    if pod_url:
+        _apply_attributions(trip, ['pod_doc'], current_user, role_key)
+        trip.s5_pod_url = pod_url
     if halting_charge and halting_charge.strip():
         try:
             trip.s5_halting_charge = decimal.Decimal(halting_charge.strip())
