@@ -5788,8 +5788,6 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
   bool _notified    = false;
   bool _notifyingLP = false;
   bool _notifiedLP  = false;
-  bool _completing  = false;
-  bool _completed   = false;
 
   bool _syncingToRr = false;
   String? _rrSyncPromptError;
@@ -5833,7 +5831,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
   }
 
   void _autoCloseOnSync() {
-    if (_completing || _notifying || _notifyingLP) return;
+    if (_notifying || _notifyingLP) return;
     // didUpdateWidget runs during the build phase — showSnackBar() and any
     // other ScaffoldMessenger mutation must be deferred to after the frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -5987,65 +5985,6 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
     }
   }
 
-  Future<void> _completeTrip() async {
-    if (_completing || _completed) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Complete Trip?',
-            style: _manrope(size: 17, weight: FontWeight.w700)),
-        content: Text(
-          'This will mark trip ${widget.trip.tripNumber} as completed and notify the load owner.',
-          style: _inter(size: 14, color: _secondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: _inter(size: 14, color: _secondary)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _success,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            child: Text('Complete', style: _manrope(size: 14, weight: FontWeight.w700, color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    setState(() => _completing = true);
-    try {
-      final dio = ref.read(dioProvider);
-      await dio.post('/api/trips/${widget.trip.id}/complete');
-      if (mounted) {
-        setState(() { _completed = true; });
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Trip completed! Load owner has been notified.',
-              style: _inter(size: 13, color: Colors.white)),
-          backgroundColor: _success,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to complete trip: $e',
-              style: _inter(size: 13, color: Colors.white)),
-          backgroundColor: _error,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _completing = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final trip = widget.trip;
@@ -6082,9 +6021,9 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
             decoration: BoxDecoration(
-              color: (_completed ? _primary : _success).withValues(alpha: 0.10),
+              color: (_alreadySyncedToRr ? _primary : _success).withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: (_completed ? _primary : _success).withValues(alpha: 0.3)),
+              border: Border.all(color: (_alreadySyncedToRr ? _primary : _success).withValues(alpha: 0.3)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -6093,82 +6032,26 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                   width: 8,
                   height: 8,
                   decoration: BoxDecoration(
-                    color: _completed ? _primary : _success,
+                    color: _alreadySyncedToRr ? _primary : _success,
                     shape: BoxShape.circle,
                   ),
                 ),
                 const SizedBox(width: 8),
                 Flexible(child: Text(
-                  _completed ? 'Trip Completed' : 'All Stages Done — Ready to Complete',
+                  _alreadySyncedToRr ? 'Synced to RR web' : 'All Stages Done',
                   style: _manrope(size: 13, weight: FontWeight.w700,
-                      color: _completed ? _primary : _success),
+                      color: _alreadySyncedToRr ? _primary : _success),
                 )),
               ],
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            'All stages completed including unloading.\nThe trip is ready to be marked as done.',
+            'All stages completed including unloading.',
             textAlign: TextAlign.center,
             style: _inter(size: 13, color: _secondary),
           ),
           const SizedBox(height: 20),
-
-          // ── Sync to RR (LP/RR-ops only) ──
-          if (trip.rrTripId != null && _canManageRr && !widget.readOnly) ...[
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: _alreadySyncedToRr ? _success.withValues(alpha: 0.08) : _surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _alreadySyncedToRr ? _success.withValues(alpha: 0.3) : _border,
-                ),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        _alreadySyncedToRr ? Icons.check_circle_rounded : Icons.cloud_upload_outlined,
-                        size: 18,
-                        color: _alreadySyncedToRr ? _success : _primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _alreadySyncedToRr ? 'Synced to RR web' : 'Not yet synced to RR web',
-                          style: _manrope(size: 13, weight: FontWeight.w700,
-                              color: _alreadySyncedToRr ? _success : _onSurface),
-                        ),
-                      ),
-                      if (!_alreadySyncedToRr)
-                        _syncingToRr
-                            ? const SizedBox(
-                                width: 18, height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
-                              )
-                            : ElevatedButton(
-                                onPressed: _syncToRr,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _StageTheme.rrWeb.primary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                                ),
-                                child: Text('Sync Now', style: _manrope(size: 12, weight: FontWeight.w700)),
-                              ),
-                    ],
-                  ),
-                  if (_rrSyncPromptError != null) ...[
-                    const SizedBox(height: 8),
-                    Text(_rrSyncPromptError!, style: _inter(size: 11.5, color: _error)),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
 
           // Summary info row
           Container(
@@ -6257,24 +6140,24 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
           ),
           const SizedBox(height: 12),
 
-          // ── Complete Trip button (LP owner only) ──
-          if (ref.watch(authProvider).user?.isLogisticPartnerWorker != true) ...[
+          // ── Sync to RR button (LP/RR-ops only) ──
+          if (trip.rrTripId != null && _canManageRr && !widget.readOnly) ...[
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: (_completing || _completed || widget.readOnly) ? null : _completeTrip,
-                icon: _completing
+                onPressed: (_syncingToRr || _alreadySyncedToRr) ? null : _syncToRr,
+                icon: _syncingToRr
                     ? const SizedBox(width: 18, height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Icon(_completed ? Icons.check_circle_rounded : Icons.flag_rounded,
+                    : Icon(_alreadySyncedToRr ? Icons.check_circle_rounded : Icons.cloud_upload_rounded,
                         size: 18),
-                label: Text(_completed
-                    ? 'Trip Completed'
-                    : _completing
-                        ? 'Completing…'
-                        : 'Complete Trip'),
+                label: Text(_alreadySyncedToRr
+                    ? 'Synced to RR web'
+                    : _syncingToRr
+                        ? 'Syncing…'
+                        : 'Sync to RR web'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: _completed ? _success.withValues(alpha: 0.7) : _success,
+                  backgroundColor: _alreadySyncedToRr ? _success.withValues(alpha: 0.7) : _StageTheme.rrWeb.primary,
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: _success.withValues(alpha: 0.7),
                   disabledForegroundColor: Colors.white,
@@ -6284,6 +6167,10 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                 ),
               ),
             ),
+            if (_rrSyncPromptError != null) ...[
+              const SizedBox(height: 8),
+              Text(_rrSyncPromptError!, textAlign: TextAlign.center, style: _inter(size: 11.5, color: _error)),
+            ],
             const SizedBox(height: 12),
           ],
 
