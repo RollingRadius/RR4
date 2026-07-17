@@ -108,12 +108,17 @@ class Trip(Base):
     s3_loaded_truck_weight_kg   = Column(String(20),   nullable=True)   # Dharma kanta — after loading (value)
     s3_loaded_truck_weight_unit = Column(String(10),   nullable=True, default='kg')  # 'tons' or 'kg'
     s3_loaded_weight_slip_url   = Column(String(500),  nullable=True)   # Kanta parchi — loaded weight slip photo
-    s3_bilty_url                = Column(String(500),  nullable=True)   # URL path to bilty image
+    s3_bilty_url                = Column(String(500),  nullable=True)   # legacy — replaced by e-way bill, no longer written
     s3_material_doc_urls        = Column(Text,         nullable=True)   # JSON list of material doc URL paths
     s3_completed_at             = Column(TIMESTAMP(timezone=True), nullable=True)
     # RR parcels.loading.{truck_reach_datetime,start_datetime}
     s3_vehicle_reach_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
     s3_loading_start_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
+    # RR parcels.documents.eway_bill.{number,photos,issue_date,expiry_date}
+    s3_eway_bill_number         = Column(String(50),   nullable=True)
+    s3_eway_bill_url            = Column(String(500),  nullable=True)   # URL path to e-way bill photo
+    s3_eway_bill_issue_date     = Column(TIMESTAMP(timezone=True), nullable=True)
+    s3_eway_bill_expiry_date    = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Stage 4 — Truck Exit From Factory
     s4_truck_moved      = Column(Boolean, nullable=True)
@@ -354,6 +359,10 @@ class Trip(Base):
             "s3_completed_at": self.s3_completed_at.isoformat() if self.s3_completed_at else None,
             "s3_vehicle_reach_datetime": self.s3_vehicle_reach_datetime.isoformat() if self.s3_vehicle_reach_datetime else None,
             "s3_loading_start_datetime": self.s3_loading_start_datetime.isoformat() if self.s3_loading_start_datetime else None,
+            "s3_eway_bill_number": self.s3_eway_bill_number,
+            "s3_eway_bill_url": self.s3_eway_bill_url,
+            "s3_eway_bill_issue_date": self.s3_eway_bill_issue_date.isoformat() if self.s3_eway_bill_issue_date else None,
+            "s3_eway_bill_expiry_date": self.s3_eway_bill_expiry_date.isoformat() if self.s3_eway_bill_expiry_date else None,
             # Stage 4
             "s4_truck_moved": self.s4_truck_moved,
             "s4_security_verified": self.s4_security_verified,

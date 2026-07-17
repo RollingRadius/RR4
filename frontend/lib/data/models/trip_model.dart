@@ -65,10 +65,14 @@ class TripModel {
   final String? s3LoadedTruckWeightKg;
   final String? s3LoadedTruckWeightUnit;
   final String? s3LoadedWeightSlipUrl;
-  final String? s3BiltyUrl;
+  final String? s3BiltyUrl;   // legacy — replaced by e-way bill, no longer written
   final List<String>? s3MaterialDocUrls;
   final String? s3VehicleReachDatetime;   // RR loading.truck_reach_datetime
   final String? s3LoadingStartDatetime;   // RR loading.start_datetime
+  final String? s3EwayBillNumber;
+  final String? s3EwayBillUrl;
+  final String? s3EwayBillIssueDate;
+  final String? s3EwayBillExpiryDate;
 
   // ── Stage 4 fields ───────────────────────────────────────────────────────────
   final bool? s4TruckMoved;
@@ -245,6 +249,10 @@ class TripModel {
     this.s3MaterialDocUrls,
     this.s3VehicleReachDatetime,
     this.s3LoadingStartDatetime,
+    this.s3EwayBillNumber,
+    this.s3EwayBillUrl,
+    this.s3EwayBillIssueDate,
+    this.s3EwayBillExpiryDate,
     this.s4TruckMoved,
     this.s4SecurityVerified,
     this.s4BiltyChecked,
@@ -399,6 +407,10 @@ class TripModel {
       s3MaterialDocUrls: _parseUrlList(json['s3_material_doc_urls']),
       s3VehicleReachDatetime: json['s3_vehicle_reach_datetime'] as String?,
       s3LoadingStartDatetime: json['s3_loading_start_datetime'] as String?,
+      s3EwayBillNumber: json['s3_eway_bill_number'] as String?,
+      s3EwayBillUrl: json['s3_eway_bill_url'] as String?,
+      s3EwayBillIssueDate: json['s3_eway_bill_issue_date'] as String?,
+      s3EwayBillExpiryDate: json['s3_eway_bill_expiry_date'] as String?,
       s4TruckMoved:       json['s4_truck_moved']       as bool?,
       s4SecurityVerified: json['s4_security_verified'] as bool?,
       s4BiltyChecked:     json['s4_bilty_checked']     as bool?,

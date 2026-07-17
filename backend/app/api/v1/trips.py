@@ -857,7 +857,10 @@ async def submit_stage3(
     loaded_truck_weight_kg:  Optional[str] = Form(None),
     loaded_truck_weight_unit: Optional[str] = Form('kg'),
     loaded_weight_slip:      Optional[UploadFile] = File(None),
-    bilty:                   Optional[UploadFile] = File(None),
+    eway_bill:               Optional[UploadFile] = File(None),
+    eway_bill_number:        Optional[str] = Form(None),
+    eway_bill_issue_date:    Optional[str] = Form(None),
+    eway_bill_expiry_date:   Optional[str] = Form(None),
     material_docs:           Optional[List[UploadFile]] = File(None),
     vehicle_reach_datetime:  str = Form(...),
     loading_start_datetime:  str = Form(...),
@@ -865,7 +868,7 @@ async def submit_stage3(
     db: Session = Depends(get_db),
 ):
     """Stage 3 — Truck Arrival at Factory. Completes the trip intake.
-    Accepts multipart/form-data so bilty and material documents can be uploaded."""
+    Accepts multipart/form-data so the e-way bill and material documents can be uploaded."""
     from datetime import datetime, timezone
     from app.config import settings
 
@@ -879,6 +882,16 @@ async def submit_stage3(
         parsed_loading_start_dt = datetime.fromisoformat(loading_start_datetime)
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date/time format for vehicle reach or loading start")
+
+    parsed_eway_issue_dt = None
+    parsed_eway_expiry_dt = None
+    try:
+        if eway_bill_issue_date:
+            parsed_eway_issue_dt = datetime.fromisoformat(eway_bill_issue_date)
+        if eway_bill_expiry_date:
+            parsed_eway_expiry_dt = datetime.fromisoformat(eway_bill_expiry_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date/time format for e-way bill issue or expiry date")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
     if trip.current_stage < 2:
@@ -902,16 +915,16 @@ async def submit_stage3(
             f.write(await loaded_weight_slip.read())
         loaded_weight_slip_url = f"/uploads/trips/{trip_id}/{filename}"
 
-    # Save bilty file
-    bilty_url = None
-    if bilty and bilty.filename:
-        ext = Path(bilty.filename).suffix or '.jpg'
+    # Save e-way bill file
+    eway_bill_url = None
+    if eway_bill and eway_bill.filename:
+        ext = Path(eway_bill.filename).suffix or '.jpg'
         trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
         trip_dir.mkdir(parents=True, exist_ok=True)
-        filename = f"bilty_{_uuid_module.uuid4().hex}{ext}"
+        filename = f"eway_bill_{_uuid_module.uuid4().hex}{ext}"
         with open(trip_dir / filename, "wb") as f:
-            f.write(await bilty.read())
-        bilty_url = f"/uploads/trips/{trip_id}/{filename}"
+            f.write(await eway_bill.read())
+        eway_bill_url = f"/uploads/trips/{trip_id}/{filename}"
 
     # Save material doc files
     material_urls = []
@@ -931,8 +944,8 @@ async def submit_stage3(
     s3_uploaded = []
     if loaded_weight_slip_url:
         s3_uploaded.append('loaded_weight_slip')
-    if bilty_url:
-        s3_uploaded.append('bilty_doc')
+    if eway_bill_url:
+        s3_uploaded.append('eway_bill_doc')
     if material_urls:
         s3_uploaded.append('material_docs')
     if s3_uploaded:
@@ -950,8 +963,14 @@ async def submit_stage3(
     trip.s3_loaded_truck_weight_unit = loaded_truck_weight_unit or 'kg'
     if loaded_weight_slip_url:
         trip.s3_loaded_weight_slip_url = loaded_weight_slip_url
-    if bilty_url:
-        trip.s3_bilty_url = bilty_url
+    if eway_bill_url:
+        trip.s3_eway_bill_url = eway_bill_url
+    if eway_bill_number:
+        trip.s3_eway_bill_number = eway_bill_number
+    if parsed_eway_issue_dt:
+        trip.s3_eway_bill_issue_date = parsed_eway_issue_dt
+    if parsed_eway_expiry_dt:
+        trip.s3_eway_bill_expiry_date = parsed_eway_expiry_dt
     if material_urls:
         trip.s3_material_doc_urls = json.dumps(material_urls)
     trip.s3_vehicle_reach_datetime   = parsed_vehicle_reach_dt

@@ -10,7 +10,7 @@ Called as a BackgroundTask from:
 Flow:
   1. Trip must already exist in RR (rr_parcel_id set via POST /api/rr/complete-trip/{id})
   2. Sync loading slip if not yet done
-  3. Sync S3 data (bilty number + weight receipt + material docs) if available
+  3. Sync S3 data (e-way bill + weight receipt + material docs) if available
   4. Sync S5 POD if available
 
 Note: Trip creation is now done via POST /api/rr/complete-trip/{id} which calls
@@ -514,11 +514,10 @@ async def _sync_loading_slip(trip, client: httpx.AsyncClient, token: str, db) ->
 async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
     """
     PATCH the RR parcel with Stage 3 documents:
-      - documents.bilty              — bilty number string
+      - documents.eway_bill           — number + issue/expiry date + photo
       - documents.weight_receipt     — loaded weight kg + slip photo
       - documents.consignor_invoice  — first 2 material doc photos
       - loading.truck_reach_datetime / loading.start_datetime
-    Also attaches bilty photo to trip_documents (type "Bilty") if present.
     """
     if not trip.rr_parcel_id:
         logger.info(f"[RR Sync S3] Trip {trip.trip_number} has no rr_parcel_id yet — pending trip creation")
@@ -536,12 +535,22 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
 
     documents: dict = {}
 
-    # ── Bilty date ────────────────────────────────────────────────────────────
-    # RR's own mobile client (rr_kanpur) does not write documents.bilty as a raw
-    # string — it only ever sets documents.bilty_date. Follow that verified shape.
-    if trip.bilty_number:
-        bilty_dt = trip.s3_completed_at or datetime.utcnow()
-        documents["bilty_date"] = bilty_dt.strftime("%Y-%m-%dT%H:%M:%S")
+    # ── E-way bill ────────────────────────────────────────────────────────────
+    # documents.eway_bill on RR's parcels resource — confirmed via RR's own
+    # source (settings.py) and its Angular upload-ewaybill component's PATCH shape.
+    eway_bill: dict = {}
+    if trip.s3_eway_bill_number:
+        eway_bill["number"] = trip.s3_eway_bill_number
+    if trip.s3_eway_bill_url:
+        rr_eway_id = await _upload_file(trip.s3_eway_bill_url, client, token)
+        if rr_eway_id:
+            eway_bill["photos"] = [{"photo": rr_eway_id, "side": "Front"}]
+    if trip.s3_eway_bill_issue_date:
+        eway_bill["issue_date"] = trip.s3_eway_bill_issue_date.strftime("%Y-%m-%dT%H:%M:%S")
+    if trip.s3_eway_bill_expiry_date:
+        eway_bill["expiry_date"] = trip.s3_eway_bill_expiry_date.strftime("%Y-%m-%dT%H:%M:%S")
+    if eway_bill:
+        documents["eway_bill"] = eway_bill
 
     # ── Weight receipt ────────────────────────────────────────────────────────
     weight_receipt: dict = {}
@@ -557,7 +566,10 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
     if weight_receipt:
         documents["weight_receipt"] = weight_receipt
 
-    # ── Consignor invoice (material docs — max 2) ─────────────────────────────
+    # ── Consignor invoice (material docs) ──────────────────────────────────────
+    # RR's schema allows up to 2 photos here, but RR's own web UI only ever
+    # reads/writes index 0 (parcel-documents.component.ts) — so only the first
+    # doc is actually used on RR's side. We mirror that with a single doc.
     if trip.s3_material_doc_urls:
         try:
             mat_urls = (
@@ -568,7 +580,7 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
         except Exception:
             mat_urls = []
         photos = []
-        for url in mat_urls[:2]:
+        for url in mat_urls[:1]:
             rr_file_id = await _upload_file(url, client, token)
             if rr_file_id:
                 photos.append({"photo": rr_file_id, "side": "Front"})
@@ -643,63 +655,6 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
     logger.info(
         f"[RR Sync S3] Trip {trip.trip_number} Stage 3 synced → parcel {trip.rr_parcel_id}"
     )
-
-    # ── Bilty photo → trip_documents (type "Bilty") ───────────────────────────
-    # Requires a separate PATCH on the trip (not the parcel).
-    if trip.s3_bilty_url and trip.rr_trip_id:
-        await _attach_bilty_photo_to_trip(trip, client, token, db)
-
-
-async def _attach_bilty_photo_to_trip(trip, client: httpx.AsyncClient, token: str, db) -> None:
-    """
-    Upload bilty photo and append it to the RR trip's trip_documents array.
-    Requires GET trip for current trip_documents + etag, then PATCH.
-    """
-    # Fetch current trip record for etag + existing trip_documents
-    try:
-        t_resp = await client.get(
-            f"{settings.RR_API_BASE}/trips/{trip.rr_trip_id}",
-            headers=_auth_header(token),
-        )
-        if t_resp.status_code != 200:
-            logger.warning(
-                f"[RR Sync S3] GET trip for bilty attachment failed ({t_resp.status_code})"
-            )
-            return
-        t_data = t_resp.json()
-        trip_etag = t_data.get("_etag")
-        trip_documents = t_data.get("trip_documents", []) or []
-    except Exception as exc:
-        logger.warning(f"[RR Sync S3] GET trip exception during bilty attachment: {exc}")
-        return
-
-    rr_bilty_id = await _upload_file(trip.s3_bilty_url, client, token)
-    if not rr_bilty_id:
-        return
-
-    trip_documents.append({
-        "document": "Bilty",
-        "photos": [{"photo": rr_bilty_id, "side": "Front"}],
-    })
-
-    try:
-        patch_resp = await client.patch(
-            f"{settings.RR_API_BASE}/trips/{trip.rr_trip_id}",
-            json={"trip_documents": trip_documents},
-            headers={**_json_header(token), "If-Match": trip_etag},
-        )
-        if patch_resp.status_code in (200, 201):
-            logger.info(
-                f"[RR Sync S3] Bilty photo attached to RR trip {trip.rr_trip_id} "
-                f"(rr_file_id={rr_bilty_id})"
-            )
-        else:
-            logger.warning(
-                f"[RR Sync S3] Bilty photo PATCH failed ({patch_resp.status_code}): "
-                f"{patch_resp.text[:200]}"
-            )
-    except Exception as exc:
-        logger.warning(f"[RR Sync S3] Bilty photo PATCH exception: {exc}")
 
 
 # ── Stage 4: Fuel/diesel receipt ───────────────────────────────────────────────

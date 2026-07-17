@@ -357,7 +357,23 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
       if (_editingStage != null) return;
       final updated = next.trips.where((t) => t.id == _trip.id).firstOrNull;
       if (updated == null) return;
-      if (updated.currentStage <= _trip.currentStage) return;
+      if (updated.currentStage <= _trip.currentStage) {
+        // currentStage can never advance past 5, so this is the only path
+        // left for a background auto-sync (fired server-side off submit_stage5)
+        // to ever reach this screen while _Stage4CompleteView is showing. Scoped
+        // tightly to that exact view (_stage5Done) so it can't clobber an
+        // in-progress form the way the noise-guard above this exists to prevent.
+        if (_stage5Done &&
+            _trip.currentStage >= 5 &&
+            updated.rrSyncStatus == 'pod_synced' &&
+            _trip.rrSyncStatus != 'pod_synced') {
+          setState(() {
+            _trip = updated;
+            _tripFreshness++;
+          });
+        }
+        return;
+      }
       setState(() {
         _trip = updated;
         _tripFreshness++;
@@ -866,8 +882,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     return {'${key}_b64': base64Encode(f.bytes), '${key}_name': f.name};
   }
 
-  Future<void> _saveDraft() async {
-    if (!mounted) return;
+  Future<void> _saveDraft({bool duringDispose = false}) async {
+    if (!duringDispose && !mounted) return;
     try {
       final dio = ref.read(dioProvider);
       await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
@@ -894,26 +910,21 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
       });
-      if (mounted) setState(() => _lastSaved = DateTime.now());
+      if (!duringDispose && mounted) setState(() => _lastSaved = DateTime.now());
     } on DioException catch (e) {
       // Surface draft save failures so they are visible during testing
-      final status = e.response?.statusCode;
-      final detail = e.response?.data?['detail'] as String? ?? e.message ?? 'Unknown error';
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Draft save failed ($status): $detail',
-              style: const TextStyle(fontSize: 12)),
-          backgroundColor: Colors.orange.shade800,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
-        ));
-      }
+      if (!duringDispose && mounted) _showDraftSaveError(context, e);
     } catch (_) {}
   }
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
+      unawaited(_saveDraft(duringDispose: true));
+    } else {
+      _debounce?.cancel();
+    }
     for (final c in [_driverName, _driverPhone, _drivingLicense, _aadhaar]) {
       c.dispose();
     }
@@ -1346,6 +1357,36 @@ String _formatSaved(DateTime dt) {
   return '${diff.inHours}h ago';
 }
 
+InputDecoration _stageFieldDec(String label) => InputDecoration(
+  labelText: label,
+  labelStyle: _inter(size: 12, color: _secondary),
+  filled: true,
+  fillColor: _surface,
+  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: _border)),
+  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: _border)),
+  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: _primary, width: 1.5)),
+);
+
+// Surfaces a draft-save failure so it's visible instead of silently dropped
+// (Stage 1's _saveDraft already did this; Stages 2-5 share this one helper).
+void _showDraftSaveError(BuildContext context, Object e) {
+  final status = e is DioException ? e.response?.statusCode : null;
+  final detail = e is DioException
+      ? (e.response?.data?['detail'] as String? ?? e.message ?? 'Unknown error')
+      : e.toString();
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+    content: Text('Draft save failed ($status): $detail',
+        style: const TextStyle(fontSize: 12)),
+    backgroundColor: Colors.orange.shade800,
+    behavior: SnackBarBehavior.floating,
+    duration: const Duration(seconds: 4),
+  ));
+}
+
 // ─── Stage 2: Pre-Arrival Compliance Check ────────────────────────────────────
 
 class _Stage2Form extends ConsumerStatefulWidget {
@@ -1395,7 +1436,12 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
+      unawaited(_saveDraft(duringDispose: true));
+    } else {
+      _debounce?.cancel();
+    }
     _emptyWeightCtrl.dispose();
     _emptyWeightUnit.dispose();
     super.dispose();
@@ -1464,8 +1510,8 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
     _debounce = Timer(const Duration(milliseconds: 1500), _saveDraft);
   }
 
-  Future<void> _saveDraft() async {
-    if (!mounted) return;
+  Future<void> _saveDraft({bool duringDispose = false}) async {
+    if (!duringDispose && !mounted) return;
     try {
       final dio = ref.read(dioProvider);
       await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
@@ -1483,7 +1529,9 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
       });
-      if (mounted) setState(() => _lastSaved = DateTime.now());
+      if (!duringDispose && mounted) setState(() => _lastSaved = DateTime.now());
+    } on DioException catch (e) {
+      if (!duringDispose && mounted) _showDraftSaveError(context, e);
     } catch (_) {}
   }
 
@@ -2551,8 +2599,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   String? _s2EmptyWeightUnit;
 
   // Document uploads — stored as (bytes, filename) tuples for web compatibility
-  ({Uint8List bytes, String name})? _biltyData;
-  List<({Uint8List bytes, String name})> _materialDocs = [];
+  ({Uint8List bytes, String name})? _ewayBillData;
+  final _ewayBillNumberCtrl = TextEditingController();
+  DateTime? _ewayBillIssueDate;
+  DateTime? _ewayBillExpiryDate;
+  ({Uint8List bytes, String name})? _materialDocs;
 
   Timer? _debounce;
   DateTime? _lastSaved;
@@ -2565,6 +2616,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _loadedTruckWeight.addListener(() { _touchField('loaded_truck_weight'); _onFieldChanged(); });
     _emptyWeightUnit.addListener(_onFieldChanged);
     _loadedWeightUnit.addListener(_onFieldChanged);
+    _ewayBillNumberCtrl.addListener(() { _touchField('eway_bill_number'); _onFieldChanged(); });
     // Restore S2 Dharam Kanta into provider after first frame (ref available)
     if (_s2DharamKantaLoc == 'outside' && (_s2EmptyWeight?.isNotEmpty ?? false)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2597,6 +2649,13 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
         if (trip.s3LoadingStartDatetime != null) {
           _loadingStartDatetime = DateTime.tryParse(trip.s3LoadingStartDatetime!);
         }
+        _ewayBillNumberCtrl.text = trip.s3EwayBillNumber ?? '';
+        if (trip.s3EwayBillIssueDate != null) {
+          _ewayBillIssueDate = DateTime.tryParse(trip.s3EwayBillIssueDate!);
+        }
+        if (trip.s3EwayBillExpiryDate != null) {
+          _ewayBillExpiryDate = DateTime.tryParse(trip.s3EwayBillExpiryDate!);
+        }
       }
       return;
     }
@@ -2627,20 +2686,32 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     if (slipB64 != null && slipName != null) {
       _weightSlipData = (bytes: base64Decode(slipB64), name: slipName);
     }
-    // Restore bilty upload
-    final biltyB64 = d['bilty_b64'] as String?;
-    final biltyName = d['bilty_name'] as String?;
-    if (biltyB64 != null && biltyName != null) {
-      _biltyData = (bytes: base64Decode(biltyB64), name: biltyName);
+    // Restore e-way bill upload
+    _ewayBillNumberCtrl.text = d['eway_bill_number'] as String? ?? '';
+    final ewayIssueStr = d['eway_bill_issue_date'] as String?;
+    if (ewayIssueStr != null) _ewayBillIssueDate = DateTime.tryParse(ewayIssueStr);
+    final ewayExpiryStr = d['eway_bill_expiry_date'] as String?;
+    if (ewayExpiryStr != null) _ewayBillExpiryDate = DateTime.tryParse(ewayExpiryStr);
+    final ewayB64 = d['eway_bill_b64'] as String?;
+    final ewayName = d['eway_bill_name'] as String?;
+    if (ewayB64 != null && ewayName != null) {
+      _ewayBillData = (bytes: base64Decode(ewayB64), name: ewayName);
     }
-    // Restore material doc uploads
-    final matList = d['material_docs'] as List<dynamic>?;
-    if (matList != null) {
-      _materialDocs = matList
-          .whereType<Map<String, dynamic>>()
-          .where((m) => m['b64'] != null && m['name'] != null)
-          .map((m) => (bytes: base64Decode(m['b64'] as String), name: m['name'] as String))
-          .toList();
+    // Restore invoice upload
+    final matB64 = d['material_doc_b64'] as String?;
+    final matName = d['material_doc_name'] as String?;
+    if (matB64 != null && matName != null) {
+      _materialDocs = (bytes: base64Decode(matB64), name: matName);
+    } else {
+      // Back-compat: older drafts stored a list under 'material_docs' — take
+      // only the first entry, matching the new single-file behavior.
+      final matList = d['material_docs'] as List<dynamic>?;
+      if (matList != null && matList.isNotEmpty) {
+        final m = matList.first as Map<String, dynamic>?;
+        if (m != null && m['b64'] != null && m['name'] != null) {
+          _materialDocs = (bytes: base64Decode(m['b64'] as String), name: m['name'] as String);
+        }
+      }
     }
     // Draft attributions override persistent ones
     final attrs = draft['attributions'] as Map<String, dynamic>?;
@@ -2662,8 +2733,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _debounce = Timer(const Duration(milliseconds: 1500), _saveDraft);
   }
 
-  Future<void> _saveDraft() async {
-    if (!mounted) return;
+  Future<void> _saveDraft({bool duringDispose = false}) async {
+    if (!duringDispose && !mounted) return;
     try {
       // Snapshot S2 Dharam Kanta from provider (same-session) or local vars (cross-session restore)
       final stagesState = ref.read(tripStagesProvider(widget.providerKey));
@@ -2698,15 +2769,21 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             'weight_slip_b64':  base64Encode(_weightSlipData!.bytes),
             'weight_slip_name': _weightSlipData!.name,
           },
-          // Bilty upload
-          if (_biltyData != null) ...{
-            'bilty_b64':  base64Encode(_biltyData!.bytes),
-            'bilty_name': _biltyData!.name,
+          // E-way bill upload
+          'eway_bill_number': _ewayBillNumberCtrl.text.trim(),
+          if (_ewayBillIssueDate != null)
+            'eway_bill_issue_date': _ewayBillIssueDate!.toIso8601String(),
+          if (_ewayBillExpiryDate != null)
+            'eway_bill_expiry_date': _ewayBillExpiryDate!.toIso8601String(),
+          if (_ewayBillData != null) ...{
+            'eway_bill_b64':  base64Encode(_ewayBillData!.bytes),
+            'eway_bill_name': _ewayBillData!.name,
           },
-          // Material doc uploads
-          'material_docs': _materialDocs
-              .map((f) => {'b64': base64Encode(f.bytes), 'name': f.name})
-              .toList(),
+          // Invoice upload
+          if (_materialDocs != null) ...{
+            'material_doc_b64':  base64Encode(_materialDocs!.bytes),
+            'material_doc_name': _materialDocs!.name,
+          },
         },
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
@@ -2719,43 +2796,40 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
+      unawaited(_saveDraft(duringDispose: true));
+    } else {
+      _debounce?.cancel();
+    }
     _emptyTruckWeight.dispose();
     _loadedTruckWeight.dispose();
     _emptyWeightUnit.dispose();
     _loadedWeightUnit.dispose();
+    _ewayBillNumberCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _pickBilty(ImageSource source) async {
+  Future<void> _pickEwayBill(ImageSource source) async {
     final picked = await _picker.pickImage(source: source, imageQuality: 85);
     if (picked == null || !mounted) return;
     final bytes = await picked.readAsBytes();
-    setState(() => _biltyData = (bytes: bytes, name: picked.name));
-    _touchField('bilty_doc');
+    setState(() => _ewayBillData = (bytes: bytes, name: picked.name));
+    _touchField('eway_bill_doc');
     _saveDraft();
   }
 
   Future<void> _pickMaterialDocs(ImageSource source) async {
-    if (source == ImageSource.camera) {
-      final picked = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
-      if (picked == null || !mounted) return;
-      final bytes = await picked.readAsBytes();
-      setState(() => _materialDocs = [..._materialDocs, (bytes: bytes, name: picked.name)]);
-    } else {
-      final picked = await _picker.pickMultiImage(imageQuality: 85);
-      if (picked.isEmpty || !mounted) return;
-      final items = await Future.wait(
-        picked.map((x) async => (bytes: await x.readAsBytes(), name: x.name)),
-      );
-      setState(() => _materialDocs = [..._materialDocs, ...items]);
-    }
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
+    if (picked == null || !mounted) return;
+    final bytes = await picked.readAsBytes();
+    setState(() => _materialDocs = (bytes: bytes, name: picked.name));
     _touchField('material_docs');
     _saveDraft();
   }
 
-  void _removeMaterialDoc(int index) {
-    setState(() => _materialDocs.removeAt(index));
+  void _removeMaterialDoc() {
+    setState(() => _materialDocs = null);
     _touchField('material_docs');
     _saveDraft();
   }
@@ -2861,6 +2935,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       'loaded_truck_weight_unit': _loadedWeightUnit.value,
       'vehicle_reach_datetime':   _vehicleReachDatetime!.toIso8601String(),
       'loading_start_datetime':   _loadingStartDatetime!.toIso8601String(),
+      if (_ewayBillNumberCtrl.text.trim().isNotEmpty)
+        'eway_bill_number': _ewayBillNumberCtrl.text.trim(),
+      if (_ewayBillIssueDate != null)
+        'eway_bill_issue_date': _ewayBillIssueDate!.toIso8601String(),
+      if (_ewayBillExpiryDate != null)
+        'eway_bill_expiry_date': _ewayBillExpiryDate!.toIso8601String(),
     };
 
     if (_lastSaved != null) {
@@ -2873,17 +2953,17 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
         filename: _weightSlipData!.name,
       );
     }
-    if (_biltyData != null) {
-      fields['bilty'] = MultipartFile.fromBytes(
-        _biltyData!.bytes,
-        filename: _biltyData!.name,
+    if (_ewayBillData != null) {
+      fields['eway_bill'] = MultipartFile.fromBytes(
+        _ewayBillData!.bytes,
+        filename: _ewayBillData!.name,
       );
     }
 
-    if (_materialDocs.isNotEmpty) {
-      fields['material_docs'] = _materialDocs
-          .map((d) => MultipartFile.fromBytes(d.bytes, filename: d.name))
-          .toList();
+    if (_materialDocs != null) {
+      fields['material_docs'] = [
+        MultipartFile.fromBytes(_materialDocs!.bytes, filename: _materialDocs!.name),
+      ];
     }
 
     final formData = FormData.fromMap(fields);
@@ -3059,27 +3139,65 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             _FieldAttribution(username: _attrOf('loaded_weight_slip')),
             const SizedBox(height: 20),
 
-            // ── Bilty Upload ──────────────────────────────────────────
-            _SectionHeader(icon: Icons.receipt_long_rounded, title: 'Bilty'),
+            // ── E-way Bill Upload ──────────────────────────────────────
+            _SectionHeader(icon: Icons.receipt_long_rounded, title: 'E-way Bill'),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: TextFormField(
+                controller: _ewayBillNumberCtrl,
+                style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+                decoration: _stageFieldDec('E-way Bill Number'),
+              ),
+            ),
+            _FieldAttribution(username: _attrOf('eway_bill_number')),
+            const SizedBox(height: 8),
+            _DateTimeField(
+              label: 'E-way Bill Issue Date',
+              value: _ewayBillIssueDate,
+              // RR's documents.eway_bill.issue_date has is_restricted_future_date
+              // — a future value gets rejected with a 422 at sync time.
+              disallowFuture: true,
+              onChanged: (dt) {
+                setState(() => _ewayBillIssueDate = dt);
+                _touchField('eway_bill_issue_date');
+                _saveDraft();
+              },
+            ),
+            _DateTimeField(
+              label: 'E-way Bill Expiry Date',
+              value: _ewayBillExpiryDate,
+              onChanged: (dt) {
+                setState(() => _ewayBillExpiryDate = dt);
+                _touchField('eway_bill_expiry_date');
+                _saveDraft();
+              },
+            ),
+            const SizedBox(height: 8),
             _DocUploadTile(
-              label: 'Upload Bilty',
-              subtitle: 'Attach the lorry receipt / bilty document',
-              bytes: _biltyData?.bytes,
-              fileName: _biltyData?.name,
-              existingUrl: _biltyData == null ? widget.trip.s3BiltyUrl : null,
-              onPickSource: _pickBilty,
-              onRemove: () { setState(() => _biltyData = null); _touchField('bilty_doc'); _saveDraft(); },
+              label: 'Upload E-way Bill',
+              subtitle: 'Attach the e-way bill document',
+              bytes: _ewayBillData?.bytes,
+              fileName: _ewayBillData?.name,
+              existingUrl: _ewayBillData == null ? widget.trip.s3EwayBillUrl : null,
+              onPickSource: _pickEwayBill,
+              onRemove: () { setState(() => _ewayBillData = null); _touchField('eway_bill_doc'); _saveDraft(); },
               readOnly: widget.readOnly,
             ),
-            _FieldAttribution(username: _attrOf('bilty_doc')),
+            _FieldAttribution(username: _attrOf('eway_bill_doc')),
             const SizedBox(height: 20),
 
-            // ── Material Documents Upload ─────────────────────────────
-            _SectionHeader(icon: Icons.folder_open_rounded, title: 'Material Documents'),
-            _MultiDocUploadTile(
-              label: 'Upload Material Documents',
-              subtitle: 'Attach invoices, packing lists, or other material docs',
-              bytesList: _materialDocs.map((d) => d.bytes).toList(),
+            // ── Invoice Upload ─────────────────────────────
+            _SectionHeader(icon: Icons.folder_open_rounded, title: 'Invoice'),
+            _DocUploadTile(
+              label: 'Upload Invoice',
+              subtitle: 'Attach the invoice document',
+              bytes: _materialDocs?.bytes,
+              fileName: _materialDocs?.name,
+              existingUrl: _materialDocs == null
+                  ? (widget.trip.s3MaterialDocUrls?.isNotEmpty == true
+                      ? widget.trip.s3MaterialDocUrls!.first
+                      : null)
+                  : null,
               onPickSource: _pickMaterialDocs,
               onRemove: _removeMaterialDoc,
               readOnly: widget.readOnly,
@@ -4340,144 +4458,6 @@ class _DocUploadTile extends StatelessWidget {
   }
 }
 
-// ─── Multi-file Document Upload Tile ─────────────────────────────────────────
-
-class _MultiDocUploadTile extends StatelessWidget {
-  final String label;
-  final String subtitle;
-  final List<Uint8List> bytesList;
-  final Future<void> Function(ImageSource) onPickSource;
-  final void Function(int) onRemove;
-  /// When true, only tap-to-preview stays active — no add/remove.
-  final bool readOnly;
-
-  const _MultiDocUploadTile({
-    required this.label,
-    required this.subtitle,
-    required this.bytesList,
-    required this.onPickSource,
-    required this.onRemove,
-    this.readOnly = false,
-  });
-
-  Future<void> _pick(BuildContext context) async {
-    final source = await _showSourcePicker(context);
-    if (source != null) await onPickSource(source);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (bytesList.isNotEmpty) ...[
-          SizedBox(
-            height: 100,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: bytesList.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) => Stack(
-                children: [
-                  GestureDetector(
-                    onTap: () => _showImagePreview(context, bytes: bytesList[i]),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.memory(bytesList[i],
-                          width: 90,
-                          height: 100,
-                          fit: BoxFit.cover),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 4,
-                    left: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        color: Colors.black45,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 14),
-                    ),
-                  ),
-                  if (!readOnly)
-                    Positioned(
-                      top: 4,
-                      right: 4,
-                      child: GestureDetector(
-                        onTap: () => onRemove(i),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.55),
-                            shape: BoxShape.circle,
-                          ),
-                          padding: const EdgeInsets.all(3),
-                          child: const Icon(Icons.close_rounded,
-                              size: 12, color: Colors.white),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-        ],
-        if (!readOnly)
-        GestureDetector(
-          onTap: () => _pick(context),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
-            decoration: BoxDecoration(
-              color: _surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _border),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: _primary.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(Icons.photo_library_rounded,
-                      color: _primary, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        bytesList.isEmpty
-                            ? label
-                            : '${bytesList.length} file${bytesList.length > 1 ? 's' : ''} selected — tap to add more',
-                        style: GoogleFonts.manrope(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: bytesList.isEmpty ? _onSurface : _success),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(subtitle,
-                          style: GoogleFonts.inter(
-                              fontSize: 11, color: _secondary)),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.add_circle_outline_rounded,
-                    color: _primary, size: 20),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // ─── Unit Toggle (Tons / Kg) ──────────────────────────────────────────────────
 
 class _UnitToggle extends StatelessWidget {
@@ -4666,8 +4646,8 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     _debounce = Timer(const Duration(milliseconds: 1500), _saveDraft);
   }
 
-  Future<void> _saveDraft() async {
-    if (!mounted) return;
+  Future<void> _saveDraft({bool duringDispose = false}) async {
+    if (!duringDispose && !mounted) return;
     try {
       final dio = ref.read(dioProvider);
       await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
@@ -4684,13 +4664,20 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
       });
-      if (mounted) setState(() => _lastSaved = DateTime.now());
+      if (!duringDispose && mounted) setState(() => _lastSaved = DateTime.now());
+    } on DioException catch (e) {
+      if (!duringDispose && mounted) _showDraftSaveError(context, e);
     } catch (_) {}
   }
 
   @override
   void dispose() {
-    _debounce?.cancel();
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
+      unawaited(_saveDraft(duringDispose: true));
+    } else {
+      _debounce?.cancel();
+    }
     super.dispose();
   }
 
@@ -4939,7 +4926,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
             const SizedBox(height: 8),
             _buildCheckTile(
               value: _biltyChecked,
-              label: 'Bilty',
+              label: 'E-way Bill',
               onChanged: (v) { setState(() => _biltyChecked = v ?? false); _touchField('bilty_checked'); _onCheckChanged(); },
             ),
             _buildCheckTile(
@@ -5273,7 +5260,12 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
   @override
   void dispose() {
     _haltingChargeCtrl.dispose();
-    _debounce?.cancel();
+    if (_debounce?.isActive ?? false) {
+      _debounce!.cancel();
+      unawaited(_saveDraft(duringDispose: true));
+    } else {
+      _debounce?.cancel();
+    }
     super.dispose();
   }
 
@@ -5328,8 +5320,8 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
     }
   }
 
-  Future<void> _saveDraft() async {
-    if (!mounted) return;
+  Future<void> _saveDraft({bool duringDispose = false}) async {
+    if (!duringDispose && !mounted) return;
     try {
       final dio = ref.read(dioProvider);
       await dio.patch('/api/trips/${widget.trip.id}/draft', data: {
@@ -5348,7 +5340,9 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
       });
-      if (mounted) setState(() => _lastSaved = DateTime.now());
+      if (!duringDispose && mounted) setState(() => _lastSaved = DateTime.now());
+    } on DioException catch (e) {
+      if (!duringDispose && mounted) _showDraftSaveError(context, e);
     } catch (_) {}
   }
 
@@ -5798,7 +5792,6 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
   bool _completed   = false;
 
   bool _syncingToRr = false;
-  bool _rrSynced    = false;
   String? _rrSyncPromptError;
 
   bool get _canManageRr {
@@ -5818,6 +5811,44 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showSyncPrompt();
       });
+    }
+  }
+
+  @override
+  void didUpdateWidget(_Stage4CompleteView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only react to a live transition into pod_synced (e.g. a background
+    // auto-sync completing while this screen is open) — never on first build,
+    // so reopening an already-synced/Records trip never auto-closes on you.
+    if (oldWidget.trip.rrSyncStatus != 'pod_synced' && widget.trip.rrSyncStatus == 'pod_synced') {
+      _autoCloseOnSync();
+    }
+  }
+
+  void _autoCloseOnSync() {
+    if (_completing || _notifying || _notifyingLP) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text('Trip synced', style: _inter(size: 13, color: Colors.white)),
+      backgroundColor: _success,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ));
+    Future.delayed(const Duration(milliseconds: 900), () {
+      if (mounted) widget.onDone();
+    });
+  }
+
+  // sync/retry only queues a BackgroundTask — the response returns before the
+  // sync actually runs. Poll a few times (rather than waiting up to 30s for
+  // the dashboard's ambient timer) so a manual "Sync Now" tap gets a timely
+  // close once genuinely synced. Fetching feeds tripProvider → this screen's
+  // ref.listen/didUpdateWidget, which does the actual close — nothing here
+  // assumes success itself.
+  Future<void> _pollForSyncCompletion() async {
+    for (var i = 0; i < 6 && mounted; i++) {
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return;
+      await ref.read(tripProvider.notifier).fetchSingleTrip(widget.trip.id);
     }
   }
 
@@ -5857,15 +5888,15 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
     setState(() { _syncingToRr = true; _rrSyncPromptError = null; });
     try {
       final dio = ref.read(dioProvider);
+      // sync/retry only queues a BackgroundTask and returns immediately — the
+      // actual sync (and rrSyncStatus flipping to pod_synced) happens after
+      // this response, so don't treat a 200 here as "done". Poll a few times
+      // for the real completion signal, which feeds the same ref.listen/
+      // didUpdateWidget path that closes the screen once it's genuinely synced.
       await dio.post('/api/rr/sync/retry/${widget.trip.id}', data: {});
       if (!mounted) return;
-      setState(() { _syncingToRr = false; _rrSynced = true; });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Synced to RR web', style: _inter(size: 13, color: Colors.white)),
-        backgroundColor: _success,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ));
+      setState(() { _syncingToRr = false; });
+      unawaited(_pollForSyncCompletion());
     } catch (e) {
       if (!mounted) return;
       final msg = e is DioException
@@ -6070,10 +6101,10 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: (_alreadySyncedToRr || _rrSynced) ? _success.withValues(alpha: 0.08) : _surface,
+                color: _alreadySyncedToRr ? _success.withValues(alpha: 0.08) : _surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: (_alreadySyncedToRr || _rrSynced) ? _success.withValues(alpha: 0.3) : _border,
+                  color: _alreadySyncedToRr ? _success.withValues(alpha: 0.3) : _border,
                 ),
               ),
               child: Column(
@@ -6081,19 +6112,19 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                   Row(
                     children: [
                       Icon(
-                        (_alreadySyncedToRr || _rrSynced) ? Icons.check_circle_rounded : Icons.cloud_upload_outlined,
+                        _alreadySyncedToRr ? Icons.check_circle_rounded : Icons.cloud_upload_outlined,
                         size: 18,
-                        color: (_alreadySyncedToRr || _rrSynced) ? _success : _primary,
+                        color: _alreadySyncedToRr ? _success : _primary,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          (_alreadySyncedToRr || _rrSynced) ? 'Synced to RR web' : 'Not yet synced to RR web',
+                          _alreadySyncedToRr ? 'Synced to RR web' : 'Not yet synced to RR web',
                           style: _manrope(size: 13, weight: FontWeight.w700,
-                              color: (_alreadySyncedToRr || _rrSynced) ? _success : _onSurface),
+                              color: _alreadySyncedToRr ? _success : _onSurface),
                         ),
                       ),
-                      if (!(_alreadySyncedToRr || _rrSynced))
+                      if (!_alreadySyncedToRr)
                         _syncingToRr
                             ? const SizedBox(
                                 width: 18, height: 18,
