@@ -10,7 +10,7 @@ Notifications API
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.role import Role
@@ -55,25 +55,28 @@ def _current_user_org(current_user: User, db: Session) -> UserOrganization | Non
 async def notifications_ws(
     websocket: WebSocket,
     token: str = Query(...),
-    db: Session = Depends(get_db),
 ):
     """
     Clients connect with their JWT to receive real-time notifications.
     Org-based users are keyed by org_id; transporters (no org) are keyed by user:{user_id}.
     """
-    user, user_org = _get_user_from_token(token, db)
-    if not user:
-        await websocket.close(code=4001)
-        return
+    db = SessionLocal()
+    try:
+        user, user_org = _get_user_from_token(token, db)
+        if not user:
+            await websocket.close(code=4001)
+            return
 
-    if user_org:
-        conn_key = str(user_org.organization_id)
-        role = db.query(Role).filter(Role.id == user_org.role_id).first()
-        role_key = role.role_key if role else 'unknown'
-    else:
-        # Transporter or user without org — key by user id
-        conn_key = f"user:{str(user.id)}"
-        role_key = 'transporter'
+        if user_org:
+            conn_key = str(user_org.organization_id)
+            role = db.query(Role).filter(Role.id == user_org.role_id).first()
+            role_key = role.role_key if role else 'unknown'
+        else:
+            # Transporter or user without org — key by user id
+            conn_key = f"user:{str(user.id)}"
+            role_key = 'transporter'
+    finally:
+        db.close()
 
     await manager.connect(conn_key, role_key, websocket)
     try:
