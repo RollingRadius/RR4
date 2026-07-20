@@ -18,7 +18,7 @@ from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.dependencies import get_current_user
 from app.models import User, UserOrganization
 from app.models.trip import Trip
@@ -629,24 +629,29 @@ async def submit_stage1(
     tax_declaration_doc:  Optional[UploadFile] = File(None),
     cancelled_cheque_doc: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Stage 1 — Truck Detail Registration. Accepts multipart/form-data."""
     from datetime import datetime, timezone
     from app.config import settings
 
-    user_org = _get_user_org(current_user, db)
-    role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
-        raise HTTPException(status_code=403, detail="Fleet managers only")
+    # Phase 1 — quick checks on a short-lived session, closed before file I/O
+    db = SessionLocal()
+    try:
+        user_org = _get_user_org(current_user, db)
+        role_key = _get_role_key(user_org, db)
+        if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
+            raise HTTPException(status_code=403, detail="Fleet managers only")
 
-    trip = _get_fleet_trip(trip_id, user_org, db)
+        trip = _get_fleet_trip(trip_id, user_org, db)
 
-    # Stage lock: first worker to submit owns this stage; owners can always re-edit
-    if trip.s1_submitted_by is not None and role_key == 'logistic_partner_worker':
-        if str(trip.s1_submitted_by) != str(current_user.id):
-            raise HTTPException(status_code=409, detail="Stage 1 has already been completed by another worker.")
+        # Stage lock: first worker to submit owns this stage; owners can always re-edit
+        if trip.s1_submitted_by is not None and role_key == 'logistic_partner_worker':
+            if str(trip.s1_submitted_by) != str(current_user.id):
+                raise HTTPException(status_code=409, detail="Stage 1 has already been completed by another worker.")
+    finally:
+        db.close()
 
+    # Phase 2 — slow file I/O, no DB session held
     # Helper: save an uploaded file and return its URL path.
     # Returns None (leave existing) if no new file was uploaded.
     async def _save_doc(upload: Optional[UploadFile], prefix: str) -> Optional[str]:
@@ -660,12 +665,6 @@ async def submit_stage1(
             f.write(await upload.read())
         return f"/uploads/trips/{trip_id}/{filename}"
 
-    trip.s1_driver_name     = driver_name
-    trip.s1_driver_phone    = driver_phone
-    trip.s1_driving_license = driving_license
-    trip.s1_aadhaar         = aadhaar
-
-    # For file fields: only overwrite if a new file was uploaded, otherwise keep existing URL
     new_dl           = await _save_doc(driving_license_doc,       "dl")
     new_dl_back      = await _save_doc(driving_license_doc_back,  "dl_back")
     new_aadhaar      = await _save_doc(aadhaar_doc,               "aadhaar")
@@ -679,71 +678,87 @@ async def submit_stage1(
     new_tax     = await _save_doc(tax_declaration_doc,  "tax_decl")
     new_chq     = await _save_doc(cancelled_cheque_doc, "cheque")
 
-    if new_dl           is not None: trip.s1_driving_license_url      = new_dl
-    if new_dl_back      is not None: trip.s1_driving_license_back_url = new_dl_back
-    if new_aadhaar      is not None: trip.s1_aadhaar_url              = new_aadhaar
-    if new_aadhaar_back is not None: trip.s1_aadhaar_back_url         = new_aadhaar_back
-    if new_rc      is not None: trip.s1_rc                  = new_rc
-    if new_ins     is not None: trip.s1_insurance           = new_ins
-    if new_pol     is not None: trip.s1_pollution           = new_pol
-    if new_fit     is not None: trip.s1_fitness             = new_fit
-    if new_permit  is not None: trip.s1_permit              = new_permit
-    if new_pan     is not None: trip.s1_pan                 = new_pan
-    if new_tax     is not None: trip.s1_tax_declaration     = new_tax
-    if new_chq     is not None: trip.s1_cancelled_cheque    = new_chq
+    # Phase 3 — quick write on a fresh session, opened only now
+    db = SessionLocal()
+    try:
+        trip = _get_fleet_trip(trip_id, user_org, db)
 
-    was_already_submitted = trip.current_stage >= 1
+        # Re-check stage lock in case another worker claimed it mid-upload
+        if trip.s1_submitted_by is not None and role_key == 'logistic_partner_worker':
+            if str(trip.s1_submitted_by) != str(current_user.id):
+                raise HTTPException(status_code=409, detail="Stage 1 has already been completed by another worker.")
 
-    # Flush draft attributions into persistent field_attributions before clearing draft
-    _draft_flush_attributions(trip, current_user, role_key)
-    # Also auto-attribute any files uploaded right now
-    just_uploaded = [
-        k for k, v in [
-            ('dl_doc',                new_dl),
-            ('dl_back_doc',           new_dl_back),
-            ('aadhaar_doc',           new_aadhaar),
-            ('aadhaar_back_doc',      new_aadhaar_back),
-            ('rc_doc',                new_rc),
-            ('insurance_doc',         new_ins),
-            ('pollution_doc',         new_pol),
-            ('fitness_doc',           new_fit),
-            ('permit_doc',            new_permit),
-            ('pan_doc',               new_pan),
-            ('tax_declaration_doc',   new_tax),
-            ('cancelled_cheque_doc',  new_chq),
-        ] if v is not None
-    ]
-    if just_uploaded:
-        _apply_attributions(trip, just_uploaded, current_user, role_key)
+        trip.s1_driver_name     = driver_name
+        trip.s1_driver_phone    = driver_phone
+        trip.s1_driving_license = driving_license
+        trip.s1_aadhaar         = aadhaar
 
-    trip.s1_submitted_by = current_user.id
-    trip.s1_claimed_by   = None  # release claim on submit
-    trip.s1_claimed_at   = None
-    trip.s1_submitted_at = datetime.now(timezone.utc)
-    # Advance to stage 1 if not already past it; never regress
-    if trip.current_stage < 1:
-        trip.current_stage = 1
-    trip.draft_data = None  # clear draft on submit
+        if new_dl           is not None: trip.s1_driving_license_url      = new_dl
+        if new_dl_back      is not None: trip.s1_driving_license_back_url = new_dl_back
+        if new_aadhaar      is not None: trip.s1_aadhaar_url              = new_aadhaar
+        if new_aadhaar_back is not None: trip.s1_aadhaar_back_url         = new_aadhaar_back
+        if new_rc      is not None: trip.s1_rc                  = new_rc
+        if new_ins     is not None: trip.s1_insurance           = new_ins
+        if new_pol     is not None: trip.s1_pollution           = new_pol
+        if new_fit     is not None: trip.s1_fitness             = new_fit
+        if new_permit  is not None: trip.s1_permit              = new_permit
+        if new_pan     is not None: trip.s1_pan                 = new_pan
+        if new_tax     is not None: trip.s1_tax_declaration     = new_tax
+        if new_chq     is not None: trip.s1_cancelled_cheque    = new_chq
 
-    db.commit()
-    db.refresh(trip)
+        was_already_submitted = trip.current_stage >= 1
 
-    # FCM: notify LO org on first Stage 1 submission
-    if not was_already_submitted and trip.load_owner_org_id:
-        try:
-            fcm_service.send_to_org_users(
-                trip.load_owner_org_id,
-                "Stage 1 Complete — Driver Registered",
-                f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nDriver {trip.s1_driver_name} registered and documents verified.",
-                {"type": "stage1_done", "trip_id": str(trip.id)},
-                db,
-            )
-        except Exception:
-            pass
+        # Flush draft attributions into persistent field_attributions before clearing draft
+        _draft_flush_attributions(trip, current_user, role_key)
+        # Also auto-attribute any files uploaded right now
+        just_uploaded = [
+            k for k, v in [
+                ('dl_doc',                new_dl),
+                ('dl_back_doc',           new_dl_back),
+                ('aadhaar_doc',           new_aadhaar),
+                ('aadhaar_back_doc',      new_aadhaar_back),
+                ('rc_doc',                new_rc),
+                ('insurance_doc',         new_ins),
+                ('pollution_doc',         new_pol),
+                ('fitness_doc',           new_fit),
+                ('permit_doc',            new_permit),
+                ('pan_doc',               new_pan),
+                ('tax_declaration_doc',   new_tax),
+                ('cancelled_cheque_doc',  new_chq),
+            ] if v is not None
+        ]
+        if just_uploaded:
+            _apply_attributions(trip, just_uploaded, current_user, role_key)
 
+        trip.s1_submitted_by = current_user.id
+        trip.s1_claimed_by   = None  # release claim on submit
+        trip.s1_claimed_at   = None
+        trip.s1_submitted_at = datetime.now(timezone.utc)
+        # Advance to stage 1 if not already past it; never regress
+        if trip.current_stage < 1:
+            trip.current_stage = 1
+        trip.draft_data = None  # clear draft on submit
 
-    msg = "Stage 1 updated." if was_already_submitted else "Stage 1 saved. Proceed to compliance check."
-    return {"success": True, "message": msg, "trip": _enrich(trip, db)}
+        db.commit()
+        db.refresh(trip)
+
+        # FCM: notify LO org on first Stage 1 submission
+        if not was_already_submitted and trip.load_owner_org_id:
+            try:
+                fcm_service.send_to_org_users(
+                    trip.load_owner_org_id,
+                    "Stage 1 Complete — Driver Registered",
+                    f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nDriver {trip.s1_driver_name} registered and documents verified.",
+                    {"type": "stage1_done", "trip_id": str(trip.id)},
+                    db,
+                )
+            except Exception:
+                pass
+
+        msg = "Stage 1 updated." if was_already_submitted else "Stage 1 saved. Proceed to compliance check."
+        return {"success": True, "message": msg, "trip": _enrich(trip, db)}
+    finally:
+        db.close()
 
 
 @router.post("/trips/{trip_id}/stage/2", status_code=200)
@@ -758,34 +773,37 @@ async def submit_stage2(
     empty_weight_unit:           Optional[str] = Form(None),
     loading_slip:                Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Stage 2 — Pre-Arrival Compliance Check + optional Loading Slip upload.
     Accepts multipart/form-data (consistent with Stage 1 and Stage 3)."""
     from datetime import datetime, timezone
     from app.config import settings
 
-    user_org = _get_user_org(current_user, db)
-    role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
-        raise HTTPException(status_code=403, detail="Fleet managers only")
+    # Phase 1 — quick checks on a short-lived session, closed before file I/O
+    db = SessionLocal()
+    try:
+        user_org = _get_user_org(current_user, db)
+        role_key = _get_role_key(user_org, db)
+        if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
+            raise HTTPException(status_code=403, detail="Fleet managers only")
 
-    trip = _get_fleet_trip(trip_id, user_org, db)
-    if trip.current_stage < 1 and trip.s1_required:
-        raise HTTPException(status_code=409, detail="Complete Stage 1 first")
+        trip = _get_fleet_trip(trip_id, user_org, db)
+        if trip.current_stage < 1 and trip.s1_required:
+            raise HTTPException(status_code=409, detail="Complete Stage 1 first")
 
-    # Stage lock: first worker to submit owns this stage; owners can always re-edit
-    if trip.s2_submitted_by is not None and role_key == 'logistic_partner_worker':
-        if str(trip.s2_submitted_by) != str(current_user.id):
-            raise HTTPException(status_code=409, detail="Stage 2 has already been completed by another worker.")
+        # Stage lock: first worker to submit owns this stage; owners can always re-edit
+        if trip.s2_submitted_by is not None and role_key == 'logistic_partner_worker':
+            if str(trip.s2_submitted_by) != str(current_user.id):
+                raise HTTPException(status_code=409, detail="Stage 2 has already been completed by another worker.")
 
-    was_already_submitted = trip.current_stage >= 2
+        ep = _form_bool(entry_permission)
+        if not ep:
+            raise HTTPException(status_code=400, detail="Entry permission must be issued to proceed")
+    finally:
+        db.close()
 
-    ep = _form_bool(entry_permission)
-    if not ep:
-        raise HTTPException(status_code=400, detail="Entry permission must be issued to proceed")
-
-    # Save loading slip if provided
+    # Phase 2 — slow file I/O, no DB session held
+    loading_slip_url = None
     if loading_slip and loading_slip.filename:
         ext = Path(loading_slip.filename).suffix or '.jpg'
         trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
@@ -793,54 +811,70 @@ async def submit_stage2(
         filename = f"loading_slip_{_uuid_module.uuid4().hex}{ext}"
         with open(trip_dir / filename, "wb") as f:
             f.write(await loading_slip.read())
-        trip.s2_loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
-        _apply_attributions(trip, ['loading_slip'], current_user, role_key)
+        loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
 
-    # Flush draft attributions before clearing
-    _draft_flush_attributions(trip, current_user, role_key)
+    # Phase 3 — quick write on a fresh session, opened only now
+    db = SessionLocal()
+    try:
+        trip = _get_fleet_trip(trip_id, user_org, db)
 
-    trip.s2_specs_verified    = _form_bool(specs_verified)
-    trip.s2_docs_verified     = _form_bool(docs_verified)
-    trip.s2_driver_docs_valid = _form_bool(driver_docs_valid)
-    trip.s2_entry_permission  = ep
-    trip.s2_submitted_by      = current_user.id
-    trip.s2_claimed_by        = None
-    trip.s2_claimed_at        = None
-    trip.s2_verified_at       = datetime.now(timezone.utc)
+        # Re-check stage lock in case another worker claimed it mid-upload
+        if trip.s2_submitted_by is not None and role_key == 'logistic_partner_worker':
+            if str(trip.s2_submitted_by) != str(current_user.id):
+                raise HTTPException(status_code=409, detail="Stage 2 has already been completed by another worker.")
 
-    # Persist dharam kanta data so it survives draft clearance
-    dk_loc = (dharam_kanta_location or '').strip() or None
-    trip.s2_dharam_kanta_loc = dk_loc
-    if dk_loc == 'outside' and empty_weight_before_loading:
-        trip.s2_empty_weight_kg   = empty_weight_before_loading.strip()
-        trip.s2_empty_weight_unit = (empty_weight_unit or 'kg').strip()
-    else:
-        trip.s2_empty_weight_kg   = None
-        trip.s2_empty_weight_unit = None
+        was_already_submitted = trip.current_stage >= 2
 
-    if trip.current_stage < 2:
-        trip.current_stage = 2
-    trip.draft_data = None
+        if loading_slip_url:
+            trip.s2_loading_slip_url = loading_slip_url
+            _apply_attributions(trip, ['loading_slip'], current_user, role_key)
 
-    db.commit()
-    db.refresh(trip)
+        # Flush draft attributions before clearing
+        _draft_flush_attributions(trip, current_user, role_key)
 
-    # FCM: notify LO org on first Stage 2 submission
-    if not was_already_submitted and trip.load_owner_org_id:
-        try:
-            fcm_service.send_to_org_users(
-                trip.load_owner_org_id,
-                "Stage 2 Complete — Compliance Cleared",
-                f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nCompliance check passed. Truck cleared for entry.",
-                {"type": "stage2_done", "trip_id": str(trip.id)},
-                db,
-            )
-        except Exception:
-            pass
+        trip.s2_specs_verified    = _form_bool(specs_verified)
+        trip.s2_docs_verified     = _form_bool(docs_verified)
+        trip.s2_driver_docs_valid = _form_bool(driver_docs_valid)
+        trip.s2_entry_permission  = ep
+        trip.s2_submitted_by      = current_user.id
+        trip.s2_claimed_by        = None
+        trip.s2_claimed_at        = None
+        trip.s2_verified_at       = datetime.now(timezone.utc)
 
+        # Persist dharam kanta data so it survives draft clearance
+        dk_loc = (dharam_kanta_location or '').strip() or None
+        trip.s2_dharam_kanta_loc = dk_loc
+        if dk_loc == 'outside' and empty_weight_before_loading:
+            trip.s2_empty_weight_kg   = empty_weight_before_loading.strip()
+            trip.s2_empty_weight_unit = (empty_weight_unit or 'kg').strip()
+        else:
+            trip.s2_empty_weight_kg   = None
+            trip.s2_empty_weight_unit = None
 
-    msg = "Stage 2 updated." if was_already_submitted else "Entry permission issued. Coordinate truck arrival."
-    return {"success": True, "message": msg, "trip": _enrich(trip, db)}
+        if trip.current_stage < 2:
+            trip.current_stage = 2
+        trip.draft_data = None
+
+        db.commit()
+        db.refresh(trip)
+
+        # FCM: notify LO org on first Stage 2 submission
+        if not was_already_submitted and trip.load_owner_org_id:
+            try:
+                fcm_service.send_to_org_users(
+                    trip.load_owner_org_id,
+                    "Stage 2 Complete — Compliance Cleared",
+                    f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nCompliance check passed. Truck cleared for entry.",
+                    {"type": "stage2_done", "trip_id": str(trip.id)},
+                    db,
+                )
+            except Exception:
+                pass
+
+        msg = "Stage 2 updated." if was_already_submitted else "Entry permission issued. Coordinate truck arrival."
+        return {"success": True, "message": msg, "trip": _enrich(trip, db)}
+    finally:
+        db.close()
 
 
 @router.post("/trips/{trip_id}/stage/3", status_code=200)
@@ -865,45 +899,48 @@ async def submit_stage3(
     vehicle_reach_datetime:  str = Form(...),
     loading_start_datetime:  str = Form(...),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Stage 3 — Truck Arrival at Factory. Completes the trip intake.
     Accepts multipart/form-data so the e-way bill and material documents can be uploaded."""
     from datetime import datetime, timezone
     from app.config import settings
 
-    user_org = _get_user_org(current_user, db)
-    role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
-        raise HTTPException(status_code=403, detail="Fleet managers only")
-
+    # Phase 1 — quick checks on a short-lived session, closed before file I/O
+    db = SessionLocal()
     try:
-        parsed_vehicle_reach_dt = datetime.fromisoformat(vehicle_reach_datetime)
-        parsed_loading_start_dt = datetime.fromisoformat(loading_start_datetime)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date/time format for vehicle reach or loading start")
+        user_org = _get_user_org(current_user, db)
+        role_key = _get_role_key(user_org, db)
+        if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
+            raise HTTPException(status_code=403, detail="Fleet managers only")
 
-    parsed_eway_issue_dt = None
-    parsed_eway_expiry_dt = None
-    try:
-        if eway_bill_issue_date:
-            parsed_eway_issue_dt = datetime.fromisoformat(eway_bill_issue_date)
-        if eway_bill_expiry_date:
-            parsed_eway_expiry_dt = datetime.fromisoformat(eway_bill_expiry_date)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date/time format for e-way bill issue or expiry date")
+        try:
+            parsed_vehicle_reach_dt = datetime.fromisoformat(vehicle_reach_datetime)
+            parsed_loading_start_dt = datetime.fromisoformat(loading_start_datetime)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date/time format for vehicle reach or loading start")
 
-    trip = _get_fleet_trip(trip_id, user_org, db)
-    if trip.current_stage < 2:
-        raise HTTPException(status_code=409, detail="Complete Stage 2 first")
+        parsed_eway_issue_dt = None
+        parsed_eway_expiry_dt = None
+        try:
+            if eway_bill_issue_date:
+                parsed_eway_issue_dt = datetime.fromisoformat(eway_bill_issue_date)
+            if eway_bill_expiry_date:
+                parsed_eway_expiry_dt = datetime.fromisoformat(eway_bill_expiry_date)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date/time format for e-way bill issue or expiry date")
 
-    # Stage lock: first worker to submit owns this stage; owners can always re-edit
-    if trip.s3_submitted_by is not None and role_key == 'logistic_partner_worker':
-        if str(trip.s3_submitted_by) != str(current_user.id):
-            raise HTTPException(status_code=409, detail="Stage 3 has already been completed by another worker.")
+        trip = _get_fleet_trip(trip_id, user_org, db)
+        if trip.current_stage < 2:
+            raise HTTPException(status_code=409, detail="Complete Stage 2 first")
 
-    was_already_submitted = trip.current_stage >= 3
+        # Stage lock: first worker to submit owns this stage; owners can always re-edit
+        if trip.s3_submitted_by is not None and role_key == 'logistic_partner_worker':
+            if str(trip.s3_submitted_by) != str(current_user.id):
+                raise HTTPException(status_code=409, detail="Stage 3 has already been completed by another worker.")
+    finally:
+        db.close()
 
+    # Phase 2 — slow file I/O, no DB session held
     # Save loaded weight slip file
     loaded_weight_slip_url = None
     if loaded_weight_slip and loaded_weight_slip.filename:
@@ -939,70 +976,83 @@ async def submit_stage3(
                     f.write(await doc.read())
                 material_urls.append(f"/uploads/trips/{trip_id}/{filename}")
 
-    # Flush draft attributions + auto-attribute newly uploaded files
-    _draft_flush_attributions(trip, current_user, role_key)
-    s3_uploaded = []
-    if loaded_weight_slip_url:
-        s3_uploaded.append('loaded_weight_slip')
-    if eway_bill_url:
-        s3_uploaded.append('eway_bill_doc')
-    if material_urls:
-        s3_uploaded.append('material_docs')
-    if s3_uploaded:
-        _apply_attributions(trip, s3_uploaded, current_user, role_key)
+    # Phase 3 — quick write on a fresh session, opened only now
+    db = SessionLocal()
+    try:
+        trip = _get_fleet_trip(trip_id, user_org, db)
 
-    trip.s3_driver_parked            = _form_bool(driver_parked)
-    trip.s3_docs_submitted           = _form_bool(docs_submitted)
-    trip.s3_security_verified        = _form_bool(security_verified)
-    trip.s3_driver_exited_cabin      = _form_bool(driver_exited_cabin)
-    trip.s3_wheel_stoppers           = _form_bool(wheel_stoppers)
-    trip.s3_safety_gear              = _form_bool(safety_gear)
-    trip.s3_empty_truck_weight_kg    = empty_truck_weight_kg
-    trip.s3_empty_truck_weight_unit  = empty_truck_weight_unit or 'kg'
-    trip.s3_loaded_truck_weight_kg   = loaded_truck_weight_kg
-    trip.s3_loaded_truck_weight_unit = loaded_truck_weight_unit or 'kg'
-    if loaded_weight_slip_url:
-        trip.s3_loaded_weight_slip_url = loaded_weight_slip_url
-    if eway_bill_url:
-        trip.s3_eway_bill_url = eway_bill_url
-    if eway_bill_number:
-        trip.s3_eway_bill_number = eway_bill_number
-    if parsed_eway_issue_dt:
-        trip.s3_eway_bill_issue_date = parsed_eway_issue_dt
-    if parsed_eway_expiry_dt:
-        trip.s3_eway_bill_expiry_date = parsed_eway_expiry_dt
-    if material_urls:
-        trip.s3_material_doc_urls = json.dumps(material_urls)
-    trip.s3_vehicle_reach_datetime   = parsed_vehicle_reach_dt
-    trip.s3_loading_start_datetime   = parsed_loading_start_dt
-    trip.s3_submitted_by             = current_user.id
-    trip.s3_claimed_by               = None  # release claim on submit
-    trip.s3_claimed_at               = None
-    trip.s3_completed_at             = datetime.now(timezone.utc)
-    if trip.current_stage < 3:
-        trip.current_stage = 3
-    trip.status                      = 'ongoing'
-    trip.draft_data                  = None  # clear draft on submit
+        # Re-check stage lock in case another worker claimed it mid-upload
+        if trip.s3_submitted_by is not None and role_key == 'logistic_partner_worker':
+            if str(trip.s3_submitted_by) != str(current_user.id):
+                raise HTTPException(status_code=409, detail="Stage 3 has already been completed by another worker.")
 
-    db.commit()
-    db.refresh(trip)
+        was_already_submitted = trip.current_stage >= 3
 
-    # FCM: notify LO org on first Stage 3 submission
-    if not was_already_submitted and trip.load_owner_org_id:
-        try:
-            fcm_service.send_to_org_users(
-                trip.load_owner_org_id,
-                "Stage 3 Complete — Truck Loaded",
-                f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nTruck loaded and shipment is now in transit.",
-                {"type": "stage3_done", "trip_id": str(trip.id)},
-                db,
-            )
-        except Exception:
-            pass
+        # Flush draft attributions + auto-attribute newly uploaded files
+        _draft_flush_attributions(trip, current_user, role_key)
+        s3_uploaded = []
+        if loaded_weight_slip_url:
+            s3_uploaded.append('loaded_weight_slip')
+        if eway_bill_url:
+            s3_uploaded.append('eway_bill_doc')
+        if material_urls:
+            s3_uploaded.append('material_docs')
+        if s3_uploaded:
+            _apply_attributions(trip, s3_uploaded, current_user, role_key)
 
+        trip.s3_driver_parked            = _form_bool(driver_parked)
+        trip.s3_docs_submitted           = _form_bool(docs_submitted)
+        trip.s3_security_verified        = _form_bool(security_verified)
+        trip.s3_driver_exited_cabin      = _form_bool(driver_exited_cabin)
+        trip.s3_wheel_stoppers           = _form_bool(wheel_stoppers)
+        trip.s3_safety_gear              = _form_bool(safety_gear)
+        trip.s3_empty_truck_weight_kg    = empty_truck_weight_kg
+        trip.s3_empty_truck_weight_unit  = empty_truck_weight_unit or 'kg'
+        trip.s3_loaded_truck_weight_kg   = loaded_truck_weight_kg
+        trip.s3_loaded_truck_weight_unit = loaded_truck_weight_unit or 'kg'
+        if loaded_weight_slip_url:
+            trip.s3_loaded_weight_slip_url = loaded_weight_slip_url
+        if eway_bill_url:
+            trip.s3_eway_bill_url = eway_bill_url
+        if eway_bill_number:
+            trip.s3_eway_bill_number = eway_bill_number
+        if parsed_eway_issue_dt:
+            trip.s3_eway_bill_issue_date = parsed_eway_issue_dt
+        if parsed_eway_expiry_dt:
+            trip.s3_eway_bill_expiry_date = parsed_eway_expiry_dt
+        if material_urls:
+            trip.s3_material_doc_urls = json.dumps(material_urls)
+        trip.s3_vehicle_reach_datetime   = parsed_vehicle_reach_dt
+        trip.s3_loading_start_datetime   = parsed_loading_start_dt
+        trip.s3_submitted_by             = current_user.id
+        trip.s3_claimed_by               = None  # release claim on submit
+        trip.s3_claimed_at               = None
+        trip.s3_completed_at             = datetime.now(timezone.utc)
+        if trip.current_stage < 3:
+            trip.current_stage = 3
+        trip.status                      = 'ongoing'
+        trip.draft_data                  = None  # clear draft on submit
 
-    msg = "Stage 3 updated." if was_already_submitted else "Truck intake complete. Trip is now active."
-    return {"success": True, "message": msg, "trip": _enrich(trip, db)}
+        db.commit()
+        db.refresh(trip)
+
+        # FCM: notify LO org on first Stage 3 submission
+        if not was_already_submitted and trip.load_owner_org_id:
+            try:
+                fcm_service.send_to_org_users(
+                    trip.load_owner_org_id,
+                    "Stage 3 Complete — Truck Loaded",
+                    f"Trip {trip.trip_number} | {trip.origin} → {trip.destination}\nTruck loaded and shipment is now in transit.",
+                    {"type": "stage3_done", "trip_id": str(trip.id)},
+                    db,
+                )
+            except Exception:
+                pass
+
+        msg = "Stage 3 updated." if was_already_submitted else "Truck intake complete. Trip is now active."
+        return {"success": True, "message": msg, "trip": _enrich(trip, db)}
+    finally:
+        db.close()
 
 
 class Stage4Payload(BaseModel):
@@ -1083,34 +1133,44 @@ async def submit_stage4_diesel(
     trip_id: str,
     receipt: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Stage 4 Diesel — Upload diesel receipt after truck exits factory. Does not advance currentStage."""
     from app.config import settings
 
-    user_org = _get_user_org(current_user, db)
-    role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
-        raise HTTPException(status_code=403, detail="Fleet managers only")
+    # Phase 1 — quick checks on a short-lived session, closed before file I/O
+    db = SessionLocal()
+    try:
+        user_org = _get_user_org(current_user, db)
+        role_key = _get_role_key(user_org, db)
+        if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
+            raise HTTPException(status_code=403, detail="Fleet managers only")
 
-    trip = _get_fleet_trip(trip_id, user_org, db)
-    if trip.current_stage < 4:
-        raise HTTPException(status_code=409, detail="Complete exit checklist first")
+        trip = _get_fleet_trip(trip_id, user_org, db)
+        if trip.current_stage < 4:
+            raise HTTPException(status_code=409, detail="Complete exit checklist first")
+    finally:
+        db.close()
 
+    # Phase 2 — slow file I/O, no DB session held
     trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
     trip_dir.mkdir(parents=True, exist_ok=True)
     ext = Path(receipt.filename).suffix if receipt.filename else '.jpg'
     filename = f"diesel_receipt_{_uuid_module.uuid4().hex}{ext}"
     content = await receipt.read()
     (trip_dir / filename).write_bytes(content)
+    receipt_url = f"/uploads/trips/{trip_id}/{filename}"
 
-    trip.s4_diesel_receipt_url = f"/uploads/trips/{trip_id}/{filename}"
-    _apply_attributions(trip, ['diesel_receipt'], current_user, role_key)
-    db.commit()
-    db.refresh(trip)
-
-
-    return {"success": True, "message": "Diesel receipt uploaded.", "trip": _enrich(trip, db)}
+    # Phase 3 — quick write on a fresh session, opened only now
+    db = SessionLocal()
+    try:
+        trip = _get_fleet_trip(trip_id, user_org, db)
+        trip.s4_diesel_receipt_url = receipt_url
+        _apply_attributions(trip, ['diesel_receipt'], current_user, role_key)
+        db.commit()
+        db.refresh(trip)
+        return {"success": True, "message": "Diesel receipt uploaded.", "trip": _enrich(trip, db)}
+    finally:
+        db.close()
 
 
 @router.post("/trips/{trip_id}/stage/5", status_code=200)
@@ -1122,39 +1182,44 @@ async def submit_stage5(
     unloading_start_datetime: str = Form(...),
     unloading_end_datetime:   str = Form(...),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """Stage 5 — Unloading. Proof of Delivery document + optional halting charge. Advances currentStage to 5."""
     from datetime import datetime, timezone
     from app.config import settings
     import decimal
 
-    user_org = _get_user_org(current_user, db)
-    role_key = _get_role_key(user_org, db)
-    if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
-        raise HTTPException(status_code=403, detail="Fleet managers only")
-
-    trip = _get_fleet_trip(trip_id, user_org, db)
-    if trip.current_stage < 4:
-        raise HTTPException(status_code=409, detail="Complete Stage 4 first")
-    if not trip.s4_diesel_receipt_url:
-        raise HTTPException(status_code=409, detail="Upload diesel receipt in Stage 4 first")
-
-    # Stage lock: first worker to submit owns this stage; owners can always re-edit
-    if trip.s5_submitted_by is not None and role_key == 'logistic_partner_worker':
-        if str(trip.s5_submitted_by) != str(current_user.id):
-            raise HTTPException(status_code=409, detail="Stage 5 has already been completed by another worker.")
-
-    if not pod and not trip.s5_pod_url:
-        raise HTTPException(status_code=422, detail="Proof of Delivery photo is required")
-
+    # Phase 1 — quick checks on a short-lived session, closed before file I/O
+    db = SessionLocal()
     try:
-        parsed_vehicle_reach_dt   = datetime.fromisoformat(vehicle_reach_datetime)
-        parsed_unloading_start_dt = datetime.fromisoformat(unloading_start_datetime)
-        parsed_unloading_end_dt   = datetime.fromisoformat(unloading_end_datetime)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date/time format for unloading timestamps")
+        user_org = _get_user_org(current_user, db)
+        role_key = _get_role_key(user_org, db)
+        if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
+            raise HTTPException(status_code=403, detail="Fleet managers only")
 
+        trip = _get_fleet_trip(trip_id, user_org, db)
+        if trip.current_stage < 4:
+            raise HTTPException(status_code=409, detail="Complete Stage 4 first")
+        if not trip.s4_diesel_receipt_url:
+            raise HTTPException(status_code=409, detail="Upload diesel receipt in Stage 4 first")
+
+        # Stage lock: first worker to submit owns this stage; owners can always re-edit
+        if trip.s5_submitted_by is not None and role_key == 'logistic_partner_worker':
+            if str(trip.s5_submitted_by) != str(current_user.id):
+                raise HTTPException(status_code=409, detail="Stage 5 has already been completed by another worker.")
+
+        if not pod and not trip.s5_pod_url:
+            raise HTTPException(status_code=422, detail="Proof of Delivery photo is required")
+
+        try:
+            parsed_vehicle_reach_dt   = datetime.fromisoformat(vehicle_reach_datetime)
+            parsed_unloading_start_dt = datetime.fromisoformat(unloading_start_datetime)
+            parsed_unloading_end_dt   = datetime.fromisoformat(unloading_end_datetime)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date/time format for unloading timestamps")
+    finally:
+        db.close()
+
+    # Phase 2 — slow file I/O, no DB session held
     pod_url = None
     if pod and pod.filename:
         trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
@@ -1165,33 +1230,44 @@ async def submit_stage5(
         (trip_dir / filename).write_bytes(content)
         pod_url = f"/uploads/trips/{trip_id}/{filename}"
 
-    was_already_submitted = trip.current_stage >= 5
+    # Phase 3 — quick write on a fresh session, opened only now
+    db = SessionLocal()
+    try:
+        trip = _get_fleet_trip(trip_id, user_org, db)
 
-    # Flush draft attributions + auto-attribute the POD upload
-    _draft_flush_attributions(trip, current_user, role_key)
-    if pod_url:
-        _apply_attributions(trip, ['pod_doc'], current_user, role_key)
-        trip.s5_pod_url = pod_url
-    if halting_charge and halting_charge.strip():
-        try:
-            trip.s5_halting_charge = decimal.Decimal(halting_charge.strip())
-        except decimal.InvalidOperation:
-            pass
-    trip.s5_vehicle_reach_datetime   = parsed_vehicle_reach_dt
-    trip.s5_unloading_start_datetime = parsed_unloading_start_dt
-    trip.s5_unloading_end_datetime   = parsed_unloading_end_dt
-    trip.s5_submitted_by = current_user.id
-    trip.s5_completed_at = datetime.now(timezone.utc)
-    trip.draft_data      = None
-    if trip.current_stage < 5:
-        trip.current_stage = 5
+        # Re-check stage lock in case another worker claimed it mid-upload
+        if trip.s5_submitted_by is not None and role_key == 'logistic_partner_worker':
+            if str(trip.s5_submitted_by) != str(current_user.id):
+                raise HTTPException(status_code=409, detail="Stage 5 has already been completed by another worker.")
 
-    db.commit()
-    db.refresh(trip)
+        was_already_submitted = trip.current_stage >= 5
 
+        # Flush draft attributions + auto-attribute the POD upload
+        _draft_flush_attributions(trip, current_user, role_key)
+        if pod_url:
+            _apply_attributions(trip, ['pod_doc'], current_user, role_key)
+            trip.s5_pod_url = pod_url
+        if halting_charge and halting_charge.strip():
+            try:
+                trip.s5_halting_charge = decimal.Decimal(halting_charge.strip())
+            except decimal.InvalidOperation:
+                pass
+        trip.s5_vehicle_reach_datetime   = parsed_vehicle_reach_dt
+        trip.s5_unloading_start_datetime = parsed_unloading_start_dt
+        trip.s5_unloading_end_datetime   = parsed_unloading_end_dt
+        trip.s5_submitted_by = current_user.id
+        trip.s5_completed_at = datetime.now(timezone.utc)
+        trip.draft_data      = None
+        if trip.current_stage < 5:
+            trip.current_stage = 5
 
-    msg = "Unloading stage updated." if was_already_submitted else "Unloading stage completed."
-    return {"success": True, "message": msg, "trip": _enrich(trip, db)}
+        db.commit()
+        db.refresh(trip)
+
+        msg = "Unloading stage updated." if was_already_submitted else "Unloading stage completed."
+        return {"success": True, "message": msg, "trip": _enrich(trip, db)}
+    finally:
+        db.close()
 
 
 @router.post("/trips/{trip_id}/loading-slip", status_code=200)
@@ -1199,7 +1275,6 @@ async def upload_loading_slip_local(
     trip_id: str,
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ):
     """
     LP Worker uploads a loading slip for an RR web trip.
@@ -1209,17 +1284,22 @@ async def upload_loading_slip_local(
     import uuid as _uuid_mod
     from pathlib import Path
 
-    user_org = _get_user_org(current_user, db)
+    # Phase 1 — quick checks on a short-lived session, closed before file I/O
+    db = SessionLocal()
+    try:
+        user_org = _get_user_org(current_user, db)
+        trip = db.query(Trip).filter(
+            Trip.id == trip_id,
+            Trip.organization_id == user_org.organization_id,
+        ).first()
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        if not trip.origin_rr_city_id:
+            raise HTTPException(status_code=409, detail="Not an RR web trip")
+    finally:
+        db.close()
 
-    trip = db.query(Trip).filter(
-        Trip.id == trip_id,
-        Trip.organization_id == user_org.organization_id,
-    ).first()
-    if not trip:
-        raise HTTPException(status_code=404, detail="Trip not found")
-    if not trip.origin_rr_city_id:
-        raise HTTPException(status_code=409, detail="Not an RR web trip")
-
+    # Phase 2 — slow file I/O, no DB session held
     file_bytes = await file.read()
     ext = Path(file.filename or "slip.jpg").suffix or ".jpg"
 
@@ -1229,10 +1309,20 @@ async def upload_loading_slip_local(
     (trip_dir / local_name).write_bytes(file_bytes)
     local_url = f"/uploads/trips/{trip_id}/{local_name}"
 
-    trip.rr_loading_slip_url = local_url
-    db.commit()
-
-    return {"success": True, "local_url": local_url, "trip": trip.to_dict()}
+    # Phase 3 — quick write on a fresh session, opened only now
+    db = SessionLocal()
+    try:
+        trip = db.query(Trip).filter(
+            Trip.id == trip_id,
+            Trip.organization_id == user_org.organization_id,
+        ).first()
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        trip.rr_loading_slip_url = local_url
+        db.commit()
+        return {"success": True, "local_url": local_url, "trip": trip.to_dict()}
+    finally:
+        db.close()
 
 
 @router.patch("/trips/{trip_id}/draft", status_code=200)
