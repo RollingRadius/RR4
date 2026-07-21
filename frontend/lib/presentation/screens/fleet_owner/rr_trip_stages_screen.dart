@@ -31,6 +31,29 @@ TextStyle _manrope({double size = 14, FontWeight weight = FontWeight.w600, Color
 TextStyle _inter({double size = 13, FontWeight weight = FontWeight.w400, Color color = const Color(0xFF546067)}) =>
     GoogleFonts.inter(fontSize: size, fontWeight: weight, color: color);
 
+/// Shared message for a failed image_picker call (camera/gallery permission
+/// denied, or any other picker failure) — used wherever a doc-upload widget
+/// doesn't already keep its own dedicated inline error-message state.
+String _pickErrorMessage(Object e, ImageSource source) {
+  final isCamera = source == ImageSource.camera;
+  return e is PlatformException && e.code.contains('access_denied')
+      ? 'Permission denied. Enable ${isCamera ? "Camera" : "Photos"} access for this app in Settings and try again.'
+      : 'Could not ${isCamera ? "open camera" : "access gallery"}. Please try again.';
+}
+
+/// Shows [_pickErrorMessage] as a SnackBar — for pickers with no local
+/// inline error-text widget to fall back on.
+void _showPickError(BuildContext context, Object e, ImageSource source) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(_pickErrorMessage(e, source), style: _inter(size: 13, color: Colors.white)),
+      backgroundColor: _error,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    ),
+  );
+}
+
 const _primary   = Color(0xFFFF6B00);
 const _bg        = Color(0xFFF8F9FB);
 const _surface   = Color(0xFFFFFFFF);
@@ -970,12 +993,17 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     ImageSource source,
     void Function(({Uint8List bytes, String name}) f) onPicked,
   ) async {
-    final picked = await _picker.pickImage(source: source, imageQuality: 85);
-    if (picked == null || !mounted) return;
-    final bytes = await picked.readAsBytes();
-    onPicked((bytes: bytes, name: picked.name));
-    setState(() {});
-    _onUploadChanged();
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      onPicked((bytes: bytes, name: picked.name));
+      setState(() {});
+      _onUploadChanged();
+    } catch (e) {
+      if (!mounted) return;
+      _showPickError(context, e, source);
+    }
   }
 
   // ── Auto-scroll to first invalid field ────────────────────────────────────
@@ -1555,10 +1583,15 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   }
 
   Future<void> _pickLoadingSlip(ImageSource source) async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(source: source, imageQuality: 85);
-    if (picked == null || !mounted) return;
-    setState(() => _loadingSlipFile = picked);
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      setState(() => _loadingSlipFile = picked);
+    } catch (e) {
+      if (!mounted) return;
+      _showPickError(context, e, source);
+    }
   }
 
   void _showSlipPicker() {
@@ -2191,14 +2224,19 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
   }
 
   Future<void> _pick(ImageSource source) async {
-    final picked = await _picker.pickImage(source: source, imageQuality: 85);
-    if (picked == null || !mounted) return;
-    final bytes = await picked.readAsBytes();
-    setState(() {
-      _slipFile = (bytes: bytes, name: picked.name);
-      _errorMsg = null;
-    });
-    _saveDraft();
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      setState(() {
+        _slipFile = (bytes: bytes, name: picked.name);
+        _errorMsg = null;
+      });
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMsg = _pickErrorMessage(e, source));
+    }
   }
 
   void _showPickerSheet() {
@@ -2830,21 +2868,31 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   }
 
   Future<void> _pickEwayBill(ImageSource source) async {
-    final picked = await _picker.pickImage(source: source, imageQuality: 85);
-    if (picked == null || !mounted) return;
-    final bytes = await picked.readAsBytes();
-    setState(() => _ewayBillData = (bytes: bytes, name: picked.name));
-    _touchField('eway_bill_doc');
-    _saveDraft();
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      setState(() => _ewayBillData = (bytes: bytes, name: picked.name));
+      _touchField('eway_bill_doc');
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      _showPickError(context, e, source);
+    }
   }
 
   Future<void> _pickMaterialDocs(ImageSource source) async {
-    final picked = await _picker.pickImage(source: source, imageQuality: 85);
-    if (picked == null || !mounted) return;
-    final bytes = await picked.readAsBytes();
-    setState(() => _materialDocs = (bytes: bytes, name: picked.name));
-    _touchField('material_docs');
-    _saveDraft();
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      setState(() => _materialDocs = (bytes: bytes, name: picked.name));
+      _touchField('material_docs');
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      _showPickError(context, e, source);
+    }
   }
 
   void _removeMaterialDoc() {
@@ -3753,18 +3801,23 @@ class _WeighFieldState extends State<_WeighField> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    final picked = await _picker.pickImage(
-      source: source,
-      imageQuality: 85,
-      maxWidth: 1920,
-    );
-    if (picked != null && mounted) {
-      final bytes = await picked.readAsBytes();
-      setState(() {
-        _slipBytes = bytes;
-        _existingCleared = false;
-      });
-      widget.onSlipPicked?.call(bytes, picked.name);
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1920,
+      );
+      if (picked != null && mounted) {
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _slipBytes = bytes;
+          _existingCleared = false;
+        });
+        widget.onSlipPicked?.call(bytes, picked.name);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showPickError(context, e, source);
     }
   }
 
@@ -4738,12 +4791,17 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
 
   // ── Phase 2: diesel receipt pick + upload ────────────────────────────────
   Future<void> _pickDiesel(ImageSource source) async {
-    final picked = await _picker.pickImage(source: source, imageQuality: 85);
-    if (picked == null || !mounted) return;
-    final bytes = await picked.readAsBytes();
-    setState(() { _dieselFile = (bytes: bytes, name: picked.name); _dieselError = null; });
-    _touchField('diesel_receipt');
-    _saveDraft();
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      setState(() { _dieselFile = (bytes: bytes, name: picked.name); _dieselError = null; });
+      _touchField('diesel_receipt');
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _dieselError = _pickErrorMessage(e, source));
+    }
   }
 
   void _showDieselPicker() {
@@ -5366,12 +5424,17 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
   }
 
   Future<void> _pickPod(ImageSource source) async {
-    final picked = await _picker.pickImage(source: source, imageQuality: 85);
-    if (picked == null || !mounted) return;
-    final bytes = await picked.readAsBytes();
-    setState(() { _podFile = (bytes: bytes, name: picked.name); _errorMsg = null; });
-    _touchField('pod_doc');
-    _saveDraft();
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      setState(() { _podFile = (bytes: bytes, name: picked.name); _errorMsg = null; });
+      _touchField('pod_doc');
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMsg = _pickErrorMessage(e, source));
+    }
   }
 
   void _showPodPicker() {
