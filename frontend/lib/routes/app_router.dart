@@ -17,6 +17,9 @@ import 'package:fleet_management/presentation/screens/home/main_screen.dart';
 import 'package:fleet_management/presentation/screens/fleet/fleet_hub_screen.dart';
 import 'package:fleet_management/presentation/screens/vehicles/vehicles_list_screen.dart';
 import 'package:fleet_management/presentation/screens/vehicles/add_vehicle_screen.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_vehicle_screen.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_company_screen.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_user_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/drivers_list_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/driver_management_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/driver_dashboard_screen.dart';
@@ -81,6 +84,16 @@ final routerProvider = Provider<GoRouter>((ref) {
     final user = ref.read(authProvider).user;
     if (user == null) return AppConstants.routeLogin;
     if (user.isLogisticPartner) return null; // allow
+    if (user.isLoadOwner) return AppConstants.routeLoadOwnerHome;
+    return AppConstants.routeLogin;
+  }
+
+  // RR quick-add screens (Add Vehicle/Company/User) — usable by LP owners and
+  // RR-ops workers, same roles allowed to hold an RR session per _RR_SESSION_ROLES.
+  String? lpOrRrOpsOnly(BuildContext context, GoRouterState state) {
+    final user = ref.read(authProvider).user;
+    if (user == null) return AppConstants.routeLogin;
+    if (user.isLogisticPartner || user.isLpRrOperations) return null; // allow
     if (user.isLoadOwner) return AppConstants.routeLoadOwnerHome;
     return AppConstants.routeLogin;
   }
@@ -294,6 +307,36 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'lp-rr-ops-home',
         pageBuilder: (context, state) => const NoTransitionPage(
           child: LpRrOpsDashboard(),
+        ),
+      ),
+
+      // RR quick-add sidebar shortcuts (LP + RR-ops) — write straight to RR,
+      // no local RR4 database row, mirroring rr_kanpur's Add Vehicle/Company/User.
+      GoRoute(
+        path: '/rr/add-vehicle',
+        name: 'rr-add-vehicle',
+        redirect: (context, state) => lpOrRrOpsOnly(context, state),
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const AddRrVehicleScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/rr/add-company',
+        name: 'rr-add-company',
+        redirect: (context, state) => lpOrRrOpsOnly(context, state),
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const AddRrCompanyScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/rr/add-user',
+        name: 'rr-add-user',
+        redirect: (context, state) => lpOrRrOpsOnly(context, state),
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const AddRrUserScreen(),
         ),
       ),
 

@@ -3980,6 +3980,38 @@ class _AppDrawer extends ConsumerWidget {
 
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                  child: Text('RR QUICK ADD',
+                      style: _inter(
+                          size: 10,
+                          weight: FontWeight.w700,
+                          color: _secondary)),
+                ),
+                _DrawerActionTile(
+                  icon: Icons.local_shipping_outlined,
+                  label: 'Add Vehicle',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/rr/add-vehicle');
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.apartment_outlined,
+                  label: 'Add Company',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/rr/add-company');
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.person_add_alt_outlined,
+                  label: 'Add User',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/rr/add-user');
+                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                   child: Text('MORE',
                       style: _inter(
                           size: 10,

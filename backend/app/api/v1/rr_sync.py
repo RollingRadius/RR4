@@ -21,6 +21,7 @@ from app.dependencies import get_current_user
 from app.models.company import Organization
 from app.models.trip import Trip
 from app.models.user import User
+from app.services.rr_sync_service import _json_header
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -1766,3 +1767,219 @@ async def trigger_bulk_sync(
         "queued":  queued,
         "skipped": skipped,
     }
+
+
+# ── Quick-add: Vehicle / Company / User directly on RR ───────────────────────
+# LP/RR-ops sidebar shortcuts (mirrors rr_kanpur's Add Vehicle/Add Company/Add
+# User screens) — these write straight to RR, not into RR4's local DB, since
+# there's nothing for RR4 to do with this data offline. Search endpoints power
+# each screen's typeahead fields; create endpoints do the actual POST to RR.
+
+@router.get("/users/search", summary="Search RR users by phone (typeahead)")
+async def search_rr_users(
+    q: str = Query(..., min_length=1, description="Phone number prefix"),
+    rr_token: str = Query("", description="LP's RR session token"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    where = json.dumps({"phone.number": {"$regex": f"^{q}"}})
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/users",
+            params={"where": where, "max_results": 10},
+            headers=headers,
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+    items = []
+    for u in resp.json().get("_items", []):
+        items.append({
+            "user_id": str(u.get("_id") or ""),
+            "name": u.get("name") or "",
+            "phone": (u.get("phone") or {}).get("number") or "",
+        })
+    return {"items": items}
+
+
+@router.get("/companies/search", summary="Search RR companies by name (typeahead)")
+async def search_rr_companies(
+    q: str = Query(..., min_length=1, description="Company name prefix"),
+    rr_token: str = Query("", description="LP's RR session token"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    match = json.dumps({"name": {"$regex": f"^{q}", "$options": "-i"}})
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/get_all_companies",
+            params={"page": 1, "max_results": 5, "sort": '("_created",-1)', "match": match},
+            headers=headers,
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+    body = resp.json()
+    raw_items = body.get("_items") if isinstance(body, dict) else body
+    items = []
+    for c in (raw_items or []):
+        items.append({"company_id": str(c.get("_id") or ""), "name": c.get("name") or ""})
+    return {"items": items}
+
+
+@router.get("/vehicle-engine-models/search", summary="Search RR vehicle engine models (typeahead)")
+async def search_vehicle_engine_models(
+    q: str = Query(..., min_length=1, description="Engine model name prefix"),
+    rr_token: str = Query("", description="LP's RR session token"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    where = json.dumps({"name": {"$regex": f"^{q}", "$options": "i"}})
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/vehicle_engine_models",
+            params={"where": where, "max_results": 10},
+            headers=headers,
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+    items = []
+    for m in resp.json().get("_items", []):
+        items.append({"engine_model_id": str(m.get("_id") or ""), "name": m.get("name") or ""})
+    return {"items": items}
+
+
+class RrCreateVehicleRequest(BaseModel):
+    rr_token: str
+    engine_model_id: str
+    rc_number: str
+    owner_user_id: str
+    company_id: str | None = None
+
+
+@router.post("/vehicles", summary="Create a new vehicle directly on RR")
+async def create_rr_vehicle(
+    body: RrCreateVehicleRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    payload = {
+        "engine.model": body.engine_model_id,
+        "body": {
+            "body_type": None,
+            "number_of_wheels": 6,
+            "carrying_capacity": 19000,
+            "capacity_unit": "KG",
+            "axle_type": None,
+            "body_length_in_feet": None,
+            "body_height_in_feet": None,
+        },
+        "travel_locations": [],
+        "created_by": body.owner_user_id,
+        "created_by_company": body.company_id,
+        "identities": [
+            {"id_name": "Registration Certificate", "number": body.rc_number}
+        ],
+    }
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.post(
+            f"{settings.RR_API_BASE}/vehicles",
+            json=payload,
+            headers=_json_header(body.rr_token),
+        )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"RR vehicle creation failed: {resp.text[:400]}")
+    data = resp.json()
+    return {"vehicle_id": str(data.get("_id") or ""), "rc_number": body.rc_number}
+
+
+class RrCreateCompanyRequest(BaseModel):
+    rr_token: str
+    name: str
+    city_id: str
+    business_type: str
+    owner_user_id: str | None = None
+    new_owner_phone: str | None = None
+
+
+@router.post("/companies", summary="Create a new company (vehicle provider) directly on RR")
+async def create_rr_company(
+    body: RrCreateCompanyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    if not body.owner_user_id and not body.new_owner_phone:
+        raise HTTPException(status_code=400, detail="Provide either owner_user_id or new_owner_phone")
+
+    payload = {
+        "name": body.name,
+        "city": body.city_id,
+        "business_type": body.business_type,
+        "website_address": "",
+        "address_line_1": "",
+        "pin": "",
+        "logo": None,
+        # RR's /add_company only reads "owner"/"new_owner" below when a
+        # recognized "source" is present (CRM/Dashboard/Trip/MobileApp) —
+        # without it, RR silently attributes the company to whoever's
+        # logged in instead of the picked/typed owner. rr_kanpur's own
+        # payload omits this and has the same gap; we fix it here.
+        # Must be the enum VALUE string ("Mobile App", not the Python
+        # member name "MobileApp") — verified against a live RR test call.
+        "source": "Mobile App",
+    }
+    if body.owner_user_id:
+        payload["owner"] = body.owner_user_id
+    else:
+        payload["new_owner"] = {"phone": {"number": body.new_owner_phone}}
+
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.post(
+            f"{settings.RR_API_BASE}/add_company",
+            json=payload,
+            headers=_json_header(body.rr_token),
+        )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"RR company creation failed: {resp.text[:400]}")
+    data = resp.json()
+    company = data.get("company") if isinstance(data, dict) and "company" in data else data
+    return {
+        "company_id": str((company or {}).get("_id") or (data.get("_id") if isinstance(data, dict) else "") or ""),
+        "name": body.name,
+    }
+
+
+class RrCreateUserRequest(BaseModel):
+    rr_token: str
+    name: str
+    phone: str
+
+
+@router.post("/users", summary="Create a new user (driver) directly on RR")
+async def create_rr_user(
+    body: RrCreateUserRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    payload = {
+        "phone": {"country_phone_code": "91", "number": body.phone},
+        "name": body.name,
+        "password": "",
+    }
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.post(
+            f"{settings.RR_API_BASE}/users",
+            json=payload,
+            headers=_json_header(body.rr_token),
+        )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"RR user creation failed: {resp.text[:400]}")
+    data = resp.json()
+    return {"user_id": str(data.get("_id") or ""), "name": body.name, "phone": body.phone}
