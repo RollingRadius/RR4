@@ -11,6 +11,7 @@ import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/trip_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _rrBlue    = Color(0xFF1B6CA8);
@@ -80,12 +81,48 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       final dio = ref.read(dioProvider);
       await dio.post('/api/rr/sync/retry/${trip.id}', data: {'rr_token': session.token});
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Retrying booking — check back shortly',
-            style: _inter(size: 13, color: Colors.white)),
-        backgroundColor: _done,
-        behavior: SnackBarBehavior.floating,
-      ));
+
+      // /sync/retry only queues a background task and returns immediately —
+      // it does NOT mean the booking actually succeeded. Poll for the real
+      // outcome (same pattern as _Stage4CompleteView._pollForSyncCompletion
+      // in rr_trip_stages_screen.dart) instead of showing a static message
+      // that's true regardless of whether the retry actually worked.
+      bool? succeeded;
+      for (var i = 0; i < 6 && mounted; i++) {
+        await Future.delayed(const Duration(seconds: 2));
+        if (!mounted) return;
+        try {
+          await ref.read(tripProvider.notifier).fetchSingleTrip(trip.id);
+        } catch (_) {
+          break;
+        }
+        if (!mounted) return;
+        if (trip.rrSyncStatus != 'failed') {
+          succeeded = true;
+          break;
+        }
+      }
+      if (!mounted) return;
+
+      if (succeeded == true) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Booking confirmed', style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _done,
+          behavior: SnackBarBehavior.floating,
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+            (trip.rrSyncError != null && trip.rrSyncError!.isNotEmpty)
+                ? 'Still failing: ${trip.rrSyncError}'
+                : 'Still failing — check back or try again',
+            style: _inter(size: 13, color: Colors.white),
+          ),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+        ));
+      }
       widget.onRefresh?.call();
     } catch (e) {
       if (mounted) {
