@@ -2661,6 +2661,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   DateTime? _ewayBillIssueDate;
   DateTime? _ewayBillExpiryDate;
   ({Uint8List bytes, String name})? _materialDocs;
+  // Real invoice amount, entered once the invoice document above is actually
+  // uploaded — replaces the rough placeholder entered at trip creation.
+  final _actualInvoiceValueCtrl = TextEditingController();
 
   Timer? _debounce;
   DateTime? _lastSaved;
@@ -2674,6 +2677,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _emptyWeightUnit.addListener(_onFieldChanged);
     _loadedWeightUnit.addListener(_onFieldChanged);
     _ewayBillNumberCtrl.addListener(() { _touchField('eway_bill_number'); _onFieldChanged(); });
+    _actualInvoiceValueCtrl.addListener(() { _touchField('actual_invoice_value'); _onFieldChanged(); });
     // Restore S2 Dharam Kanta into provider after first frame (ref available)
     if (_s2DharamKantaLoc == 'outside' && (_s2EmptyWeight?.isNotEmpty ?? false)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2712,6 +2716,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
         }
         if (trip.s3EwayBillExpiryDate != null) {
           _ewayBillExpiryDate = DateTime.tryParse(trip.s3EwayBillExpiryDate!);
+        }
+        if (trip.s3ActualInvoiceValue != null) {
+          _actualInvoiceValueCtrl.text = trip.s3ActualInvoiceValue!.toStringAsFixed(2);
         }
       }
       return;
@@ -2770,6 +2777,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
         }
       }
     }
+    _actualInvoiceValueCtrl.text = d['actual_invoice_value'] as String? ?? '';
     // Draft attributions override persistent ones
     final attrs = draft['attributions'] as Map<String, dynamic>?;
     if (attrs != null) {
@@ -2841,6 +2849,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             'material_doc_b64':  base64Encode(_materialDocs!.bytes),
             'material_doc_name': _materialDocs!.name,
           },
+          'actual_invoice_value': _actualInvoiceValueCtrl.text.trim(),
         },
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
@@ -2864,6 +2873,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _emptyWeightUnit.dispose();
     _loadedWeightUnit.dispose();
     _ewayBillNumberCtrl.dispose();
+    _actualInvoiceValueCtrl.dispose();
     super.dispose();
   }
 
@@ -3008,6 +3018,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
         'eway_bill_issue_date': _ewayBillIssueDate!.toIso8601String(),
       if (_ewayBillExpiryDate != null)
         'eway_bill_expiry_date': _ewayBillExpiryDate!.toIso8601String(),
+      if (_actualInvoiceValueCtrl.text.trim().isNotEmpty)
+        'actual_invoice_value': _actualInvoiceValueCtrl.text.trim(),
     };
 
     if (_lastSaved != null) {
@@ -3270,6 +3282,20 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               readOnly: widget.readOnly,
             ),
             _FieldAttribution(username: _attrOf('material_docs')),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: TextFormField(
+                controller: _actualInvoiceValueCtrl,
+                style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+                decoration: _stageFieldDec('Enter Invoice Value (₹)'),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}$')),
+                ],
+              ),
+            ),
+            _FieldAttribution(username: _attrOf('actual_invoice_value')),
             const SizedBox(height: 28),
 
             if (_lastSaved != null)

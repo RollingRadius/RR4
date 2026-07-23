@@ -7,6 +7,12 @@ import 'package:fleet_management/providers/trip_provider.dart' show tripProvider
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
+import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_user_screen.dart';
+import 'package:fleet_management/providers/rr_sync_provider.dart';
+import 'package:fleet_management/providers/settings_provider.dart' show sharedPreferencesProvider;
+import 'package:fleet_management/data/models/last_trip_data.dart';
+import 'dart:convert';
 
 // ─── Typography & Colours ─────────────────────────────────────────────────────
 TextStyle _manrope({
@@ -137,7 +143,17 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   bool   _vpVehiclesLoading       = false;
   String? _vpSelectedVehicleRrId;         // → rr_vehicle_id
   String? _vpSelectedVehicleNumber;       // → vehicle_number (display)
-  String? _vpSelectedDriverRrId;          // → rr_driver_id (extracted from vehicle crew)
+  // Driver is intentionally NOT derived from the vehicle's RR crew — it's a
+  // fully independent field below (mirrors rr_kanpur's separate Vehicle/
+  // Driver fields). RR's own /create_trip endpoint pairs vehicle+driver
+  // together automatically as a side effect of creating the trip, so
+  // requiring the vehicle to already have crew set was an unnecessary,
+  // self-imposed block RR4 had added on top of RR's real behavior.
+
+  // ── Driver (independent of vehicle) ───────────────────────────────────────
+  final _driverPhoneCtrl = TextEditingController();
+  String? _selectedDriverRrId;
+  String? _selectedDriverName;
 
   static const _axleTypes    = ['Single', 'Double', 'Triple', 'Multiple'];
   static const _wheelOptions = [4, 6, 8, 10, 12, 14, 16, 18, 22];
@@ -164,6 +180,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _keyVpPhone          = GlobalKey();
   final _keyVpCompany        = GlobalKey();
   final _keyVehicle          = GlobalKey();
+  final _keyDriver           = GlobalKey();
   final _keyBookingAmount    = GlobalKey();
 
   // ── Per-step scroll controllers ───────────────────────────────────────────
@@ -183,12 +200,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadRrPartyData());
+    // Listener must be registered BEFORE _loadLastTripData() runs — it sets
+    // _vpPhoneCtrl.text from the cache, and that assignment is what's
+    // supposed to auto-trigger the live VP lookup via _onVpPhoneChanged.
     _vpPhoneCtrl.addListener(_onVpPhoneChanged);
     _weightCtrl.addListener(() => _clearFieldErr('weight'));
     _invoiceValueCtrl.addListener(() => _clearFieldErr('invoiceValue'));
     _expectedFreightCtrl.addListener(() => _clearFieldErr('expectedFreight'));
     _bookingAmountCtrl.addListener(() => _clearFieldErr('bookingAmount'));
+    // Deferred to after the first frame — the phone prefill below can
+    // trigger a live lookup that shows the RR login dialog, and doing that
+    // before the widget is mounted (still inside initState) is unsafe.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadLastTripData();
+      _loadRrPartyData();
+    });
   }
 
   @override
@@ -214,6 +240,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _bookingAmountCtrl.dispose();
     _vpPhoneCtrl.removeListener(_onVpPhoneChanged);
     _vpPhoneCtrl.dispose();
+    _driverPhoneCtrl.dispose();
     _scrollCtrl0.dispose();
     _scrollCtrl1.dispose();
     _scrollCtrl2.dispose();
@@ -221,6 +248,109 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _dropDebounce?.cancel();
     _materialDebounce?.cancel();
     super.dispose();
+  }
+
+  // ── Remember last trip's values (rr_kanpur-style convenience prefill) ─────
+  // Pure prefill cache, not a resumable draft — no trip id is stored, and
+  // submitting from prefilled values always creates a brand-new trip, same
+  // as rr_kanpur's own SharedPref.saveLastTripData()/getLastTripData().
+  static const _lastTripDataKey = 'last_trip_data';
+
+  void _loadLastTripData() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final raw = prefs.getString(_lastTripDataKey);
+    if (raw == null) return;
+    try {
+      final data = LastTripData.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      setState(() {
+        _consignorNameCtrl.text  = data.consignorName ?? '';
+        _consignorRrCompanyId    = data.consignorRrCompanyId;
+        _consignorGstinCtrl.text = data.consignorGstin ?? '';
+        _consigneeNameCtrl.text  = data.consigneeName ?? '';
+        _consigneeRrCompanyId    = data.consigneeRrCompanyId;
+        _consigneeGstinCtrl.text = data.consigneeGstin ?? '';
+        _pickupCtrl.text         = data.pickupCityName ?? '';
+        _pickupCityId            = data.pickupCityId;
+        _dropCtrl.text           = data.dropCityName ?? '';
+        _dropCityId              = data.dropCityId;
+        _materialCtrl.text       = data.materialName ?? '';
+        _materialRrId            = data.materialRrId;
+        _weightCtrl.text         = data.weight ?? '';
+        _invoiceValueCtrl.text   = data.invoiceValue ?? '';
+        _pickupLine1Ctrl.text    = data.pickupLine1 ?? '';
+        _pickupLine2Ctrl.text    = data.pickupLine2 ?? '';
+        _pickupPinCtrl.text      = data.pickupPin ?? '';
+        _unloadLine1Ctrl.text    = data.unloadLine1 ?? '';
+        _unloadLine2Ctrl.text    = data.unloadLine2 ?? '';
+        _unloadPinCtrl.text      = data.unloadPin ?? '';
+        _depotCodeCtrl.text      = data.depotCode ?? '';
+        _vehicleBodyType         = data.vehicleBodyType;
+        _axleType                = data.axleType;
+        _numberOfWheels          = data.numberOfWheels;
+        // Vehicle provider phone is restored as text only (not the resolved
+        // company/vehicle IDs) — typing it re-triggers the live phone lookup
+        // via _onVpPhoneChanged, which is the only safe way to repopulate
+        // _vpUser/_vpCompanies/_vpVehicles. Prefilling the IDs directly would
+        // be dead at best (that section only renders once _vpUser is set via
+        // a live lookup, which isn't restored) and a DropdownButton
+        // assertion crash at worst if a stale ID doesn't match a freshly
+        // loaded list — unlike rr_kanpur's free-text vehicle field, RR4's
+        // vehicle/company pickers are native DropdownButtons that require an
+        // exact value/items match.
+        _vpPhoneCtrl.text        = data.vpPhone ?? '';
+        _selectedDriverRrId      = data.driverId;
+        _selectedDriverName      = data.driverName;
+        if (data.driverName != null && data.driverId != null) {
+          _driverPhoneCtrl.text = data.driverName!;
+        }
+        _expectedFreightCtrl.text = data.expectedFreight ?? '';
+        _bookingAmountCtrl.text   = data.bookingAmount ?? '';
+        _selectedOpsWorkerLocalId = data.opsWorkerLocalId;
+      });
+    } catch (_) {
+      // Corrupt/old-shape cache — ignore and start blank rather than crash.
+    }
+  }
+
+  Future<void> _saveLastTripData() async {
+    final data = LastTripData(
+      consignorName: _consignorNameCtrl.text.trim(),
+      consignorRrCompanyId: _consignorRrCompanyId,
+      consignorGstin: _consignorGstinCtrl.text.trim(),
+      consigneeName: _consigneeNameCtrl.text.trim(),
+      consigneeRrCompanyId: _consigneeRrCompanyId,
+      consigneeGstin: _consigneeGstinCtrl.text.trim(),
+      pickupCityName: _pickupCtrl.text.trim(),
+      pickupCityId: _pickupCityId,
+      dropCityName: _dropCtrl.text.trim(),
+      dropCityId: _dropCityId,
+      materialName: _materialCtrl.text.trim(),
+      materialRrId: _materialRrId,
+      weight: _weightCtrl.text.trim(),
+      invoiceValue: _invoiceValueCtrl.text.trim(),
+      pickupLine1: _pickupLine1Ctrl.text.trim(),
+      pickupLine2: _pickupLine2Ctrl.text.trim(),
+      pickupPin: _pickupPinCtrl.text.trim(),
+      unloadLine1: _unloadLine1Ctrl.text.trim(),
+      unloadLine2: _unloadLine2Ctrl.text.trim(),
+      unloadPin: _unloadPinCtrl.text.trim(),
+      depotCode: _depotCodeCtrl.text.trim(),
+      vehicleBodyType: _vehicleBodyType,
+      axleType: _axleType,
+      numberOfWheels: _numberOfWheels,
+      vpPhone: _vpPhoneCtrl.text.trim(),
+      vpCompanyId: _vpSelectedCompanyId,
+      vpCompanyName: _vpSelectedCompanyName,
+      vehicleId: _vpSelectedVehicleRrId,
+      vehicleNumber: _vpSelectedVehicleNumber,
+      driverId: _selectedDriverRrId,
+      driverName: _selectedDriverName,
+      expectedFreight: _expectedFreightCtrl.text.trim(),
+      bookingAmount: _bookingAmountCtrl.text.trim(),
+      opsWorkerLocalId: _selectedOpsWorkerLocalId,
+    );
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setString(_lastTripDataKey, jsonEncode(data.toJson()));
   }
 
   // ── Data loading ──────────────────────────────────────────────────────────
@@ -464,7 +594,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _vpPersonalVehicles = []; _vpCompanies = []; _vpVehicles = [];
         _vpSelectedCompanyId = null; _vpSelectedCompanyName = null;
         _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null;
-        _vpSelectedDriverRrId = null;
         _vpLookupError = null;
       });
     }
@@ -506,7 +635,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       _vpSelectedCompanyId = null;
       _vpSelectedVehicleRrId = null;
       _vpSelectedVehicleNumber = null;
-      _vpSelectedDriverRrId = null;
     });
     final userId = user['user_id'] as String? ?? '';
     final dio = ref.read(dioProvider);
@@ -533,7 +661,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     setState(() {
       _vpVehiclesLoading = true; _vpVehicles = [];
       _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null;
-      _vpSelectedDriverRrId = null;
     });
     try {
       final dio = ref.read(dioProvider);
@@ -668,9 +795,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       _failField(1, _keyVehicle, 'vehicle', 'Select a Vehicle');
       return false;
     }
-    if (_vpSelectedDriverRrId == null || _vpSelectedDriverRrId!.isEmpty) {
-      _failField(1, _keyVehicle, 'vehicle',
-          'Selected vehicle has no driver assigned in RR — assign a driver to this vehicle first');
+    if (_selectedDriverRrId == null || _selectedDriverRrId!.isEmpty) {
+      _failField(1, _keyDriver, 'driver', 'Select a Driver');
       return false;
     }
     return true;
@@ -783,7 +909,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (_vpSelectedCompanyId     != null) body['transporter_rr_company_id'] = _vpSelectedCompanyId;
     if (_vpSelectedVehicleRrId   != null) body['rr_vehicle_id']             = _vpSelectedVehicleRrId;
     if (_vpSelectedVehicleNumber != null) body['vehicle_number']            = _vpSelectedVehicleNumber;
-    if (_vpSelectedDriverRrId    != null) body['rr_driver_id']              = _vpSelectedDriverRrId;
+    if (_selectedDriverRrId      != null) body['rr_driver_id']              = _selectedDriverRrId;
 
     // Ops worker
     if (_selectedOpsWorkerLocalId != null) body['rr_ops_user_id'] = _selectedOpsWorkerLocalId;
@@ -791,6 +917,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     // RR token
     final rrSession = await ensureRrSession(context, ref);
     if (rrSession != null && rrSession.isValid) body['rr_token'] = rrSession.token;
+    if (!mounted) return;
+
+    // Save current values for next time — unconditional, matching rr_kanpur's
+    // own timing (saved right before submit, not gated on success).
+    await _saveLastTripData();
     if (!mounted) return;
 
     final trip = await ref.read(tripProvider.notifier).createTrip(body);
@@ -1438,8 +1569,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                           setState(() {
                             _vpSelectedVehicleRrId   = v;
                             _vpSelectedVehicleNumber = veh['number'] as String?;
-                            _vpSelectedDriverRrId    = (veh['driver_id'] as String?)
-                                ?.isNotEmpty == true ? veh['driver_id'] as String : null;
                             _fieldErr.remove('vehicle');
                             _fieldErrMsg.remove('vehicle');
                           });
@@ -1448,6 +1577,52 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                     }(),
               _inlineErr('vehicle'),
             ],
+
+            const SizedBox(height: 20),
+            _FieldLabel(key: _keyDriver, label: 'Driver *'),
+            const SizedBox(height: 6),
+            RrSearchField<Map<String, dynamic>>(
+              label: 'Driver Phone Number',
+              controller: _driverPhoneCtrl,
+              keyboardType: TextInputType.phone,
+              search: (q) async {
+                final session = await ensureRrSession(context, ref);
+                if (session == null || !mounted) return [];
+                return ref.read(rrSyncApiProvider).searchRrUsers(q, session.token);
+              },
+              itemLabel: (u) => u['name'] as String? ?? '',
+              itemSubtitle: (u) => u['phone'] as String? ?? '',
+              onSelected: (u) {
+                setState(() {
+                  _selectedDriverRrId = u['user_id'] as String?;
+                  _selectedDriverName = u['name'] as String?;
+                  _driverPhoneCtrl.text = '${u['name']} (${u['phone']})';
+                  _fieldErr.remove('driver');
+                  _fieldErrMsg.remove('driver');
+                });
+              },
+              onCleared: () => setState(() { _selectedDriverRrId = null; _selectedDriverName = null; }),
+            ),
+            _inlineErr('driver'),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () async {
+                final result = await Navigator.of(context).push<Map<String, dynamic>>(
+                  MaterialPageRoute(builder: (_) => const AddRrUserScreen()),
+                );
+                if (result != null && mounted) {
+                  setState(() {
+                    _selectedDriverRrId = result['user_id'] as String?;
+                    _selectedDriverName = result['name'] as String?;
+                    _driverPhoneCtrl.text = '${result['name']} (${result['phone']})';
+                    _fieldErr.remove('driver');
+                    _fieldErrMsg.remove('driver');
+                  });
+                }
+              },
+              icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+              label: const Text('Add New Driver'),
+            ),
 
             const SizedBox(height: 20),
             _SectionHeader(label: 'Vehicle Specs'),

@@ -7,6 +7,7 @@ import random
 import string
 from typing import Optional, List, Union
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 import json
 import uuid as _uuid_module
@@ -895,6 +896,7 @@ async def submit_stage3(
     eway_bill_number:        Optional[str] = Form(None),
     eway_bill_issue_date:    Optional[str] = Form(None),
     eway_bill_expiry_date:   Optional[str] = Form(None),
+    actual_invoice_value:    Optional[str] = Form(None),
     material_docs:           Optional[List[UploadFile]] = File(None),
     vehicle_reach_datetime:  str = Form(...),
     loading_start_datetime:  str = Form(...),
@@ -1016,6 +1018,11 @@ async def submit_stage3(
             trip.s3_eway_bill_url = eway_bill_url
         if eway_bill_number:
             trip.s3_eway_bill_number = eway_bill_number
+        if actual_invoice_value:
+            try:
+                trip.s3_actual_invoice_value = Decimal(actual_invoice_value)
+            except (InvalidOperation, ValueError):
+                pass
         if parsed_eway_issue_dt:
             trip.s3_eway_bill_issue_date = parsed_eway_issue_dt
         if parsed_eway_expiry_dt:

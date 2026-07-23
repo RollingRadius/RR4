@@ -73,6 +73,7 @@ class TripModel {
   final String? s3EwayBillUrl;
   final String? s3EwayBillIssueDate;
   final String? s3EwayBillExpiryDate;
+  final double? s3ActualInvoiceValue;
 
   // ── Stage 4 fields ───────────────────────────────────────────────────────────
   final bool? s4TruckMoved;
@@ -253,6 +254,7 @@ class TripModel {
     this.s3EwayBillUrl,
     this.s3EwayBillIssueDate,
     this.s3EwayBillExpiryDate,
+    this.s3ActualInvoiceValue,
     this.s4TruckMoved,
     this.s4SecurityVerified,
     this.s4BiltyChecked,
@@ -411,6 +413,7 @@ class TripModel {
       s3EwayBillUrl: json['s3_eway_bill_url'] as String?,
       s3EwayBillIssueDate: json['s3_eway_bill_issue_date'] as String?,
       s3EwayBillExpiryDate: json['s3_eway_bill_expiry_date'] as String?,
+      s3ActualInvoiceValue: (json['s3_actual_invoice_value'] as num?)?.toDouble(),
       s4TruckMoved:       json['s4_truck_moved']       as bool?,
       s4SecurityVerified: json['s4_security_verified'] as bool?,
       s4BiltyChecked:     json['s4_bilty_checked']     as bool?,
