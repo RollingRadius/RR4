@@ -156,4 +156,79 @@ class RrSyncApi {
     );
     return Map<String, dynamic>.from(resp.data);
   }
+
+  // ─── Vehicle hire requests ────────────────────────────────────────────────────
+
+  /// GET /api/rr/vehicle-hire-requests — pending hire requests for vehicles
+  /// your company owns
+  Future<List<Map<String, dynamic>>> getVehicleHireRequests(String rrToken) async {
+    final resp = await _apiService.dio.get(
+      '/api/rr/vehicle-hire-requests',
+      queryParameters: {'rr_token': rrToken},
+    );
+    final items = (resp.data as Map<String, dynamic>)['items'] as List? ?? [];
+    return items.cast<Map<String, dynamic>>();
+  }
+
+  /// POST /api/rr/vehicle-hire-requests/{id}/review — approve or reject
+  Future<void> reviewVehicleHireRequest({
+    required String marketVehicleId,
+    required String rrToken,
+    required String status, // "Approved" | "Rejected"
+    String? approvedStartDate,
+    String? approvedEndDate,
+  }) async {
+    await _apiService.dio.post(
+      '/api/rr/vehicle-hire-requests/$marketVehicleId/review',
+      data: {
+        'rr_token': rrToken,
+        'status': status,
+        if (approvedStartDate != null) 'approved_start_date': approvedStartDate,
+        if (approvedEndDate != null) 'approved_end_date': approvedEndDate,
+      },
+    );
+  }
+
+  /// POST /api/rr/vehicle-hire-requests — request to hire a vehicle you don't own
+  Future<Map<String, dynamic>> createVehicleHireRequest({
+    required String rrToken,
+    required String vehicleId,
+    String? ownerUserId,
+    String? ownerCompanyId,
+    String? requestedStartDate,
+    String? requestedEndDate,
+  }) async {
+    final resp = await _apiService.dio.post(
+      '/api/rr/vehicle-hire-requests',
+      data: {
+        'rr_token': rrToken,
+        'vehicle_id': vehicleId,
+        'owner_user_id': ownerUserId,
+        'owner_company_id': ownerCompanyId,
+        'requested_start_date': requestedStartDate,
+        'requested_end_date': requestedEndDate,
+      },
+    );
+    return Map<String, dynamic>.from(resp.data);
+  }
+
+  /// GET /api/rr/user-vehicles — vehicles personally owned by an RR user
+  Future<List<Map<String, dynamic>>> getUserVehicles(String userId, String rrToken) async {
+    final resp = await _apiService.dio.get(
+      '/api/rr/user-vehicles',
+      queryParameters: {'user_id': userId, 'rr_token': rrToken},
+    );
+    final vehicles = (resp.data as Map<String, dynamic>)['vehicles'] as List? ?? [];
+    return vehicles.cast<Map<String, dynamic>>();
+  }
+
+  /// GET /api/rr/company-vehicles — vehicles owned by an RR company
+  Future<List<Map<String, dynamic>>> getCompanyVehicles(String companyId, String rrToken) async {
+    final resp = await _apiService.dio.get(
+      '/api/rr/company-vehicles',
+      queryParameters: {'company_id': companyId, 'rr_token': rrToken},
+    );
+    final vehicles = (resp.data as Map<String, dynamic>)['vehicles'] as List? ?? [];
+    return vehicles.cast<Map<String, dynamic>>();
+  }
 }

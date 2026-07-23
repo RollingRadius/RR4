@@ -20,6 +20,8 @@ import 'package:fleet_management/presentation/screens/vehicles/add_vehicle_scree
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_company_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_user_screen.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/vehicle_hire_requests_screen.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_market_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/drivers_list_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/driver_management_screen.dart';
 import 'package:fleet_management/presentation/screens/drivers/driver_dashboard_screen.dart';
@@ -337,6 +339,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
           child: const AddRrUserScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/rr/vehicle-hire-requests',
+        name: 'rr-vehicle-hire-requests',
+        redirect: (context, state) => lpOrRrOpsOnly(context, state),
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const VehicleHireRequestsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/rr/add-market-vehicle',
+        name: 'rr-add-market-vehicle',
+        redirect: (context, state) => lpOrRrOpsOnly(context, state),
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const AddMarketVehicleScreen(),
         ),
       ),
 

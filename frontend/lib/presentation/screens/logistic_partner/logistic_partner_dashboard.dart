@@ -16,7 +16,6 @@ import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/available_loads_provider.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
-import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
@@ -905,23 +904,25 @@ class _DashboardTab extends ConsumerWidget {
           else if (ongoingTrips.isEmpty)
             _EmptyTrips()
           else
+            // This list is already server-filtered to rr_web:true trips (see
+            // loadTrips(statusFilter: 'ongoing,pending') above, which the
+            // backend scopes to RR-web trips for this dashboard) — every trip
+            // here is an RR-web trip by construction, so always use RrTripCard.
+            // Previously this branched on `t.rrTripId != null`, which wrongly
+            // fell back to the generic OngoingTripCard whenever RR's own
+            // /create_trip failed partway (rr_trip_id stays null even though
+            // rr_vehicle_id/rr_driver_id are set) — hiding RR branding/actions
+            // on exactly the trips that most need them (failed bookings).
             ...ongoingTrips.map(
               (t) => Padding(
                 padding: const EdgeInsets.only(bottom: 14),
-                child: t.rrTripId != null
-                    ? RrTripCard(
-                        trip: t,
-                        onRefresh: () {
-                          ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
-                          ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
-                        },
-                      )
-                    : OngoingTripCard(
-                        trip: t,
-                        onComplete: () async {
-                          return ref.read(tripProvider.notifier).completeTrip(t.id);
-                        },
-                      ),
+                child: RrTripCard(
+                  trip: t,
+                  onRefresh: () {
+                    ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+                    ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
+                  },
+                ),
               ),
             ),
         ],
@@ -4008,6 +4009,22 @@ class _AppDrawer extends ConsumerWidget {
                   onTap: () {
                     Navigator.pop(context);
                     context.push('/rr/add-user');
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.assignment_turned_in_outlined,
+                  label: 'Vehicle Hire Requests',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/rr/vehicle-hire-requests');
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.storefront_outlined,
+                  label: 'Add Market Vehicle',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/rr/add-market-vehicle');
                   },
                 ),
                 Padding(

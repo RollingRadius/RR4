@@ -888,6 +888,22 @@ class _RrOpsDrawer extends StatelessWidget {
                 context.push('/rr/add-user');
               },
             ),
+            _RrOpsDrawerTile(
+              icon: Icons.assignment_turned_in_outlined,
+              label: 'Vehicle Hire Requests',
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/rr/vehicle-hire-requests');
+              },
+            ),
+            _RrOpsDrawerTile(
+              icon: Icons.storefront_outlined,
+              label: 'Add Market Vehicle',
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/rr/add-market-vehicle');
+              },
+            ),
           ],
         ),
       ),
