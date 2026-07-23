@@ -882,7 +882,7 @@ class _RrOpsDrawer extends StatelessWidget {
             ),
             _RrOpsDrawerTile(
               icon: Icons.person_add_alt_outlined,
-              label: 'Add User',
+              label: 'Add Driver',
               onTap: () {
                 Navigator.pop(context);
                 context.push('/rr/add-user');

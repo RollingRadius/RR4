@@ -53,7 +53,7 @@ class _AddRrUserScreenState extends ConsumerState<AddRrUserScreen> {
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('User "${result['name']}" added on RR', style: _inter(size: 13, color: Colors.white)),
+        content: Text('Driver "${result['name']}" added on RR', style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -75,7 +75,7 @@ class _AddRrUserScreenState extends ConsumerState<AddRrUserScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Add New User', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _primary),
+      appBar: AppBar(title: Text('Add New Driver', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _primary),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -119,7 +119,7 @@ class _AddRrUserScreenState extends ConsumerState<AddRrUserScreen> {
                   ),
                   child: _submitting
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text('Add User', style: _manrope(size: 14, color: Colors.white)),
+                      : Text('Add Driver', style: _manrope(size: 14, color: Colors.white)),
                 ),
               ),
             ],

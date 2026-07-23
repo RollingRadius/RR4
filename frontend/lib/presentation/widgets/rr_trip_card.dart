@@ -3,6 +3,7 @@
 /// the full S1-S5 process (checkboxes, uploads, per-stage RR doc sync).
 library;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -78,57 +79,86 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     if (session == null || !mounted) return;
     setState(() => _confirmingBooking = true);
     try {
-      final dio = ref.read(dioProvider);
-      await dio.post('/api/rr/sync/retry/${trip.id}', data: {'rr_token': session.token});
-      if (!mounted) return;
-
-      // /sync/retry only queues a background task and returns immediately —
-      // it does NOT mean the booking actually succeeded. Poll for the real
-      // outcome (same pattern as _Stage4CompleteView._pollForSyncCompletion
-      // in rr_trip_stages_screen.dart) instead of showing a static message
-      // that's true regardless of whether the retry actually worked.
-      bool? succeeded;
-      for (var i = 0; i < 6 && mounted; i++) {
-        await Future.delayed(const Duration(seconds: 2));
+      // Two genuinely different failure points need two different retry
+      // endpoints:
+      //  - rrTripId == null: the trip was never even created on RR — the
+      //    original /api/rr/complete-trip call itself failed (this is what
+      //    "Please add driver for vehicle."-style booking errors are —
+      //    trip_stage stuck at "Bidding" on RR's side). /api/rr/sync/retry
+      //    only retries per-STAGE syncs (1-5) based on current_stage, and is
+      //    a silent no-op when current_stage is still 0 — it can never fix
+      //    this. complete-trip is also synchronous, so no polling needed.
+      //  - rrTripId already set: the trip exists on RR, a later stage's sync
+      //    failed — /sync/retry is correct here, and does need polling since
+      //    it only queues a background task.
+      if (trip.rrTripId == null) {
+        final dio = ref.read(dioProvider);
+        final resp = await dio.post(
+          '/api/rr/complete-trip/${trip.id}',
+          data: {'rr_token': session.token},
+        );
         if (!mounted) return;
-        try {
-          await ref.read(tripProvider.notifier).fetchSingleTrip(trip.id);
-        } catch (_) {
-          break;
-        }
-        if (!mounted) return;
-        if (trip.rrSyncStatus != 'failed') {
-          succeeded = true;
-          break;
-        }
-      }
-      if (!mounted) return;
-
-      if (succeeded == true) {
+        final success = resp.data is Map && (resp.data['success'] == true);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Booking confirmed', style: _inter(size: 13, color: Colors.white)),
-          backgroundColor: _done,
+          content: Text(success ? 'Booking confirmed' : 'Could not confirm booking',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: success ? _done : Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
         ));
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-            (trip.rrSyncError != null && trip.rrSyncError!.isNotEmpty)
-                ? 'Still failing: ${trip.rrSyncError}'
-                : 'Still failing — check back or try again',
-            style: _inter(size: 13, color: Colors.white),
-          ),
-          backgroundColor: Colors.red.shade700,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
-        ));
+        final dio = ref.read(dioProvider);
+        await dio.post('/api/rr/sync/retry/${trip.id}', data: {'rr_token': session.token});
+        if (!mounted) return;
+
+        // /sync/retry only queues a background task and returns immediately
+        // — poll for the real outcome (same pattern as
+        // _Stage4CompleteView._pollForSyncCompletion in
+        // rr_trip_stages_screen.dart) instead of showing a static message.
+        bool? succeeded;
+        for (var i = 0; i < 6 && mounted; i++) {
+          await Future.delayed(const Duration(seconds: 2));
+          if (!mounted) return;
+          try {
+            await ref.read(tripProvider.notifier).fetchSingleTrip(trip.id);
+          } catch (_) {
+            break;
+          }
+          if (!mounted) return;
+          if (trip.rrSyncStatus != 'failed') {
+            succeeded = true;
+            break;
+          }
+        }
+        if (!mounted) return;
+
+        if (succeeded == true) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Booking confirmed', style: _inter(size: 13, color: Colors.white)),
+            backgroundColor: _done,
+            behavior: SnackBarBehavior.floating,
+          ));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+              (trip.rrSyncError != null && trip.rrSyncError!.isNotEmpty)
+                  ? 'Still failing: ${trip.rrSyncError}'
+                  : 'Still failing — check back or try again',
+              style: _inter(size: 13, color: Colors.white),
+            ),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ));
+        }
       }
       widget.onRefresh?.call();
     } catch (e) {
       if (mounted) {
+        final msg = e is DioException && e.response?.data is Map
+            ? (e.response!.data['detail']?.toString() ?? 'Could not retry booking — try again')
+            : 'Could not retry booking — try again';
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Could not retry booking — try again',
-              style: _inter(size: 13, color: Colors.white)),
+          content: Text(msg, style: _inter(size: 13, color: Colors.white)),
           backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
         ));
