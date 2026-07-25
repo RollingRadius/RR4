@@ -4021,7 +4021,7 @@ class _AppDrawer extends ConsumerWidget {
                 ),
                 _DrawerActionTile(
                   icon: Icons.storefront_outlined,
-                  label: 'Add Market Vehicle',
+                  label: 'Hire Truck',
                   onTap: () {
                     Navigator.pop(context);
                     context.push('/rr/add-market-vehicle');

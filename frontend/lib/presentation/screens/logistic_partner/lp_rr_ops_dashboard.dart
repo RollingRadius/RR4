@@ -898,7 +898,7 @@ class _RrOpsDrawer extends StatelessWidget {
             ),
             _RrOpsDrawerTile(
               icon: Icons.storefront_outlined,
-              label: 'Add Market Vehicle',
+              label: 'Hire Truck',
               onTap: () {
                 Navigator.pop(context);
                 context.push('/rr/add-market-vehicle');
