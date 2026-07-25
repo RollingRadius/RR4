@@ -6,6 +6,7 @@ All endpoints require authentication — RR details are never exposed to the cli
 
 import json
 import logging
+from datetime import datetime
 from typing import List
 
 import httpx
@@ -1993,6 +1994,16 @@ async def create_rr_user(
 # app. market_vehicles has no self-only access restriction on RR's side
 # (unlike /users), so any authenticated RR token can query/act on it.
 
+def _to_rr_datetime_str(iso_str: str) -> str:
+    """
+    RR's Eve app pins DATE_FORMAT to "%Y-%m-%dT%H:%M:%S" (see rrbc-api/app/settings.py)
+    and rejects anything else — including Dart's default `.toIso8601String()` output,
+    which appends milliseconds (e.g. "2026-07-24T00:00:00.000") and 404s/422s as
+    "must be of datetime type". Reparse and reformat to RR's exact expected format.
+    """
+    return datetime.fromisoformat(iso_str).strftime("%Y-%m-%dT%H:%M:%S")
+
+
 def _resolve_org_rr_company_id(current_user: User, db: Session) -> str:
     from app.models import UserOrganization
 
@@ -2050,9 +2061,9 @@ async def create_vehicle_hire_request(
     if body.owner_company_id:
         payload["owner_company_id"] = body.owner_company_id
     if body.requested_start_date:
-        payload["requested_start_date"] = body.requested_start_date
+        payload["requested_start_date"] = _to_rr_datetime_str(body.requested_start_date)
     if body.requested_end_date:
-        payload["requested_end_date"] = body.requested_end_date
+        payload["requested_end_date"] = _to_rr_datetime_str(body.requested_end_date)
 
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
         resp = await client.post(
@@ -2140,8 +2151,8 @@ async def review_vehicle_hire_request(
 
     payload = {"market_vehicle_id": market_vehicle_id, "status": body.status}
     if body.status == "Approved":
-        payload["approved_start_date"] = body.approved_start_date
-        payload["approved_end_date"] = body.approved_end_date
+        payload["approved_start_date"] = _to_rr_datetime_str(body.approved_start_date)
+        payload["approved_end_date"] = _to_rr_datetime_str(body.approved_end_date)
 
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
         resp = await client.post(

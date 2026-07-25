@@ -114,10 +114,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
             approvedEndDate: end?.toIso8601String(),
           );
       if (!mounted) return;
-      setState(() {
-        _items = _items.where((i) => i['market_vehicle_id'] != marketVehicleId).toList();
-        _actingOnId = null;
-      });
+      setState(() => _actingOnId = null);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(status == 'Approved' ? 'Hire request approved' : 'Hire request rejected',
             style: _inter(size: 13, color: Colors.white)),
@@ -125,6 +122,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ));
+      await _load();
     } catch (e) {
       if (!mounted) return;
       setState(() => _actingOnId = null);
