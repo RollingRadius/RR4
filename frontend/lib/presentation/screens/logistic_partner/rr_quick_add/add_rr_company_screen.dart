@@ -197,11 +197,17 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value: _businessType,
+                      isExpanded: true,
                       decoration: InputDecoration(
                         labelText: 'Business Type *',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      items: _businessTypes.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                      items: _businessTypes
+                          .map((t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(t, overflow: TextOverflow.ellipsis),
+                              ))
+                          .toList(),
                       onChanged: (v) => setState(() => _businessType = v ?? _businessTypes.first),
                     ),
                     const SizedBox(height: 28),

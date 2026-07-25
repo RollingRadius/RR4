@@ -159,6 +159,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
                         itemBuilder: (context, i) {
                           final item = _items[i];
                           final acting = _actingOnId == item['market_vehicle_id'];
+                          final isMine = item['is_mine'] == true;
                           return Container(
                             padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
@@ -171,6 +172,8 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
                                 Text('Vehicle: ${item['vehicle_number'] ?? '—'}',
                                     style: _manrope(size: 14)),
                                 const SizedBox(height: 4),
+                                Text('Owner: ${item['owner_name'] ?? '—'}', style: _inter(size: 13)),
+                                const SizedBox(height: 2),
                                 Text('Requested by: ${item['hirer_name'] ?? '—'}', style: _inter(size: 13)),
                                 if (item['requested_start_date'] != null) ...[
                                   const SizedBox(height: 4),
@@ -182,7 +185,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
                                 const SizedBox(height: 12),
                                 if (acting)
                                   const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                                else
+                                else if (isMine)
                                   Row(
                                     children: [
                                       Expanded(
@@ -204,7 +207,9 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
                                         ),
                                       ),
                                     ],
-                                  ),
+                                  )
+                                else
+                                  Text('Not your fleet — view only', style: _inter(size: 12, color: _secondary)),
                               ],
                             ),
                           );

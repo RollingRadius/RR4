@@ -232,6 +232,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                         ? Text('This owner has no vehicles on RR', style: _inter(size: 12, color: _secondary))
                         : DropdownButtonFormField<String>(
                             value: _selectedVehicleId,
+                            isExpanded: true,
                             decoration: InputDecoration(
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                               hintText: 'Select vehicle',
@@ -239,7 +240,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                             items: _ownerVehicles
                                 .map((v) => DropdownMenuItem(
                                       value: v['rr_vehicle_id'] as String,
-                                      child: Text(v['number'] as String? ?? 'Unknown'),
+                                      child: Text(v['number'] as String? ?? 'Unknown', overflow: TextOverflow.ellipsis),
                                     ))
                                 .toList(),
                             onChanged: (v) => setState(() => _selectedVehicleId = v),
