@@ -876,6 +876,7 @@ def _extract_vehicle_entry(v: dict, source: str) -> dict | None:
         identities = actual.get("identities") or []
         body_type  = actual.get("body_type", "")
         crew       = actual.get("crew") or []
+        engine     = actual.get("engine") or {}
     else:
         if not v.get("_id"):
             return None
@@ -883,11 +884,13 @@ def _extract_vehicle_entry(v: dict, source: str) -> dict | None:
         identities = v.get("identities") or []
         body_type  = v.get("body_type", "")
         crew       = v.get("crew") or []
+        engine     = v.get("engine") or {}
 
     number = next(
         (i.get("number", "") for i in identities if isinstance(i, dict) and i.get("number")),
         ""
     )
+    model_name = (engine.get("model") or {}).get("name") or "" if isinstance(engine, dict) else ""
 
     # Extract driver from crew
     driver_id   = ""
@@ -907,6 +910,7 @@ def _extract_vehicle_entry(v: dict, source: str) -> dict | None:
     return {
         "rr_vehicle_id": rr_id,
         "number":        number,
+        "model_name":    model_name,
         "body_type":     body_type,
         "source":        source,
         "driver_id":     driver_id,
@@ -2025,11 +2029,13 @@ class RrCreateHireRequest(BaseModel):
     vehicle_id: str
     owner_user_id: str | None = None
     owner_company_id: str | None = None
+    hirer_user_id: str | None = None
+    hirer_company_id: str | None = None
     requested_start_date: str | None = None
     requested_end_date: str | None = None
 
 
-@router.post("/vehicle-hire-requests", summary="Request to hire a vehicle you don't own")
+@router.post("/vehicle-hire-requests", summary="Request to hire a vehicle on behalf of any hirer")
 async def create_vehicle_hire_request(
     body: RrCreateHireRequest,
     current_user: User = Depends(get_current_user),
@@ -2037,29 +2043,34 @@ async def create_vehicle_hire_request(
 ):
     """
     The requester side of RR's vehicle-hire marketplace — mirrors RR web's
-    "Add Market Vehicle"/"Hire Vehicle" dialog (hire-market-vehicle.component.ts),
-    which POSTs to /market_vehicles with status defaulting server-side (on RR)
-    to "Requested". Unlike RR web, the "hiring person" is never a separate
-    search field here — it's always the caller's own org, resolved the same
-    way as the sibling review endpoint.
+    "Hire Market Vehicle" dialog (hire-market-vehicle.component.ts) field for
+    field: Vehicle Hire Person (hirer) and Vehicle Owner (lender) are both
+    independent search fields, exactly like RR web — not implicitly the
+    caller's own org, since a privileged RR session (Admin/CSR/CSR
+    Supervisor — see get_vehicle_hire_requests above) can hire on behalf of
+    any company, same as RR web's own CSR/Admin dashboard.
     """
     _require_rr_session_role(current_user, db)
 
     if bool(body.owner_user_id) == bool(body.owner_company_id):
         raise HTTPException(status_code=400, detail="Provide exactly one of owner_user_id or owner_company_id")
+    if bool(body.hirer_user_id) == bool(body.hirer_company_id):
+        raise HTTPException(status_code=400, detail="Provide exactly one of hirer_user_id or hirer_company_id")
 
-    third_party_company_id = _resolve_org_rr_company_id(current_user, db)
-    if body.owner_company_id and body.owner_company_id == third_party_company_id:
-        raise HTTPException(status_code=400, detail="You can't hire your own vehicle.")
+    owner_id = body.owner_user_id or body.owner_company_id
+    hirer_id = body.hirer_user_id or body.hirer_company_id
+    if owner_id == hirer_id:
+        raise HTTPException(status_code=400, detail="The hiring person and lender must be different. You cannot hire your own vehicle.")
 
-    payload: dict = {
-        "vehicle_id": body.vehicle_id,
-        "third_party_company_id": third_party_company_id,
-    }
+    payload: dict = {"vehicle_id": body.vehicle_id}
     if body.owner_user_id:
         payload["owner_user_id"] = body.owner_user_id
     if body.owner_company_id:
         payload["owner_company_id"] = body.owner_company_id
+    if body.hirer_user_id:
+        payload["third_party_user_id"] = body.hirer_user_id
+    if body.hirer_company_id:
+        payload["third_party_company_id"] = body.hirer_company_id
     if body.requested_start_date:
         payload["requested_start_date"] = _to_rr_datetime_str(body.requested_start_date)
     if body.requested_end_date:

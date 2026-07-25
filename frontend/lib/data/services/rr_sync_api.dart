@@ -195,6 +195,8 @@ class RrSyncApi {
     required String vehicleId,
     String? ownerUserId,
     String? ownerCompanyId,
+    String? hirerUserId,
+    String? hirerCompanyId,
     String? requestedStartDate,
     String? requestedEndDate,
   }) async {
@@ -205,6 +207,8 @@ class RrSyncApi {
         'vehicle_id': vehicleId,
         'owner_user_id': ownerUserId,
         'owner_company_id': ownerCompanyId,
+        'hirer_user_id': hirerUserId,
+        'hirer_company_id': hirerCompanyId,
         'requested_start_date': requestedStartDate,
         'requested_end_date': requestedEndDate,
       },
