@@ -2146,13 +2146,15 @@ async def get_vehicle_hire_requests(
         }
 
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
-        # Own company's requests first — never subject to the marketplace cap
-        # below, so a busy shared test/prod DB can never bury the requests
-        # this user actually needs to act on.
+        # Own company's requests — never subject to the marketplace cap below,
+        # so a busy shared test/prod DB can never bury the requests this user
+        # actually needs to act on. Sorted the same as the marketplace query
+        # so the merge below produces one newest-first list either way.
         own_resp = await client.get(
             f"{settings.RR_API_BASE}/market_vehicles",
             params={
                 "where": json.dumps({"$and": [{"status": "Requested"}, {"owner_company_id": company_id}]}),
+                "sort": json.dumps([("_created", -1)]),
                 "embedded": embedded,
                 "max_results": 300,
             },
@@ -2160,10 +2162,10 @@ async def get_vehicle_hire_requests(
         )
         if own_resp.status_code != 200:
             raise HTTPException(status_code=502, detail=f"RR API error {own_resp.status_code}: {own_resp.text[:300]}")
-        own_ids = {mv.get("_id") for mv in own_resp.json().get("_items", [])}
-        items = [_to_item(mv) for mv in own_resp.json().get("_items", [])]
+        own_mvs = own_resp.json().get("_items", [])
+        own_ids = {mv.get("_id") for mv in own_mvs}
 
-        # Rest of the marketplace, newest first, filling in around the caller's own.
+        # Rest of the marketplace, newest first.
         rest_resp = await client.get(
             f"{settings.RR_API_BASE}/market_vehicles",
             params={
@@ -2177,12 +2179,14 @@ async def get_vehicle_hire_requests(
     if rest_resp.status_code != 200:
         raise HTTPException(status_code=502, detail=f"RR API error {rest_resp.status_code}: {rest_resp.text[:300]}")
 
-    for mv in rest_resp.json().get("_items", []):
-        if mv.get("_id") in own_ids:
-            continue
-        items.append(_to_item(mv))
+    rest_mvs = [mv for mv in rest_resp.json().get("_items", []) if mv.get("_id") not in own_ids]
 
-    return {"items": items}
+    # Merge both newest-first lists into a single newest-first list — own
+    # requests are still guaranteed present (never dropped by the marketplace
+    # cap), but the combined order still reads newest-on-top, matching RR
+    # web's own dashboard table instead of showing "own" as a separate block.
+    all_mvs = sorted(own_mvs + rest_mvs, key=lambda mv: mv.get("_created") or "", reverse=True)
+    return {"items": [_to_item(mv) for mv in all_mvs]}
 
 
 class RrReviewHireRequest(BaseModel):
