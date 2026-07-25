@@ -2086,46 +2086,35 @@ async def get_vehicle_hire_requests(
     """
     RR's own `market_vehicles` resource carries no company-level access
     restriction (allowed_roles: RolesAllowedWithAndForUser — see
-    rrbc-api/app/settings.py), so a normal RR login can already see every
-    company's requests; RR web just doesn't surface that broader view outside
-    its CSR/Admin-only dashboard table. We mirror that broader marketplace
-    list here (any LP/RR-ops session can see who's requesting what from
-    whom), but — unlike RR web's raw admin table — we still tag each row
-    with `is_mine` and enforce ownership server-side in the review endpoint
-    below, so only the vehicle's actual owner can Approve/Reject it.
+    rrbc-api/app/enum_directory.py); Admin/CSR/CSR Supervisor RR sessions can
+    already see and act on every company's requests, RR web just doesn't
+    surface that broader view outside its CSR/Admin-only dashboard table. We
+    mirror that broader marketplace list here (any LP/RR-ops session sees
+    who's requesting what from whom, own-company requests always included
+    regardless of the marketplace cap) and tag each row with `is_mine` as a
+    display hint only — the review endpoint below defers to RR's own
+    authorization, matching its real per-role access model.
     """
     _require_rr_session_role(current_user, db)
     company_id = _resolve_org_rr_company_id(current_user, db)
     headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    embedded = json.dumps({
+        "vehicle_id": 1,
+        "vehicle_id.engine.model": 1,
+        "owner_company_id": 1,
+        "owner_user_id": 1,
+        "third_party_company_id": 1,
+        "third_party_user_id": 1,
+    })
 
-    where = json.dumps({"status": "Requested"})
-    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
-        resp = await client.get(
-            f"{settings.RR_API_BASE}/market_vehicles",
-            params={
-                "where": where,
-                "embedded": json.dumps({
-                    "vehicle_id": 1,
-                    "owner_company_id": 1,
-                    "owner_user_id": 1,
-                    "third_party_company_id": 1,
-                    "third_party_user_id": 1,
-                }),
-                "max_results": 300,
-            },
-            headers=headers,
-        )
-    if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}: {resp.text[:300]}")
-
-    items = []
-    for mv in resp.json().get("_items", []):
+    def _to_item(mv: dict) -> dict:
         vehicle = mv.get("vehicle_id") if isinstance(mv.get("vehicle_id"), dict) else {}
         rc_number = ""
         for ident in (vehicle.get("identities") or []):
             if ident.get("id_name") == "Registration Certificate":
                 rc_number = ident.get("number") or ""
                 break
+        engine_model = ((vehicle.get("engine") or {}).get("model") or {}).get("name") or ""
         owner = mv.get("owner_company_id") if isinstance(mv.get("owner_company_id"), dict) else None
         if not owner:
             owner = mv.get("owner_user_id") if isinstance(mv.get("owner_user_id"), dict) else {}
@@ -2134,15 +2123,54 @@ async def get_vehicle_hire_requests(
             hirer = mv.get("third_party_user_id") if isinstance(mv.get("third_party_user_id"), dict) else {}
         raw_owner_company_id = mv.get("owner_company_id")
         owner_company_id = raw_owner_company_id.get("_id") if isinstance(raw_owner_company_id, dict) else raw_owner_company_id
-        items.append({
+        return {
             "market_vehicle_id": str(mv.get("_id") or ""),
             "vehicle_number": rc_number,
+            "vehicle_model": engine_model,
             "owner_name": (owner or {}).get("name") or "",
             "hirer_name": (hirer or {}).get("name") or "",
             "requested_start_date": mv.get("requested_start_date"),
             "requested_end_date": mv.get("requested_end_date"),
             "is_mine": str(owner_company_id or "") == company_id,
-        })
+        }
+
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        # Own company's requests first — never subject to the marketplace cap
+        # below, so a busy shared test/prod DB can never bury the requests
+        # this user actually needs to act on.
+        own_resp = await client.get(
+            f"{settings.RR_API_BASE}/market_vehicles",
+            params={
+                "where": json.dumps({"$and": [{"status": "Requested"}, {"owner_company_id": company_id}]}),
+                "embedded": embedded,
+                "max_results": 300,
+            },
+            headers=headers,
+        )
+        if own_resp.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"RR API error {own_resp.status_code}: {own_resp.text[:300]}")
+        own_ids = {mv.get("_id") for mv in own_resp.json().get("_items", [])}
+        items = [_to_item(mv) for mv in own_resp.json().get("_items", [])]
+
+        # Rest of the marketplace, newest first, filling in around the caller's own.
+        rest_resp = await client.get(
+            f"{settings.RR_API_BASE}/market_vehicles",
+            params={
+                "where": json.dumps({"status": "Requested"}),
+                "sort": json.dumps([("_created", -1)]),
+                "embedded": embedded,
+                "max_results": 300,
+            },
+            headers=headers,
+        )
+    if rest_resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR API error {rest_resp.status_code}: {rest_resp.text[:300]}")
+
+    for mv in rest_resp.json().get("_items", []):
+        if mv.get("_id") in own_ids:
+            continue
+        items.append(_to_item(mv))
+
     return {"items": items}
 
 
@@ -2166,23 +2194,14 @@ async def review_vehicle_hire_request(
     if body.status == "Approved" and not (body.approved_start_date and body.approved_end_date):
         raise HTTPException(status_code=400, detail="approved_start_date and approved_end_date are required to approve")
 
-    # The hire-requests list is marketplace-wide (RR itself doesn't scope
-    # market_vehicles by company), so we must verify ownership here — never
-    # trust that a market_vehicle_id passed in was actually one of the
-    # caller's own vehicles.
-    company_id = _resolve_org_rr_company_id(current_user, db)
-    headers = {"Authorization": f"Bearer {body.rr_token}"} if body.rr_token else {}
-    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
-        mv_resp = await client.get(
-            f"{settings.RR_API_BASE}/market_vehicles/{market_vehicle_id}",
-            headers=headers,
-        )
-    if mv_resp.status_code != 200:
-        raise HTTPException(status_code=404, detail="Hire request not found")
-    mv_owner_company_id = mv_resp.json().get("owner_company_id")
-    if str(mv_owner_company_id or "") != company_id:
-        raise HTTPException(status_code=403, detail="You can only review requests for your own vehicles")
-
+    # No ownership check here — RR's own market_vehicles access control
+    # (allowed_roles: RolesAllowedWithAndForUser, rrbc-api/app/enum_directory.py)
+    # already lets Admin/CSR/CSR Supervisor RR sessions review ANY request
+    # regardless of company (confirmed live: a CSR test session successfully
+    # rejected a request for a vehicle owned by a company it has no relation
+    # to). A plain "User"-role RR session is restricted by RR itself via
+    # Eve's auth_field self-ownership check, so RR's own review_market_vehicle_request
+    # call below is the real authority — we just forward whatever it decides.
     payload = {"market_vehicle_id": market_vehicle_id, "status": body.status}
     if body.status == "Approved":
         payload["approved_start_date"] = _to_rr_datetime_str(body.approved_start_date)
