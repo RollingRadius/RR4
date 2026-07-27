@@ -1,6 +1,32 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/services/profile_api.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+
+/// Extracts a human-readable message from a failed API call — FastAPI's
+/// `detail` is a String for a plain HTTPException but a List of
+/// `{type, loc, msg, ...}` objects for a 422 Pydantic validation error.
+/// Falling back to `e.toString()` dumps the entire verbose Dio request/
+/// response log to the user, which is what this replaces.
+String _extractErrorMessage(Object e) {
+  if (e is DioException) {
+    final data = e.response?.data;
+    if (data is Map && data['detail'] != null) {
+      final detail = data['detail'];
+      if (detail is String) return detail;
+      if (detail is List && detail.isNotEmpty) {
+        final first = detail.first;
+        if (first is Map && first['msg'] != null) {
+          final loc = first['loc'];
+          final field = (loc is List && loc.isNotEmpty) ? loc.last.toString() : null;
+          return field != null ? '$field: ${first['msg']}' : first['msg'].toString();
+        }
+      }
+    }
+    return 'Network error. Please try again.';
+  }
+  return 'Something went wrong. Please try again.';
+}
 
 /// Profile API Provider
 final profileApiProvider = Provider<ProfileApi>((ref) {
@@ -60,7 +86,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractErrorMessage(e),
       );
       return false;
     }
@@ -83,7 +109,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractErrorMessage(e),
       );
       return false;
     }
@@ -105,7 +131,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractErrorMessage(e),
       );
       return false;
     }
@@ -127,7 +153,7 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        error: e.toString(),
+        error: _extractErrorMessage(e),
       );
       return false;
     }

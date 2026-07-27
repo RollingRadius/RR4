@@ -118,6 +118,10 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
         _showError('Please enter company name');
         return;
       }
+      if (_addressController.text.trim().length < 5) {
+        _showError('Address must be at least 5 characters');
+        return;
+      }
       profileData['company_name'] = _companyNameController.text.trim();
       profileData['business_type'] = _selectedCompanyType!;
       profileData['business_email'] = _businessEmailController.text.trim();
@@ -141,8 +145,8 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
         _showError('Please enter your PAN Card Number');
         return;
       }
-      if (_addressController.text.isEmpty) {
-        _showError('Please enter your address');
+      if (_addressController.text.trim().length < 5) {
+        _showError('Address must be at least 5 characters');
         return;
       }
       profileData['company_name'] = _companyNameController.text.trim();
@@ -917,7 +921,6 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           description: 'You have cargo/goods that need to be transported',
           icon: Icons.inventory_2_outlined,
           color: Colors.orange,
-          comingSoon: true,
         ),
         const SizedBox(height: 12),
 
@@ -999,6 +1002,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
               ),
             ),
             maxLines: 2,
+            maxLength: 150,
           ),
           const SizedBox(height: 16),
           Row(
@@ -1032,13 +1036,17 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           TextField(
             controller: _pincodeController,
             decoration: InputDecoration(
-              labelText: 'Pincode',
+              labelText: 'Pincode (6 digits)',
               prefixIcon: const Icon(Icons.pin_drop),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
             keyboardType: TextInputType.number,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(6),
+            ],
           ),
         ],
       ],
