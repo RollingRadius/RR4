@@ -972,7 +972,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   }
 
   String? _validateAadhaar(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Aadhaar is required';
+    if (v == null || v.trim().isEmpty) return null; // optional
     final cleaned = v.trim().replaceAll(' ', '');
     if (!RegExp(r'^\d{12}$').hasMatch(cleaned)) return 'Aadhaar must be exactly 12 digits';
     return null;
@@ -1031,9 +1031,39 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
 
   // ── Submit ───────────────────────────────────────────────────────────────────
 
+  // A doc is satisfied by either a freshly-picked file or an already-uploaded
+  // server URL from a prior submission. Aadhaar (number + front/back photos)
+  // is intentionally NOT required — only Driving License is mandatory to
+  // proceed to Stage 2.
+  List<String> _missingRequiredDocs() {
+    final missing = <String>[];
+    void check(String label, ({Uint8List bytes, String name})? doc, String? existingUrl) {
+      if (doc == null && (existingUrl == null || existingUrl.isEmpty)) missing.add(label);
+    }
+    check('Driving License (Front)', _dlDoc, widget.trip.s1DrivingLicenseUrl);
+    check('Driving License (Back)', _dlBackDoc, widget.trip.s1DrivingLicenseBackUrl);
+    return missing;
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       _scrollToFirstError();
+      return;
+    }
+
+    final missingDocs = _missingRequiredDocs();
+    if (missingDocs.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Please upload: ${missingDocs.join(", ")}',
+            style: _inter(size: 13, color: Colors.white),
+          ),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
       return;
     }
 

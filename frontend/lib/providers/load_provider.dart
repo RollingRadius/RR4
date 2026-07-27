@@ -147,6 +147,8 @@ class LoadNotifier extends StateNotifier<LoadState> {
     double? unloadLat,
     double? unloadLon,
     required String materialType,
+    String? materialWeight,
+    String? materialWeightUnit,
     required String entryDate,
     required int truckCount,
     String? capacity,
@@ -167,6 +169,8 @@ class LoadNotifier extends StateNotifier<LoadState> {
         if (unloadLat != null) 'unload_lat': unloadLat,
         if (unloadLon != null) 'unload_lon': unloadLon,
         'material_type': materialType,
+        if (materialWeight != null) 'material_weight': materialWeight,
+        if (materialWeightUnit != null) 'material_weight_unit': materialWeightUnit,
         'entry_date': entryDate,
         'truck_count': truckCount,
         if (capacity != null || axelType != null || bodyType != null || floorType != null)

@@ -1780,16 +1780,43 @@ async def trigger_bulk_sync(
 # there's nothing for RR4 to do with this data offline. Search endpoints power
 # each screen's typeahead fields; create endpoints do the actual POST to RR.
 
-@router.get("/users/search", summary="Search RR users by phone (typeahead)")
+@router.get("/users/search", summary="Search RR users by phone prefix or name (typeahead)")
 async def search_rr_users(
-    q: str = Query(..., min_length=1, description="Phone number prefix"),
+    q: str = Query(..., min_length=1, description="Phone number prefix or name substring"),
     rr_token: str = Query("", description="LP's RR session token"),
+    drivers_only: bool = Query(
+        False,
+        description="If true, restrict results to driver-role users "
+                     "(plus untagged legacy users) — used by the trip driver picker. "
+                     "Other callers (vehicle owner / company contact / hire-person "
+                     "search) must leave this false so non-driver users aren't excluded.",
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     _require_rr_session_role(current_user, db)
     headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
-    where = json.dumps({"phone.number": {"$regex": f"^{q}"}})
+    text_match = {"$or": [
+        {"phone.number": {"$regex": f"^{q}"}},
+        {"name": {"$regex": f".*{q}.*", "$options": "i"}},
+    ]}
+    if drivers_only:
+        where = json.dumps({
+            "$and": [
+                text_match,
+                # Drivers created via our app are tagged user_type="Driver"; also
+                # allow untagged legacy users (created before this tagging existed,
+                # or via RR web directly) so real drivers aren't hidden — but
+                # exclude anyone explicitly tagged as a different type.
+                {"$or": [
+                    {"user_type": "Driver"},
+                    {"user_type": {"$exists": False}},
+                    {"user_type": None},
+                ]},
+            ]
+        })
+    else:
+        where = json.dumps(text_match)
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
         resp = await client.get(
             f"{settings.RR_API_BASE}/users",
@@ -1977,6 +2004,9 @@ async def create_rr_user(
         "phone": {"country_phone_code": "91", "number": body.phone},
         "name": body.name,
         "password": "",
+        # Tags this user as a driver on RR from creation, independent of any
+        # trip assignment — lets /users/search filter to drivers only.
+        "user_type": "Driver",
     }
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
         resp = await client.post(

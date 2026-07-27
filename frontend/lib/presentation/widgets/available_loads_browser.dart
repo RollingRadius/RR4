@@ -27,6 +27,7 @@ String _buildMessage(LoadRequirementModel load) {
     'Trucks Needed: ${load.truckCount}',
     if (load.requiredWeightDisplay != null) 'Required weight of truck: ${load.requiredWeightDisplay}',
     if (load.materialType != null) 'Material: ${load.materialType}',
+    if (load.materialWeightDisplay != null) 'Material Weight: ${load.materialWeightDisplay}',
     if (load.companyName != null) 'Company: ${load.companyName}',
     if (load.targetPartnerName != null) 'logistic partner: ${load.targetPartnerName}',
   ];
@@ -313,8 +314,9 @@ class _LoadCard extends StatelessWidget {
                           runSpacing: 6,
                           children: [
                             if (load.entryDate != null) _SpecChip(icon: Icons.calendar_today_outlined, label: load.entryDate!),
-                            if (load.requiredWeightDisplay != null) _SpecChip(icon: Icons.scale_outlined, label: load.requiredWeightDisplay!),
                             if (load.materialType != null) _SpecChip(icon: Icons.inventory_2_outlined, label: load.materialType!),
+                            if (load.materialWeightDisplay != null) _SpecChip(icon: Icons.scale_outlined, label: 'Material: ${load.materialWeightDisplay!}'),
+                            if (load.requiredWeightDisplay != null) _SpecChip(icon: Icons.local_shipping_outlined, label: 'Truck: ${load.requiredWeightDisplay!}'),
                           ],
                         ),
                       ],

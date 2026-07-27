@@ -51,6 +51,8 @@ class LoadRequirementCreate(BaseModel):
     unload_lat: Optional[float] = None
     unload_lon: Optional[float] = None
     material_type: Optional[str] = None
+    material_weight: Optional[str] = None
+    material_weight_unit: Optional[str] = None  # 'Tons' | 'Kg'
     entry_date: Optional[date] = None
     truck_count: int = 1
     specifications: Optional[TruckSpecifications] = None
@@ -175,6 +177,8 @@ def _record_to_response(record: LoadRequirement, db: Optional[Session] = None) -
         "unload_lat":          record.unload_lat,
         "unload_lon":          record.unload_lon,
         "material_type":       record.material_type,
+        "material_weight":     getattr(record, 'material_weight', None),
+        "material_weight_unit": getattr(record, 'material_weight_unit', None),
         "entry_date":          record.entry_date.isoformat() if record.entry_date else None,
         "truck_count":         record.truck_count,
         "capacity":            record.capacity,
@@ -221,6 +225,8 @@ def create_load_requirement(
         unload_lat=payload.unload_lat,
         unload_lon=payload.unload_lon,
         material_type=payload.material_type,
+        material_weight=payload.material_weight,
+        material_weight_unit=payload.material_weight_unit,
         entry_date=payload.entry_date,
         truck_count=payload.truck_count,
         capacity=specs.capacity,

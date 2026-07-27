@@ -67,12 +67,20 @@ class RrSyncApi {
 
   // ─── Quick-add: Vehicle / Company / User directly on RR ──────────────────────
 
-  /// GET /api/rr/users/search?q=&rr_token= — typeahead by phone number
-  Future<List<Map<String, dynamic>>> searchRrUsers(String q, String rrToken) async {
+  /// GET /api/rr/users/search?q=&rr_token= — typeahead by phone prefix or name.
+  /// [driversOnly] restricts results to driver-role users (plus untagged
+  /// legacy users) — only the trip Driver picker should pass true; other
+  /// callers (vehicle owner / company contact / hire-person search) must
+  /// leave it false so non-driver users aren't excluded.
+  Future<List<Map<String, dynamic>>> searchRrUsers(
+    String q,
+    String rrToken, {
+    bool driversOnly = false,
+  }) async {
     if (q.isEmpty) return [];
     final resp = await _apiService.dio.get(
       '/api/rr/users/search',
-      queryParameters: {'q': q, 'rr_token': rrToken},
+      queryParameters: {'q': q, 'rr_token': rrToken, 'drivers_only': driversOnly},
     );
     final items = (resp.data as Map<String, dynamic>)['items'] as List? ?? [];
     return items.cast<Map<String, dynamic>>();

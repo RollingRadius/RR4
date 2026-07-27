@@ -155,6 +155,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   String? _selectedDriverRrId;
   String? _selectedDriverName;
 
+  // ── Vehicle search (within selected provider's vehicle list) ──────────────
+  final _vehicleSearchCtrl = TextEditingController();
+
   static const _axleTypes    = ['Single', 'Double', 'Triple', 'Multiple'];
   static const _wheelOptions = [4, 6, 8, 10, 12, 14, 16, 18, 22];
 
@@ -241,6 +244,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _vpPhoneCtrl.removeListener(_onVpPhoneChanged);
     _vpPhoneCtrl.dispose();
     _driverPhoneCtrl.dispose();
+    _vehicleSearchCtrl.dispose();
     _scrollCtrl0.dispose();
     _scrollCtrl1.dispose();
     _scrollCtrl2.dispose();
@@ -594,6 +598,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _vpPersonalVehicles = []; _vpCompanies = []; _vpVehicles = [];
         _vpSelectedCompanyId = null; _vpSelectedCompanyName = null;
         _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null;
+        _vehicleSearchCtrl.clear();
         _vpLookupError = null;
       });
     }
@@ -635,6 +640,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       _vpSelectedCompanyId = null;
       _vpSelectedVehicleRrId = null;
       _vpSelectedVehicleNumber = null;
+      _vehicleSearchCtrl.clear();
     });
     final userId = user['user_id'] as String? ?? '';
     final dio = ref.read(dioProvider);
@@ -661,6 +667,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     setState(() {
       _vpVehiclesLoading = true; _vpVehicles = [];
       _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null;
+      _vehicleSearchCtrl.clear();
     });
     try {
       final dio = ref.read(dioProvider);
@@ -1535,7 +1542,22 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               _vpVehiclesLoading
                   ? const _LoadingChip(label: 'Loading vehicles…')
                   : () {
-                      final all = [..._vpPersonalVehicles, ..._vpVehicles];
+                      // Personal + company vehicle lists come from two independent RR
+                      // endpoints and can both return the same vehicle (e.g. a vehicle
+                      // personally owned by the selected user that is also affiliated
+                      // with the chosen company) — dedupe by rr_vehicle_id so the same
+                      // vehicle never appears twice in the search results. (A prior
+                      // DropdownButton here required exact unique value/items matches
+                      // and crashed on this exact duplicate case — replaced with a
+                      // search field, matching the Driver field's pattern above, which
+                      // has no such uniqueness constraint.)
+                      final seen = <String>{};
+                      final all = [..._vpPersonalVehicles, ..._vpVehicles].where((v) {
+                        final id = v['rr_vehicle_id'] as String?;
+                        if (id == null || seen.contains(id)) return false;
+                        seen.add(id);
+                        return true;
+                      }).toList();
                       if (all.isEmpty) {
                         return Text(
                           _vpSelectedCompanyId == null
@@ -1544,35 +1566,41 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                           style: _inter(size: 12, color: _secondary),
                         );
                       }
-                      return _DropdownField<String>(
-                        hasError: _fieldErr['vehicle'] == true,
-                        value: _vpSelectedVehicleRrId,
-                        hint: 'Select vehicle',
-                        items: all.map((v) {
-                          final num        = v['number'] as String? ?? 'Unknown';
-                          final btype      = v['body_type'] as String? ?? '';
-                          final src        = v['source'] as String? ?? '';
-                          final driverName = v['driver_name'] as String? ?? '';
-                          final label = btype.isNotEmpty ? '$num · $btype' : num;
-                          final badge = src == 'market_vehicles' ? ' (market)' : '';
-                          final driverSuffix = driverName.isNotEmpty ? '  — $driverName' : '';
-                          return DropdownMenuItem<String>(
-                            value: v['rr_vehicle_id'] as String,
-                            child: Text('$label$badge$driverSuffix',
-                                style: _inter(size: 13, color: _onSurface)),
-                          );
-                        }).toList(),
-                        onChanged: (v) {
-                          if (v == null) return;
-                          final all2 = [..._vpPersonalVehicles, ..._vpVehicles];
-                          final veh = all2.firstWhere((x) => x['rr_vehicle_id'] == v);
+                      String vehicleLabel(Map<String, dynamic> v) {
+                        final num        = v['number'] as String? ?? 'Unknown';
+                        final btype      = v['body_type'] as String? ?? '';
+                        final src        = v['source'] as String? ?? '';
+                        final driverName = v['driver_name'] as String? ?? '';
+                        final label = btype.isNotEmpty ? '$num · $btype' : num;
+                        final badge = src == 'market_vehicles' ? ' (market)' : '';
+                        final driverSuffix = driverName.isNotEmpty ? '  — $driverName' : '';
+                        return '$label$badge$driverSuffix';
+                      }
+                      return RrSearchField<Map<String, dynamic>>(
+                        label: 'Search vehicle by number',
+                        controller: _vehicleSearchCtrl,
+                        search: (q) async {
+                          final query = q.toLowerCase();
+                          return all.where((v) {
+                            final num   = (v['number'] as String? ?? '').toLowerCase();
+                            final model = (v['model_name'] as String? ?? '').toLowerCase();
+                            return num.contains(query) || model.contains(query);
+                          }).toList();
+                        },
+                        itemLabel: vehicleLabel,
+                        onSelected: (v) {
                           setState(() {
-                            _vpSelectedVehicleRrId   = v;
-                            _vpSelectedVehicleNumber = veh['number'] as String?;
+                            _vpSelectedVehicleRrId   = v['rr_vehicle_id'] as String?;
+                            _vpSelectedVehicleNumber = v['number'] as String?;
+                            _vehicleSearchCtrl.text  = vehicleLabel(v);
                             _fieldErr.remove('vehicle');
                             _fieldErrMsg.remove('vehicle');
                           });
                         },
+                        onCleared: () => setState(() {
+                          _vpSelectedVehicleRrId = null;
+                          _vpSelectedVehicleNumber = null;
+                        }),
                       );
                     }(),
               _inlineErr('vehicle'),
@@ -1582,13 +1610,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             _FieldLabel(key: _keyDriver, label: 'Driver *'),
             const SizedBox(height: 6),
             RrSearchField<Map<String, dynamic>>(
-              label: 'Driver Phone Number',
+              label: 'Driver Name or Phone Number',
               controller: _driverPhoneCtrl,
-              keyboardType: TextInputType.phone,
+              keyboardType: TextInputType.text,
               search: (q) async {
                 final session = await ensureRrSession(context, ref);
                 if (session == null || !mounted) return [];
-                return ref.read(rrSyncApiProvider).searchRrUsers(q, session.token);
+                return ref.read(rrSyncApiProvider)
+                    .searchRrUsers(q, session.token, driversOnly: true);
               },
               itemLabel: (u) => u['name'] as String? ?? '',
               itemSubtitle: (u) => u['phone'] as String? ?? '',

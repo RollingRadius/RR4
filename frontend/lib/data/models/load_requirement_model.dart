@@ -12,6 +12,8 @@ class LoadRequirementModel {
   final double? unloadLat;
   final double? unloadLon;
   final String? materialType;
+  final String? materialWeight;
+  final String? materialWeightUnit;
   final String? entryDate;
   final int truckCount;
   final String? capacity;
@@ -42,6 +44,8 @@ class LoadRequirementModel {
     this.unloadLat,
     this.unloadLon,
     this.materialType,
+    this.materialWeight,
+    this.materialWeightUnit,
     this.entryDate,
     required this.truckCount,
     this.capacity,
@@ -73,6 +77,8 @@ class LoadRequirementModel {
         unloadLat: (j['unload_lat'] as num?)?.toDouble(),
         unloadLon: (j['unload_lon'] as num?)?.toDouble(),
         materialType: j['material_type'] as String?,
+        materialWeight: j['material_weight'] as String?,
+        materialWeightUnit: j['material_weight_unit'] as String?,
         entryDate: j['entry_date'] as String?,
         truckCount: j['truck_count'] as int? ?? 1,
         capacity: j['capacity'] as String?,
@@ -110,5 +116,13 @@ class LoadRequirementModel {
     if (capacity == null || capacity!.trim().isEmpty) return null;
     final unit = (capacityUnit ?? 'Tons').toLowerCase();
     return unit.startsWith('kg') ? '$capacity kgs' : '$capacity tons';
+  }
+
+  /// "20 tons" or "20000 kgs" — the material weight, unit-labeled exactly
+  /// as the load owner entered it (no unit conversion).
+  String? get materialWeightDisplay {
+    if (materialWeight == null || materialWeight!.trim().isEmpty) return null;
+    final unit = (materialWeightUnit ?? 'Tons').toLowerCase();
+    return unit.startsWith('kg') ? '$materialWeight kgs' : '$materialWeight tons';
   }
 }
