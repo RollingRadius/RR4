@@ -17,6 +17,7 @@ import 'package:fleet_management/providers/available_loads_provider.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
+import 'package:fleet_management/presentation/widgets/available_loads_browser.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
@@ -298,8 +299,8 @@ class _LogisticPartnerDashboardState
     final user = ref.watch(authProvider).user;
 
     final pages = [
-      const _DashboardTab(),
-      const _ComingSoonTab(label: 'Loads', icon: Icons.search_rounded),
+      _DashboardTab(onSearchLoads: () => _switchNav(1)),
+      const AvailableLoadsBrowser(),
       const _ProfileTab(),
       const _RecordsTab(),
       const _ComingSoonTab(label: 'Fleet Hub', icon: Icons.local_shipping_outlined),
@@ -760,7 +761,7 @@ class _BottomNav extends StatelessWidget {
   // (icon, label, navIndex, comingSoon)
   static const _allItems = [
     (Icons.dashboard_rounded,        'DASHBOARD', 0, false),
-    (Icons.search_rounded,           'LOADS',     1, true),
+    (Icons.search_rounded,           'LOADS',     1, false),
     (Icons.local_shipping_outlined,  'FLEET',     4, true),
     (Icons.folder_copy_outlined,     'RECORDS',   3, false),
     (Icons.person_outline,           'PROFILE',   2, false),
@@ -847,7 +848,8 @@ class _BottomNav extends StatelessWidget {
 // ─── Dashboard Tab ────────────────────────────────────────────────────────────
 
 class _DashboardTab extends ConsumerWidget {
-  const _DashboardTab();
+  final VoidCallback onSearchLoads;
+  const _DashboardTab({required this.onSearchLoads});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -882,8 +884,8 @@ class _DashboardTab extends ConsumerWidget {
               style: _inter(size: 13, color: _secondary)),
           const SizedBox(height: 16),
 
-          // Search New Loads — Coming Soon
-          const _SearchLoadsComingSoon(),
+          // Search New Loads
+          _SearchLoadsComingSoon(onTap: onSearchLoads),
           const SizedBox(height: 24),
 
           // ── Fleet Status — ongoing trips with Locate button ──────────
@@ -978,15 +980,16 @@ class _PendingLoadsBanner extends StatelessWidget {
   }
 }
 
-// ─── Search New Loads — Coming Soon ──────────────────────────────────────────
+// ─── Search New Loads ─────────────────────────────────────────────────────────
 
 class _SearchLoadsComingSoon extends StatelessWidget {
-  const _SearchLoadsComingSoon();
+  final VoidCallback onTap;
+  const _SearchLoadsComingSoon({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: 0.55,
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
@@ -1029,18 +1032,7 @@ class _SearchLoadsComingSoon extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text('Coming Soon',
-                  style: _inter(
-                      size: 10,
-                      weight: FontWeight.w700,
-                      color: Colors.white)),
-            ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white),
           ],
         ),
       ),

@@ -11,6 +11,7 @@ import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
+import 'package:fleet_management/presentation/widgets/available_loads_browser.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/providers/trip_provider.dart' show completedTripsProvider;
 
@@ -470,6 +471,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
         ),
           ),
           const _RrOpsRecordsTab(),
+          const AvailableLoadsBrowser(),
         ],
       ),
     );
@@ -502,6 +504,10 @@ class _RrOpsBottomNav extends StatelessWidget {
         BottomNavigationBarItem(
           icon: Icon(Icons.history_rounded),
           label: 'Records',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.search_rounded),
+          label: 'Loads',
         ),
       ],
     );

@@ -114,7 +114,7 @@ def _get_logistic_partner_company(current_user: User, db: Session) -> Organizati
 def _get_fleet_member_org(current_user: User, db: Session) -> Organization:
     """
     Verify the current user belongs to a fleet org (admin or worker).
-    Allows logistic_partner, fleet_worker, and super_admin.
+    Allows logistic_partner, lp_rr_operations, fleet_worker, and super_admin.
     Used for read-only fleet endpoints such as browsing available loads.
     """
     user_org = db.query(UserOrganization).filter(
@@ -130,7 +130,7 @@ def _get_fleet_member_org(current_user: User, db: Session) -> Organization:
 
     role = db.query(Role).filter(Role.id == user_org.role_id).first()
     role_key = role.role_key if role else ''
-    if role_key not in ('logistic_partner', 'fleet_worker', 'super_admin'):
+    if role_key not in ('logistic_partner', 'lp_rr_operations', 'fleet_worker', 'super_admin'):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only Logistic Partner users can access this resource."

@@ -241,6 +241,8 @@ class _LoadOwnerDashboardScreenState
     return _ComingSoonDashboard(
       role: 'Load Owner',
       icon: Icons.inventory_2_outlined,
+      primaryActionLabel: 'Create Load Requirement',
+      onPrimaryAction: () => context.push('/load-owner/upload'),
       onLogout: () async {
         await ref.read(authProvider.notifier).logout();
         if (mounted) context.go('/login');
@@ -303,11 +305,15 @@ class _ComingSoonDashboard extends StatelessWidget {
   final String role;
   final IconData icon;
   final VoidCallback onLogout;
+  final String? primaryActionLabel;
+  final VoidCallback? onPrimaryAction;
 
   const _ComingSoonDashboard({
     required this.role,
     required this.icon,
     required this.onLogout,
+    this.primaryActionLabel,
+    this.onPrimaryAction,
   });
 
   @override
@@ -372,6 +378,24 @@ class _ComingSoonDashboard extends StatelessWidget {
                 style: GoogleFonts.inter(fontSize: 13, color: _secondary),
                 textAlign: TextAlign.center,
               ),
+              if (primaryActionLabel != null && onPrimaryAction != null) ...[
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onPrimaryAction,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text(
+                      primaryActionLabel!,
+                      style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
