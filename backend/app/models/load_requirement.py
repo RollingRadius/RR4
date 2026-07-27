@@ -36,6 +36,7 @@ class LoadRequirement(Base):
     truck_count = Column(Integer, nullable=False, default=1)
 
     capacity = Column(String(50), nullable=True)
+    capacity_unit = Column(String(10), nullable=True)  # 'Tons' | 'Kg'
     axel_type = Column(String(50), nullable=True)
     body_type = Column(String(50), nullable=True)
     floor_type = Column(String(50), nullable=True)

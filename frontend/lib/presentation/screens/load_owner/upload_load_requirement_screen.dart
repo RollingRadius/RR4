@@ -1676,6 +1676,11 @@ class _UploadLoadRequirementScreenState
           materialType: _materialType!,
           entryDate: dateStr,
           truckCount: _truckCount,
+          capacity: capacity,
+          capacityUnit: _capacityUnit,
+          axelType: _selectedAxleType,
+          bodyType: _selectedBodyType,
+          floorType: _selectedFloorType,
           targetOrgIds: targetOrgIds,
         );
 

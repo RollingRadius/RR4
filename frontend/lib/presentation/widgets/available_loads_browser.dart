@@ -21,23 +21,14 @@ TextStyle _inter({double size = 13, FontWeight weight = FontWeight.w400, Color c
 String _buildMessage(LoadRequirementModel load) {
   final lines = <String>[
     '*Load Requirements*',
-    'Ref: ${load.refId}',
     if (load.pickupLocation != null) '📍 Pickup: ${load.pickupLocation}',
     if (load.unloadLocation != null) '🏁 Drop: ${load.unloadLocation}',
     if (load.entryDate != null) '📅 Date: ${load.entryDate}',
     'Trucks Needed: ${load.truckCount}',
+    if (load.requiredWeightDisplay != null) 'Required weight of truck: ${load.requiredWeightDisplay}',
     if (load.materialType != null) 'Material: ${load.materialType}',
-    if (load.capacity != null) 'Capacity: ${load.capacity}',
-    if (load.bodyType != null) 'Body Type: ${load.bodyType}',
-    if (load.axelType != null) 'Axel Type: ${load.axelType}',
-    if (load.floorType != null) 'Floor Type: ${load.floorType}',
     if (load.companyName != null) 'Company: ${load.companyName}',
-    if (load.companyCity != null || load.companyState != null)
-      '📌 Location: ${[
-        if (load.companyCity != null) load.companyCity!,
-        if (load.companyState != null) load.companyState!,
-      ].join(', ')}',
-    if (load.companyPhone != null) '📞 Contact: ${load.companyPhone}',
+    if (load.targetPartnerName != null) 'logistic partner: ${load.targetPartnerName}',
   ];
   return lines.join('\n');
 }
@@ -286,15 +277,9 @@ class _LoadCard extends StatelessWidget {
                                 children: [
                                   Text(load.refId, style: _manrope(size: 13, weight: FontWeight.w800, color: const Color(0xFF001e40))),
                                   if (load.companyName != null)
-                                    Text(load.companyName!, style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
-                                  if (load.companyCity != null || load.companyState != null)
-                                    Text(
-                                      [
-                                        if (load.companyCity != null) load.companyCity!,
-                                        if (load.companyState != null) load.companyState!,
-                                      ].join(', '),
-                                      style: _inter(size: 11, color: _secondary),
-                                    ),
+                                    Text('Company: ${load.companyName}', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+                                  if (load.targetPartnerName != null)
+                                    Text('Logistic Partner: ${load.targetPartnerName}', style: _inter(size: 11, color: _secondary)),
                                 ],
                               ),
                             ),
@@ -327,11 +312,9 @@ class _LoadCard extends StatelessWidget {
                           spacing: 10,
                           runSpacing: 6,
                           children: [
-                            if (load.materialType != null) _SpecChip(icon: Icons.inventory_2_outlined, label: load.materialType!),
-                            if (load.capacity != null) _SpecChip(icon: Icons.scale_outlined, label: load.capacity!),
-                            if (load.axelType != null) _SpecChip(icon: Icons.settings_outlined, label: load.axelType!),
-                            if (load.bodyType != null) _SpecChip(icon: Icons.category_outlined, label: load.bodyType!),
                             if (load.entryDate != null) _SpecChip(icon: Icons.calendar_today_outlined, label: load.entryDate!),
+                            if (load.requiredWeightDisplay != null) _SpecChip(icon: Icons.scale_outlined, label: load.requiredWeightDisplay!),
+                            if (load.materialType != null) _SpecChip(icon: Icons.inventory_2_outlined, label: load.materialType!),
                           ],
                         ),
                       ],

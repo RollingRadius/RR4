@@ -15,11 +15,13 @@ class LoadRequirementModel {
   final String? entryDate;
   final int truckCount;
   final String? capacity;
+  final String? capacityUnit;
   final String? axelType;
   final String? bodyType;
   final String? floorType;
   final String? fulfillingOrgId;
   final List<String> targetOrgIds;
+  final String? targetPartnerName;
   final String status;
   final String createdAt;
   // Populated only in fleet management /available view
@@ -43,11 +45,13 @@ class LoadRequirementModel {
     this.entryDate,
     required this.truckCount,
     this.capacity,
+    this.capacityUnit,
     this.axelType,
     this.bodyType,
     this.floorType,
     this.fulfillingOrgId,
     this.targetOrgIds = const [],
+    this.targetPartnerName,
     required this.status,
     required this.createdAt,
     this.companyName,
@@ -72,6 +76,7 @@ class LoadRequirementModel {
         entryDate: j['entry_date'] as String?,
         truckCount: j['truck_count'] as int? ?? 1,
         capacity: j['capacity'] as String?,
+        capacityUnit: j['capacity_unit'] as String?,
         axelType: j['axel_type'] as String?,
         bodyType: j['body_type'] as String?,
         floorType: j['floor_type'] as String?,
@@ -79,6 +84,7 @@ class LoadRequirementModel {
         targetOrgIds: (j['target_org_ids'] as List<dynamic>? ?? [])
             .map((e) => e as String)
             .toList(),
+        targetPartnerName: j['target_partner_name'] as String?,
         status: j['status'] as String? ?? 'pending',
         createdAt: j['created_at'] as String,
         companyName: j['company_name'] as String?,
@@ -97,4 +103,12 @@ class LoadRequirementModel {
 
   /// Display date — first 10 chars of ISO string (YYYY-MM-DD).
   String get displayDate => createdAt.length >= 10 ? createdAt.substring(0, 10) : createdAt;
+
+  /// "20 tons" or "20000 kgs" — the required truck weight, unit-labeled
+  /// exactly as the load owner entered it (no unit conversion).
+  String? get requiredWeightDisplay {
+    if (capacity == null || capacity!.trim().isEmpty) return null;
+    final unit = (capacityUnit ?? 'Tons').toLowerCase();
+    return unit.startsWith('kg') ? '$capacity kgs' : '$capacity tons';
+  }
 }

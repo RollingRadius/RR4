@@ -150,6 +150,7 @@ class LoadNotifier extends StateNotifier<LoadState> {
     required String entryDate,
     required int truckCount,
     String? capacity,
+    String? capacityUnit,
     String? axelType,
     String? bodyType,
     String? floorType,
@@ -171,6 +172,7 @@ class LoadNotifier extends StateNotifier<LoadState> {
         if (capacity != null || axelType != null || bodyType != null || floorType != null)
           'specifications': {
             if (capacity != null) 'capacity': capacity,
+            if (capacityUnit != null) 'capacity_unit': capacityUnit,
             if (axelType != null) 'axel_type': axelType,
             if (bodyType != null) 'body': bodyType,
             if (floorType != null) 'floor': floorType,
