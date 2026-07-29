@@ -169,10 +169,22 @@ $COMPOSE_CMD exec postgres psql -U fleet_user -d fleet_db -c "\dt" | head -30
 echo ""
 print_step "Step 9: Testing API health"
 
-if $COMPOSE_CMD exec backend curl -f http://localhost:8000/health > /dev/null 2>&1; then
+# The backend may still be mid hot-reload (picking up the files just pulled),
+# which drops in-flight connections for a moment — so retry a few times with
+# a short per-request timeout instead of a single unbounded curl that can hang.
+health_ok=0
+for attempt in 1 2 3 4 5; do
+    if $COMPOSE_CMD exec backend curl -f --max-time 5 http://localhost:8000/health > /dev/null 2>&1; then
+        health_ok=1
+        break
+    fi
+    sleep 3
+done
+
+if [ "$health_ok" = "1" ]; then
     print_success "API is healthy"
 else
-    print_warning "API health check failed (might be normal if /health endpoint doesn't exist)"
+    print_warning "API health check failed after retries (might be normal if /health endpoint doesn't exist, or the backend is still reloading)"
 fi
 
 echo ""
