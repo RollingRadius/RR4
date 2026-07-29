@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
 
 const _primary = Color(0xFFFF6B00);
 const _secondary = Color(0xFF546067);
@@ -62,7 +63,7 @@ class _AddRrUserScreenState extends ConsumerState<AddRrUserScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Could not add user. Please try again.', style: _inter(size: 13, color: Colors.white)),
+        content: Text(ref.read(apiServiceProvider).handleError(e), style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

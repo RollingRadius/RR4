@@ -6,6 +6,7 @@ import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
 import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
+import 'package:fleet_management/providers/auth_provider.dart';
 
 const _primary = Color(0xFFFF6B00);
 const _secondary = Color(0xFF546067);
@@ -116,7 +117,7 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Could not add vehicle. Please try again.', style: _inter(size: 13, color: Colors.white)),
+        content: Text(ref.read(apiServiceProvider).handleError(e), style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -152,6 +153,7 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
                     const SizedBox(height: 20),
                     RrSearchField<Map<String, dynamic>>(
                       label: 'Owner Phone Number *',
+                      hintText: 'Full 10-digit phone, or part of the name',
                       controller: _ownerCtrl,
                       keyboardType: TextInputType.phone,
                       search: _searchOwners,

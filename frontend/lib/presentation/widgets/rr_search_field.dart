@@ -19,6 +19,7 @@ class RrSearchField<T> extends StatefulWidget {
   final void Function(T item) onSelected;
   final VoidCallback? onCleared;
   final TextInputType keyboardType;
+  final String? hintText;
 
   const RrSearchField({
     super.key,
@@ -30,6 +31,7 @@ class RrSearchField<T> extends StatefulWidget {
     this.itemSubtitle,
     this.onCleared,
     this.keyboardType = TextInputType.text,
+    this.hintText,
   });
 
   @override
@@ -78,6 +80,7 @@ class _RrSearchFieldState<T> extends State<RrSearchField<T>> {
           keyboardType: widget.keyboardType,
           decoration: InputDecoration(
             labelText: widget.label,
+            hintText: widget.hintText,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             suffixIcon: _loading

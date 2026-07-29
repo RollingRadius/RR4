@@ -1796,37 +1796,29 @@ async def search_rr_users(
 ):
     _require_rr_session_role(current_user, db)
     headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
-    text_match = {"$or": [
-        {"phone.number": {"$regex": f"^{q}"}},
-        {"name": {"$regex": f".*{q}.*", "$options": "i"}},
-    ]}
-    if drivers_only:
-        where = json.dumps({
-            "$and": [
-                text_match,
-                # Drivers created via our app are tagged user_type="Driver"; also
-                # allow untagged legacy users (created before this tagging existed,
-                # or via RR web directly) so real drivers aren't hidden — but
-                # exclude anyone explicitly tagged as a different type.
-                {"$or": [
-                    {"user_type": "Driver"},
-                    {"user_type": {"$exists": False}},
-                    {"user_type": None},
-                ]},
-            ]
-        })
-    else:
-        where = json.dumps(text_match)
+    # RR's generic `GET /users?where=...` (Eve resource GET) is restricted
+    # server-side to the querying token's own record (`auth_field` self-only —
+    # confirmed live: even an Admin/CSR token searching for a known, existing
+    # user gets back an empty result). RR's own web app never queries /users
+    # directly for this reason — it uses this dedicated endpoint instead,
+    # which runs its own unrestricted DB lookup (rrbc-api/app/users/app.py:
+    # get_user_by_phone). It only does an EXACT phone match (no prefix), so
+    # pass q as both phone_number and name to cover "typed a full phone" and
+    # "typed part of a name" in one call — RR tries phone first, falls back
+    # to name-substring if that misses.
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
         resp = await client.get(
-            f"{settings.RR_API_BASE}/users",
-            params={"where": where, "max_results": 10},
+            f"{settings.RR_API_BASE}/users/get_user_by_phone",
+            params={"phone_number": q, "name": q},
             headers=headers,
         )
     if resp.status_code != 200:
         raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
     items = []
     for u in resp.json().get("_items", []):
+        # This endpoint's projection doesn't include `user_type`, so
+        # drivers_only can't be filtered server-side here — return all
+        # matches rather than silently hiding real drivers.
         items.append({
             "user_id": str(u.get("_id") or ""),
             "name": u.get("name") or "",

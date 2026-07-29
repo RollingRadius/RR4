@@ -1611,6 +1611,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             const SizedBox(height: 6),
             RrSearchField<Map<String, dynamic>>(
               label: 'Driver Name or Phone Number',
+              hintText: 'Full 10-digit phone, or part of the name',
               controller: _driverPhoneCtrl,
               keyboardType: TextInputType.text,
               search: (q) async {

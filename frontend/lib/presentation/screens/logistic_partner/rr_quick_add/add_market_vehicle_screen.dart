@@ -238,6 +238,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
         const SizedBox(height: 6),
         RrSearchField<Map<String, dynamic>>(
           label: 'Phone Number',
+          hintText: 'Full 10-digit phone, or part of the name',
           controller: userCtrl,
           keyboardType: TextInputType.phone,
           search: _searchUsers,
