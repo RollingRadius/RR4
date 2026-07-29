@@ -16,8 +16,8 @@ import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/available_loads_provider.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
-import 'package:fleet_management/presentation/widgets/ongoing_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
+import 'package:fleet_management/presentation/widgets/available_loads_browser.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
@@ -299,8 +299,8 @@ class _LogisticPartnerDashboardState
     final user = ref.watch(authProvider).user;
 
     final pages = [
-      const _DashboardTab(),
-      const _ComingSoonTab(label: 'Loads', icon: Icons.search_rounded),
+      _DashboardTab(onSearchLoads: () => _switchNav(1)),
+      const AvailableLoadsBrowser(),
       const _ProfileTab(),
       const _RecordsTab(),
       const _ComingSoonTab(label: 'Fleet Hub', icon: Icons.local_shipping_outlined),
@@ -761,7 +761,7 @@ class _BottomNav extends StatelessWidget {
   // (icon, label, navIndex, comingSoon)
   static const _allItems = [
     (Icons.dashboard_rounded,        'DASHBOARD', 0, false),
-    (Icons.search_rounded,           'LOADS',     1, true),
+    (Icons.search_rounded,           'LOADS',     1, false),
     (Icons.local_shipping_outlined,  'FLEET',     4, true),
     (Icons.folder_copy_outlined,     'RECORDS',   3, false),
     (Icons.person_outline,           'PROFILE',   2, false),
@@ -848,7 +848,8 @@ class _BottomNav extends StatelessWidget {
 // ─── Dashboard Tab ────────────────────────────────────────────────────────────
 
 class _DashboardTab extends ConsumerWidget {
-  const _DashboardTab();
+  final VoidCallback onSearchLoads;
+  const _DashboardTab({required this.onSearchLoads});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -883,8 +884,8 @@ class _DashboardTab extends ConsumerWidget {
               style: _inter(size: 13, color: _secondary)),
           const SizedBox(height: 16),
 
-          // Search New Loads — Coming Soon
-          const _SearchLoadsComingSoon(),
+          // Search New Loads
+          _SearchLoadsComingSoon(onTap: onSearchLoads),
           const SizedBox(height: 24),
 
           // ── Fleet Status — ongoing trips with Locate button ──────────
@@ -905,23 +906,25 @@ class _DashboardTab extends ConsumerWidget {
           else if (ongoingTrips.isEmpty)
             _EmptyTrips()
           else
+            // This list is already server-filtered to rr_web:true trips (see
+            // loadTrips(statusFilter: 'ongoing,pending') above, which the
+            // backend scopes to RR-web trips for this dashboard) — every trip
+            // here is an RR-web trip by construction, so always use RrTripCard.
+            // Previously this branched on `t.rrTripId != null`, which wrongly
+            // fell back to the generic OngoingTripCard whenever RR's own
+            // /create_trip failed partway (rr_trip_id stays null even though
+            // rr_vehicle_id/rr_driver_id are set) — hiding RR branding/actions
+            // on exactly the trips that most need them (failed bookings).
             ...ongoingTrips.map(
               (t) => Padding(
                 padding: const EdgeInsets.only(bottom: 14),
-                child: t.rrTripId != null
-                    ? RrTripCard(
-                        trip: t,
-                        onRefresh: () {
-                          ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
-                          ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
-                        },
-                      )
-                    : OngoingTripCard(
-                        trip: t,
-                        onComplete: () async {
-                          return ref.read(tripProvider.notifier).completeTrip(t.id);
-                        },
-                      ),
+                child: RrTripCard(
+                  trip: t,
+                  onRefresh: () {
+                    ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+                    ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
+                  },
+                ),
               ),
             ),
         ],
@@ -977,15 +980,16 @@ class _PendingLoadsBanner extends StatelessWidget {
   }
 }
 
-// ─── Search New Loads — Coming Soon ──────────────────────────────────────────
+// ─── Search New Loads ─────────────────────────────────────────────────────────
 
 class _SearchLoadsComingSoon extends StatelessWidget {
-  const _SearchLoadsComingSoon();
+  final VoidCallback onTap;
+  const _SearchLoadsComingSoon({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: 0.55,
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         decoration: BoxDecoration(
@@ -1028,18 +1032,7 @@ class _SearchLoadsComingSoon extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text('Coming Soon',
-                  style: _inter(
-                      size: 10,
-                      weight: FontWeight.w700,
-                      color: Colors.white)),
-            ),
+            const Icon(Icons.chevron_right_rounded, color: Colors.white),
           ],
         ),
       ),
@@ -3978,6 +3971,54 @@ class _AppDrawer extends ConsumerWidget {
                   child: Divider(height: 1, color: Color(0xFFECEEF0)),
                 ),
 
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                  child: Text('RR QUICK ADD',
+                      style: _inter(
+                          size: 10,
+                          weight: FontWeight.w700,
+                          color: _secondary)),
+                ),
+                _DrawerActionTile(
+                  icon: Icons.local_shipping_outlined,
+                  label: 'Add Vehicle',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/rr/add-vehicle');
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.apartment_outlined,
+                  label: 'Add Company',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/rr/add-company');
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.person_add_alt_outlined,
+                  label: 'Add Driver',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/rr/add-user');
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.assignment_turned_in_outlined,
+                  label: 'Vehicle Hire Requests',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/rr/vehicle-hire-requests');
+                  },
+                ),
+                _DrawerActionTile(
+                  icon: Icons.storefront_outlined,
+                  label: 'Hire Truck',
+                  onTap: () {
+                    Navigator.pop(context);
+                    context.push('/rr/add-market-vehicle');
+                  },
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                   child: Text('MORE',

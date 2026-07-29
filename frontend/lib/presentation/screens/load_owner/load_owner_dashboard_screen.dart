@@ -128,6 +128,110 @@ final _allTripsProvider = FutureProvider.autoDispose<List<TripModel>>((ref) asyn
       .toList();
 });
 
+// ─── Home tab — the one live feature ─────────────────────────────────────────
+
+class _LoadOwnerHomeTab extends ConsumerWidget {
+  final VoidCallback onCreateLoad;
+  const _LoadOwnerHomeTab({required this.onCreateLoad});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider).user;
+    final firstName = user?.fullName.split(' ').first ?? 'Load Owner';
+
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Welcome back, $firstName',
+              style: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.w800, color: _onSurface)),
+          const SizedBox(height: 2),
+          Text('Load Owner Panel', style: GoogleFonts.inter(fontSize: 13, color: _secondary)),
+          const SizedBox(height: 28),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFF6B00), Color(0xFFE55C00)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 32),
+                const SizedBox(height: 14),
+                Text('Post a Load Requirement',
+                    style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
+                const SizedBox(height: 6),
+                Text('Send your load details to your preferred logistic partner and get it moving.',
+                    style: GoogleFonts.inter(fontSize: 13, color: Colors.white.withValues(alpha: 0.85))),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onCreateLoad,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text('Create Load Requirement',
+                        style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFFE55C00))),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Coming Soon placeholder for gated tabs ──────────────────────────────────
+
+class _LoadOwnerComingSoonTab extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  const _LoadOwnerComingSoonTab({required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(color: _primary.withValues(alpha: 0.08), shape: BoxShape.circle),
+              child: Icon(icon, size: 38, color: _primary.withValues(alpha: 0.6)),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(color: _primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
+              child: Text('Coming Soon',
+                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+            ),
+            const SizedBox(height: 14),
+            Text(label, style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: _onSurface)),
+            const SizedBox(height: 10),
+            Text('This section is under development\nand will be available soon.',
+                style: GoogleFonts.inter(fontSize: 13, color: _secondary), textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 class LoadOwnerDashboardScreen extends ConsumerStatefulWidget {
@@ -147,43 +251,31 @@ class _LoadOwnerDashboardScreenState
 
   void _goToLoads() => setState(() => _navIndex = 1);
 
-  void _setNavIndex(int i) {
-    if (i == 0 && _navIndex != 0) {
-      // Refresh loads whenever returning to dashboard tab
-      ref.invalidate(_loadsProvider);
-    }
-    setState(() => _navIndex = i);
-  }
-
-  Future<void> _openUpload() async {
-    setState(() => _navIndex = 4);
-  }
+  void _setNavIndex(int i) => setState(() => _navIndex = i);
 
   @override
   void initState() {
     super.initState();
+    // Only "Create Load Requirement" is live for now. It lives at the "My
+    // Loads" nav slot (index 1) — matching the original design where My
+    // Loads was the section that both listed and created requirements —
+    // even though the nav item itself still reads "Coming Soon" since
+    // browsing past requirements isn't built yet. Tracking/Documents/Profile
+    // stay pure placeholders. The original full-featured tabs (_DashboardTab,
+    // _LoadsTab, _DocsTab, MyTripsScreen, _loadsProvider/_allTripsProvider,
+    // notification polling) are left intact below, unreferenced, for when
+    // this phase is revisited.
     _pages = [
-      _DashboardTab(onViewAllLoads: _goToLoads),
-      _LoadsTab(onCreateLoad: _openUpload),
-      const MyTripsScreen(),
-      const _DocsTab(),
+      _LoadOwnerHomeTab(onCreateLoad: () => _setNavIndex(1)),
       UploadLoadRequirementScreen(
         embedded: true,
-        onDone: () {
-          ref.invalidate(_loadsProvider);
-          setState(() => _navIndex = 1);
-        },
-        onTrackTrips: () => setState(() => _navIndex = 2),
+        onDone: () => _setNavIndex(0),
+        onTrackTrips: () => _setNavIndex(0),
       ),
+      const _LoadOwnerComingSoonTab(label: 'Tracking', icon: Icons.local_shipping_outlined),
+      const _LoadOwnerComingSoonTab(label: 'Documents', icon: Icons.description_outlined),
+      const _LoadOwnerComingSoonTab(label: 'Profile', icon: Icons.person_outline_rounded),
     ];
-    Future.microtask(
-        () => ref.read(tripProvider.notifier).loadTrips(statusFilter: 'ongoing'));
-    // Real-time: silent background refresh every 30 s (no loading shimmer)
-    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing');
-      }
-    });
   }
 
   @override
@@ -238,13 +330,29 @@ class _LoadOwnerDashboardScreenState
       }
     });
 
-    return _ComingSoonDashboard(
-      role: 'Load Owner',
-      icon: Icons.inventory_2_outlined,
-      onLogout: () async {
-        await ref.read(authProvider.notifier).logout();
-        if (mounted) context.go('/login');
-      },
+    return Scaffold(
+      key: _scaffoldKey,
+      backgroundColor: _background,
+      drawer: _AppDrawer(
+        user: user,
+        role: 'Load Owner',
+        navIndex: _navIndex,
+        onNavTap: (i) {
+          _scaffoldKey.currentState?.closeDrawer();
+          _setNavIndex(i);
+        },
+        onProfileTap: () => _setNavIndex(4),
+      ),
+      body: Column(
+        children: [
+          _TopBar(onMenuTap: () => _scaffoldKey.currentState?.openDrawer()),
+          Expanded(child: IndexedStack(index: _navIndex, children: _pages)),
+        ],
+      ),
+      bottomNavigationBar: _BottomNav(
+        selectedIndex: _navIndex,
+        onTap: _setNavIndex,
+      ),
     );
   }
 
@@ -303,11 +411,15 @@ class _ComingSoonDashboard extends StatelessWidget {
   final String role;
   final IconData icon;
   final VoidCallback onLogout;
+  final String? primaryActionLabel;
+  final VoidCallback? onPrimaryAction;
 
   const _ComingSoonDashboard({
     required this.role,
     required this.icon,
     required this.onLogout,
+    this.primaryActionLabel,
+    this.onPrimaryAction,
   });
 
   @override
@@ -372,6 +484,24 @@ class _ComingSoonDashboard extends StatelessWidget {
                 style: GoogleFonts.inter(fontSize: 13, color: _secondary),
                 textAlign: TextAlign.center,
               ),
+              if (primaryActionLabel != null && onPrimaryAction != null) ...[
+                const SizedBox(height: 28),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: onPrimaryAction,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text(
+                      primaryActionLabel!,
+                      style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -756,11 +886,12 @@ class _AppDrawer extends ConsumerWidget {
     this.onProfileTap,
   });
 
+  // (icon, label, navIndex, comingSoon)
   static const _navItems = [
-    (Icons.dashboard_rounded,      'Dashboard',  0),
-    (Icons.inventory_2_outlined,   'My Loads',   1),
-    (Icons.local_shipping_rounded, 'Tracking',   2),
-    (Icons.description_outlined,   'Documents',  3),
+    (Icons.dashboard_rounded,      'Dashboard',  0, false),
+    (Icons.inventory_2_outlined,   'My Loads',   1, false),
+    (Icons.local_shipping_rounded, 'Tracking',   2, true),
+    (Icons.description_outlined,   'Documents',  3, true),
   ];
 
   @override
@@ -865,20 +996,21 @@ class _AppDrawer extends ConsumerWidget {
                           color: _secondary)),
                 ),
                 ..._navItems.map((item) {
-                  final (icon, label, index) = item;
+                  final (icon, label, index, comingSoon) = item;
                   final isActive = navIndex == index;
                   return _DrawerNavTile(
                     icon: icon,
                     label: label,
                     isActive: isActive,
+                    comingSoon: comingSoon,
                     onTap: () => onNavTap(index),
                   );
                 }),
-                _DrawerRequestsTile(ref: ref),
                 _DrawerNavTile(
                   icon: Icons.person_outline_rounded,
                   label: 'Profile',
-                  isActive: false,
+                  isActive: navIndex == 4,
+                  comingSoon: true,
                   onTap: () => onProfileTap?.call(),
                 ),
 
@@ -1048,17 +1180,21 @@ class _DrawerNavTile extends StatelessWidget {
   final String label;
   final bool isActive;
   final VoidCallback onTap;
+  final bool comingSoon;
 
   const _DrawerNavTile({
     required this.icon,
     required this.label,
     required this.isActive,
     required this.onTap,
+    this.comingSoon = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return Opacity(
+      opacity: comingSoon ? 0.5 : 1.0,
+      child: InkWell(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
@@ -1075,7 +1211,7 @@ class _DrawerNavTile extends StatelessWidget {
                 size: 20,
                 color: isActive ? _primary : _secondary),
             const SizedBox(width: 14),
-            Text(label,
+            Text(comingSoon ? '$label (Soon)' : label,
                 style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight:
@@ -1092,6 +1228,7 @@ class _DrawerNavTile extends StatelessWidget {
             ],
           ],
         ),
+      ),
       ),
     );
   }
@@ -1137,12 +1274,13 @@ class _BottomNav extends StatelessWidget {
   final ValueChanged<int> onTap;
   const _BottomNav({required this.selectedIndex, required this.onTap});
 
+  // (icon, label, comingSoon)
   static const _items = [
-    (Icons.dashboard_rounded, 'DASHBOARD'),
-    (Icons.local_shipping_rounded, 'LOADS'),
-    (Icons.route_rounded, 'MY TRIPS'),
-    (Icons.description_outlined, 'DOCS'),
-    (Icons.person_outline, 'PROFILE'),
+    (Icons.dashboard_rounded, 'DASHBOARD', false),
+    (Icons.inventory_2_outlined, 'LOADS', false),
+    (Icons.local_shipping_rounded, 'MY TRIPS', true),
+    (Icons.description_outlined, 'DOCS', true),
+    (Icons.person_outline, 'PROFILE', true),
   ];
 
   @override
@@ -1177,36 +1315,39 @@ class _BottomNav extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: List.generate(_items.length, (i) {
-              final (icon, label) = _items[i];
+              final (icon, label, comingSoon) = _items[i];
               final active = i == selectedIndex;
-              return GestureDetector(
-                onTap: () => onTap(i),
-                behavior: HitTestBehavior.opaque,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  padding: active
-                      ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
-                      : const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: active ? _primary : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon,
-                          color: active ? Colors.white : _secondary, size: 22),
-                      const SizedBox(height: 3),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.6,
-                          color: active ? Colors.white : _secondary,
+              return Opacity(
+                opacity: comingSoon ? 0.45 : 1.0,
+                child: GestureDetector(
+                  onTap: () => onTap(i),
+                  behavior: HitTestBehavior.opaque,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: active
+                        ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
+                        : const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: active ? _primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon,
+                            color: active ? Colors.white : _secondary, size: 22),
+                        const SizedBox(height: 3),
+                        Text(
+                          comingSoon ? 'SOON' : label,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.6,
+                            color: active ? Colors.white : _secondary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               );

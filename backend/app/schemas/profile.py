@@ -24,10 +24,10 @@ class ProfileCompletionRequest(BaseModel):
     business_type: Optional[str] = Field(None, min_length=2, max_length=50)
     business_email: Optional[str] = None
     business_phone: Optional[str] = Field(None, min_length=10, max_length=20)
-    address: Optional[str] = Field(None, min_length=5, max_length=500)
+    address: Optional[str] = Field(None, min_length=5, max_length=150)
     city: Optional[str] = Field(None, min_length=2, max_length=100)
     state: Optional[str] = Field(None, min_length=2, max_length=100)
-    pincode: Optional[str] = Field(None, min_length=6, max_length=10)
+    pincode: Optional[str] = Field(None, min_length=6, max_length=6)
     country: Optional[str] = Field(default="India", max_length=100)
 
 

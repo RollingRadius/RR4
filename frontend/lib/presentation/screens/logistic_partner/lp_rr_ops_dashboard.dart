@@ -11,6 +11,7 @@ import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
+import 'package:fleet_management/presentation/widgets/available_loads_browser.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/providers/trip_provider.dart' show completedTripsProvider;
 
@@ -251,6 +252,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
 
     return Scaffold(
       backgroundColor: _bg,
+      drawer: const _RrOpsDrawer(),
       bottomNavigationBar: _RrOpsBottomNav(
         selectedIndex: _navIndex,
         onTap: _switchNav,
@@ -271,6 +273,12 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
               backgroundColor: _rrBlueDark,
               elevation: 0,
               automaticallyImplyLeading: false,
+              leading: Builder(
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
+              ),
               actions: [
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert, color: Colors.white),
@@ -463,6 +471,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
         ),
           ),
           const _RrOpsRecordsTab(),
+          const AvailableLoadsBrowser(),
         ],
       ),
     );
@@ -495,6 +504,10 @@ class _RrOpsBottomNav extends StatelessWidget {
         BottomNavigationBarItem(
           icon: Icon(Icons.history_rounded),
           label: 'Records',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.search_rounded),
+          label: 'Loads',
         ),
       ],
     );
@@ -823,6 +836,104 @@ class _EmptyState extends StatelessWidget {
               style: _inter(size: 13),
               textAlign: TextAlign.center,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── RR quick-add sidebar ─────────────────────────────────────────────────────
+
+/// Minimal drawer with the RR quick-add shortcuts (Add Vehicle/Company/User) —
+/// this dashboard otherwise has no sidebar, only a bottom nav for trip tabs.
+class _RrOpsDrawer extends StatelessWidget {
+  const _RrOpsDrawer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
+              color: _rrBlueDark,
+              child: Text('RR Operations',
+                  style: GoogleFonts.manrope(
+                      fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white)),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+              child: Text('RR QUICK ADD',
+                  style: _inter(size: 10, weight: FontWeight.w700, color: _secondary)),
+            ),
+            _RrOpsDrawerTile(
+              icon: Icons.local_shipping_outlined,
+              label: 'Add Vehicle',
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/rr/add-vehicle');
+              },
+            ),
+            _RrOpsDrawerTile(
+              icon: Icons.apartment_outlined,
+              label: 'Add Company',
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/rr/add-company');
+              },
+            ),
+            _RrOpsDrawerTile(
+              icon: Icons.person_add_alt_outlined,
+              label: 'Add Driver',
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/rr/add-user');
+              },
+            ),
+            _RrOpsDrawerTile(
+              icon: Icons.assignment_turned_in_outlined,
+              label: 'Vehicle Hire Requests',
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/rr/vehicle-hire-requests');
+              },
+            ),
+            _RrOpsDrawerTile(
+              icon: Icons.storefront_outlined,
+              label: 'Hire Truck',
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/rr/add-market-vehicle');
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RrOpsDrawerTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _RrOpsDrawerTile({required this.icon, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: _rrBlue),
+            const SizedBox(width: 14),
+            Text(label, style: _manrope(size: 14, weight: FontWeight.w600)),
           ],
         ),
       ),

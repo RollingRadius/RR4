@@ -760,6 +760,13 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
         except (ValueError, TypeError):
             pass
 
+    # ── Real invoice value (entered once the actual invoice is uploaded,
+    # replacing the placeholder sent at trip creation) ──────────────────────
+    if trip.s3_actual_invoice_value:
+        patch_body_cost = float(trip.s3_actual_invoice_value)
+    else:
+        patch_body_cost = None
+
     # ── PATCH parcel ──────────────────────────────────────────────────────────
     patch_body: dict = {}
     if actual_kanta_weight:
@@ -768,6 +775,8 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
         patch_body["documents"] = documents
     if loading:
         patch_body["loading"] = loading
+    if patch_body_cost is not None:
+        patch_body["cost"] = patch_body_cost
     if not patch_body:
         logger.info(f"[RR Sync S3] Trip {trip.trip_number} — no S3 data to sync, skipping")
         return

@@ -120,6 +120,10 @@ class Trip(Base):
     s3_eway_bill_url            = Column(String(500),  nullable=True)   # URL path to e-way bill photo
     s3_eway_bill_issue_date     = Column(TIMESTAMP(timezone=True), nullable=True)
     s3_eway_bill_expiry_date    = Column(TIMESTAMP(timezone=True), nullable=True)
+    # Real invoice amount, entered once the actual invoice is uploaded (vs.
+    # invoice_value, the placeholder entered at trip creation) — PATCHed to
+    # RR parcels.cost on sync, same as actual_kanta_weight.
+    s3_actual_invoice_value     = Column(Numeric(12, 2), nullable=True)
 
     # Stage 4 — Truck Exit From Factory
     s4_truck_moved      = Column(Boolean, nullable=True)
@@ -365,6 +369,7 @@ class Trip(Base):
             "s3_eway_bill_url": self.s3_eway_bill_url,
             "s3_eway_bill_issue_date": self.s3_eway_bill_issue_date.isoformat() if self.s3_eway_bill_issue_date else None,
             "s3_eway_bill_expiry_date": self.s3_eway_bill_expiry_date.isoformat() if self.s3_eway_bill_expiry_date else None,
+            "s3_actual_invoice_value": float(self.s3_actual_invoice_value) if self.s3_actual_invoice_value is not None else None,
             # Stage 4
             "s4_truck_moved": self.s4_truck_moved,
             "s4_security_verified": self.s4_security_verified,

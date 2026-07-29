@@ -6,6 +6,7 @@ All endpoints require authentication — RR details are never exposed to the cli
 
 import json
 import logging
+from datetime import datetime
 from typing import List
 
 import httpx
@@ -21,6 +22,7 @@ from app.dependencies import get_current_user
 from app.models.company import Organization
 from app.models.trip import Trip
 from app.models.user import User
+from app.services.rr_sync_service import _json_header
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -874,6 +876,7 @@ def _extract_vehicle_entry(v: dict, source: str) -> dict | None:
         identities = actual.get("identities") or []
         body_type  = actual.get("body_type", "")
         crew       = actual.get("crew") or []
+        engine     = actual.get("engine") or {}
     else:
         if not v.get("_id"):
             return None
@@ -881,11 +884,13 @@ def _extract_vehicle_entry(v: dict, source: str) -> dict | None:
         identities = v.get("identities") or []
         body_type  = v.get("body_type", "")
         crew       = v.get("crew") or []
+        engine     = v.get("engine") or {}
 
     number = next(
         (i.get("number", "") for i in identities if isinstance(i, dict) and i.get("number")),
         ""
     )
+    model_name = (engine.get("model") or {}).get("name") or "" if isinstance(engine, dict) else ""
 
     # Extract driver from crew
     driver_id   = ""
@@ -905,6 +910,7 @@ def _extract_vehicle_entry(v: dict, source: str) -> dict | None:
     return {
         "rr_vehicle_id": rr_id,
         "number":        number,
+        "model_name":    model_name,
         "body_type":     body_type,
         "source":        source,
         "driver_id":     driver_id,
@@ -1766,3 +1772,534 @@ async def trigger_bulk_sync(
         "queued":  queued,
         "skipped": skipped,
     }
+
+
+# ── Quick-add: Vehicle / Company / User directly on RR ───────────────────────
+# LP/RR-ops sidebar shortcuts (mirrors rr_kanpur's Add Vehicle/Add Company/Add
+# User screens) — these write straight to RR, not into RR4's local DB, since
+# there's nothing for RR4 to do with this data offline. Search endpoints power
+# each screen's typeahead fields; create endpoints do the actual POST to RR.
+
+@router.get("/users/search", summary="Search RR users by phone prefix or name (typeahead)")
+async def search_rr_users(
+    q: str = Query(..., min_length=1, description="Phone number prefix or name substring"),
+    rr_token: str = Query("", description="LP's RR session token"),
+    drivers_only: bool = Query(
+        False,
+        description="If true, restrict results to driver-role users "
+                     "(plus untagged legacy users) — used by the trip driver picker. "
+                     "Other callers (vehicle owner / company contact / hire-person "
+                     "search) must leave this false so non-driver users aren't excluded.",
+    ),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    # RR's generic `GET /users?where=...` (Eve resource GET) is restricted
+    # server-side to the querying token's own record (`auth_field` self-only —
+    # confirmed live: even an Admin/CSR token searching for a known, existing
+    # user gets back an empty result). RR's own web app never queries /users
+    # directly for this reason — it uses this dedicated endpoint instead,
+    # which runs its own unrestricted DB lookup (rrbc-api/app/users/app.py:
+    # get_user_by_phone). It only does an EXACT phone match (no prefix), so
+    # pass q as both phone_number and name to cover "typed a full phone" and
+    # "typed part of a name" in one call — RR tries phone first, falls back
+    # to name-substring if that misses.
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/users/get_user_by_phone",
+            params={"phone_number": q, "name": q},
+            headers=headers,
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+    items = []
+    for u in resp.json().get("_items", []):
+        # This endpoint's projection doesn't include `user_type`, so
+        # drivers_only can't be filtered server-side here — return all
+        # matches rather than silently hiding real drivers.
+        items.append({
+            "user_id": str(u.get("_id") or ""),
+            "name": u.get("name") or "",
+            "phone": (u.get("phone") or {}).get("number") or "",
+        })
+    return {"items": items}
+
+
+@router.get("/companies/search", summary="Search RR companies by name (typeahead)")
+async def search_rr_companies(
+    q: str = Query(..., min_length=1, description="Company name prefix"),
+    rr_token: str = Query("", description="LP's RR session token"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    match = json.dumps({"name": {"$regex": f"^{q}", "$options": "-i"}})
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/get_all_companies",
+            params={"page": 1, "max_results": 5, "sort": '("_created",-1)', "match": match},
+            headers=headers,
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+    body = resp.json()
+    raw_items = body.get("_items") if isinstance(body, dict) else body
+    items = []
+    for c in (raw_items or []):
+        items.append({"company_id": str(c.get("_id") or ""), "name": c.get("name") or ""})
+    return {"items": items}
+
+
+@router.get("/vehicle-engine-models/search", summary="Search RR vehicle engine models (typeahead)")
+async def search_vehicle_engine_models(
+    q: str = Query(..., min_length=1, description="Engine model name prefix"),
+    rr_token: str = Query("", description="LP's RR session token"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    where = json.dumps({"name": {"$regex": f"^{q}", "$options": "i"}})
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/vehicle_engine_models",
+            params={"where": where, "max_results": 10},
+            headers=headers,
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
+    items = []
+    for m in resp.json().get("_items", []):
+        items.append({"engine_model_id": str(m.get("_id") or ""), "name": m.get("name") or ""})
+    return {"items": items}
+
+
+class RrCreateVehicleRequest(BaseModel):
+    rr_token: str
+    engine_model_id: str
+    rc_number: str
+    owner_user_id: str
+    company_id: str | None = None
+
+
+@router.post("/vehicles", summary="Create a new vehicle directly on RR")
+async def create_rr_vehicle(
+    body: RrCreateVehicleRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    payload = {
+        "engine.model": body.engine_model_id,
+        "body": {
+            "body_type": None,
+            "number_of_wheels": 6,
+            "carrying_capacity": 19000,
+            "capacity_unit": "KG",
+            "axle_type": None,
+            "body_length_in_feet": None,
+            "body_height_in_feet": None,
+        },
+        "travel_locations": [],
+        "created_by": body.owner_user_id,
+        "created_by_company": body.company_id,
+        "identities": [
+            {"id_name": "Registration Certificate", "number": body.rc_number}
+        ],
+    }
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.post(
+            f"{settings.RR_API_BASE}/vehicles",
+            json=payload,
+            headers=_json_header(body.rr_token),
+        )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"RR vehicle creation failed: {resp.text[:400]}")
+    data = resp.json()
+    return {"vehicle_id": str(data.get("_id") or ""), "rc_number": body.rc_number}
+
+
+class RrAssignVehicleDriverRequest(BaseModel):
+    rr_token: str
+    vehicle_id: str
+    driver_user_id: str
+
+
+@router.post("/vehicles/assign-driver",
+             summary="Attach a driver to a vehicle's RR crew (required before RR allows booking)")
+async def assign_vehicle_driver(
+    body: RrAssignVehicleDriverRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    RR's own booking-confirmation check reads the driver directly off the
+    vehicle's `crew` field (rrbc-api/app/trips/bidding.py) — a driver picked
+    separately for a trip isn't enough; the vehicle itself must carry a crew
+    entry with position == "Driver", or booking hard-rejects with "Please add
+    driver for vehicle." (confirmed live against trip RR-71165). This actually
+    writes that crew entry, rather than just recording the driver on our side.
+    """
+    _require_rr_session_role(current_user, db)
+    headers = _json_header(body.rr_token)
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        get_resp = await client.get(
+            f"{settings.RR_API_BASE}/vehicles/{body.vehicle_id}",
+            headers={"Authorization": headers["Authorization"]},
+        )
+        if get_resp.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"RR vehicle lookup failed: {get_resp.text[:400]}")
+        vehicle = get_resp.json()
+        etag = vehicle.get("_etag")
+        if not etag:
+            raise HTTPException(status_code=502, detail="RR vehicle record missing _etag")
+
+        # Preserve any non-driver crew (e.g. a Helper) already on the vehicle;
+        # replace/add only the Driver entry.
+        existing_crew = [c for c in (vehicle.get("crew") or []) if c.get("position") != "Driver"]
+        new_crew = existing_crew + [{"worker": body.driver_user_id, "position": "Driver"}]
+
+        patch_resp = await client.patch(
+            f"{settings.RR_API_BASE}/vehicles/{body.vehicle_id}",
+            json={"crew": new_crew},
+            headers={**headers, "If-Match": etag},
+        )
+    if patch_resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"RR vehicle driver assignment failed: {patch_resp.text[:400]}")
+    return {"vehicle_id": body.vehicle_id, "driver_user_id": body.driver_user_id}
+
+
+class RrCreateCompanyRequest(BaseModel):
+    rr_token: str
+    name: str
+    city_id: str
+    business_type: str
+    owner_user_id: str | None = None
+    new_owner_phone: str | None = None
+
+
+@router.post("/companies", summary="Create a new company (vehicle provider) directly on RR")
+async def create_rr_company(
+    body: RrCreateCompanyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    if not body.owner_user_id and not body.new_owner_phone:
+        raise HTTPException(status_code=400, detail="Provide either owner_user_id or new_owner_phone")
+
+    payload = {
+        "name": body.name,
+        "city": body.city_id,
+        "business_type": body.business_type,
+        "website_address": "",
+        "address_line_1": "",
+        "pin": "",
+        "logo": None,
+        # RR's /add_company only reads "owner"/"new_owner" below when a
+        # recognized "source" is present (CRM/Dashboard/Trip/MobileApp) —
+        # without it, RR silently attributes the company to whoever's
+        # logged in instead of the picked/typed owner. rr_kanpur's own
+        # payload omits this and has the same gap; we fix it here.
+        # Must be the enum VALUE string ("Mobile App", not the Python
+        # member name "MobileApp") — verified against a live RR test call.
+        "source": "Mobile App",
+    }
+    if body.owner_user_id:
+        payload["owner"] = body.owner_user_id
+    else:
+        payload["new_owner"] = {"phone": {"number": body.new_owner_phone}}
+
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.post(
+            f"{settings.RR_API_BASE}/add_company",
+            json=payload,
+            headers=_json_header(body.rr_token),
+        )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"RR company creation failed: {resp.text[:400]}")
+    data = resp.json()
+    company = data.get("company") if isinstance(data, dict) and "company" in data else data
+    return {
+        "company_id": str((company or {}).get("_id") or (data.get("_id") if isinstance(data, dict) else "") or ""),
+        "name": body.name,
+    }
+
+
+class RrCreateUserRequest(BaseModel):
+    rr_token: str
+    name: str
+    phone: str
+
+
+@router.post("/users", summary="Create a new user (driver) directly on RR")
+async def create_rr_user(
+    body: RrCreateUserRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    payload = {
+        "phone": {"country_phone_code": "91", "number": body.phone},
+        "name": body.name,
+        "password": "",
+        # Tags this user as a driver on RR from creation, independent of any
+        # trip assignment — lets /users/search filter to drivers only.
+        "user_type": "Driver",
+    }
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.post(
+            f"{settings.RR_API_BASE}/users",
+            json=payload,
+            headers=_json_header(body.rr_token),
+        )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"RR user creation failed: {resp.text[:400]}")
+    data = resp.json()
+    return {"user_id": str(data.get("_id") or ""), "name": body.name, "phone": body.phone}
+
+
+# ── Vehicle hire requests (Market Vehicles — Requested → Approved/Rejected) ────
+# We just hit a real trip stuck because a hired (third-party) vehicle's owner
+# had never approved the hire request — RR's own booking flow refuses to book
+# an unapproved market vehicle, surfacing a confusing unrelated error. This
+# lets LP/RR-ops review and approve/reject those requests without leaving the
+# app. market_vehicles has no self-only access restriction on RR's side
+# (unlike /users), so any authenticated RR token can query/act on it.
+
+def _to_rr_datetime_str(iso_str: str) -> str:
+    """
+    RR's Eve app pins DATE_FORMAT to "%Y-%m-%dT%H:%M:%S" (see rrbc-api/app/settings.py)
+    and rejects anything else — including Dart's default `.toIso8601String()` output,
+    which appends milliseconds (e.g. "2026-07-24T00:00:00.000") and 404s/422s as
+    "must be of datetime type". Reparse and reformat to RR's exact expected format.
+    """
+    return datetime.fromisoformat(iso_str).strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def _resolve_org_rr_company_id(current_user: User, db: Session) -> str:
+    from app.models import UserOrganization
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    org = db.query(Organization).filter(Organization.id == user_org.organization_id).first()
+    if not org or not org.rr_company_id:
+        raise HTTPException(status_code=400, detail="Organization has no linked RR company")
+    return org.rr_company_id
+
+
+class RrCreateHireRequest(BaseModel):
+    rr_token: str
+    vehicle_id: str
+    owner_user_id: str | None = None
+    owner_company_id: str | None = None
+    hirer_user_id: str | None = None
+    hirer_company_id: str | None = None
+    requested_start_date: str | None = None
+    requested_end_date: str | None = None
+
+
+@router.post("/vehicle-hire-requests", summary="Request to hire a vehicle on behalf of any hirer")
+async def create_vehicle_hire_request(
+    body: RrCreateHireRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    The requester side of RR's vehicle-hire marketplace — mirrors RR web's
+    "Hire Market Vehicle" dialog (hire-market-vehicle.component.ts) field for
+    field: Vehicle Hire Person (hirer) and Vehicle Owner (lender) are both
+    independent search fields, exactly like RR web — not implicitly the
+    caller's own org, since a privileged RR session (Admin/CSR/CSR
+    Supervisor — see get_vehicle_hire_requests above) can hire on behalf of
+    any company, same as RR web's own CSR/Admin dashboard.
+    """
+    _require_rr_session_role(current_user, db)
+
+    if bool(body.owner_user_id) == bool(body.owner_company_id):
+        raise HTTPException(status_code=400, detail="Provide exactly one of owner_user_id or owner_company_id")
+    if bool(body.hirer_user_id) == bool(body.hirer_company_id):
+        raise HTTPException(status_code=400, detail="Provide exactly one of hirer_user_id or hirer_company_id")
+
+    owner_id = body.owner_user_id or body.owner_company_id
+    hirer_id = body.hirer_user_id or body.hirer_company_id
+    if owner_id == hirer_id:
+        raise HTTPException(status_code=400, detail="The hiring person and lender must be different. You cannot hire your own vehicle.")
+
+    payload: dict = {"vehicle_id": body.vehicle_id}
+    if body.owner_user_id:
+        payload["owner_user_id"] = body.owner_user_id
+    if body.owner_company_id:
+        payload["owner_company_id"] = body.owner_company_id
+    if body.hirer_user_id:
+        payload["third_party_user_id"] = body.hirer_user_id
+    if body.hirer_company_id:
+        payload["third_party_company_id"] = body.hirer_company_id
+    if body.requested_start_date:
+        payload["requested_start_date"] = _to_rr_datetime_str(body.requested_start_date)
+    if body.requested_end_date:
+        payload["requested_end_date"] = _to_rr_datetime_str(body.requested_end_date)
+
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.post(
+            f"{settings.RR_API_BASE}/market_vehicles",
+            json=payload,
+            headers=_json_header(body.rr_token),
+        )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"RR hire request failed: {resp.text[:400]}")
+    data = resp.json()
+    return {"market_vehicle_id": str(data.get("_id") or ""), "status": "Requested"}
+
+
+@router.get("/vehicle-hire-requests", summary="List pending hire requests marketplace-wide")
+async def get_vehicle_hire_requests(
+    rr_token: str = Query("", description="LP's RR session token"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    RR's own `market_vehicles` resource carries no company-level access
+    restriction (allowed_roles: RolesAllowedWithAndForUser — see
+    rrbc-api/app/enum_directory.py); Admin/CSR/CSR Supervisor RR sessions can
+    already see and act on every company's requests, RR web just doesn't
+    surface that broader view outside its CSR/Admin-only dashboard table. We
+    mirror that broader marketplace list here (any LP/RR-ops session sees
+    who's requesting what from whom, own-company requests always included
+    regardless of the marketplace cap) and tag each row with `is_mine` as a
+    display hint only — the review endpoint below defers to RR's own
+    authorization, matching its real per-role access model.
+    """
+    _require_rr_session_role(current_user, db)
+    company_id = _resolve_org_rr_company_id(current_user, db)
+    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    embedded = json.dumps({
+        "vehicle_id": 1,
+        "vehicle_id.engine.model": 1,
+        "owner_company_id": 1,
+        "owner_user_id": 1,
+        "third_party_company_id": 1,
+        "third_party_user_id": 1,
+    })
+
+    def _to_item(mv: dict) -> dict:
+        vehicle = mv.get("vehicle_id") if isinstance(mv.get("vehicle_id"), dict) else {}
+        rc_number = ""
+        for ident in (vehicle.get("identities") or []):
+            if ident.get("id_name") == "Registration Certificate":
+                rc_number = ident.get("number") or ""
+                break
+        engine_model = ((vehicle.get("engine") or {}).get("model") or {}).get("name") or ""
+        owner = mv.get("owner_company_id") if isinstance(mv.get("owner_company_id"), dict) else None
+        if not owner:
+            owner = mv.get("owner_user_id") if isinstance(mv.get("owner_user_id"), dict) else {}
+        hirer = mv.get("third_party_company_id") if isinstance(mv.get("third_party_company_id"), dict) else None
+        if not hirer:
+            hirer = mv.get("third_party_user_id") if isinstance(mv.get("third_party_user_id"), dict) else {}
+        raw_owner_company_id = mv.get("owner_company_id")
+        owner_company_id = raw_owner_company_id.get("_id") if isinstance(raw_owner_company_id, dict) else raw_owner_company_id
+        return {
+            "market_vehicle_id": str(mv.get("_id") or ""),
+            "vehicle_number": rc_number,
+            "vehicle_model": engine_model,
+            "owner_name": (owner or {}).get("name") or "",
+            "hirer_name": (hirer or {}).get("name") or "",
+            "requested_start_date": mv.get("requested_start_date"),
+            "requested_end_date": mv.get("requested_end_date"),
+            "is_mine": str(owner_company_id or "") == company_id,
+        }
+
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        # Own company's requests — never subject to the marketplace cap below,
+        # so a busy shared test/prod DB can never bury the requests this user
+        # actually needs to act on. Sorted the same as the marketplace query
+        # so the merge below produces one newest-first list either way.
+        own_resp = await client.get(
+            f"{settings.RR_API_BASE}/market_vehicles",
+            params={
+                "where": json.dumps({"$and": [{"status": "Requested"}, {"owner_company_id": company_id}]}),
+                "sort": json.dumps([("_created", -1)]),
+                "embedded": embedded,
+                "max_results": 300,
+            },
+            headers=headers,
+        )
+        if own_resp.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"RR API error {own_resp.status_code}: {own_resp.text[:300]}")
+        own_mvs = own_resp.json().get("_items", [])
+        own_ids = {mv.get("_id") for mv in own_mvs}
+
+        # Rest of the marketplace, newest first.
+        rest_resp = await client.get(
+            f"{settings.RR_API_BASE}/market_vehicles",
+            params={
+                "where": json.dumps({"status": "Requested"}),
+                "sort": json.dumps([("_created", -1)]),
+                "embedded": embedded,
+                "max_results": 300,
+            },
+            headers=headers,
+        )
+    if rest_resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR API error {rest_resp.status_code}: {rest_resp.text[:300]}")
+
+    rest_mvs = [mv for mv in rest_resp.json().get("_items", []) if mv.get("_id") not in own_ids]
+
+    # Merge both newest-first lists into a single newest-first list — own
+    # requests are still guaranteed present (never dropped by the marketplace
+    # cap), but the combined order still reads newest-on-top, matching RR
+    # web's own dashboard table instead of showing "own" as a separate block.
+    all_mvs = sorted(own_mvs + rest_mvs, key=lambda mv: mv.get("_created") or "", reverse=True)
+    return {"items": [_to_item(mv) for mv in all_mvs]}
+
+
+class RrReviewHireRequest(BaseModel):
+    rr_token: str
+    status: str  # "Approved" | "Rejected"
+    approved_start_date: str | None = None
+    approved_end_date: str | None = None
+
+
+@router.post("/vehicle-hire-requests/{market_vehicle_id}/review", summary="Approve or reject a vehicle hire request")
+async def review_vehicle_hire_request(
+    market_vehicle_id: str,
+    body: RrReviewHireRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _require_rr_session_role(current_user, db)
+    if body.status not in ("Approved", "Rejected"):
+        raise HTTPException(status_code=400, detail="status must be 'Approved' or 'Rejected'")
+    if body.status == "Approved" and not (body.approved_start_date and body.approved_end_date):
+        raise HTTPException(status_code=400, detail="approved_start_date and approved_end_date are required to approve")
+
+    # No ownership check here — RR's own market_vehicles access control
+    # (allowed_roles: RolesAllowedWithAndForUser, rrbc-api/app/enum_directory.py)
+    # already lets Admin/CSR/CSR Supervisor RR sessions review ANY request
+    # regardless of company (confirmed live: a CSR test session successfully
+    # rejected a request for a vehicle owned by a company it has no relation
+    # to). A plain "User"-role RR session is restricted by RR itself via
+    # Eve's auth_field self-ownership check, so RR's own review_market_vehicle_request
+    # call below is the real authority — we just forward whatever it decides.
+    payload = {"market_vehicle_id": market_vehicle_id, "status": body.status}
+    if body.status == "Approved":
+        payload["approved_start_date"] = _to_rr_datetime_str(body.approved_start_date)
+        payload["approved_end_date"] = _to_rr_datetime_str(body.approved_end_date)
+
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        resp = await client.post(
+            f"{settings.RR_API_BASE}/review_market_vehicle_request",
+            json=payload,
+            headers=_json_header(body.rr_token),
+        )
+    if resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"RR review failed: {resp.text[:400]}")
+    return {"market_vehicle_id": market_vehicle_id, "status": body.status}

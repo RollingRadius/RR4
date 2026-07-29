@@ -47,6 +47,7 @@ class _UploadLoadRequirementScreenState
   final _pickupKey = GlobalKey();
   final _dropKey = GlobalKey();
   final _materialKey = GlobalKey();
+  final _materialWeightKey = GlobalKey();
   final _dateKey = GlobalKey();
   final _truckCountKey = GlobalKey();
   final _capacityKey = GlobalKey();
@@ -67,8 +68,10 @@ class _UploadLoadRequirementScreenState
   double? _pickupLat, _pickupLon;
   double? _dropLat, _dropLon;
   final _capacityController = TextEditingController();
+  final _materialWeightController = TextEditingController();
   final _truckCountController = TextEditingController();
-  String _capacityUnit = 'Tons';
+  String _capacityUnit = 'Kg';
+  String _materialWeightUnit = 'Kg';
   DateTime? _entryDate;
 
   String? _selectedAxleType;
@@ -146,6 +149,7 @@ class _UploadLoadRequirementScreenState
     _pickupDebounce?.cancel();
     _dropDebounce?.cancel();
     _capacityController.dispose();
+    _materialWeightController.dispose();
     _truckCountController.dispose();
     _partnerController.dispose();
     _partnerDebounce?.cancel();
@@ -380,6 +384,10 @@ class _UploadLoadRequirementScreenState
               Expanded(child: _datePicker()),
             ],
           ),
+          const SizedBox(height: 16),
+
+          // Material weight
+          _materialWeightField(),
           const SizedBox(height: 16),
 
           // Truck count
@@ -935,7 +943,7 @@ class _UploadLoadRequirementScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'CAPACITY',
+            'TRUCK WEIGHT (OPTIONAL)',
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
@@ -978,6 +986,84 @@ class _UploadLoadRequirementScreenState
                     children: [
                       Text(
                         _capacityUnit,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF001e40),
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(Icons.swap_vert_rounded,
+                          size: 14, color: Color(0xFF001e40)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _materialWeightField() {
+    return Container(
+      key: _materialWeightKey,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: _surfaceContainer,
+        borderRadius: BorderRadius.circular(12),
+        border: const Border(
+          left: BorderSide(color: Color(0xFF001e40), width: 4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'MATERIAL WEIGHT',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+              color: Color(0xFF43474F),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _materialWeightController,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF001e40),
+                  ),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
+                    hintText: '0',
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: () => setState(() =>
+                    _materialWeightUnit = _materialWeightUnit == 'Tons' ? 'Kg' : 'Tons'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF001e40).withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _materialWeightUnit,
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,
@@ -1630,11 +1716,16 @@ class _UploadLoadRequirementScreenState
       _scrollToAndWarn(_truckCountKey, 'Truck count can\'t be zero');
       return;
     }
+    // Truck weight is optional — only validate the format if something was entered.
     final capacity = _capacityController.text.trim();
-    if (capacity.isEmpty || (double.tryParse(capacity) ?? 0) <= 0) {
-      _scrollToAndWarn(_capacityKey, 'Please enter the load capacity');
-      // Expand truck specs if collapsed so user can see the field
+    if (capacity.isNotEmpty && (double.tryParse(capacity) ?? 0) <= 0) {
+      _scrollToAndWarn(_capacityKey, 'Enter a valid truck weight, or leave it blank');
       if (!_truckSpecsExpanded) setState(() => _truckSpecsExpanded = true);
+      return;
+    }
+    final materialWeight = _materialWeightController.text.trim();
+    if (materialWeight.isEmpty || (double.tryParse(materialWeight) ?? 0) <= 0) {
+      _scrollToAndWarn(_materialWeightKey, 'Please enter the material weight');
       return;
     }
     if (_selectedAxleType == null) {
@@ -1674,8 +1765,15 @@ class _UploadLoadRequirementScreenState
           unloadLat: _dropLat,
           unloadLon: _dropLon,
           materialType: _materialType!,
+          materialWeight: materialWeight,
+          materialWeightUnit: _materialWeightUnit,
           entryDate: dateStr,
           truckCount: _truckCount,
+          capacity: capacity.isEmpty ? null : capacity,
+          capacityUnit: capacity.isEmpty ? null : _capacityUnit,
+          axelType: _selectedAxleType,
+          bodyType: _selectedBodyType,
+          floorType: _selectedFloorType,
           targetOrgIds: targetOrgIds,
         );
 
@@ -1711,7 +1809,9 @@ class _UploadLoadRequirementScreenState
       _truckCount = 0;
       _truckCountController.text = '';
       _capacityController.text = '';
-      _capacityUnit = 'Tons';
+      _capacityUnit = 'Kg';
+      _materialWeightController.text = '';
+      _materialWeightUnit = 'Kg';
       _selectedAxleType = null;
       _selectedBodyType = null;
       _selectedFloorType = null;

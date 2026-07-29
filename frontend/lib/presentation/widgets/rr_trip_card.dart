@@ -3,13 +3,16 @@
 /// the full S1-S5 process (checkboxes, uploads, per-stage RR doc sync).
 library;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
+import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/trip_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _rrBlue    = Color(0xFF1B6CA8);
@@ -51,6 +54,7 @@ class RrTripCard extends ConsumerStatefulWidget {
 class _RrTripCardState extends ConsumerState<RrTripCard> {
   bool _tripInfoExpanded = false;
   bool _togglingS1 = false;
+  bool _confirmingBooking = false;
   /// Local override so the switch reflects the toggle immediately, before
   /// the parent's next refresh brings back an updated TripModel.
   bool? _s1RequiredOverride;
@@ -60,6 +64,108 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   bool get _canManageRr {
     final user = ref.read(authProvider).user;
     return user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
+  }
+
+  /// True when RR's own booking step failed (e.g. an unapproved third-party
+  /// vehicle hire) — a genuine attempted-and-errored sync, not the normal
+  /// "not yet synced/pending" states a trip passes through before it's even
+  /// tried. LP/RR-ops get a "Confirm Booking" retry action for this; FE
+  /// (logistic_partner_worker) gets blocked from entering the trip at all
+  /// until it's resolved, since there's nothing useful for them to do yet.
+  bool get _needsBookingConfirmation => trip.rrSyncStatus == 'failed';
+
+  Future<void> _confirmBooking() async {
+    final session = await ensureRrSession(context, ref);
+    if (session == null || !mounted) return;
+    setState(() => _confirmingBooking = true);
+    try {
+      // Two genuinely different failure points need two different retry
+      // endpoints:
+      //  - rrTripId == null: the trip was never even created on RR — the
+      //    original /api/rr/complete-trip call itself failed (this is what
+      //    "Please add driver for vehicle."-style booking errors are —
+      //    trip_stage stuck at "Bidding" on RR's side). /api/rr/sync/retry
+      //    only retries per-STAGE syncs (1-5) based on current_stage, and is
+      //    a silent no-op when current_stage is still 0 — it can never fix
+      //    this. complete-trip is also synchronous, so no polling needed.
+      //  - rrTripId already set: the trip exists on RR, a later stage's sync
+      //    failed — /sync/retry is correct here, and does need polling since
+      //    it only queues a background task.
+      if (trip.rrTripId == null) {
+        final dio = ref.read(dioProvider);
+        final resp = await dio.post(
+          '/api/rr/complete-trip/${trip.id}',
+          data: {'rr_token': session.token},
+        );
+        if (!mounted) return;
+        final success = resp.data is Map && (resp.data['success'] == true);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(success ? 'Booking confirmed' : 'Could not confirm booking',
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: success ? _done : Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ));
+      } else {
+        final dio = ref.read(dioProvider);
+        await dio.post('/api/rr/sync/retry/${trip.id}', data: {'rr_token': session.token});
+        if (!mounted) return;
+
+        // /sync/retry only queues a background task and returns immediately
+        // — poll for the real outcome (same pattern as
+        // _Stage4CompleteView._pollForSyncCompletion in
+        // rr_trip_stages_screen.dart) instead of showing a static message.
+        bool? succeeded;
+        for (var i = 0; i < 6 && mounted; i++) {
+          await Future.delayed(const Duration(seconds: 2));
+          if (!mounted) return;
+          try {
+            await ref.read(tripProvider.notifier).fetchSingleTrip(trip.id);
+          } catch (_) {
+            break;
+          }
+          if (!mounted) return;
+          if (trip.rrSyncStatus != 'failed') {
+            succeeded = true;
+            break;
+          }
+        }
+        if (!mounted) return;
+
+        if (succeeded == true) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Booking confirmed', style: _inter(size: 13, color: Colors.white)),
+            backgroundColor: _done,
+            behavior: SnackBarBehavior.floating,
+          ));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+              (trip.rrSyncError != null && trip.rrSyncError!.isNotEmpty)
+                  ? 'Still failing: ${trip.rrSyncError}'
+                  : 'Still failing — check back or try again',
+              style: _inter(size: 13, color: Colors.white),
+            ),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 5),
+          ));
+        }
+      }
+      widget.onRefresh?.call();
+    } catch (e) {
+      if (mounted) {
+        final msg = e is DioException && e.response?.data is Map
+            ? (e.response!.data['detail']?.toString() ?? 'Could not retry booking — try again')
+            : 'Could not retry booking — try again';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(msg, style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _confirmingBooking = false);
+    }
   }
 
   Future<void> _toggleS1Required(bool value) async {
@@ -110,6 +216,15 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       );
       return;
     }
+    if (_needsBookingConfirmation && !_canManageRr) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Let this trip get confirmed by your company',
+            style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: _secondary,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => RrTripStagesScreen(trip: trip)),
     ).then((_) => widget.onRefresh?.call());
@@ -139,6 +254,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHeader(),
+              if (_needsBookingConfirmation && _canManageRr) _buildConfirmBookingBanner(),
               _buildS1ToggleRow(),
               const Divider(height: 1, thickness: 1, color: Color(0xFFF0F4F8)),
               _buildStep1Tile(),
@@ -146,6 +262,43 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // ── Confirm Booking banner (LP/RR-ops only, shown when RR sync failed) ────────
+
+  Widget _buildConfirmBookingBanner() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      color: const Color(0xFFFFF3E0),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Color(0xFFE65100), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text('Booking needs confirmation',
+                style: _inter(size: 12, weight: FontWeight.w600, color: const Color(0xFFE65100))),
+          ),
+          const SizedBox(width: 8),
+          _confirmingBooking
+              ? const SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFE65100)),
+                )
+              : ElevatedButton(
+                  onPressed: _confirmBooking,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE65100),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text('Confirm Booking', style: _manrope(size: 12, color: Colors.white)),
+                ),
+        ],
       ),
     );
   }

@@ -32,10 +32,13 @@ class LoadRequirement(Base):
     unload_lat = Column(Float, nullable=True)
     unload_lon = Column(Float, nullable=True)
     material_type = Column(String(50), nullable=True)
+    material_weight = Column(String(50), nullable=True)
+    material_weight_unit = Column(String(10), nullable=True)  # 'Tons' | 'Kg'
     entry_date = Column(Date, nullable=True)
     truck_count = Column(Integer, nullable=False, default=1)
 
     capacity = Column(String(50), nullable=True)
+    capacity_unit = Column(String(10), nullable=True)  # 'Tons' | 'Kg'
     axel_type = Column(String(50), nullable=True)
     body_type = Column(String(50), nullable=True)
     floor_type = Column(String(50), nullable=True)

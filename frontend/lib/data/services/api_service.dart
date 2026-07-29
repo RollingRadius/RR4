@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:fleet_management/core/config/app_config.dart';
 
@@ -146,7 +148,7 @@ class ApiService {
           if (error.response?.data != null) {
             if (error.response!.data is Map &&
                 error.response!.data.containsKey('detail')) {
-              return error.response!.data['detail'];
+              return _extractDetail(error.response!.data['detail']);
             }
           }
           return 'Server error: ${error.response?.statusCode}';
@@ -164,5 +166,42 @@ class ApiService {
     }
 
     return 'An unexpected error occurred';
+  }
+
+  /// FastAPI's `detail` is a String for a plain HTTPException but a List of
+  /// `{type, loc, msg, ...}` objects for a 422 Pydantic validation error.
+  /// RR-proxy 502s (`"detail": "RR X failed: {<raw RR Eve JSON error>}"`)
+  /// carry a further-nested error blob — try to surface just RR's actual
+  /// per-field issue instead of the whole dump.
+  String _extractDetail(dynamic detail) {
+    if (detail is List && detail.isNotEmpty) {
+      final first = detail.first;
+      if (first is Map && first['msg'] != null) {
+        final loc = first['loc'];
+        final field = (loc is List && loc.isNotEmpty) ? loc.last.toString() : null;
+        return field != null ? '$field: ${first['msg']}' : first['msg'].toString();
+      }
+    }
+    if (detail is String) {
+      final braceIndex = detail.indexOf('{');
+      if (braceIndex != -1) {
+        try {
+          final rrError = jsonDecode(detail.substring(braceIndex)) as Map<String, dynamic>;
+          final issues = rrError['_issues'];
+          if (issues is Map && issues.isNotEmpty) {
+            final field = issues.keys.first;
+            final issue = issues[field];
+            final msg = issue is Map ? issue.values.first : issue;
+            return '$field: $msg';
+          }
+          if (rrError['statusText'] != null) return rrError['statusText'].toString();
+        } catch (_) {
+          // Not parseable RR JSON — fall through to the raw prefix below.
+        }
+        return detail.substring(0, braceIndex).trim();
+      }
+      return detail;
+    }
+    return detail?.toString() ?? 'An unexpected error occurred';
   }
 }

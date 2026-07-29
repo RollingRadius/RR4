@@ -36,6 +36,7 @@ router = APIRouter()
 
 class TruckSpecifications(BaseModel):
     capacity: Optional[str] = None
+    capacity_unit: Optional[str] = None  # 'Tons' | 'Kg'
     axel_type: Optional[str] = None
     body: Optional[str] = None
     floor: Optional[str] = None
@@ -50,36 +51,13 @@ class LoadRequirementCreate(BaseModel):
     unload_lat: Optional[float] = None
     unload_lon: Optional[float] = None
     material_type: Optional[str] = None
+    material_weight: Optional[str] = None
+    material_weight_unit: Optional[str] = None  # 'Tons' | 'Kg'
     entry_date: Optional[date] = None
     truck_count: int = 1
     specifications: Optional[TruckSpecifications] = None
     # Optional: restrict visibility to specific fleet-management orgs (list of org UUIDs)
     target_org_ids: Optional[List[str]] = None
-
-
-class LoadRequirementResponse(BaseModel):
-    id: str
-    company_id: str
-    created_by: Optional[str]
-    entry_method: str
-    pickup_location: Optional[str]
-    pickup_lat: Optional[float]
-    pickup_lon: Optional[float]
-    unload_location: Optional[str]
-    unload_lat: Optional[float]
-    unload_lon: Optional[float]
-    material_type: Optional[str]
-    entry_date: Optional[date]
-    truck_count: int
-    capacity: Optional[str]
-    axel_type: Optional[str]
-    body_type: Optional[str]
-    floor_type: Optional[str]
-    status: str
-    created_at: str
-
-    class Config:
-        from_attributes = True
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -114,7 +92,7 @@ def _get_logistic_partner_company(current_user: User, db: Session) -> Organizati
 def _get_fleet_member_org(current_user: User, db: Session) -> Organization:
     """
     Verify the current user belongs to a fleet org (admin or worker).
-    Allows logistic_partner, fleet_worker, and super_admin.
+    Allows logistic_partner, lp_rr_operations, fleet_worker, and super_admin.
     Used for read-only fleet endpoints such as browsing available loads.
     """
     user_org = db.query(UserOrganization).filter(
@@ -130,7 +108,7 @@ def _get_fleet_member_org(current_user: User, db: Session) -> Organization:
 
     role = db.query(Role).filter(Role.id == user_org.role_id).first()
     role_key = role.role_key if role else ''
-    if role_key not in ('logistic_partner', 'fleet_worker', 'super_admin'):
+    if role_key not in ('logistic_partner', 'lp_rr_operations', 'fleet_worker', 'super_admin'):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only Logistic Partner users can access this resource."
@@ -177,7 +155,16 @@ def _get_load_owner_company(current_user: User, db: Session) -> Organization:
     return user_org.organization
 
 
-def _record_to_response(record: LoadRequirement) -> dict:
+def _record_to_response(record: LoadRequirement, db: Optional[Session] = None) -> dict:
+    target_org_ids = getattr(record, 'target_org_ids', None) or []
+    target_partner_name = None
+    if db is not None and target_org_ids:
+        try:
+            partner_org = db.query(Organization).filter(Organization.id == target_org_ids[0]).first()
+            target_partner_name = partner_org.company_name if partner_org else None
+        except Exception:
+            target_partner_name = None
+
     return {
         "id":                  str(record.id),
         "company_id":          str(record.company_id),
@@ -190,14 +177,18 @@ def _record_to_response(record: LoadRequirement) -> dict:
         "unload_lat":          record.unload_lat,
         "unload_lon":          record.unload_lon,
         "material_type":       record.material_type,
+        "material_weight":     getattr(record, 'material_weight', None),
+        "material_weight_unit": getattr(record, 'material_weight_unit', None),
         "entry_date":          record.entry_date.isoformat() if record.entry_date else None,
         "truck_count":         record.truck_count,
         "capacity":            record.capacity,
+        "capacity_unit":       getattr(record, 'capacity_unit', None),
         "axel_type":           record.axel_type,
         "body_type":           record.body_type,
         "floor_type":          record.floor_type,
         "fulfilling_org_id":   str(record.fulfilling_org_id) if getattr(record, 'fulfilling_org_id', None) else None,
-        "target_org_ids":      getattr(record, 'target_org_ids', None) or [],
+        "target_org_ids":      target_org_ids,
+        "target_partner_name": target_partner_name,
         "status":              record.status,
         "created_at":          record.created_at.isoformat(),
     }
@@ -234,9 +225,12 @@ def create_load_requirement(
         unload_lat=payload.unload_lat,
         unload_lon=payload.unload_lon,
         material_type=payload.material_type,
+        material_weight=payload.material_weight,
+        material_weight_unit=payload.material_weight_unit,
         entry_date=payload.entry_date,
         truck_count=payload.truck_count,
         capacity=specs.capacity,
+        capacity_unit=specs.capacity_unit,
         axel_type=specs.axel_type,
         body_type=specs.body,
         floor_type=specs.floor,
@@ -275,7 +269,7 @@ def create_load_requirement(
     return {
         "success": True,
         "message": "Load requirement submitted successfully.",
-        "load": _record_to_response(record),
+        "load": _record_to_response(record, db),
     }
 
 
@@ -334,7 +328,7 @@ async def create_load_requirement_bulk(
     return {
         "success": True,
         "message": f"Bulk manifest received ({len(files)} file(s)). Processing queued.",
-        "load": _record_to_response(record),
+        "load": _record_to_response(record, db),
     }
 
 
@@ -373,7 +367,7 @@ async def create_load_requirement_photo(
     return {
         "success": True,
         "message": "Photo received. AI extraction queued.",
-        "load": _record_to_response(record),
+        "load": _record_to_response(record, db),
     }
 
 
@@ -491,7 +485,7 @@ def list_available_loads(
         if targets is not None and len(targets) > 0 and org_id_str not in targets:
             continue
 
-        item = _record_to_response(record)
+        item = _record_to_response(record, db)
         item['company_name'] = company.company_name
         item['company_city'] = company.city
         item['company_state'] = company.state
@@ -547,7 +541,7 @@ def list_loads_for_transporter(
 
     loads = []
     for record, company in rows:
-        item = _record_to_response(record)
+        item = _record_to_response(record, db)
         item['company_name'] = company.company_name
         item['company_city'] = company.city
         item['company_state'] = company.state
@@ -864,7 +858,7 @@ async def fulfill_load_requirement(
         "success": True,
         "message": "Load requirement accepted. Trip created successfully.",
         "trip": trip.to_dict(),
-        "load": _record_to_response(load),
+        "load": _record_to_response(load, db),
     }
 
 
@@ -886,7 +880,7 @@ def list_load_requirements(
 
     return {
         "success": True,
-        "loads": [_record_to_response(r) for r in records],
+        "loads": [_record_to_response(r, db) for r in records],
         "count": len(records),
     }
 
@@ -1053,6 +1047,6 @@ async def cancel_load_requirement(
     return {
         "success": True,
         "message": "Load requirement cancelled successfully.",
-        "load": _record_to_response(load),
+        "load": _record_to_response(load, db),
         "trip_cancelled": linked_trip is not None,
     }
