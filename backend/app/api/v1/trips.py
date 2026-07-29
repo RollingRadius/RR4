@@ -615,7 +615,7 @@ async def submit_stage1(
     driver_name:          str           = Form(...),
     driver_phone:         str           = Form(...),
     driving_license:      str           = Form(...),
-    aadhaar:              str           = Form(...),
+    aadhaar:              Optional[str] = Form(None),
     # Optional document uploads
     driving_license_doc:      Optional[UploadFile] = File(None),
     driving_license_doc_back: Optional[UploadFile] = File(None),
@@ -692,7 +692,8 @@ async def submit_stage1(
         trip.s1_driver_name     = driver_name
         trip.s1_driver_phone    = driver_phone
         trip.s1_driving_license = driving_license
-        trip.s1_aadhaar         = aadhaar
+        if aadhaar:
+            trip.s1_aadhaar     = aadhaar
 
         if new_dl           is not None: trip.s1_driving_license_url      = new_dl
         if new_dl_back      is not None: trip.s1_driving_license_back_url = new_dl_back

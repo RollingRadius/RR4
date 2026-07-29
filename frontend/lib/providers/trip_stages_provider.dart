@@ -90,8 +90,7 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
       state = state.copyWith(isSubmitting: false, currentStage: 1);
       return true;
     } on DioException catch (e) {
-      final msg = e.response?.data?['detail'] as String? ??
-          'Stage 1 submission failed';
+      final msg = _ref.read(apiServiceProvider).handleError(e);
       state = state.copyWith(isSubmitting: false, error: msg);
       return false;
     } catch (e) {
@@ -109,8 +108,7 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
       state = state.copyWith(isSubmitting: false, currentStage: 2);
       return true;
     } on DioException catch (e) {
-      final msg = e.response?.data?['detail'] as String? ??
-          'Stage 2 submission failed';
+      final msg = _ref.read(apiServiceProvider).handleError(e);
       state = state.copyWith(isSubmitting: false, error: msg);
       return false;
     } catch (e) {
@@ -140,8 +138,7 @@ class TripStagesNotifier extends StateNotifier<TripStagesState> {
       );
       return true;
     } on DioException catch (e) {
-      final msg = e.response?.data?['detail'] as String? ??
-          'Stage 3 submission failed';
+      final msg = _ref.read(apiServiceProvider).handleError(e);
       state = state.copyWith(isSubmitting: false, error: msg);
       return false;
     } catch (e) {
