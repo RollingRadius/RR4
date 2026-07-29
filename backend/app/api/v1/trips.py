@@ -1024,9 +1024,16 @@ async def submit_stage3(
             trip.s3_invoice_number = invoice_number.strip()
         if actual_invoice_value:
             try:
-                trip.s3_actual_invoice_value = Decimal(actual_invoice_value)
+                parsed_invoice_value = Decimal(actual_invoice_value)
             except (InvalidOperation, ValueError):
-                pass
+                parsed_invoice_value = None
+            # Column is Numeric(12, 2) — reject rather than let a value this large
+            # crash the commit with a raw 500 (confirmed live: psycopg2
+            # NumericValueOutOfRange on an 11-digit invoice value).
+            if parsed_invoice_value is not None and abs(parsed_invoice_value) >= Decimal("10000000000"):
+                raise HTTPException(status_code=400, detail="Invoice value is too large (max 10 digits before the decimal point).")
+            if parsed_invoice_value is not None:
+                trip.s3_actual_invoice_value = parsed_invoice_value
         if parsed_eway_issue_dt:
             trip.s3_eway_bill_issue_date = parsed_eway_issue_dt
         if parsed_eway_expiry_dt:
