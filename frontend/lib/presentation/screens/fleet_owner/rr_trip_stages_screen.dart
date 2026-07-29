@@ -3338,10 +3338,15 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               child: TextFormField(
                 controller: _actualInvoiceValueCtrl,
                 style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
-                decoration: _stageFieldDec('Enter Invoice Value (₹)'),
+                decoration: _stageFieldDec('Enter Invoice Value (₹, max 10 digits)'),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}$')),
+                  // Column is Numeric(12,2) — cap at 10 integer digits + '.' + 2
+                  // decimals so the value can never exceed what the DB accepts
+                  // (confirmed live: an 11-digit value crashed the submit with
+                  // a raw 500 before the field or backend rejected it).
+                  LengthLimitingTextInputFormatter(13),
                 ],
               ),
             ),
