@@ -896,6 +896,7 @@ async def submit_stage3(
     eway_bill_number:        Optional[str] = Form(None),
     eway_bill_issue_date:    Optional[str] = Form(None),
     eway_bill_expiry_date:   Optional[str] = Form(None),
+    invoice_number:          Optional[str] = Form(None),
     actual_invoice_value:    Optional[str] = Form(None),
     material_docs:           Optional[List[UploadFile]] = File(None),
     vehicle_reach_datetime:  str = Form(...),
@@ -1018,6 +1019,8 @@ async def submit_stage3(
             trip.s3_eway_bill_url = eway_bill_url
         if eway_bill_number:
             trip.s3_eway_bill_number = eway_bill_number
+        if invoice_number:
+            trip.s3_invoice_number = invoice_number.strip()
         if actual_invoice_value:
             try:
                 trip.s3_actual_invoice_value = Decimal(actual_invoice_value)

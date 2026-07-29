@@ -667,7 +667,7 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
     PATCH the RR parcel with Stage 3 documents:
       - documents.eway_bill           — number + issue/expiry date + photo
       - documents.weight_receipt     — loaded weight kg + slip photo
-      - documents.consignor_invoice  — first 2 material doc photos
+      - documents.consignor_invoice  — first 2 material doc photos + invoice number
       - loading.truck_reach_datetime / loading.start_datetime
     """
     if not trip.rr_parcel_id:
@@ -717,10 +717,11 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
     if weight_receipt:
         documents["weight_receipt"] = weight_receipt
 
-    # ── Consignor invoice (material docs) ──────────────────────────────────────
+    # ── Consignor invoice (material docs + invoice number) ──────────────────────
     # RR's schema allows up to 2 photos here, but RR's own web UI only ever
     # reads/writes index 0 (parcel-documents.component.ts) — so only the first
     # doc is actually used on RR's side. We mirror that with a single doc.
+    consignor_invoice: dict = {}
     if trip.s3_material_doc_urls:
         try:
             mat_urls = (
@@ -736,7 +737,11 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
             if rr_file_id:
                 photos.append({"photo": rr_file_id, "side": "Front"})
         if photos:
-            documents["consignor_invoice"] = {"photos": photos}
+            consignor_invoice["photos"] = photos
+    if trip.s3_invoice_number:
+        consignor_invoice["number"] = trip.s3_invoice_number.upper()
+    if consignor_invoice:
+        documents["consignor_invoice"] = consignor_invoice
 
     # ── Loading reach/start datetimes ───────────────────────────────────────────
     loading: dict = {}
