@@ -70,8 +70,8 @@ class _UploadLoadRequirementScreenState
   final _capacityController = TextEditingController();
   final _materialWeightController = TextEditingController();
   final _truckCountController = TextEditingController();
-  String _capacityUnit = 'Tons';
-  String _materialWeightUnit = 'Tons';
+  String _capacityUnit = 'Kg';
+  String _materialWeightUnit = 'Kg';
   DateTime? _entryDate;
 
   String? _selectedAxleType;
@@ -1809,9 +1809,9 @@ class _UploadLoadRequirementScreenState
       _truckCount = 0;
       _truckCountController.text = '';
       _capacityController.text = '';
-      _capacityUnit = 'Tons';
+      _capacityUnit = 'Kg';
       _materialWeightController.text = '';
-      _materialWeightUnit = 'Tons';
+      _materialWeightUnit = 'Kg';
       _selectedAxleType = null;
       _selectedBodyType = null;
       _selectedFloorType = null;
