@@ -129,6 +129,26 @@ class RrSyncApi {
     return Map<String, dynamic>.from(resp.data);
   }
 
+  /// POST /api/rr/vehicles/assign-driver — attaches a driver to a vehicle's RR
+  /// crew. RR's own booking confirmation reads the driver off the vehicle's
+  /// crew field, not off any driver id passed alongside a trip — required
+  /// before RR will let a driverless vehicle be booked.
+  Future<Map<String, dynamic>> assignVehicleDriver({
+    required String rrToken,
+    required String vehicleId,
+    required String driverUserId,
+  }) async {
+    final resp = await _apiService.dio.post(
+      '/api/rr/vehicles/assign-driver',
+      data: {
+        'rr_token': rrToken,
+        'vehicle_id': vehicleId,
+        'driver_user_id': driverUserId,
+      },
+    );
+    return Map<String, dynamic>.from(resp.data);
+  }
+
   /// POST /api/rr/companies — creates a new company (vehicle provider) directly on RR
   Future<Map<String, dynamic>> createRrCompany({
     required String rrToken,

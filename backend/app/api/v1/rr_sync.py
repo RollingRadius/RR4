@@ -1922,6 +1922,56 @@ async def create_rr_vehicle(
     return {"vehicle_id": str(data.get("_id") or ""), "rc_number": body.rc_number}
 
 
+class RrAssignVehicleDriverRequest(BaseModel):
+    rr_token: str
+    vehicle_id: str
+    driver_user_id: str
+
+
+@router.post("/vehicles/assign-driver",
+             summary="Attach a driver to a vehicle's RR crew (required before RR allows booking)")
+async def assign_vehicle_driver(
+    body: RrAssignVehicleDriverRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    RR's own booking-confirmation check reads the driver directly off the
+    vehicle's `crew` field (rrbc-api/app/trips/bidding.py) — a driver picked
+    separately for a trip isn't enough; the vehicle itself must carry a crew
+    entry with position == "Driver", or booking hard-rejects with "Please add
+    driver for vehicle." (confirmed live against trip RR-71165). This actually
+    writes that crew entry, rather than just recording the driver on our side.
+    """
+    _require_rr_session_role(current_user, db)
+    headers = _json_header(body.rr_token)
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+        get_resp = await client.get(
+            f"{settings.RR_API_BASE}/vehicles/{body.vehicle_id}",
+            headers={"Authorization": headers["Authorization"]},
+        )
+        if get_resp.status_code != 200:
+            raise HTTPException(status_code=502, detail=f"RR vehicle lookup failed: {get_resp.text[:400]}")
+        vehicle = get_resp.json()
+        etag = vehicle.get("_etag")
+        if not etag:
+            raise HTTPException(status_code=502, detail="RR vehicle record missing _etag")
+
+        # Preserve any non-driver crew (e.g. a Helper) already on the vehicle;
+        # replace/add only the Driver entry.
+        existing_crew = [c for c in (vehicle.get("crew") or []) if c.get("position") != "Driver"]
+        new_crew = existing_crew + [{"worker": body.driver_user_id, "position": "Driver"}]
+
+        patch_resp = await client.patch(
+            f"{settings.RR_API_BASE}/vehicles/{body.vehicle_id}",
+            json={"crew": new_crew},
+            headers={**headers, "If-Match": etag},
+        )
+    if patch_resp.status_code not in (200, 201):
+        raise HTTPException(status_code=502, detail=f"RR vehicle driver assignment failed: {patch_resp.text[:400]}")
+    return {"vehicle_id": body.vehicle_id, "driver_user_id": body.driver_user_id}
+
+
 class RrCreateCompanyRequest(BaseModel):
     rr_token: str
     name: str

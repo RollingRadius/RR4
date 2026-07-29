@@ -154,9 +154,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _driverPhoneCtrl = TextEditingController();
   String? _selectedDriverRrId;
   String? _selectedDriverName;
-
-  // ── Vehicle search (within selected provider's vehicle list) ──────────────
-  final _vehicleSearchCtrl = TextEditingController();
+  bool _vehicleHasNoDriver = false;
+  bool _assigningDriverToVehicle = false;
 
   static const _axleTypes    = ['Single', 'Double', 'Triple', 'Multiple'];
   static const _wheelOptions = [4, 6, 8, 10, 12, 14, 16, 18, 22];
@@ -244,7 +243,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _vpPhoneCtrl.removeListener(_onVpPhoneChanged);
     _vpPhoneCtrl.dispose();
     _driverPhoneCtrl.dispose();
-    _vehicleSearchCtrl.dispose();
     _scrollCtrl0.dispose();
     _scrollCtrl1.dispose();
     _scrollCtrl2.dispose();
@@ -598,7 +596,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _vpPersonalVehicles = []; _vpCompanies = []; _vpVehicles = [];
         _vpSelectedCompanyId = null; _vpSelectedCompanyName = null;
         _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null;
-        _vehicleSearchCtrl.clear();
         _vpLookupError = null;
       });
     }
@@ -640,7 +637,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       _vpSelectedCompanyId = null;
       _vpSelectedVehicleRrId = null;
       _vpSelectedVehicleNumber = null;
-      _vehicleSearchCtrl.clear();
     });
     final userId = user['user_id'] as String? ?? '';
     final dio = ref.read(dioProvider);
@@ -667,7 +663,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     setState(() {
       _vpVehiclesLoading = true; _vpVehicles = [];
       _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null;
-      _vehicleSearchCtrl.clear();
     });
     try {
       final dio = ref.read(dioProvider);
@@ -679,6 +674,48 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _vpVehiclesLoading = false);
+    }
+  }
+
+  // Actually attaches the picked driver to the selected vehicle's RR crew —
+  // RR's booking confirmation reads the driver off the vehicle itself, not
+  // off any driver id we send alongside the trip (confirmed live: trip
+  // RR-71165 hit "Please add driver for vehicle." at Confirm Booking despite
+  // a driver being selected here, because the vehicle's own crew was empty).
+  Future<void> _assignDriverToVehicle(String driverUserId) async {
+    if (_vpSelectedVehicleRrId == null || !_vehicleHasNoDriver) return;
+    final session = await ensureRrSession(context, ref);
+    if (session == null || !mounted) return;
+    setState(() => _assigningDriverToVehicle = true);
+    try {
+      await ref.read(rrSyncApiProvider).assignVehicleDriver(
+            rrToken: session.token,
+            vehicleId: _vpSelectedVehicleRrId!,
+            driverUserId: driverUserId,
+          );
+      if (!mounted) return;
+      void patchDriver(List<Map<String, dynamic>> list) {
+        final idx = list.indexWhere((v) => v['rr_vehicle_id'] == _vpSelectedVehicleRrId);
+        if (idx != -1) {
+          list[idx] = {...list[idx], 'driver_id': driverUserId, 'driver_name': _selectedDriverName ?? ''};
+        }
+      }
+      setState(() {
+        _vehicleHasNoDriver = false;
+        _assigningDriverToVehicle = false;
+        patchDriver(_vpVehicles);
+        patchDriver(_vpPersonalVehicles);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _assigningDriverToVehicle = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+          'Could not attach driver to vehicle on RR: ${ref.read(apiServiceProvider).handleError(e)}',
+          style: _inter(size: 13, color: Colors.white),
+        ),
+        backgroundColor: _errorClr,
+      ));
     }
   }
 
@@ -824,11 +861,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   // ── Step navigation ───────────────────────────────────────────────────────
 
+  void _scrollStepToTop(int step) {
+    final ctrl = [_scrollCtrl0, _scrollCtrl1, _scrollCtrl2][step];
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (ctrl.hasClients) ctrl.jumpTo(0);
+    });
+  }
+
   void _goNext() {
     setState(() { _submitError = null; _fieldErr.clear(); _fieldErrMsg.clear(); });
     if (_currentStep == 0 && !_validateStep0()) return;
     if (_currentStep == 1 && !_validateStep1()) return;
-    if (_currentStep < 2) setState(() => _currentStep++);
+    if (_currentStep < 2) {
+      setState(() => _currentStep++);
+      _scrollStepToTop(_currentStep);
+    }
   }
 
   void _goBack() {
@@ -838,6 +885,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       _fieldErrMsg.clear();
       if (_currentStep > 0) _currentStep--;
     });
+    _scrollStepToTop(_currentStep);
   }
 
   // ── Submit ────────────────────────────────────────────────────────────────
@@ -1546,11 +1594,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       // endpoints and can both return the same vehicle (e.g. a vehicle
                       // personally owned by the selected user that is also affiliated
                       // with the chosen company) — dedupe by rr_vehicle_id so the same
-                      // vehicle never appears twice in the search results. (A prior
-                      // DropdownButton here required exact unique value/items matches
-                      // and crashed on this exact duplicate case — replaced with a
-                      // search field, matching the Driver field's pattern above, which
-                      // has no such uniqueness constraint.)
+                      // vehicle never appears twice and DropdownButtonFormField's
+                      // unique-value requirement is satisfied.
                       final seen = <String>{};
                       final all = [..._vpPersonalVehicles, ..._vpVehicles].where((v) {
                         final id = v['rr_vehicle_id'] as String?;
@@ -1576,31 +1621,55 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                         final driverSuffix = driverName.isNotEmpty ? '  — $driverName' : '';
                         return '$label$badge$driverSuffix';
                       }
-                      return RrSearchField<Map<String, dynamic>>(
-                        label: 'Search vehicle by number',
-                        controller: _vehicleSearchCtrl,
-                        search: (q) async {
-                          final query = q.toLowerCase();
-                          return all.where((v) {
-                            final num   = (v['number'] as String? ?? '').toLowerCase();
-                            final model = (v['model_name'] as String? ?? '').toLowerCase();
-                            return num.contains(query) || model.contains(query);
-                          }).toList();
-                        },
-                        itemLabel: vehicleLabel,
-                        onSelected: (v) {
+                      return _DropdownField<String>(
+                        hasError: _fieldErr['vehicle'] == true,
+                        value: _vpSelectedVehicleRrId,
+                        hint: 'Select a vehicle',
+                        items: all.map((v) {
+                          final hasDriver = (v['driver_id'] as String? ?? '').isNotEmpty;
+                          return DropdownMenuItem<String>(
+                            value: v['rr_vehicle_id'] as String,
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              Flexible(child: Text(vehicleLabel(v),
+                                  style: _inter(size: 13, color: _onSurface), overflow: TextOverflow.ellipsis)),
+                              if (!hasDriver) ...[
+                                const SizedBox(width: 6),
+                                const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFE65100)),
+                              ],
+                            ]),
+                          );
+                        }).toList(),
+                        onChanged: (id) {
+                          if (id == null) return;
+                          final picked = all.firstWhere((v) => v['rr_vehicle_id'] == id);
                           setState(() {
-                            _vpSelectedVehicleRrId   = v['rr_vehicle_id'] as String?;
-                            _vpSelectedVehicleNumber = v['number'] as String?;
-                            _vehicleSearchCtrl.text  = vehicleLabel(v);
+                            _vpSelectedVehicleRrId   = id;
+                            _vpSelectedVehicleNumber = picked['number'] as String?;
                             _fieldErr.remove('vehicle');
                             _fieldErrMsg.remove('vehicle');
+
+                            // Auto-fill the driver from the vehicle's own RR crew
+                            // record when it has one — the old flow's behaviour,
+                            // still overridable below. Vehicles with no driver on
+                            // file (e.g. freshly quick-added) fall through to the
+                            // warning + mandatory manual search/add.
+                            final vDriverId   = picked['driver_id'] as String? ?? '';
+                            final vDriverName = picked['driver_name'] as String? ?? '';
+                            if (vDriverId.isNotEmpty) {
+                              _selectedDriverRrId = vDriverId;
+                              _selectedDriverName = vDriverName;
+                              _driverPhoneCtrl.text = vDriverName;
+                              _vehicleHasNoDriver = false;
+                              _fieldErr.remove('driver');
+                              _fieldErrMsg.remove('driver');
+                            } else {
+                              _selectedDriverRrId = null;
+                              _selectedDriverName = null;
+                              _driverPhoneCtrl.clear();
+                              _vehicleHasNoDriver = true;
+                            }
                           });
                         },
-                        onCleared: () => setState(() {
-                          _vpSelectedVehicleRrId = null;
-                          _vpSelectedVehicleNumber = null;
-                        }),
                       );
                     }(),
               _inlineErr('vehicle'),
@@ -1608,6 +1677,27 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
             const SizedBox(height: 20),
             _FieldLabel(key: _keyDriver, label: 'Driver *'),
+            if (_vehicleHasNoDriver) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFFA726)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFE65100), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This vehicle has no driver assigned on RR — search for one below or add a new driver.',
+                      style: _inter(size: 12, color: const Color(0xFFE65100)),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
             const SizedBox(height: 6),
             RrSearchField<Map<String, dynamic>>(
               label: 'Driver Name or Phone Number',
@@ -1623,31 +1713,49 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               itemLabel: (u) => u['name'] as String? ?? '',
               itemSubtitle: (u) => u['phone'] as String? ?? '',
               onSelected: (u) {
+                final driverId = u['user_id'] as String?;
+                final wasVehicleDriverless = _vehicleHasNoDriver;
                 setState(() {
-                  _selectedDriverRrId = u['user_id'] as String?;
+                  _selectedDriverRrId = driverId;
                   _selectedDriverName = u['name'] as String?;
                   _driverPhoneCtrl.text = '${u['name']} (${u['phone']})';
                   _fieldErr.remove('driver');
                   _fieldErrMsg.remove('driver');
                 });
+                if (wasVehicleDriverless && driverId != null) {
+                  _assignDriverToVehicle(driverId);
+                } else {
+                  setState(() => _vehicleHasNoDriver = false);
+                }
               },
               onCleared: () => setState(() { _selectedDriverRrId = null; _selectedDriverName = null; }),
             ),
             _inlineErr('driver'),
+            if (_assigningDriverToVehicle) ...[
+              const SizedBox(height: 8),
+              const _LoadingChip(label: 'Attaching driver to vehicle on RR…'),
+            ],
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: () async {
+                final wasVehicleDriverless = _vehicleHasNoDriver;
                 final result = await Navigator.of(context).push<Map<String, dynamic>>(
                   MaterialPageRoute(builder: (_) => const AddRrUserScreen()),
                 );
                 if (result != null && mounted) {
+                  final driverId = result['user_id'] as String?;
                   setState(() {
-                    _selectedDriverRrId = result['user_id'] as String?;
+                    _selectedDriverRrId = driverId;
                     _selectedDriverName = result['name'] as String?;
                     _driverPhoneCtrl.text = '${result['name']} (${result['phone']})';
                     _fieldErr.remove('driver');
                     _fieldErrMsg.remove('driver');
                   });
+                  if (wasVehicleDriverless && driverId != null) {
+                    _assignDriverToVehicle(driverId);
+                  } else {
+                    setState(() => _vehicleHasNoDriver = false);
+                  }
                 }
               },
               icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),

@@ -43,22 +43,33 @@ class _RrSearchFieldState<T> extends State<RrSearchField<T>> {
   List<T> _results = [];
   bool _loading = false;
   bool _showResults = false;
+  // Debounce only cancels the pending *timer* — an in-flight network call from
+  // an earlier keystroke isn't cancelled by it. If that older, more generic
+  // query (e.g. a single typed letter, matching far more rows) resolves AFTER
+  // a later, more specific one, it can silently overwrite the list with stale,
+  // wrong results the user never actually searched for — and RR's own
+  // `get_user_by_phone` name search returns unsorted natural-DB-order matches,
+  // so an old test/seed account can easily be among a short query's top hits.
+  // Tag each request and only apply the response if it's still the latest.
+  int _requestId = 0;
 
   void _onChanged(String q) {
     widget.onCleared?.call();
     _debounce?.cancel();
     if (q.trim().isEmpty) {
+      _requestId++;
       setState(() { _results = []; _showResults = false; });
       return;
     }
     setState(() { _loading = true; _showResults = true; });
     _debounce = Timer(const Duration(milliseconds: 400), () async {
+      final myRequestId = ++_requestId;
       try {
         final items = await widget.search(q.trim());
-        if (!mounted) return;
+        if (!mounted || myRequestId != _requestId) return;
         setState(() { _results = items; _loading = false; });
       } catch (_) {
-        if (!mounted) return;
+        if (!mounted || myRequestId != _requestId) return;
         setState(() { _results = []; _loading = false; });
       }
     });
