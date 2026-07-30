@@ -39,7 +39,16 @@ fi
 # automatically inherit the script's positional parameters unless forwarded.
 FORCE_FLAG="${2:-}"
 
-COMMAND="${1:-dev}"
+# Bare `bash start.sh` (no argument) defaults per-host: on a box provisioned
+# as prod, it stays in prod (via `restart`, which is mode-aware and reuses
+# whatever .deploy_mode already says) instead of falling through to "dev" and
+# hitting the guard below. Anywhere else (.host-env=test or unset), it still
+# defaults to "dev" exactly as before.
+if [ "$HOST_ENV" = "prod" ]; then
+    COMMAND="${1:-restart}"
+else
+    COMMAND="${1:-dev}"
+fi
 
 # ============================================================================
 # Helper Functions
