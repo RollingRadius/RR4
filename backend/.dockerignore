@@ -99,6 +99,9 @@ test_*.py
 check_*.py
 verify_*.py
 seed_*.py
+# seed_capabilities.py IS needed in the image — the production Dockerfile
+# stage copies it explicitly (used by start.sh's `seed` command)
+!seed_capabilities.py
 
 # OSRM data (large files)
 osrm-data/

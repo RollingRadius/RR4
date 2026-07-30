@@ -22,6 +22,23 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR"
 
+# Pin the Compose project name explicitly so it can never silently drift
+# depending on which directory this script is invoked from (a prior drift
+# from "fleet" to "backend" orphaned a whole Postgres volume's worth of data).
+export COMPOSE_PROJECT_NAME=backend
+
+# Per-host provisioning marker — `echo prod > .host-env` once on a production
+# box to block accidental dev-mode runs there. Not created by this script;
+# absent on test servers, where dev mode should stay freely available.
+HOST_ENV=""
+if [ -f .host-env ]; then
+    HOST_ENV="$(cat .host-env)"
+fi
+
+# Captured here (not read as $2 inside functions) because bash functions don't
+# automatically inherit the script's positional parameters unless forwarded.
+FORCE_FLAG="${2:-}"
+
 COMMAND="${1:-dev}"
 
 # ============================================================================
@@ -82,10 +99,19 @@ check_docker_compose() {
 # Service Management
 # ============================================================================
 start_dev() {
+    if [ "$HOST_ENV" = "prod" ] && [ "$FORCE_FLAG" != "--force" ]; then
+        print_error "This host is provisioned as PRODUCTION (.host-env=prod)."
+        print_info "Refusing to start dev mode (hot-reload) here — that's what caused the last incident."
+        print_info "If you genuinely need dev mode on this host, run: ./start.sh dev --force"
+        exit 1
+    fi
+
     print_header "Fleet Management System - Development Mode"
 
     check_docker
     check_docker_compose
+
+    echo "dev" > .deploy_mode
 
     print_step "Step 1: Building images..."
     $COMPOSE_CMD build
@@ -158,6 +184,8 @@ start_prod() {
         exit 0
     fi
 
+    echo "prod" > .deploy_mode
+
     print_step "Building production images..."
     $COMPOSE_CMD -f docker-compose.yml -f docker-compose.prod.yml build
 
@@ -175,7 +203,16 @@ stop_services() {
     print_info "Stopping all services..."
     check_docker_compose
 
-    $COMPOSE_CMD down
+    LAST_MODE="dev"
+    if [ -f .deploy_mode ]; then
+        LAST_MODE="$(cat .deploy_mode)"
+    fi
+
+    if [ "$LAST_MODE" = "prod" ]; then
+        $COMPOSE_CMD -f docker-compose.yml -f docker-compose.prod.yml down
+    else
+        $COMPOSE_CMD down
+    fi
 
     print_success "All services stopped"
 }
@@ -379,14 +416,31 @@ rebuild_services() {
         exit 0
     fi
 
-    print_step "Step 1: Stopping services..."
-    $COMPOSE_CMD down
+    LAST_MODE="dev"
+    if [ -f .deploy_mode ]; then
+        LAST_MODE="$(cat .deploy_mode)"
+    fi
 
-    print_step "Step 2: Rebuilding images (no cache)..."
-    $COMPOSE_CMD build --no-cache
+    if [ "$LAST_MODE" = "prod" ]; then
+        print_warning "Last started in PRODUCTION mode — rebuilding in production mode."
+        print_step "Step 1: Stopping services..."
+        $COMPOSE_CMD -f docker-compose.yml -f docker-compose.prod.yml down
 
-    print_step "Step 3: Starting services..."
-    $COMPOSE_CMD up -d
+        print_step "Step 2: Rebuilding images (no cache)..."
+        $COMPOSE_CMD -f docker-compose.yml -f docker-compose.prod.yml build --no-cache
+
+        print_step "Step 3: Starting services..."
+        $COMPOSE_CMD -f docker-compose.yml -f docker-compose.prod.yml up -d
+    else
+        print_step "Step 1: Stopping services..."
+        $COMPOSE_CMD down
+
+        print_step "Step 2: Rebuilding images (no cache)..."
+        $COMPOSE_CMD build --no-cache
+
+        print_step "Step 3: Starting services..."
+        $COMPOSE_CMD up -d
+    fi
 
     print_success "Services rebuilt and started successfully!"
 }
@@ -492,7 +546,16 @@ case "$COMMAND" in
         ;;
     restart)
         stop_services
-        start_dev
+        LAST_MODE="dev"
+        if [ -f .deploy_mode ]; then
+            LAST_MODE="$(cat .deploy_mode)"
+        fi
+        if [ "$LAST_MODE" = "prod" ]; then
+            print_warning "Last started in PRODUCTION mode — restarting in production mode."
+            start_prod
+        else
+            start_dev
+        fi
         ;;
     logs)
         show_logs "$@"

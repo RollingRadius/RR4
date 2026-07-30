@@ -33,6 +33,10 @@ ENV/
 .env.docker
 # .env.example and .env.docker.example ARE committed (safe templates with false defaults)
 
+# Local markers for start.sh — per-machine state, never shared/committed
+.deploy_mode
+.host-env
+
 # IDEs
 .vscode/
 .idea/

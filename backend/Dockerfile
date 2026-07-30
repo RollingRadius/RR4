@@ -107,7 +107,7 @@ COPY --chown=appuser:appgroup ./docker-entrypoint.sh /app/docker-entrypoint.sh
 COPY --chown=appuser:appgroup ./wait-for-db.sh /app/wait-for-db.sh
 COPY --chown=appuser:appgroup ./init-db.py /app/init-db.py
 COPY --chown=appuser:appgroup ./requirements.txt /app/requirements.txt
-COPY --chown=appuser:appgroup ./seed_capabilities.py /app/seed_capabilities.py 2>/dev/null || true
+COPY --chown=appuser:appgroup ./seed_capabilities.py /app/seed_capabilities.py
 
 # Create necessary directories with proper permissions
 RUN mkdir -p /app/uploads /app/logs && \
