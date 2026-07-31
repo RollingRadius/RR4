@@ -41,10 +41,16 @@ class TripModel {
   final String? s1AadhaarUrl;
   final String? s1AadhaarBackUrl;
   final String? s1Rc;
+  final String? s1RcBack;
+  final String? s1RcNumber;
   final String? s1Insurance;
+  final String? s1InsuranceNumber;
   final String? s1Pollution;
+  final String? s1PucNumber;
   final String? s1Fitness;
+  final String? s1FitnessNumber;
   final String? s1Permit;
+  final String? s1PermitNumber;
   final String? s1Pan;
   final String? s1TaxDeclaration;
   final String? s1CancelledCheque;
@@ -150,6 +156,7 @@ class TripModel {
   final bool?   partLoad;
   final String? vehicleNumber;
   final String? rrVehicleId;
+  final String? rrDriverId;
   final String? axleType;
   final int?    numberOfWheels;
   final double? expectedFreight;
@@ -171,6 +178,7 @@ class TripModel {
   final String? rrSyncStatus;
   final String? rrSyncError;
   final String? rrSyncedAt;
+  final String? movedToRecordsAt;
 
   // ── Per-stage RR sync tracking ──
   final String? rrS1SyncStatus;
@@ -227,10 +235,16 @@ class TripModel {
     this.s1AadhaarUrl,
     this.s1AadhaarBackUrl,
     this.s1Rc,
+    this.s1RcBack,
+    this.s1RcNumber,
     this.s1Insurance,
+    this.s1InsuranceNumber,
     this.s1Pollution,
+    this.s1PucNumber,
     this.s1Fitness,
+    this.s1FitnessNumber,
     this.s1Permit,
+    this.s1PermitNumber,
     this.s1Pan,
     this.s1TaxDeclaration,
     this.s1CancelledCheque,
@@ -314,6 +328,7 @@ class TripModel {
     this.partLoad,
     this.vehicleNumber,
     this.rrVehicleId,
+    this.rrDriverId,
     this.axleType,
     this.numberOfWheels,
     this.expectedFreight,
@@ -329,6 +344,7 @@ class TripModel {
     this.rrSyncStatus,
     this.rrSyncError,
     this.rrSyncedAt,
+    this.movedToRecordsAt,
     this.rrS1SyncStatus,
     this.rrS1SyncError,
     this.rrS2SyncStatus,
@@ -387,10 +403,16 @@ class TripModel {
       s1AadhaarUrl: json['s1_aadhaar_url'] as String?,
       s1AadhaarBackUrl: json['s1_aadhaar_back_url'] as String?,
       s1Rc: json['s1_rc'] as String?,
+      s1RcBack: json['s1_rc_back'] as String?,
+      s1RcNumber: json['s1_rc_number'] as String?,
       s1Insurance: json['s1_insurance'] as String?,
+      s1InsuranceNumber: json['s1_insurance_number'] as String?,
       s1Pollution: json['s1_pollution'] as String?,
+      s1PucNumber: json['s1_puc_number'] as String?,
       s1Fitness: json['s1_fitness'] as String?,
+      s1FitnessNumber: json['s1_fitness_number'] as String?,
       s1Permit: json['s1_permit'] as String?,
+      s1PermitNumber: json['s1_permit_number'] as String?,
       s1Pan: json['s1_pan'] as String?,
       s1TaxDeclaration: json['s1_tax_declaration'] as String?,
       s1CancelledCheque: json['s1_cancelled_cheque'] as String?,
@@ -474,6 +496,7 @@ class TripModel {
       partLoad:                json['part_load']                as bool?,
       vehicleNumber:           json['vehicle_number']           as String?,
       rrVehicleId:             json['rr_vehicle_id']            as String?,
+      rrDriverId:              json['rr_driver_id']             as String?,
       axleType:                json['axle_type']                as String?,
       numberOfWheels:          json['number_of_wheels']         as int?,
       expectedFreight:         (json['expected_freight'] as num?)?.toDouble(),
@@ -489,6 +512,7 @@ class TripModel {
       rrSyncStatus:            json['rr_sync_status'] as String?,
       rrSyncError:             json['rr_sync_error'] as String?,
       rrSyncedAt:              json['rr_synced_at'] as String?,
+      movedToRecordsAt:        json['moved_to_records_at'] as String?,
       rrS1SyncStatus:          json['rr_s1_sync_status'] as String?,
       rrS1SyncError:           json['rr_s1_sync_error'] as String?,
       rrS2SyncStatus:          json['rr_s2_sync_status'] as String?,

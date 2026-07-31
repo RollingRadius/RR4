@@ -65,6 +65,40 @@ class RrSyncApi {
     return Map<String, dynamic>.from(resp.data);
   }
 
+  /// POST /api/rr/reassign-driver/{trip_id}
+  /// Body: {rr_token, driver_rr_id} — calls RR's add_vehicle_crew to change
+  /// who's assigned as the trip's driver (My Trips column + crew dialog),
+  /// LP/RR-ops only. Independent of doc sync — call after uploading the new
+  /// driver's docs/numbers if those need pushing too.
+  Future<Map<String, dynamic>> reassignDriver({
+    required String tripId,
+    required String rrToken,
+    required String driverRrId,
+  }) async {
+    final resp = await _apiService.dio.post(
+      '/api/rr/reassign-driver/$tripId',
+      data: {'rr_token': rrToken, 'driver_rr_id': driverRrId},
+    );
+    return Map<String, dynamic>.from(resp.data);
+  }
+
+  /// GET /api/rr/prefill?driver_rr_id=&vehicle_rr_id= — pulls whatever RR
+  /// already has for a previously-hired driver/vehicle (name/phone/DL+Aadhaar
+  /// number+photos for the driver; RC(front+back)/PUC/Fitness/Permit
+  /// number+photos, insurance, and crew for the vehicle) so Stage 1 doesn't
+  /// need re-entry. Pass either or both ids. Photo values are RR file ids,
+  /// not URLs — resolve via [filePreviewUrl] / the file-preview proxy.
+  Future<Map<String, dynamic>> getPrefill({String? driverRrId, String? vehicleRrId}) async {
+    final resp = await _apiService.dio.get(
+      '/api/rr/prefill',
+      queryParameters: {
+        if (driverRrId != null) 'driver_rr_id': driverRrId,
+        if (vehicleRrId != null) 'vehicle_rr_id': vehicleRrId,
+      },
+    );
+    return Map<String, dynamic>.from(resp.data);
+  }
+
   // ─── Quick-add: Vehicle / Company / User directly on RR ──────────────────────
 
   /// GET /api/rr/users/search?q=&rr_token= — typeahead by phone prefix or name.
