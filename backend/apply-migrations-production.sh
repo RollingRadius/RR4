@@ -165,15 +165,22 @@ fi
 echo ""
 print_step "Step 3: Checking current migration status"
 
-$COMPOSE_CMD exec backend alembic current || print_info "No migrations applied yet"
+$COMPOSE_CMD exec -T backend alembic current || print_info "No migrations applied yet"
 
 echo ""
 print_step "Step 4: Checking for migration heads"
 
-HEADS=$($COMPOSE_CMD exec backend alembic heads 2>/dev/null || echo "")
+HEADS=$($COMPOSE_CMD exec -T backend alembic heads 2>/dev/null || echo "")
 echo "$HEADS"
 
-HEADS_COUNT=$(echo "$HEADS" | grep -c "^[a-f0-9]" || echo 0)
+# `|| true` (not `|| echo 0`) here — grep -c always prints a valid single-line
+# count even on zero matches, it just also exits 1 in that case. The old
+# `|| echo 0` fired on that same nonzero exit and printed a SECOND "0",
+# producing a malformed two-line "0\n0" value that broke the numeric
+# comparison below ("integer expression expected"). `|| true` just neutralizes
+# the exit status (so `set -e` doesn't abort the whole script under it) without
+# adding any extra output — grep's own "0" is already correct on its own.
+HEADS_COUNT=$(echo "$HEADS" | grep -c "^[a-f0-9]" || true)
 
 if [ "$HEADS_COUNT" -gt 1 ]; then
     print_warning "Multiple migration heads detected!"
@@ -187,7 +194,7 @@ fi
 echo ""
 print_step "Step 5: Viewing migration history"
 
-$COMPOSE_CMD exec backend alembic history | head -20
+$COMPOSE_CMD exec -T backend alembic history | head -20
 
 echo ""
 print_step "Step 6: Creating database backup (recommended)"
@@ -219,7 +226,7 @@ print_info "Running migrations..."
 # script appearing "stuck".
 # statement_timeout: backstop for any single migration statement that runs
 # away for an unrelated reason.
-if $COMPOSE_CMD exec -e PGOPTIONS="-c lock_timeout=15000 -c statement_timeout=120000" backend alembic $UPGRADE_CMD; then
+if $COMPOSE_CMD exec -T -e PGOPTIONS="-c lock_timeout=15000 -c statement_timeout=120000" backend alembic $UPGRADE_CMD; then
     print_success "Migrations applied successfully!"
 else
     MIGRATION_FAILED=$?
@@ -227,8 +234,8 @@ else
     echo ""
     print_info "Troubleshooting steps:"
     echo "  1. Check backend logs: $COMPOSE_CMD logs backend"
-    echo "  2. Check migration status: $COMPOSE_CMD exec backend alembic current"
-    echo "  3. View recent migrations: $COMPOSE_CMD exec backend alembic history"
+    echo "  2. Check migration status: $COMPOSE_CMD exec -T backend alembic current"
+    echo "  3. View recent migrations: $COMPOSE_CMD exec -T backend alembic history"
     echo "  4. If it failed on lock_timeout, something else is holding a lock on the"
     echo "     table being altered — check for long-running queries before retrying."
     echo ""
@@ -245,11 +252,11 @@ echo ""
 print_step "Step 8: Verifying migration"
 
 print_info "Current migration version:"
-$COMPOSE_CMD exec backend alembic current
+$COMPOSE_CMD exec -T backend alembic current
 
 echo ""
 print_info "Database tables:"
-$COMPOSE_CMD exec postgres psql -U fleet_user -d fleet_db -c "\dt" | head -30
+$COMPOSE_CMD exec -T postgres psql -U fleet_user -d fleet_db -c "\dt" | head -30
 
 echo ""
 print_step "Step 9: Testing API health"
@@ -259,7 +266,7 @@ print_step "Step 9: Testing API health"
 # a short per-request timeout instead of a single unbounded curl that can hang.
 health_ok=0
 for attempt in 1 2 3 4 5; do
-    if $COMPOSE_CMD exec backend curl -f --max-time 5 http://localhost:8000/health > /dev/null 2>&1; then
+    if $COMPOSE_CMD exec -T backend curl -f --max-time 5 http://localhost:8000/health > /dev/null 2>&1; then
         health_ok=1
         break
     fi
