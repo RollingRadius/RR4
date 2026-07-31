@@ -68,8 +68,14 @@ if [ -z "${RR4_MIGRATION_BG:-}" ]; then
     print_info "Running in the background so a dropped SSH session can't interrupt this."
     print_info "Log file: $LOG_FILE"
     print_info "You can safely close this terminal; reconnect later and run: tail -f $LOG_FILE"
+    # No `disown` here — nohup + setsid alone already fully protect this
+    # process from a dropped SSH session (nohup ignores SIGHUP, setsid detaches
+    # it from the controlling terminal entirely). Disowning it additionally
+    # broke `wait "$BG_PID"` below: once a job is disowned, `wait` can return
+    # immediately (often with exit code 0) instead of actually blocking until
+    # the real background process finishes — which silently turned every run
+    # into a false "success" before the migration had done any real work.
     nohup setsid "$0" "$@" > "$LOG_FILE" 2>&1 < /dev/null &
-    disown
     BG_PID=$!
     echo "Started as PID $BG_PID."
 
