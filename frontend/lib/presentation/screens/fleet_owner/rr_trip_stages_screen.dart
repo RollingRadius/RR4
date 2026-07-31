@@ -1247,12 +1247,46 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     return null;
   }
 
+  // Matches RR's own server-side format exactly (rrbc-api/app/rr_utils/
+  // common_functions.py's is_driving_licence_valid): state code (2 letters)
+  // + RTO code (2 digits) + optional single series letter + year (19xx/20xx)
+  // + 7 digits — 15 chars without the series letter, 16 with it, after
+  // stripping separators (which _submit() always does before sending).
+  // Loose format checks (10-18 any alphanumeric) let clearly-invalid values
+  // through locally that RR's own sync then rejects outright — this closes
+  // that gap so the error surfaces immediately, not after a failed sync.
   String? _validateDrivingLicense(String? v) {
     if (v == null || v.trim().isEmpty) return 'Driving License is required';
     final cleaned = v.trim().replaceAll(RegExp(r'[\s/\-]'), '').toUpperCase();
-    if (!RegExp(r'^[A-Z0-9]{10,18}$').hasMatch(cleaned)) {
-      return 'Invalid format — 10–18 alphanumeric chars (e.g. RJ1420230012345)';
+    if (!RegExp(r'^[A-Z]{2}[0-9]{2}[A-Z]?(19|20)[0-9]{2}[0-9]{7}$').hasMatch(cleaned)) {
+      return 'Invalid format — e.g. RJ1420230012345 (state+RTO+year+7 digits)';
     }
+    return null;
+  }
+
+  // Matches RR's own rule exactly (validator.py's _validate_check_format for
+  // Registration Certificate): rejects a purely-alphabetic or purely-numeric
+  // value, since a real RC number is always a mix of both. RR also enforces
+  // a cross-vehicle uniqueness check server-side that can't be replicated
+  // client-side without a live lookup — this only covers the format half.
+  String? _validateRcNumber(String? v) {
+    if (v == null || v.trim().isEmpty) return null; // optional
+    final cleaned = v.trim();
+    final hasLetter = RegExp(r'[A-Za-z]').hasMatch(cleaned);
+    final hasDigit = RegExp(r'[0-9]').hasMatch(cleaned);
+    if (!hasLetter || !hasDigit) {
+      return 'Invalid RC number — must contain both letters and digits';
+    }
+    return null;
+  }
+
+  // PUC/Fitness/Permit/Insurance have no fixed nationwide numbering standard
+  // (unlike DL/Aadhaar/RC) and RR itself applies no format validation to
+  // these — confirmed by reading RR's validator source. A light sanity
+  // check only (reasonable length), not a fabricated strict format.
+  String? _validateGenericDocNumber(String? v) {
+    if (v == null || v.trim().isEmpty) return null; // optional
+    if (v.trim().length < 4) return 'Too short to be a valid number';
     return null;
   }
 
@@ -1479,7 +1513,12 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
 
   /// Optional number field for a vehicle doc (RC/PUC/Fitness/Permit) — sits
   /// alongside its upload, same as DL/Aadhaar number fields do for driver docs.
-  Widget _numberField(String label, TextEditingController controller, String fieldKey) =>
+  Widget _numberField(
+    String label,
+    TextEditingController controller,
+    String fieldKey, {
+    String? Function(String?)? validator,
+  }) =>
       Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: TextFormField(
@@ -1487,6 +1526,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
           style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
           textCapitalization: TextCapitalization.characters,
           inputFormatters: [LengthLimitingTextInputFormatter(30)],
+          validator: validator ?? _validateGenericDocNumber,
           decoration: _dec(label),
         ),
       );
@@ -1724,7 +1764,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
             _SectionHeader(icon: Icons.directions_car_outlined, title: 'Vehicle Documents'),
             // RC — Front & Back (RC is the only vehicle doc RR itself supports
             // a back side for; PUC/Fitness/Permit stay front-only, matching RR web)
-            _numberField('RC Number', _rcNumber, 'rc_number'),
+            _numberField('RC Number', _rcNumber, 'rc_number', validator: _validateRcNumber),
             _DocPairSection(
               title: 'RC (Registration Certificate)',
               frontTile: _uploadTile(
