@@ -497,6 +497,131 @@ async def get_identity_status(
     return {"items": results}
 
 
+def _photo_file_ids(photos: list) -> dict:
+    """Split an RR identities[]-style photos array into {front,back}_file_id."""
+    front = back = None
+    for p in (photos or []):
+        side = p.get("side")
+        photo_id = p.get("photo")
+        if side == "Front" and photo_id:
+            front = str(photo_id)
+        elif side == "Back" and photo_id:
+            back = str(photo_id)
+    return {"front_file_id": front, "back_file_id": back}
+
+
+@router.get("/prefill", summary="Pre-fill existing driver/vehicle docs from RR")
+async def get_prefill(
+    driver_rr_id: str = Query(None, description="RR driver user _id to pre-fill from"),
+    vehicle_rr_id: str = Query(None, description="RR vehicle _id to pre-fill from"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Pull whatever RR already has for a previously-hired driver/vehicle so
+    Stage 1 doesn't need re-entry — mirrors RR web's own getUserRecord/
+    getVehicleRecord + get*Identities pre-fill (driver-documents.component.ts,
+    booked-vehicle-documents.component.ts).
+
+    Driver name/phone/identities come from RR's `get_user_record_by_id`
+    (not a plain `GET /users/{id}`) — that endpoint is the one RR web itself
+    uses, precisely because standard `GET /users/{id}` 404s for a non-owner
+    session (RR's `auth_field` restricted-resource mechanism); the custom
+    route has no such restriction.
+
+    Vehicle identities/insurance/crew come from a plain `GET /vehicles/{id}`
+    — vehicles aren't subject to the same per-item ownership restriction.
+
+    Photo values returned are RR file ids (ObjectIds), not URLs — resolve
+    them for display via the existing GET /file-preview/{rr_file_id} proxy.
+    """
+    from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_org_rr_token
+
+    _require_rr_session_role(current_user, db)
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    if not driver_rr_id and not vehicle_rr_id:
+        raise HTTPException(status_code=400, detail="Provide driver_rr_id and/or vehicle_rr_id")
+
+    token = await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
+    result: dict = {"driver": None, "vehicle": None}
+
+    async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=20) as client:
+        auth_hdr = {"Authorization": f"Bearer {token}"}
+
+        if driver_rr_id:
+            try:
+                resp = await client.get(
+                    f"{settings.RR_API_BASE}/get_user_record_by_id",
+                    params={"record_id": driver_rr_id},
+                    headers=auth_hdr,
+                )
+            except Exception:
+                resp = None
+            if resp is not None and resp.status_code == 200:
+                data = resp.json()
+                dl = aadhaar = None
+                for entry in (data.get("identities") or []):
+                    if entry.get("id_name") == "Driving Licence":
+                        dl = {"number": entry.get("number"), **_photo_file_ids(entry.get("photos"))}
+                    elif entry.get("id_name") == "Aadhaar Card":
+                        aadhaar = {"number": entry.get("number"), **_photo_file_ids(entry.get("photos"))}
+                result["driver"] = {
+                    "name": data.get("name"),
+                    "phone": (data.get("phone") or {}).get("number"),
+                    "dl": dl,
+                    "aadhaar": aadhaar,
+                }
+
+        if vehicle_rr_id:
+            try:
+                resp = await client.get(f"{settings.RR_API_BASE}/vehicles/{vehicle_rr_id}", headers=auth_hdr)
+            except Exception:
+                resp = None
+            if resp is not None and resp.status_code == 200:
+                data = resp.json()
+                id_map = {
+                    "Registration Certificate": "rc",
+                    "PUC Certificate": "puc",
+                    "Fitness Certificate": "fitness",
+                    "Permit": "permit",
+                }
+                docs: dict = {}
+                for entry in (data.get("identities") or []):
+                    key = id_map.get(entry.get("id_name"))
+                    if key:
+                        docs[key] = {"number": entry.get("number"), **_photo_file_ids(entry.get("photos"))}
+                insurance = data.get("insurance") or {}
+                insurance_ids = _photo_file_ids(insurance.get("photos"))
+                crew = [
+                    {"worker": str(c.get("worker")), "position": c.get("position")}
+                    for c in (data.get("crew") or []) if c.get("worker")
+                ]
+                result["vehicle"] = {
+                    "rc": docs.get("rc"),
+                    "puc": docs.get("puc"),
+                    "fitness": docs.get("fitness"),
+                    "permit": docs.get("permit"),
+                    "insurance": {
+                        "policy_number": insurance.get("policy_number"),
+                        "front_file_id": insurance_ids.get("front_file_id"),
+                    },
+                    "crew": crew,
+                }
+
+    return result
+
+
 @router.get("/file-preview/{rr_file_id}", summary="Proxy an RR file's content for preview")
 async def get_rr_file_preview(
     rr_file_id: str,
@@ -1504,6 +1629,111 @@ async def complete_trip_in_rr(
         "rr_booking_id": result["rr_booking_id"],
     }
 
+
+class RrReassignDriverRequest(BaseModel):
+    rr_token: str
+    driver_rr_id: str
+
+
+@router.post("/reassign-driver/{trip_id}", summary="Reassign the trip's driver via RR's add_vehicle_crew")
+async def reassign_driver(
+    trip_id: str,
+    body: RrReassignDriverRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Change which driver RR considers assigned to this trip's vehicle — calls
+    RR's own `POST /add_vehicle_crew` (the exact endpoint RR web's crew
+    dialog uses), confirmed to have no trip-stage restriction server-side
+    (works before booking, after Confirm Booking, mid-trip, right up to
+    completion — RR web's own "can only change up to loading stage" rule is
+    dead code, not actually enforced anywhere).
+
+    `add_vehicle_crew` only writes the `crew` reference on `vehicles`/
+    `trips` — it never touches the driver's own name/phone/docs, so this is
+    safe to call independently of doc sync.
+    """
+    from app.models import UserOrganization
+
+    _require_rr_session_role(current_user, db)
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    trip = db.query(Trip).filter(
+        Trip.id == trip_id,
+        Trip.organization_id == user_org.organization_id,
+    ).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    if not trip.rr_trip_id:
+        raise HTTPException(status_code=409, detail="Trip must be created on RR first (Confirm Booking)")
+    if not trip.rr_vehicle_id:
+        raise HTTPException(status_code=409, detail="No vehicle assigned to this trip")
+
+    payload = {
+        "crew": [{
+            "worker": body.driver_rr_id,
+            "position": "Driver",
+            "assigned_at": datetime.utcnow().isoformat(),
+        }],
+        "vehicle_id": trip.rr_vehicle_id,
+        "trip_id": trip.rr_trip_id,
+    }
+
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=20) as client:
+            resp = await client.post(
+                f"{settings.RR_API_BASE}/add_vehicle_crew",
+                json=payload,
+                headers=_json_header(body.rr_token),
+            )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Could not reach RR server: {exc}")
+
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR add_vehicle_crew HTTP {resp.status_code}: {resp.text[:300]}")
+
+    # Re-point our own driver reference, and clear cached doc file ids from
+    # the OLD driver so the new driver's docs aren't skipped as "already
+    # pushed" on the next sync (these cache columns live on the trip itself,
+    # since the current trip-creation flow never links a local Driver row —
+    # see driver_doc_items()/the fallback resolution in _sync_stage1_docs).
+    trip.rr_driver_id = body.driver_rr_id
+    trip.rr_dl_file_id = None
+    trip.rr_dl_back_file_id = None
+    trip.rr_aadhaar_file_id = None
+    trip.rr_aadhaar_back_file_id = None
+    db.commit()
+    db.refresh(trip)
+
+    # Real-time propagation: LP/RR-ops/FE viewing this trip's Stage 1 should
+    # see the reassignment happened, even before anyone re-syncs. Shaped to
+    # satisfy the Flutter client's NotificationModel parser (id/type/title/
+    # body/is_read/created_at are all required fields there) — the client
+    # reacts to it by prompting a refresh rather than silently mutating a
+    # form the user might be mid-edit on.
+    try:
+        from app.services.ws_manager import manager
+        import uuid as _uuid_mod
+        await manager.send_to_org(str(trip.organization_id), {
+            "type": "driver_reassigned",
+            "id": str(_uuid_mod.uuid4()),
+            "trip_id": str(trip.id),
+            "title": "Driver Reassigned",
+            "body": f"Trip {trip.trip_number}'s driver was just changed by another user.",
+            "is_read": False,
+            "created_at": datetime.utcnow().isoformat(),
+        })
+    except Exception:
+        pass  # best-effort — known single-worker-process constraint on ws_manager
+
+    return {"success": True, "trip": trip.to_dict()}
 
 
 # ── Loading slip upload ───────────────────────────────────────────────────────

@@ -23,6 +23,10 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/presentation/screens/shared/truck_tracking_screen.dart';
 import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
+import 'package:fleet_management/providers/rr_sync_provider.dart';
+import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
+import 'package:fleet_management/providers/notification_provider.dart';
+import 'package:fleet_management/data/models/notification_model.dart';
 
 // ─── Typography & Colours ─────────────────────────────────────────────────────
 TextStyle _manrope({double size = 14, FontWeight weight = FontWeight.w600, Color color = const Color(0xFF191C1E)}) =>
@@ -110,6 +114,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
   bool _syncing = false;
   /// Non-null when re-editing a completed stage (visual dot index 0-5).
   int? _editingStage;
+  StreamSubscription<NotificationModel>? _driverReassignSub;
 
   @override
   void initState() {
@@ -133,6 +138,21 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
     }
     // Fetch fresh data after first frame so ref is available
     WidgetsBinding.instance.addPostFrameCallback((_) => _fetchFreshTrip());
+
+    // Real-time: if LP/RR-ops reassigns this trip's driver from elsewhere
+    // while this screen is open, re-fetch — _tripFreshness's ValueKey scheme
+    // then fully remounts the stage forms with the new driver's data.
+    _driverReassignSub = ref.read(notificationWsServiceProvider).stream.listen((n) {
+      if (n.type == 'driver_reassigned' && n.tripId == widget.trip.id) {
+        _fetchFreshTrip();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _driverReassignSub?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchFreshTrip() async {
@@ -791,6 +811,11 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   final _driverPhone    = TextEditingController();
   final _drivingLicense = TextEditingController();
   final _aadhaar        = TextEditingController();
+  final _rcNumber       = TextEditingController();
+  final _pucNumber      = TextEditingController();
+  final _fitnessNumber  = TextEditingController();
+  final _permitNumber   = TextEditingController();
+  final _insuranceNumber = TextEditingController();
 
   // ── Focus nodes (for auto-scroll on validation error) ─────────────────────
   final _driverNameFocus     = FocusNode();
@@ -804,6 +829,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   ({Uint8List bytes, String name})? _aadhaarDoc;
   ({Uint8List bytes, String name})? _aadhaarBackDoc;
   ({Uint8List bytes, String name})? _rcDoc;
+  ({Uint8List bytes, String name})? _rcBackDoc;
   ({Uint8List bytes, String name})? _insuranceDoc;
   ({Uint8List bytes, String name})? _pollutionDoc;
   ({Uint8List bytes, String name})? _fitnessDoc;
@@ -815,6 +841,22 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   Timer? _debounce;
   DateTime? _lastSaved;
 
+  // ── RR pre-fill (driver/vehicle already hired on a prior trip) ─────────────
+  // Photo bytes fetched via the file-preview proxy, keyed by doc slot:
+  // dl_front/dl_back/aadhaar_front/aadhaar_back/rc_front/puc/fitness/permit.
+  final Map<String, Uint8List> _rrPreview = {};
+
+  // ── Appoint New Driver (LP/RR-ops only) ─────────────────────────────────────
+  bool _showDriverReassign = false;
+  final _newDriverSearchCtrl = TextEditingController();
+  Map<String, dynamic>? _pendingNewDriver; // {_id, name, phone} from search
+  bool _reassigning = false;
+
+  bool get _canManageRr {
+    final user = ref.read(authProvider).user;
+    return user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -824,6 +866,212 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     _driverPhone.addListener(()    { _touchField('driver_phone');    _onFieldChanged(); });
     _drivingLicense.addListener(() { _touchField('driving_license'); _onFieldChanged(); });
     _aadhaar.addListener(()        { _touchField('aadhaar');         _onFieldChanged(); });
+    _rcNumber.addListener(()       { _touchField('rc_number');       _onFieldChanged(); });
+    _pucNumber.addListener(()      { _touchField('puc_number');      _onFieldChanged(); });
+    _fitnessNumber.addListener(()  { _touchField('fitness_number');  _onFieldChanged(); });
+    _permitNumber.addListener(()   { _touchField('permit_number');   _onFieldChanged(); });
+    _insuranceNumber.addListener(() { _touchField('insurance_number'); _onFieldChanged(); });
+    _maybeLoadRrPrefill();
+  }
+
+  // A driver/vehicle already hired before may already have docs on RR — pull
+  // them in so this doesn't need re-entry, same as RR web itself does. Only
+  // for a genuinely fresh Stage 1 (no draft, not yet submitted); a convenience
+  // enhancement, never blocking — any failure (no RR session yet, network
+  // issue, etc.) is silently skipped.
+  Future<void> _maybeLoadRrPrefill() async {
+    final trip = widget.trip;
+    if (trip.draftData != null || trip.currentStage >= 1) return;
+    final driverRrId = trip.rrDriverId;
+    final vehicleRrId = trip.rrVehicleId;
+    if ((driverRrId == null || driverRrId.isEmpty) &&
+        (vehicleRrId == null || vehicleRrId.isEmpty)) {
+      return;
+    }
+
+    try {
+      final data = await ref.read(rrSyncApiProvider).getPrefill(
+        driverRrId: driverRrId,
+        vehicleRrId: vehicleRrId,
+      );
+
+      await _applyDriverPrefill(data['driver'] as Map<String, dynamic>?, overwrite: false);
+
+      final vehicle = data['vehicle'] as Map<String, dynamic>?;
+      if (vehicle != null) {
+        final rc = vehicle['rc'] as Map<String, dynamic>?;
+        if (rc != null) {
+          final num_ = rc['number'] as String?;
+          if (_rcNumber.text.isEmpty && num_ != null && num_.isNotEmpty) _rcNumber.text = num_;
+          await _fetchRrPreview(rc['front_file_id'] as String?, 'rc_front');
+          await _fetchRrPreview(rc['back_file_id'] as String?, 'rc_back');
+        }
+        final puc = vehicle['puc'] as Map<String, dynamic>?;
+        if (puc != null) {
+          final num_ = puc['number'] as String?;
+          if (_pucNumber.text.isEmpty && num_ != null && num_.isNotEmpty) _pucNumber.text = num_;
+          await _fetchRrPreview(puc['front_file_id'] as String?, 'puc');
+        }
+        final fitness = vehicle['fitness'] as Map<String, dynamic>?;
+        if (fitness != null) {
+          final num_ = fitness['number'] as String?;
+          if (_fitnessNumber.text.isEmpty && num_ != null && num_.isNotEmpty) _fitnessNumber.text = num_;
+          await _fetchRrPreview(fitness['front_file_id'] as String?, 'fitness');
+        }
+        final permit = vehicle['permit'] as Map<String, dynamic>?;
+        if (permit != null) {
+          final num_ = permit['number'] as String?;
+          if (_permitNumber.text.isEmpty && num_ != null && num_.isNotEmpty) _permitNumber.text = num_;
+          await _fetchRrPreview(permit['front_file_id'] as String?, 'permit');
+        }
+        final insurance = vehicle['insurance'] as Map<String, dynamic>?;
+        if (insurance != null) {
+          final num_ = insurance['policy_number'] as String?;
+          if (_insuranceNumber.text.isEmpty && num_ != null && num_.isNotEmpty) _insuranceNumber.text = num_;
+          await _fetchRrPreview(insurance['front_file_id'] as String?, 'insurance');
+        }
+      }
+    } catch (_) {
+      // No RR session yet, network issue, etc. — pre-fill is a convenience,
+      // never required to fill out Stage 1.
+    }
+  }
+
+  /// Shared by the initial auto pre-fill (fills only empty fields, never
+  /// clobbers) and the explicit "Appoint New Driver" reassignment flow
+  /// (overwrites, since the user just deliberately picked a different
+  /// driver). [overwrite] controls which behavior applies.
+  Future<void> _applyDriverPrefill(Map<String, dynamic>? driver, {required bool overwrite}) async {
+    if (driver == null) return;
+    final name = driver['name'] as String?;
+    if ((overwrite || _driverName.text.isEmpty) && name != null && name.isNotEmpty) {
+      _driverName.text = name;
+    }
+    final phone = driver['phone'] as String?;
+    if ((overwrite || _driverPhone.text.isEmpty) && phone != null && phone.isNotEmpty) {
+      _driverPhone.text = phone.length >= 10 ? phone.substring(phone.length - 10) : phone;
+    }
+    final dl = driver['dl'] as Map<String, dynamic>?;
+    if (overwrite) {
+      _dlDoc = null;
+      _dlBackDoc = null;
+      _rrPreview.remove('dl_front');
+      _rrPreview.remove('dl_back');
+      _drivingLicense.text = '';
+    }
+    if (dl != null) {
+      final num_ = dl['number'] as String?;
+      if ((overwrite || _drivingLicense.text.isEmpty) && num_ != null && num_.isNotEmpty) {
+        _drivingLicense.text = num_;
+      }
+      await _fetchRrPreview(dl['front_file_id'] as String?, 'dl_front');
+      await _fetchRrPreview(dl['back_file_id'] as String?, 'dl_back');
+    }
+    final aadhaar = driver['aadhaar'] as Map<String, dynamic>?;
+    if (overwrite) {
+      _aadhaarDoc = null;
+      _aadhaarBackDoc = null;
+      _rrPreview.remove('aadhaar_front');
+      _rrPreview.remove('aadhaar_back');
+      _aadhaar.text = '';
+    }
+    if (aadhaar != null) {
+      final num_ = aadhaar['number'] as String?;
+      if ((overwrite || _aadhaar.text.isEmpty) && num_ != null && num_.isNotEmpty) {
+        _aadhaar.text = num_;
+      }
+      await _fetchRrPreview(aadhaar['front_file_id'] as String?, 'aadhaar_front');
+      await _fetchRrPreview(aadhaar['back_file_id'] as String?, 'aadhaar_back');
+    }
+    if (mounted) setState(() {});
+  }
+
+  // A driver was picked via the search field above — pull their existing
+  // docs (if any) so LP/RR-ops doesn't need to re-enter anything, overwriting
+  // whatever the previous driver's fields showed (this is a deliberate
+  // reassignment, not the initial fresh-load pre-fill).
+  Future<void> _onNewDriverSelected(Map<String, dynamic> u) async {
+    setState(() => _pendingNewDriver = u);
+    final driverRrId = u['_id'] as String?;
+    if (driverRrId == null || driverRrId.isEmpty) return;
+    try {
+      final data = await ref.read(rrSyncApiProvider).getPrefill(driverRrId: driverRrId);
+      await _applyDriverPrefill(data['driver'] as Map<String, dynamic>?, overwrite: true);
+    } catch (_) {
+      // Pre-fill failure here isn't fatal — LP/RR-ops can still fill the
+      // new driver's details manually before reassigning.
+    }
+  }
+
+  Future<void> _confirmReassignDriver() async {
+    final newDriver = _pendingNewDriver;
+    if (newDriver == null || _reassigning) return;
+    final driverRrId = newDriver['_id'] as String?;
+    if (driverRrId == null || driverRrId.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text('Reassign Driver?', style: _inter(size: 16, weight: FontWeight.w700, color: _onSurface)),
+        content: Text(
+          'This trip will be reassigned to ${newDriver['name'] ?? 'the selected driver'} on RR — '
+          'the My Trips list and crew records will update to reflect this.',
+          style: _inter(size: 13, color: _secondary),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Reassign')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final session = await ensureRrSession(context, ref);
+    if (session == null || !mounted) return;
+
+    setState(() => _reassigning = true);
+    try {
+      await ref.read(rrSyncApiProvider).reassignDriver(
+        tripId: widget.trip.id,
+        rrToken: session.token,
+        driverRrId: driverRrId,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Driver reassigned', style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: _success,
+        behavior: SnackBarBehavior.floating,
+      ));
+      setState(() {
+        _showDriverReassign = false;
+        _pendingNewDriver = null;
+        _newDriverSearchCtrl.clear();
+      });
+      ref.read(tripProvider.notifier).fetchSingleTrip(widget.trip.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Could not reassign driver', style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: _error,
+        behavior: SnackBarBehavior.floating,
+      ));
+    } finally {
+      if (mounted) setState(() => _reassigning = false);
+    }
+  }
+
+  Future<void> _fetchRrPreview(String? rrFileId, String key) async {
+    if (rrFileId == null || rrFileId.isEmpty) return;
+    try {
+      final resp = await ref.read(dioProvider).get(
+        '/api/rr/file-preview/$rrFileId',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      if (!mounted) return;
+      setState(() => _rrPreview[key] = Uint8List.fromList(resp.data as List<int>));
+    } catch (_) {
+      // Skip this one photo silently — not fatal to the rest of pre-fill.
+    }
   }
 
   // ── Draft restore ────────────────────────────────────────────────────────────
@@ -846,11 +1094,17 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       _driverPhone.text    = rawPhone.startsWith('+91') ? rawPhone.substring(3) : rawPhone;
       _drivingLicense.text = d['driving_license'] as String? ?? '';
       _aadhaar.text        = d['aadhaar']         as String? ?? '';
+      _rcNumber.text       = d['rc_number']       as String? ?? '';
+      _pucNumber.text      = d['puc_number']      as String? ?? '';
+      _fitnessNumber.text  = d['fitness_number']  as String? ?? '';
+      _permitNumber.text   = d['permit_number']   as String? ?? '';
+      _insuranceNumber.text = d['insurance_number'] as String? ?? '';
       _dlDoc              = _restoreFile(d, 'dl_doc');
       _dlBackDoc          = _restoreFile(d, 'dl_back_doc');
       _aadhaarDoc         = _restoreFile(d, 'aadhaar_doc');
       _aadhaarBackDoc     = _restoreFile(d, 'aadhaar_back_doc');
       _rcDoc              = _restoreFile(d, 'rc_doc');
+      _rcBackDoc          = _restoreFile(d, 'rc_back_doc');
       _insuranceDoc       = _restoreFile(d, 'insurance_doc');
       _pollutionDoc       = _restoreFile(d, 'pollution_doc');
       _fitnessDoc         = _restoreFile(d, 'fitness_doc');
@@ -876,6 +1130,11 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       _driverPhone.text = rawPhone.startsWith('+91') ? rawPhone.substring(3) : rawPhone;
       _drivingLicense.text = trip.s1DrivingLicense ?? '';
       _aadhaar.text        = trip.s1Aadhaar ?? '';
+      _rcNumber.text       = trip.s1RcNumber ?? '';
+      _pucNumber.text      = trip.s1PucNumber ?? '';
+      _fitnessNumber.text  = trip.s1FitnessNumber ?? '';
+      _permitNumber.text   = trip.s1PermitNumber ?? '';
+      _insuranceNumber.text = trip.s1InsuranceNumber ?? '';
       // File URLs are shown via _serverUrl fields — no bytes to restore
     }
   }
@@ -915,11 +1174,17 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
           'driver_phone':    '+91${_driverPhone.text.trim()}',
           'driving_license': _drivingLicense.text.trim(),
           'aadhaar':         _aadhaar.text.trim(),
+          'rc_number':       _rcNumber.text.trim(),
+          'puc_number':      _pucNumber.text.trim(),
+          'fitness_number':  _fitnessNumber.text.trim(),
+          'permit_number':   _permitNumber.text.trim(),
+          'insurance_number': _insuranceNumber.text.trim(),
           ..._fileDraftEntry(_dlDoc,              'dl_doc'),
           ..._fileDraftEntry(_dlBackDoc,          'dl_back_doc'),
           ..._fileDraftEntry(_aadhaarDoc,         'aadhaar_doc'),
           ..._fileDraftEntry(_aadhaarBackDoc,     'aadhaar_back_doc'),
           ..._fileDraftEntry(_rcDoc,              'rc_doc'),
+          ..._fileDraftEntry(_rcBackDoc,          'rc_back_doc'),
           ..._fileDraftEntry(_insuranceDoc,       'insurance_doc'),
           ..._fileDraftEntry(_pollutionDoc,       'pollution_doc'),
           ..._fileDraftEntry(_fitnessDoc,         'fitness_doc'),
@@ -947,7 +1212,11 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     } else {
       _debounce?.cancel();
     }
-    for (final c in [_driverName, _driverPhone, _drivingLicense, _aadhaar]) {
+    for (final c in [
+      _driverName, _driverPhone, _drivingLicense, _aadhaar,
+      _rcNumber, _pucNumber, _fitnessNumber, _permitNumber, _insuranceNumber,
+      _newDriverSearchCtrl,
+    ]) {
       c.dispose();
     }
     for (final f in [_driverNameFocus, _driverPhoneFocus, _drivingLicenseFocus, _aadhaarFocus]) {
@@ -1045,11 +1314,41 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     return missing;
   }
 
+  // Pre-filled RR photos (`_rrPreview`) are fetched purely for display —
+  // without this step they'd never satisfy the required-docs check or get
+  // attached to the submit payload, silently forcing the user to re-upload
+  // a document RR already has and defeating the whole point of pre-fill.
+  // Promote each preview to a real local pick (only where nothing's already
+  // been locally picked or previously saved to our own backend), so it both
+  // counts as present and gets saved to our own upload storage too.
+  void _promoteRrPreviewsToLocalFiles() {
+    ({Uint8List bytes, String name})? promote(
+      Uint8List? preview, ({Uint8List bytes, String name})? existing, String? existingUrl, String name,
+    ) {
+      if (existing != null || (existingUrl != null && existingUrl.isNotEmpty)) return existing;
+      if (preview == null) return existing;
+      return (bytes: preview, name: name);
+    }
+
+    _dlDoc = promote(_rrPreview['dl_front'], _dlDoc, widget.trip.s1DrivingLicenseUrl, 'dl_front_from_rr.jpg');
+    _dlBackDoc = promote(_rrPreview['dl_back'], _dlBackDoc, widget.trip.s1DrivingLicenseBackUrl, 'dl_back_from_rr.jpg');
+    _aadhaarDoc = promote(_rrPreview['aadhaar_front'], _aadhaarDoc, widget.trip.s1AadhaarUrl, 'aadhaar_front_from_rr.jpg');
+    _aadhaarBackDoc = promote(_rrPreview['aadhaar_back'], _aadhaarBackDoc, widget.trip.s1AadhaarBackUrl, 'aadhaar_back_from_rr.jpg');
+    _rcDoc = promote(_rrPreview['rc_front'], _rcDoc, widget.trip.s1Rc, 'rc_front_from_rr.jpg');
+    _rcBackDoc = promote(_rrPreview['rc_back'], _rcBackDoc, widget.trip.s1RcBack, 'rc_back_from_rr.jpg');
+    _pollutionDoc = promote(_rrPreview['puc'], _pollutionDoc, widget.trip.s1Pollution, 'puc_from_rr.jpg');
+    _fitnessDoc = promote(_rrPreview['fitness'], _fitnessDoc, widget.trip.s1Fitness, 'fitness_from_rr.jpg');
+    _permitDoc = promote(_rrPreview['permit'], _permitDoc, widget.trip.s1Permit, 'permit_from_rr.jpg');
+    _insuranceDoc = promote(_rrPreview['insurance'], _insuranceDoc, widget.trip.s1Insurance, 'insurance_from_rr.jpg');
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       _scrollToFirstError();
       return;
     }
+
+    _promoteRrPreviewsToLocalFiles();
 
     final missingDocs = _missingRequiredDocs();
     if (missingDocs.isNotEmpty) {
@@ -1075,6 +1374,11 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       'driver_phone':    '+91${_driverPhone.text.trim()}',
       'driving_license': dlCleaned,
       'aadhaar':         _aadhaar.text.trim().replaceAll(' ', ''),
+      'rc_number':       _rcNumber.text.trim(),
+      'puc_number':      _pucNumber.text.trim(),
+      'fitness_number':  _fitnessNumber.text.trim(),
+      'permit_number':   _permitNumber.text.trim(),
+      'insurance_number': _insuranceNumber.text.trim(),
     };
 
     void _addFile(String key, ({Uint8List bytes, String name})? f) {
@@ -1085,6 +1389,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     _addFile('aadhaar_doc',               _aadhaarDoc);
     _addFile('aadhaar_doc_back',          _aadhaarBackDoc);
     _addFile('rc_doc',               _rcDoc);
+    _addFile('rc_doc_back',          _rcBackDoc);
     _addFile('insurance_doc',        _insuranceDoc);
     _addFile('pollution_doc',        _pollutionDoc);
     _addFile('fitness_doc',          _fitnessDoc);
@@ -1142,6 +1447,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     VoidCallback onRemove, {
     String? existingUrl,
     String? fieldKey,
+    Uint8List? rrPreviewBytes,
   }) =>
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1154,6 +1460,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               bytes: file?.bytes,
               fileName: file?.name,
               existingUrl: file == null ? existingUrl : null,
+              rrPreviewBytes: (file == null && existingUrl == null) ? rrPreviewBytes : null,
               onPickSource: (src) async {
                 if (fieldKey != null) _touchField(fieldKey);
                 await _pickFile(src, onPicked);
@@ -1168,6 +1475,20 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
           _FieldAttribution(username: fieldKey != null ? _attrOf(fieldKey) : null),
           const SizedBox(height: 8),
         ],
+      );
+
+  /// Optional number field for a vehicle doc (RC/PUC/Fitness/Permit) — sits
+  /// alongside its upload, same as DL/Aadhaar number fields do for driver docs.
+  Widget _numberField(String label, TextEditingController controller, String fieldKey) =>
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: TextFormField(
+          controller: controller,
+          style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: [LengthLimitingTextInputFormatter(30)],
+          decoration: _dec(label),
+        ),
       );
 
   @override
@@ -1190,6 +1511,77 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
 
             // ── Driver Details ─────────────────────────────────────────────────
             _SectionHeader(icon: Icons.person_outline_rounded, title: 'Driver Details'),
+
+            // Appoint New Driver — LP/RR-ops only, FE never sees this at all.
+            if (_canManageRr && (widget.trip.rrDriverId?.isNotEmpty ?? false))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text('Appoint New Driver',
+                                style: _inter(size: 13, weight: FontWeight.w700, color: _onSurface)),
+                          ),
+                          Switch(
+                            value: _showDriverReassign,
+                            onChanged: (v) => setState(() {
+                              _showDriverReassign = v;
+                              if (!v) {
+                                _pendingNewDriver = null;
+                                _newDriverSearchCtrl.clear();
+                              }
+                            }),
+                          ),
+                        ],
+                      ),
+                      if (_showDriverReassign) ...[
+                        const SizedBox(height: 8),
+                        RrSearchField<Map<String, dynamic>>(
+                          label: 'Search Driver by Name or Phone',
+                          controller: _newDriverSearchCtrl,
+                          search: (q) async {
+                            final session = await ensureRrSession(context, ref);
+                            if (session == null || !mounted) return [];
+                            return ref.read(rrSyncApiProvider)
+                                .searchRrUsers(q, session.token, driversOnly: true);
+                          },
+                          itemLabel: (u) => u['name'] as String? ?? '',
+                          itemSubtitle: (u) => u['phone'] as String? ?? '',
+                          onSelected: (u) => _onNewDriverSelected(u),
+                          onCleared: () => setState(() => _pendingNewDriver = null),
+                        ),
+                        if (_pendingNewDriver != null) ...[
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: _reassigning ? null : _confirmReassignDriver,
+                              style: ElevatedButton.styleFrom(backgroundColor: _primary),
+                              child: _reassigning
+                                  ? const SizedBox(
+                                      height: 16, width: 16,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : Text('Reassign to ${_pendingNewDriver!['name'] ?? 'this driver'}',
+                                      style: _inter(size: 13, weight: FontWeight.w700, color: Colors.white)),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ],
+                  ),
+                ),
+              ),
 
             // Driver Name — alphabets only, max 25
             Padding(
@@ -1288,6 +1680,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 () { setState(() => _dlDoc = null); _onUploadChanged(); },
                 existingUrl: widget.trip.s1DrivingLicenseUrl,
                 fieldKey: 'dl_doc',
+                rrPreviewBytes: _rrPreview['dl_front'],
               ),
               backTile: _uploadTile(
                 'Back Side',
@@ -1297,6 +1690,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 () { setState(() => _dlBackDoc = null); _onUploadChanged(); },
                 existingUrl: widget.trip.s1DrivingLicenseBackUrl,
                 fieldKey: 'dl_back_doc',
+                rrPreviewBytes: _rrPreview['dl_back'],
               ),
             ),
 
@@ -1311,6 +1705,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 () { setState(() => _aadhaarDoc = null); _onUploadChanged(); },
                 existingUrl: widget.trip.s1AadhaarUrl,
                 fieldKey: 'aadhaar_doc',
+                rrPreviewBytes: _rrPreview['aadhaar_front'],
               ),
               backTile: _uploadTile(
                 'Back Side',
@@ -1320,32 +1715,63 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 () { setState(() => _aadhaarBackDoc = null); _onUploadChanged(); },
                 existingUrl: widget.trip.s1AadhaarBackUrl,
                 fieldKey: 'aadhaar_back_doc',
+                rrPreviewBytes: _rrPreview['aadhaar_back'],
               ),
             ),
             const SizedBox(height: 8),
 
             // ── Vehicle Documents ──────────────────────────────────────────────
             _SectionHeader(icon: Icons.directions_car_outlined, title: 'Vehicle Documents'),
-            _uploadTile('RC (Registration Certificate)', 'Upload vehicle RC',
-              _rcDoc, (f) => _rcDoc = f,
-              () { setState(() => _rcDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1Rc, fieldKey: 'rc_doc'),
+            // RC — Front & Back (RC is the only vehicle doc RR itself supports
+            // a back side for; PUC/Fitness/Permit stay front-only, matching RR web)
+            _numberField('RC Number', _rcNumber, 'rc_number'),
+            _DocPairSection(
+              title: 'RC (Registration Certificate)',
+              frontTile: _uploadTile(
+                'Front Side',
+                'Photo of the front of the RC',
+                _rcDoc,
+                (f) => _rcDoc = f,
+                () { setState(() => _rcDoc = null); _onUploadChanged(); },
+                existingUrl: widget.trip.s1Rc,
+                fieldKey: 'rc_doc',
+                rrPreviewBytes: _rrPreview['rc_front'],
+              ),
+              backTile: _uploadTile(
+                'Back Side',
+                'Photo of the back of the RC',
+                _rcBackDoc,
+                (f) => _rcBackDoc = f,
+                () { setState(() => _rcBackDoc = null); _onUploadChanged(); },
+                existingUrl: widget.trip.s1RcBack,
+                fieldKey: 'rc_back_doc',
+                rrPreviewBytes: _rrPreview['rc_back'],
+              ),
+            ),
+            _numberField('Insurance Policy Number', _insuranceNumber, 'insurance_number'),
             _uploadTile('Insurance', 'Upload insurance document',
               _insuranceDoc, (f) => _insuranceDoc = f,
               () { setState(() => _insuranceDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1Insurance, fieldKey: 'insurance_doc'),
+              existingUrl: widget.trip.s1Insurance, fieldKey: 'insurance_doc',
+              rrPreviewBytes: _rrPreview['insurance']),
+            _numberField('PUC Number', _pucNumber, 'puc_number'),
             _uploadTile('Pollution Certificate', 'Upload pollution certificate',
               _pollutionDoc, (f) => _pollutionDoc = f,
               () { setState(() => _pollutionDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1Pollution, fieldKey: 'pollution_doc'),
+              existingUrl: widget.trip.s1Pollution, fieldKey: 'pollution_doc',
+              rrPreviewBytes: _rrPreview['puc']),
+            _numberField('Fitness Number', _fitnessNumber, 'fitness_number'),
             _uploadTile('Fitness Certificate', 'Upload fitness certificate',
               _fitnessDoc, (f) => _fitnessDoc = f,
               () { setState(() => _fitnessDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1Fitness, fieldKey: 'fitness_doc'),
+              existingUrl: widget.trip.s1Fitness, fieldKey: 'fitness_doc',
+              rrPreviewBytes: _rrPreview['fitness']),
+            _numberField('Permit Number', _permitNumber, 'permit_number'),
             _uploadTile('Permit', 'Upload permit document',
               _permitDoc, (f) => _permitDoc = f,
               () { setState(() => _permitDoc = null); _onUploadChanged(); },
-              existingUrl: widget.trip.s1Permit, fieldKey: 'permit_doc'),
+              existingUrl: widget.trip.s1Permit, fieldKey: 'permit_doc',
+              rrPreviewBytes: _rrPreview['permit']),
             const SizedBox(height: 8),
 
             // ── Owner Documents ────────────────────────────────────────────────
@@ -4391,6 +4817,10 @@ class _DocUploadTile extends StatelessWidget {
   final String? fileName;
   /// Server URL of an already-uploaded file. Shown when [bytes] is null.
   final String? existingUrl;
+  /// Pre-filled photo bytes pulled from RR (a driver/vehicle already hired
+  /// before) — shown only when [bytes] and [existingUrl] are both null, i.e.
+  /// nothing has been locally saved for this doc slot yet on this trip.
+  final Uint8List? rrPreviewBytes;
   final Future<void> Function(ImageSource) onPickSource;
   final VoidCallback onRemove;
   /// When true, only the tap-to-preview affordance is active — no pick/retake/remove.
@@ -4402,6 +4832,7 @@ class _DocUploadTile extends StatelessWidget {
     required this.bytes,
     this.fileName,
     this.existingUrl,
+    this.rrPreviewBytes,
     required this.onPickSource,
     required this.onRemove,
     this.readOnly = false,
@@ -4544,6 +4975,71 @@ class _DocUploadTile extends StatelessWidget {
                     child: Text(label,
                         style: GoogleFonts.manrope(
                             fontSize: 12, fontWeight: FontWeight.w700, color: _success),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                  ),
+                  if (!readOnly)
+                    GestureDetector(
+                      onTap: () => _pick(context),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text('Replace',
+                            style: GoogleFonts.manrope(
+                                fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Pre-filled from RR (a previously-hired driver/vehicle already has this
+    // doc on file) — nothing locally saved yet on this trip. Full preview,
+    // same as a local/existing file, just sourced from RR's file-preview proxy.
+    if (rrPreviewBytes != null) {
+      return Container(
+        decoration: BoxDecoration(
+          color: _primary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _primary.withValues(alpha: 0.30)),
+        ),
+        child: Column(
+          children: [
+            GestureDetector(
+              onTap: () => _showImagePreview(context, bytes: rrPreviewBytes),
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                    child: Image.memory(rrPreviewBytes!,
+                        width: double.infinity, height: 160, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    top: 8, right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: Colors.black45,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.zoom_in_rounded, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                children: [
+                  const Icon(Icons.cloud_download_rounded, size: 16, color: _primary),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Already on RR',
+                        style: GoogleFonts.manrope(
+                            fontSize: 12, fontWeight: FontWeight.w700, color: _primary),
                         maxLines: 1, overflow: TextOverflow.ellipsis),
                   ),
                   if (!readOnly)

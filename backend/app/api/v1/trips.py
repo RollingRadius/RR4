@@ -608,6 +608,32 @@ def set_s1_required(
     return {"success": True, "trip": _enrich(trip, db)}
 
 
+@router.post("/trips/{trip_id}/move-to-records", status_code=200)
+def move_trip_to_records(
+    trip_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """LP/RR-ops explicit archive action — independent of sync progress, no
+    gating on stage completeness or sync status (intentional, so abandoned/
+    cancelled trips can be archived too). One-directional for now, no
+    "move back out of Records" action. Shared state — the moved trip shows
+    as moved to Records for FE too, not per-role."""
+    from datetime import datetime, timezone
+
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'lp_rr_operations', 'super_admin'):
+        raise HTTPException(status_code=403, detail="LP / RR-ops only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.moved_to_records_at is None:
+        trip.moved_to_records_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(trip)
+    return {"success": True, "trip": _enrich(trip, db)}
+
+
 @router.post("/trips/{trip_id}/stage/1", status_code=200)
 async def submit_stage1(
     trip_id: str,
@@ -622,6 +648,7 @@ async def submit_stage1(
     aadhaar_doc:              Optional[UploadFile] = File(None),
     aadhaar_doc_back:         Optional[UploadFile] = File(None),
     rc_doc:               Optional[UploadFile] = File(None),
+    rc_doc_back:          Optional[UploadFile] = File(None),
     insurance_doc:        Optional[UploadFile] = File(None),
     pollution_doc:        Optional[UploadFile] = File(None),
     fitness_doc:          Optional[UploadFile] = File(None),
@@ -629,6 +656,12 @@ async def submit_stage1(
     pan_doc:              Optional[UploadFile] = File(None),
     tax_declaration_doc:  Optional[UploadFile] = File(None),
     cancelled_cheque_doc: Optional[UploadFile] = File(None),
+    # Number fields for vehicle docs — mirror driving_license/aadhaar above
+    rc_number:            Optional[str] = Form(None),
+    puc_number:           Optional[str] = Form(None),
+    fitness_number:       Optional[str] = Form(None),
+    permit_number:        Optional[str] = Form(None),
+    insurance_number:     Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
 ):
     """Stage 1 — Truck Detail Registration. Accepts multipart/form-data."""
@@ -671,6 +704,7 @@ async def submit_stage1(
     new_aadhaar      = await _save_doc(aadhaar_doc,               "aadhaar")
     new_aadhaar_back = await _save_doc(aadhaar_doc_back,          "aadhaar_back")
     new_rc      = await _save_doc(rc_doc,               "rc")
+    new_rc_back = await _save_doc(rc_doc_back,          "rc_back")
     new_ins     = await _save_doc(insurance_doc,        "insurance")
     new_pol     = await _save_doc(pollution_doc,        "pollution")
     new_fit     = await _save_doc(fitness_doc,          "fitness")
@@ -694,12 +728,18 @@ async def submit_stage1(
         trip.s1_driving_license = driving_license
         if aadhaar:
             trip.s1_aadhaar     = aadhaar
+        if rc_number:        trip.s1_rc_number        = rc_number
+        if puc_number:       trip.s1_puc_number       = puc_number
+        if fitness_number:   trip.s1_fitness_number   = fitness_number
+        if permit_number:    trip.s1_permit_number    = permit_number
+        if insurance_number: trip.s1_insurance_number = insurance_number
 
         if new_dl           is not None: trip.s1_driving_license_url      = new_dl
         if new_dl_back      is not None: trip.s1_driving_license_back_url = new_dl_back
         if new_aadhaar      is not None: trip.s1_aadhaar_url              = new_aadhaar
         if new_aadhaar_back is not None: trip.s1_aadhaar_back_url         = new_aadhaar_back
         if new_rc      is not None: trip.s1_rc                  = new_rc
+        if new_rc_back is not None: trip.s1_rc_back             = new_rc_back
         if new_ins     is not None: trip.s1_insurance           = new_ins
         if new_pol     is not None: trip.s1_pollution           = new_pol
         if new_fit     is not None: trip.s1_fitness             = new_fit
@@ -720,6 +760,7 @@ async def submit_stage1(
                 ('aadhaar_doc',           new_aadhaar),
                 ('aadhaar_back_doc',      new_aadhaar_back),
                 ('rc_doc',                new_rc),
+                ('rc_back_doc',           new_rc_back),
                 ('insurance_doc',         new_ins),
                 ('pollution_doc',         new_pol),
                 ('fitness_doc',           new_fit),

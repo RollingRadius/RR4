@@ -76,6 +76,7 @@ class Trip(Base):
     s1_aadhaar_url               = Column(Text, nullable=True)
     s1_aadhaar_back_url          = Column(Text, nullable=True)
     s1_rc                   = Column(Text, nullable=True)
+    s1_rc_back              = Column(Text, nullable=True)
     s1_insurance            = Column(Text, nullable=True)
     s1_pollution            = Column(Text, nullable=True)
     s1_fitness              = Column(Text, nullable=True)
@@ -84,6 +85,14 @@ class Trip(Base):
     s1_tax_declaration      = Column(Text, nullable=True)
     s1_cancelled_cheque     = Column(Text, nullable=True)
     s1_submitted_at         = Column(TIMESTAMP(timezone=True), nullable=True)
+    # Number fields for vehicle docs — mirror s1_driving_license/s1_aadhaar
+    # (driver-side numbers), which existed for years before the vehicle side
+    # ever got equivalents, even though RR's schema supports one per doc type.
+    s1_rc_number            = Column(String(50), nullable=True)
+    s1_puc_number           = Column(String(50), nullable=True)
+    s1_fitness_number       = Column(String(50), nullable=True)
+    s1_permit_number        = Column(String(50), nullable=True)
+    s1_insurance_number     = Column(String(50), nullable=True)
 
     # Stage 2 — Pre-Arrival Compliance Check
     s2_specs_verified       = Column(Boolean,     nullable=True)
@@ -231,9 +240,13 @@ class Trip(Base):
     rr_pan_file_id             = Column(String(100), nullable=True)
     rr_tax_declaration_file_id = Column(String(100), nullable=True)
     rr_rc_file_id              = Column(String(100), nullable=True)
+    rr_rc_back_file_id         = Column(String(100), nullable=True)
     rr_puc_file_id             = Column(String(100), nullable=True)
     rr_fitness_file_id         = Column(String(100), nullable=True)
     rr_permit_file_id          = Column(String(100), nullable=True)
+    # Insurance is a separate RR field (vehicles.insurance), not part of
+    # identities[] — its own cache column, tracked independently.
+    rr_insurance_file_id       = Column(String(100), nullable=True)
     axle_type        = Column(String(20),    nullable=True)   # Single | Double | Triple | Multiple
     number_of_wheels = Column(Integer,       nullable=True)   # 4|6|8|10|12|14|16|18|22
     expected_freight = Column(Numeric(12,2), nullable=True)
@@ -257,6 +270,11 @@ class Trip(Base):
     # Values: not_synced | trip_created | loading_slip_synced | bilty_synced | pod_synced | failed
     rr_sync_error  = Column(Text,                        nullable=True)
     rr_synced_at   = Column(TIMESTAMP(timezone=True),    nullable=True)
+
+    # Move to Records — explicit, one-directional LP/RR-ops action via
+    # long-press, independent of sync progress. Shared state across
+    # LP/RR-ops/FE trip lists, not per-role. NULL = not moved to Records.
+    moved_to_records_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Per-stage RR sync tracking (each stage's own status — see sync_stage() /
     # rr_sync_service.py. rr_sync_status above stays as a legacy "overall/latest"
@@ -332,10 +350,16 @@ class Trip(Base):
             "s1_aadhaar_url": self.s1_aadhaar_url,
             "s1_aadhaar_back_url": self.s1_aadhaar_back_url,
             "s1_rc": self.s1_rc,
+            "s1_rc_back": self.s1_rc_back,
+            "s1_rc_number": self.s1_rc_number,
             "s1_insurance": self.s1_insurance,
+            "s1_insurance_number": self.s1_insurance_number,
             "s1_pollution": self.s1_pollution,
+            "s1_puc_number": self.s1_puc_number,
             "s1_fitness": self.s1_fitness,
+            "s1_fitness_number": self.s1_fitness_number,
             "s1_permit": self.s1_permit,
+            "s1_permit_number": self.s1_permit_number,
             "s1_pan": self.s1_pan,
             "s1_tax_declaration": self.s1_tax_declaration,
             "s1_cancelled_cheque": self.s1_cancelled_cheque,
@@ -420,6 +444,7 @@ class Trip(Base):
             "rr_sync_status":          self.rr_sync_status,
             "rr_sync_error":  self.rr_sync_error,
             "rr_synced_at":   self.rr_synced_at.isoformat() if self.rr_synced_at else None,
+            "moved_to_records_at": self.moved_to_records_at.isoformat() if self.moved_to_records_at else None,
             # Per-stage RR sync tracking
             "rr_s1_sync_status": self.rr_s1_sync_status,
             "rr_s1_sync_error":  self.rr_s1_sync_error,

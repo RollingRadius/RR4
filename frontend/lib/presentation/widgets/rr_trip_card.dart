@@ -58,6 +58,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   /// Local override so the switch reflects the toggle immediately, before
   /// the parent's next refresh brings back an updated TripModel.
   bool? _s1RequiredOverride;
+  Offset? _lastTapPosition;
 
   TripModel get trip => widget.trip;
 
@@ -230,6 +231,57 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     ).then((_) => widget.onRefresh?.call());
   }
 
+  // ── Move to Records — long-press context menu, LP/RR-ops only ──────────────
+  // Independent of sync progress: no gating on stage completeness or sync
+  // status, intentional so abandoned/cancelled trips can be archived too.
+  // One-directional for now, no "move back out" action.
+
+  Future<void> _moveToRecords() async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/trips/${trip.id}/move-to-records');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Trip moved to Records', style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: _done,
+        behavior: SnackBarBehavior.floating,
+      ));
+      widget.onRefresh?.call();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Could not move trip to Records', style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
+  Future<void> _showLongPressMenu(BuildContext context, Offset globalPosition) async {
+    if (!_canManageRr) return; // FE never gets this menu
+    final alreadyInRecords = trip.movedToRecordsAt != null;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        globalPosition & const Size(1, 1),
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: 'move_to_records',
+          enabled: !alreadyInRecords,
+          child: Text(
+            alreadyInRecords ? 'Already in Records' : 'Move to Records',
+            style: _inter(size: 13, weight: FontWeight.w600,
+                color: alreadyInRecords ? _secondary : _onSurface),
+          ),
+        ),
+      ],
+    );
+    if (selected == 'move_to_records') await _moveToRecords();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -237,6 +289,8 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () => _openStages(context),
+        onTapDown: (details) => _lastTapPosition = details.globalPosition,
+        onLongPress: () => _showLongPressMenu(context, _lastTapPosition ?? Offset.zero),
         child: Container(
           decoration: BoxDecoration(
             color: _white,
