@@ -49,6 +49,16 @@ print_error()   { echo -e "${RED}${ICON_ERR} $1${NC}"; }
 # waits/tails its log. If the SSH session drops, the background worker below
 # keeps running to completion — reconnect and `tail -f` the log file to see
 # where it landed, instead of having to re-run from scratch.
+#
+# Resolved to an absolute path (not just "$0") because setsid execs its
+# argument via execvp, which searches $PATH for any name with no "/" in it —
+# if this script was invoked as a bare relative name (e.g. `bash
+# apply-migrations-production.sh` without a leading `./`), $0 has no slash,
+# so execvp can't find it in the current directory and fails with
+# "No such file or directory". Passed through `bash` explicitly below too,
+# so it never depends on the file's own executable bit either.
+SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+
 LOCK_FILE="/tmp/rr4-apply-migrations.lock"
 
 if [ -z "${RR4_MIGRATION_BG:-}" ]; then
@@ -75,7 +85,7 @@ if [ -z "${RR4_MIGRATION_BG:-}" ]; then
     # immediately (often with exit code 0) instead of actually blocking until
     # the real background process finishes — which silently turned every run
     # into a false "success" before the migration had done any real work.
-    nohup setsid "$0" "$@" > "$LOG_FILE" 2>&1 < /dev/null &
+    nohup setsid bash "$SCRIPT_PATH" "$@" > "$LOG_FILE" 2>&1 < /dev/null &
     BG_PID=$!
     echo "Started as PID $BG_PID."
 
