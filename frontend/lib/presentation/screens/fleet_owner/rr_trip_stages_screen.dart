@@ -992,7 +992,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   // reassignment, not the initial fresh-load pre-fill).
   Future<void> _onNewDriverSelected(Map<String, dynamic> u) async {
     setState(() => _pendingNewDriver = u);
-    final driverRrId = u['_id'] as String?;
+    final driverRrId = u['user_id'] as String?;
     if (driverRrId == null || driverRrId.isEmpty) return;
     try {
       final data = await ref.read(rrSyncApiProvider).getPrefill(driverRrId: driverRrId);
@@ -1006,7 +1006,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   Future<void> _confirmReassignDriver() async {
     final newDriver = _pendingNewDriver;
     if (newDriver == null || _reassigning) return;
-    final driverRrId = newDriver['_id'] as String?;
+    final driverRrId = newDriver['user_id'] as String?;
     if (driverRrId == null || driverRrId.isEmpty) return;
 
     final confirmed = await showDialog<bool>(

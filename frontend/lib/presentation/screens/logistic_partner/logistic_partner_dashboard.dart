@@ -3821,7 +3821,12 @@ class _RecordsTab extends ConsumerWidget {
               sliver: SliverList.separated(
                 itemCount: trips.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (_, i) => RrTripCard(trip: trips[i]),
+                itemBuilder: (_, i) => RrTripCard(
+                  trip: trips[i],
+                  onRefresh: () => ref
+                      .read(completedTripsProvider.notifier)
+                      .loadTrips(rrOnly: true),
+                ),
               ),
             ),
         ],
