@@ -605,7 +605,12 @@ class _RrOpsRecordsTab extends ConsumerWidget {
                 delegate: SliverChildBuilderDelegate(
                   (ctx, i) => Padding(
                     padding: const EdgeInsets.only(bottom: 14),
-                    child: RrTripCard(trip: trips[i]),
+                    child: RrTripCard(
+                      trip: trips[i],
+                      onRefresh: () => ref
+                          .read(completedTripsProvider.notifier)
+                          .loadTrips(rrOnly: true),
+                    ),
                   ),
                   childCount: trips.length,
                 ),
