@@ -663,7 +663,20 @@ async def get_rr_file_preview(
         raise HTTPException(status_code=502, detail=f"RR /files returned {resp.status_code}")
 
     data = resp.json()
-    file_b64 = data.get("file")
+    # RR's GridFS-backed /files/{id} nests the actual content one level
+    # deeper than it looks: `file` is itself a dict — {"file": "<base64>",
+    # "content_type": ..., "filename": ..., ...} — not a plain base64 string.
+    # Confirmed against live RR test data (consistent across every file
+    # sampled); the fallback below just guards against a bare-string shape
+    # in case some RR path ever returns one directly.
+    file_obj = data.get("file")
+    if isinstance(file_obj, dict):
+        file_b64 = file_obj.get("file")
+        content_type = file_obj.get("content_type") or "application/octet-stream"
+    else:
+        file_b64 = file_obj
+        content_type = data.get("content_type") or "application/octet-stream"
+
     if not file_b64:
         raise HTTPException(status_code=502, detail="RR /files response missing file content")
 
@@ -672,7 +685,6 @@ async def get_rr_file_preview(
     except Exception:
         raise HTTPException(status_code=502, detail="RR /files content could not be decoded")
 
-    content_type = data.get("content_type") or "application/octet-stream"
     return Response(content=file_bytes, media_type=content_type)
 
 
