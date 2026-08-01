@@ -835,6 +835,24 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   // Photo bytes fetched via the file-preview proxy, keyed by doc slot:
   // dl_front/dl_back/aadhaar_front/aadhaar_back/rc_front/puc/fitness/permit.
   final Map<String, Uint8List> _rrPreview = {};
+  // The RR file id behind each _rrPreview entry, persisted into the draft so
+  // photos can be re-fetched on reopen without a fresh /api/rr/prefill call —
+  // _rrPreview's bytes themselves are never saved (drafts only carry plain
+  // text/upload fields), so without this the preview images would disappear
+  // every time this screen is left and reopened.
+  final Map<String, String> _rrPreviewFileIds = {};
+  // True while _maybeLoadRrPrefill is programmatically setting field text —
+  // suppresses the field listeners below so auto-filled values aren't marked
+  // "touched by me" and don't themselves trigger a draft auto-save. Without
+  // this, the very act of pre-filling created a draft, and that draft's mere
+  // existence used to permanently block pre-fill from ever running again.
+  bool _applyingPrefill = false;
+  // driverRrId|vehicleRrId that pre-fill was last successfully fetched for —
+  // restored from the draft, re-saved after every successful fetch. Lets
+  // _maybeLoadRrPrefill tell "already fetched for this exact assignment"
+  // apart from "a draft merely exists", so a driver/vehicle reassignment
+  // correctly triggers a fresh fetch instead of being blocked forever.
+  String? _rrPrefillAttemptedFor;
 
   // ── Appoint New Driver (LP/RR-ops only) ─────────────────────────────────────
   bool _showDriverReassign = false;
@@ -852,16 +870,39 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     super.initState();
     _prefillFromDraft();
     // Individual listeners so we know WHICH field the current user touched
-    _driverName.addListener(()     { _touchField('driver_name');     _onFieldChanged(); });
-    _driverPhone.addListener(()    { _touchField('driver_phone');    _onFieldChanged(); });
-    _drivingLicense.addListener(() { _touchField('driving_license'); _onFieldChanged(); });
-    _aadhaar.addListener(()        { _touchField('aadhaar');         _onFieldChanged(); });
-    _rcNumber.addListener(()       { _touchField('rc_number');       _onFieldChanged(); });
-    _pucNumber.addListener(()      { _touchField('puc_number');      _onFieldChanged(); });
-    _fitnessNumber.addListener(()  { _touchField('fitness_number');  _onFieldChanged(); });
-    _permitNumber.addListener(()   { _touchField('permit_number');   _onFieldChanged(); });
-    _insuranceNumber.addListener(() { _touchField('insurance_number'); _onFieldChanged(); });
+    _driverName.addListener(()     { if (_applyingPrefill) return; _touchField('driver_name');     _onFieldChanged(); });
+    _driverPhone.addListener(()    { if (_applyingPrefill) return; _touchField('driver_phone');    _onFieldChanged(); });
+    _drivingLicense.addListener(() { if (_applyingPrefill) return; _touchField('driving_license'); _onFieldChanged(); });
+    _aadhaar.addListener(()        { if (_applyingPrefill) return; _touchField('aadhaar');         _onFieldChanged(); });
+    _rcNumber.addListener(()       { if (_applyingPrefill) return; _touchField('rc_number');       _onFieldChanged(); });
+    _pucNumber.addListener(()      { if (_applyingPrefill) return; _touchField('puc_number');      _onFieldChanged(); });
+    _fitnessNumber.addListener(()  { if (_applyingPrefill) return; _touchField('fitness_number');  _onFieldChanged(); });
+    _permitNumber.addListener(()   { if (_applyingPrefill) return; _touchField('permit_number');   _onFieldChanged(); });
+    _insuranceNumber.addListener(() { if (_applyingPrefill) return; _touchField('insurance_number'); _onFieldChanged(); });
+    // Only restore photos from the OLD draft's file ids when no fresh
+    // pre-fill fetch is about to happen — if the driver/vehicle assignment
+    // has changed, _maybeLoadRrPrefill will fetch every current photo itself
+    // (overwrite: true). Running both at once would race: the stale restore
+    // could resolve after the fresh fetch and silently overwrite a correct
+    // new photo with the old, wrong one.
+    final currentFor = '${widget.trip.rrDriverId ?? ''}|${widget.trip.rrVehicleId ?? ''}';
+    if (_rrPrefillAttemptedFor == currentFor) {
+      _restoreRrPreviewPhotos();
+    }
     _maybeLoadRrPrefill();
+  }
+
+  // Re-fetches each pre-fill photo's bytes from its already-known RR file id
+  // (restored from the draft by _prefillFromDraft) — runs on every open,
+  // independent of whether _maybeLoadRrPrefill itself decides to re-fetch the
+  // driver/vehicle numbers. The bytes themselves are never persisted (drafts
+  // only carry plain text/upload fields), so without this the preview photos
+  // would vanish every time this screen is left and reopened, even on a trip
+  // whose driver/vehicle hasn't changed since the last successful pre-fill.
+  void _restoreRrPreviewPhotos() {
+    for (final entry in _rrPreviewFileIds.entries) {
+      unawaited(_fetchRrPreview(entry.value, entry.key));
+    }
   }
 
   // A driver/vehicle already hired before may already have docs on RR — pull
@@ -871,7 +912,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   // issue, etc.) is silently skipped.
   Future<void> _maybeLoadRrPrefill() async {
     final trip = widget.trip;
-    if (trip.draftData != null || trip.currentStage >= 1) return;
+    if (trip.currentStage >= 1) return;
     final driverRrId = trip.rrDriverId;
     final vehicleRrId = trip.rrVehicleId;
     if ((driverRrId == null || driverRrId.isEmpty) &&
@@ -879,52 +920,92 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       return;
     }
 
+    // Skip only if pre-fill already succeeded for this EXACT driver+vehicle
+    // pair — a draft merely existing isn't a reason to skip, since (a)
+    // pre-filling is itself what creates that draft the very first time, and
+    // (b) the assigned driver/vehicle may have changed since the draft was
+    // last saved.
+    final currentFor = '${driverRrId ?? ''}|${vehicleRrId ?? ''}';
+    if (_rrPrefillAttemptedFor == currentFor) return;
+    // Always overwrite once we've decided to actually fetch: the persisted
+    // marker mismatch is already a strong "these fields can't be trusted for
+    // the current assignment" signal, covering both a genuinely fresh load
+    // (fields blank — overwrite is a no-op) AND a driver/vehicle reassigned
+    // before this exact code existed (fields hold a stale/wrong prior
+    // driver's data that must be corrected, not preserved).
+    const isReassignment = true;
+
     try {
       final data = await ref.read(rrSyncApiProvider).getPrefill(
         driverRrId: driverRrId,
         vehicleRrId: vehicleRrId,
       );
+      // Got a real response — mark this assignment as done even if some
+      // fields below turn out empty (RR genuinely has nothing for them).
+      // A thrown exception (network/no RR session) never reaches here, so
+      // those cases correctly retry on the next open instead of locking out.
+      _rrPrefillAttemptedFor = currentFor;
+      _applyingPrefill = true;
 
-      await _applyDriverPrefill(data['driver'] as Map<String, dynamic>?, overwrite: false);
+      await _applyDriverPrefill(data['driver'] as Map<String, dynamic>?, overwrite: isReassignment);
+
+      // Clears a vehicle doc slot before conditionally refilling it below —
+      // only when isReassignment, so a new vehicle with no data for a slot
+      // doesn't leave the previous vehicle's stale number/photo in place.
+      void clearVehicleSlot(TextEditingController ctrl, String previewKey) {
+        if (!isReassignment) return;
+        ctrl.text = '';
+        _rrPreview.remove(previewKey);
+        _rrPreviewFileIds.remove(previewKey);
+      }
 
       final vehicle = data['vehicle'] as Map<String, dynamic>?;
-      if (vehicle != null) {
-        final rc = vehicle['rc'] as Map<String, dynamic>?;
-        if (rc != null) {
-          final num_ = rc['number'] as String?;
-          if (_rcNumber.text.isEmpty && num_ != null && num_.isNotEmpty) _rcNumber.text = num_;
-          await _fetchRrPreview(rc['front_file_id'] as String?, 'rc_front');
-          await _fetchRrPreview(rc['back_file_id'] as String?, 'rc_back');
-        }
-        final puc = vehicle['puc'] as Map<String, dynamic>?;
-        if (puc != null) {
-          final num_ = puc['number'] as String?;
-          if (_pucNumber.text.isEmpty && num_ != null && num_.isNotEmpty) _pucNumber.text = num_;
-          await _fetchRrPreview(puc['front_file_id'] as String?, 'puc');
-        }
-        final fitness = vehicle['fitness'] as Map<String, dynamic>?;
-        if (fitness != null) {
-          final num_ = fitness['number'] as String?;
-          if (_fitnessNumber.text.isEmpty && num_ != null && num_.isNotEmpty) _fitnessNumber.text = num_;
-          await _fetchRrPreview(fitness['front_file_id'] as String?, 'fitness');
-        }
-        final permit = vehicle['permit'] as Map<String, dynamic>?;
-        if (permit != null) {
-          final num_ = permit['number'] as String?;
-          if (_permitNumber.text.isEmpty && num_ != null && num_.isNotEmpty) _permitNumber.text = num_;
-          await _fetchRrPreview(permit['front_file_id'] as String?, 'permit');
-        }
-        final insurance = vehicle['insurance'] as Map<String, dynamic>?;
-        if (insurance != null) {
-          final num_ = insurance['policy_number'] as String?;
-          if (_insuranceNumber.text.isEmpty && num_ != null && num_.isNotEmpty) _insuranceNumber.text = num_;
-          await _fetchRrPreview(insurance['front_file_id'] as String?, 'insurance');
-        }
+      final rc = vehicle?['rc'] as Map<String, dynamic>?;
+      clearVehicleSlot(_rcNumber, 'rc_front');
+      _rrPreview.remove('rc_back');
+      _rrPreviewFileIds.remove('rc_back');
+      if (rc != null) {
+        final num_ = rc['number'] as String?;
+        if ((isReassignment || _rcNumber.text.isEmpty) && num_ != null && num_.isNotEmpty) _rcNumber.text = num_;
+        await _fetchRrPreview(rc['front_file_id'] as String?, 'rc_front');
+        await _fetchRrPreview(rc['back_file_id'] as String?, 'rc_back');
+      }
+      final puc = vehicle?['puc'] as Map<String, dynamic>?;
+      clearVehicleSlot(_pucNumber, 'puc');
+      if (puc != null) {
+        final num_ = puc['number'] as String?;
+        if ((isReassignment || _pucNumber.text.isEmpty) && num_ != null && num_.isNotEmpty) _pucNumber.text = num_;
+        await _fetchRrPreview(puc['front_file_id'] as String?, 'puc');
+      }
+      final fitness = vehicle?['fitness'] as Map<String, dynamic>?;
+      clearVehicleSlot(_fitnessNumber, 'fitness');
+      if (fitness != null) {
+        final num_ = fitness['number'] as String?;
+        if ((isReassignment || _fitnessNumber.text.isEmpty) && num_ != null && num_.isNotEmpty) _fitnessNumber.text = num_;
+        await _fetchRrPreview(fitness['front_file_id'] as String?, 'fitness');
+      }
+      final permit = vehicle?['permit'] as Map<String, dynamic>?;
+      clearVehicleSlot(_permitNumber, 'permit');
+      if (permit != null) {
+        final num_ = permit['number'] as String?;
+        if ((isReassignment || _permitNumber.text.isEmpty) && num_ != null && num_.isNotEmpty) _permitNumber.text = num_;
+        await _fetchRrPreview(permit['front_file_id'] as String?, 'permit');
+      }
+      final insurance = vehicle?['insurance'] as Map<String, dynamic>?;
+      clearVehicleSlot(_insuranceNumber, 'insurance');
+      if (insurance != null) {
+        final num_ = insurance['policy_number'] as String?;
+        if ((isReassignment || _insuranceNumber.text.isEmpty) && num_ != null && num_.isNotEmpty) _insuranceNumber.text = num_;
+        await _fetchRrPreview(insurance['front_file_id'] as String?, 'insurance');
       }
     } catch (_) {
       // No RR session yet, network issue, etc. — pre-fill is a convenience,
-      // never required to fill out Stage 1.
+      // never required to fill out Stage 1. _rrPrefillAttemptedFor is left
+      // unset so this retries next time the screen opens.
+    } finally {
+      _applyingPrefill = false;
     }
+    if (_rrPrefillAttemptedFor == currentFor) unawaited(_saveDraft());
   }
 
   /// Shared by the initial auto pre-fill (fills only empty fields, never
@@ -947,6 +1028,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       _dlBackDoc = null;
       _rrPreview.remove('dl_front');
       _rrPreview.remove('dl_back');
+      _rrPreviewFileIds.remove('dl_front');
+      _rrPreviewFileIds.remove('dl_back');
       _drivingLicense.text = '';
     }
     if (dl != null) {
@@ -963,6 +1046,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       _aadhaarBackDoc = null;
       _rrPreview.remove('aadhaar_front');
       _rrPreview.remove('aadhaar_back');
+      _rrPreviewFileIds.remove('aadhaar_front');
+      _rrPreviewFileIds.remove('aadhaar_back');
       _aadhaar.text = '';
     }
     if (aadhaar != null) {
@@ -1049,6 +1134,13 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
 
   Future<void> _fetchRrPreview(String? rrFileId, String key) async {
     if (rrFileId == null || rrFileId.isEmpty) return;
+    // Remember the file id (not just the fetched bytes) so a later reopen of
+    // this screen can re-fetch the preview from the draft alone, without
+    // needing a fresh /api/rr/prefill call — the bytes themselves are never
+    // persisted (drafts only save plain text/file-upload fields), so without
+    // this the preview photo would vanish the moment this screen is left and
+    // reopened, even though the underlying RR file id was already known.
+    _rrPreviewFileIds[key] = rrFileId;
     try {
       final resp = await ref.read(dioProvider).get(
         '/api/rr/file-preview/$rrFileId',
@@ -1102,6 +1194,9 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       if (draft['saved_at'] != null) {
         _lastSaved = DateTime.tryParse(draft['saved_at'] as String);
       }
+      _rrPrefillAttemptedFor = d['_rr_prefill_for'] as String?;
+      final previewIds = d['_rr_preview_file_ids'] as Map<String, dynamic>?;
+      previewIds?.forEach((k, v) { if (v is String) _rrPreviewFileIds[k] = v; });
       // Draft attributions override persistent ones
       final attrs = draft['attributions'] as Map<String, dynamic>?;
       if (attrs != null) {
@@ -1166,6 +1261,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
           'fitness_number':  _fitnessNumber.text.trim(),
           'permit_number':   _permitNumber.text.trim(),
           'insurance_number': _insuranceNumber.text.trim(),
+          if (_rrPrefillAttemptedFor != null) '_rr_prefill_for': _rrPrefillAttemptedFor,
+          if (_rrPreviewFileIds.isNotEmpty) '_rr_preview_file_ids': _rrPreviewFileIds,
           ..._fileDraftEntry(_dlDoc,              'dl_doc'),
           ..._fileDraftEntry(_dlBackDoc,          'dl_back_doc'),
           ..._fileDraftEntry(_aadhaarDoc,         'aadhaar_doc'),
