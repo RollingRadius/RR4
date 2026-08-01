@@ -212,6 +212,7 @@ async def _push_driver_identities(
     client: httpx.AsyncClient,
     token: str,
     db,
+    trip=None,
 ) -> tuple[bool, str | None]:
     """
     Push driver identity docs (DL/Aadhaar/PAN/Tax Declaration) via RR's
@@ -222,13 +223,25 @@ async def _push_driver_identities(
 
     save_identities wholesale-replaces `identities[]` server-side (no merge),
     so we read the driver's current identities first via
-    _fetch_driver_identities_via_vehicle and send back the full merged set —
-    same fill-missing-side/skip-if-complete semantics _push_identities uses.
+    _fetch_driver_identities_via_vehicle and send back the full merged set.
+
+    A side is (re)pushed whenever the trip's current local URL for that side
+    differs from trip.rr_synced_doc_urls (what THIS trip last successfully
+    pushed there) — covers both "RR never had this side" and "RR has a side
+    but it's a stale/earlier photo", replacing RR's copy in the latter case
+    instead of leaving it untouched.
     """
-    to_push = [
-        it for it in items
-        if (it["front_url"] and not getattr(entity, it["front_attr"])) or it.get("number")
-    ]
+    synced_urls = dict((trip.rr_synced_doc_urls or {}) if trip is not None else {})
+
+    def _front_key(it): return f"{it['id_name']}::front"
+    def _back_key(it): return f"{it['id_name']}::back"
+
+    def _needs(it):
+        front_changed = bool(it["front_url"]) and synced_urls.get(_front_key(it)) != it["front_url"]
+        back_changed = bool(it["back_url"]) and synced_urls.get(_back_key(it)) != it["back_url"]
+        return front_changed or back_changed or bool(it.get("number"))
+
+    to_push = [it for it in items if _needs(it)]
     if not to_push:
         return True, None  # everything already pushed for this driver
 
@@ -240,34 +253,38 @@ async def _push_driver_identities(
         # loss, since save_identities only receives what we send below).
         existing = []
 
-    existing_by_name: dict[str, tuple[int, set]] = {}
+    existing_by_name: dict[str, int] = {}
     for idx, entry in enumerate(existing):
         name = entry.get("id_name")
         if name:
-            sides = {p.get("side") for p in (entry.get("photos") or [])}
-            existing_by_name[name] = (idx, sides)
+            existing_by_name[name] = idx
 
     local_updates: list[tuple[str, str]] = []
+    synced_url_updates: dict[str, str] = {}
     pushed_number = False
 
     for it in to_push:
-        existing_entry = existing_by_name.get(it["id_name"])
-        if existing_entry is not None:
-            idx, sides = existing_entry
-            missing_front = bool(it["front_url"]) and "Front" not in sides
-            missing_back = bool(it["back_url"]) and "Back" not in sides
-            photos = list(existing[idx].get("photos") or [])
-            if missing_front:
+        need_front = bool(it["front_url"]) and synced_urls.get(_front_key(it)) != it["front_url"]
+        need_back = bool(it["back_url"]) and synced_urls.get(_back_key(it)) != it["back_url"]
+        idx = existing_by_name.get(it["id_name"])
+
+        if idx is not None:
+            photos = [p for p in (existing[idx].get("photos") or [])]
+            if need_front:
                 front_id = await _upload_file(it["front_url"], client, token)
                 if front_id:
+                    photos = [p for p in photos if p.get("side") != "Front"]
                     photos.append({"photo": front_id, "side": "Front"})
                     local_updates.append((it["front_attr"], front_id))
-            if missing_back:
+                    synced_url_updates[_front_key(it)] = it["front_url"]
+            if need_back:
                 back_id = await _upload_file(it["back_url"], client, token)
                 if back_id:
+                    photos = [p for p in photos if p.get("side") != "Back"]
                     photos.append({"photo": back_id, "side": "Back"})
                     if it["back_attr"]:
                         local_updates.append((it["back_attr"], back_id))
+                    synced_url_updates[_back_key(it)] = it["back_url"]
             updated_entry = {**existing[idx], "photos": photos}
             if it.get("number") and existing[idx].get("number") != it["number"]:
                 updated_entry["number"] = it["number"]
@@ -276,17 +293,19 @@ async def _push_driver_identities(
             continue
 
         photos = []
-        if it["front_url"]:
+        if need_front and it["front_url"]:
             front_id = await _upload_file(it["front_url"], client, token)
             if front_id:
                 photos.append({"photo": front_id, "side": "Front"})
                 local_updates.append((it["front_attr"], front_id))
-        if it["back_url"]:
+                synced_url_updates[_front_key(it)] = it["front_url"]
+        if need_back and it["back_url"]:
             back_id = await _upload_file(it["back_url"], client, token)
             if back_id:
                 photos.append({"photo": back_id, "side": "Back"})
                 if it["back_attr"]:
                     local_updates.append((it["back_attr"], back_id))
+                synced_url_updates[_back_key(it)] = it["back_url"]
         if photos or it.get("number"):
             new_entry = {"id_name": it["id_name"], "photos": photos}
             if it.get("number"):
@@ -323,6 +342,8 @@ async def _push_driver_identities(
 
     for attr, rr_file_id in local_updates:
         setattr(entity, attr, rr_file_id)
+    if trip is not None and synced_url_updates:
+        trip.rr_synced_doc_urls = {**(trip.rr_synced_doc_urls or {}), **synced_url_updates}
     db.commit()
     return True, None
 
@@ -335,28 +356,34 @@ async def _push_identities(
     client: httpx.AsyncClient,
     token: str,
     db,
+    trip=None,
 ) -> tuple[bool, str | None]:
     """
     Push identity docs into `identities[]` on a `users`/`vehicles` RR record,
-    tracking each doc's RR file id locally (on `entity`) so re-submits skip
-    straight past docs already pushed instead of re-checking RR every time.
+    tracking each doc's RR file id locally (on `entity`) for reference.
 
-    Conflict handling is per SIDE, not per id_name: if RR already has an
-    entry for an id_name (e.g. Driving Licence submitted independently
-    through RR's own crew-assignment flow) but is missing a side we have
-    locally, that missing side is filled in — RR's existing side(s) are never
-    touched or replaced. An id_name is only skipped entirely once RR already
-    has every side we'd otherwise push; genuinely replacing an existing side
-    is left to the explicit /identity-override action, never done silently.
+    A side is (re)pushed whenever the trip's current local URL for that side
+    differs from trip.rr_synced_doc_urls (what THIS trip last successfully
+    pushed there) — covers both "RR has no entry yet" and "RR has a side but
+    it's a stale/earlier photo", replacing RR's existing side in the latter
+    case instead of leaving it untouched, so re-running sync always
+    converges RR to match what's currently on the trip.
 
     items: list of {id_name, front_url, back_url, front_attr, back_attr}
     front_attr/back_attr are column names on `entity` that cache the RR file id.
     Returns (success, error_message).
     """
-    to_push = [
-        it for it in items
-        if (it["front_url"] and not getattr(entity, it["front_attr"])) or it.get("number")
-    ]
+    synced_urls = dict((trip.rr_synced_doc_urls or {}) if trip is not None else {})
+
+    def _front_key(it): return f"{it['id_name']}::front"
+    def _back_key(it): return f"{it['id_name']}::back"
+
+    def _needs(it):
+        front_changed = bool(it["front_url"]) and synced_urls.get(_front_key(it)) != it["front_url"]
+        back_changed = bool(it["back_url"]) and synced_urls.get(_back_key(it)) != it["back_url"]
+        return front_changed or back_changed or bool(it.get("number"))
+
+    to_push = [it for it in items if _needs(it)]
     if not to_push:
         return True, None  # everything already pushed for this driver/vehicle
 
@@ -372,56 +399,64 @@ async def _push_identities(
     data = get_resp.json()
     etag = data.get("_etag")
     identities = list(data.get("identities") or [])
-    # id_name -> (index in `identities`, set of sides RR already has photos for)
-    existing_by_name: dict[str, tuple[int, set]] = {}
+    existing_by_name: dict[str, int] = {}
     for idx, entry in enumerate(identities):
         name = entry.get("id_name")
         if name:
-            sides = {p.get("side") for p in (entry.get("photos") or [])}
-            existing_by_name[name] = (idx, sides)
+            existing_by_name[name] = idx
 
     new_entries = []
-    patches: dict[int, list[dict]] = {}  # index into `identities` -> photos to append
+    patches: dict[int, list[dict]] = {}  # index into `identities` -> full replacement photos list
     number_patches: dict[int, str] = {}  # index into `identities` -> new number value
     local_updates: list[tuple[str, str]] = []  # (attr, rr_file_id)
+    synced_url_updates: dict[str, str] = {}
 
     for it in to_push:
-        existing = existing_by_name.get(it["id_name"])
-        if existing is not None:
-            idx, sides = existing
-            missing_front = bool(it["front_url"]) and "Front" not in sides
-            missing_back = bool(it["back_url"]) and "Back" not in sides
-            fill = []
-            if missing_front:
+        need_front = bool(it["front_url"]) and synced_urls.get(_front_key(it)) != it["front_url"]
+        need_back = bool(it["back_url"]) and synced_urls.get(_back_key(it)) != it["back_url"]
+        idx = existing_by_name.get(it["id_name"])
+
+        if idx is not None:
+            photos = [p for p in (identities[idx].get("photos") or [])]
+            changed = False
+            if need_front:
                 front_id = await _upload_file(it["front_url"], client, token)
                 if front_id:
-                    fill.append({"photo": front_id, "side": "Front"})
+                    photos = [p for p in photos if p.get("side") != "Front"]
+                    photos.append({"photo": front_id, "side": "Front"})
                     local_updates.append((it["front_attr"], front_id))
-            if missing_back:
+                    synced_url_updates[_front_key(it)] = it["front_url"]
+                    changed = True
+            if need_back:
                 back_id = await _upload_file(it["back_url"], client, token)
                 if back_id:
-                    fill.append({"photo": back_id, "side": "Back"})
+                    photos = [p for p in photos if p.get("side") != "Back"]
+                    photos.append({"photo": back_id, "side": "Back"})
                     if it["back_attr"]:
                         local_updates.append((it["back_attr"], back_id))
-            if fill:
-                patches[idx] = fill
+                    synced_url_updates[_back_key(it)] = it["back_url"]
+                    changed = True
+            if changed:
+                patches[idx] = photos
             if it.get("number") and identities[idx].get("number") != it["number"]:
                 number_patches[idx] = it["number"]
             continue
 
         # RR has no entry for this id_name at all — push a fresh one.
         photos = []
-        if it["front_url"]:
+        if need_front and it["front_url"]:
             front_id = await _upload_file(it["front_url"], client, token)
             if front_id:
                 photos.append({"photo": front_id, "side": "Front"})
                 local_updates.append((it["front_attr"], front_id))
-        if it["back_url"]:
+                synced_url_updates[_front_key(it)] = it["front_url"]
+        if need_back and it["back_url"]:
             back_id = await _upload_file(it["back_url"], client, token)
             if back_id:
                 photos.append({"photo": back_id, "side": "Back"})
                 if it["back_attr"]:
                     local_updates.append((it["back_attr"], back_id))
+                synced_url_updates[_back_key(it)] = it["back_url"]
         if photos or it.get("number"):
             new_entry = {"id_name": it["id_name"], "photos": photos}
             if it.get("number"):
@@ -431,11 +466,8 @@ async def _push_identities(
     if not new_entries and not patches and not number_patches:
         return True, None
 
-    for idx, fill in patches.items():
-        identities[idx] = {
-            **identities[idx],
-            "photos": [*(identities[idx].get("photos") or []), *fill],
-        }
+    for idx, photos in patches.items():
+        identities[idx] = {**identities[idx], "photos": photos}
     for idx, number in number_patches.items():
         identities[idx] = {**identities[idx], "number": number}
 
@@ -452,6 +484,8 @@ async def _push_identities(
 
     for attr, file_id in local_updates:
         setattr(entity, attr, file_id)
+    if trip is not None and synced_url_updates:
+        trip.rr_synced_doc_urls = {**(trip.rr_synced_doc_urls or {}), **synced_url_updates}
     db.commit()
     return True, None
 
@@ -464,6 +498,7 @@ async def _push_vehicle_insurance(
     client: httpx.AsyncClient,
     token: str,
     db,
+    trip=None,
 ) -> tuple[bool, str | None]:
     """
     Push vehicle insurance (policy_number + photo) via PATCH /vehicles/{id}.
@@ -482,7 +517,8 @@ async def _push_vehicle_insurance(
     wholesale, so skipping this would wipe expiry_date/currency/
     insured_by_company/main_declared_value if RR already had them set.
     """
-    needs_photo = bool(front_url) and not entity.rr_insurance_file_id
+    synced_urls = dict((trip.rr_synced_doc_urls or {}) if trip is not None else {})
+    needs_photo = bool(front_url) and synced_urls.get("Insurance::front") != front_url
     if not needs_photo and not policy_number:
         return True, None  # nothing to push
 
@@ -533,6 +569,8 @@ async def _push_vehicle_insurance(
 
     if new_file_id:
         entity.rr_insurance_file_id = new_file_id
+    if trip is not None and new_file_id:
+        trip.rr_synced_doc_urls = {**(trip.rr_synced_doc_urls or {}), "Insurance::front": front_url}
     db.commit()
     return True, None
 
@@ -677,7 +715,7 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
         attempted = True
         ok, err = await _push_driver_identities(
             driver_entity, driver_rr_id, vehicle_rr_id, trip.transporter_rr_company_id,
-            driver_doc_items(trip), client, token, db,
+            driver_doc_items(trip), client, token, db, trip,
         )
         if not ok:
             errors.append(f"Driver docs: {err}")
@@ -687,13 +725,13 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
     if vehicle_entity is not None:
         attempted = True
         ok, err = await _push_identities(vehicle_entity, "vehicles", vehicle_rr_id,
-                                          vehicle_doc_items(trip), client, token, db)
+                                          vehicle_doc_items(trip), client, token, db, trip)
         if not ok:
             errors.append(f"Vehicle docs: {err}")
 
         ok, err = await _push_vehicle_insurance(
             vehicle_entity, vehicle_rr_id, trip.s1_insurance_number, trip.s1_insurance,
-            client, token, db,
+            client, token, db, trip,
         )
         if not ok:
             errors.append(f"Insurance: {err}")

@@ -246,6 +246,14 @@ class Trip(Base):
     # Insurance is a separate RR field (vehicles.insurance), not part of
     # identities[] — its own cache column, tracked independently.
     rr_insurance_file_id       = Column(String(100), nullable=True)
+
+    # Local doc URL last successfully pushed to RR for this trip, keyed by
+    # "<id_name>::front"/"<id_name>::back" (e.g. "Driving Licence::front").
+    # Lets sync detect "this photo was re-uploaded since we last synced it"
+    # and replace RR's stale copy, instead of only filling sides RR is
+    # missing entirely — re-running sync now always converges RR to match
+    # whatever is currently on the trip.
+    rr_synced_doc_urls = Column(JSONB, nullable=True)
     axle_type        = Column(String(20),    nullable=True)   # Single | Double | Triple | Multiple
     number_of_wheels = Column(Integer,       nullable=True)   # 4|6|8|10|12|14|16|18|22
     expected_freight = Column(Numeric(12,2), nullable=True)
