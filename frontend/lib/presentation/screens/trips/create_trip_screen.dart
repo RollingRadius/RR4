@@ -376,41 +376,39 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           setState(() => _vehicleBodyTypes = (r.data['values'] as List? ?? []).cast<String>());
         }).catchError((_) {});
 
-    // Partners + workers require RR token
-    final session = await ensureRrSession(context, ref);
-    if (session == null) {
-      if (mounted) setState(() { _partnersLoading = false; _opsWorkersLoading = false; });
-      return;
-    }
-    final token = session.token;
+    // Partners + workers use the org's own RR session — no personal login
+    // needed unless it's genuinely expired. The first call goes through
+    // runRrAction so an expired session prompts login exactly once; the
+    // second then runs with that same now-valid session, avoiding a
+    // duplicate login dialog from two concurrent 409s.
     if (mounted) setState(() { _partnersLoading = true; _opsWorkersLoading = true; });
-    await Future.wait([
-      dio.get('/api/rr/preferred-partners', queryParameters: {'rr_token': token})
-          .then((r) {
-            if (mounted) setState(() {
-              _partners = (r.data['partners'] as List? ?? []).cast<Map<String, dynamic>>();
-              _partnersLoading = false;
-            });
-          }).catchError((_) { if (mounted) setState(() => _partnersLoading = false); }),
-      dio.get('/api/rr/company-workers', queryParameters: {'rr_token': token})
-          .then((r) {
-            if (mounted) setState(() {
-              _opsWorkers = (r.data['workers'] as List? ?? []).cast<Map<String, dynamic>>();
-              _opsWorkersLoading = false;
-            });
-          }).catchError((_) { if (mounted) setState(() => _opsWorkersLoading = false); }),
-    ]);
+    try {
+      final r = await runRrAction(context, ref, () => dio.get('/api/rr/preferred-partners'));
+      if (mounted) setState(() {
+        _partners = (r.data['partners'] as List? ?? []).cast<Map<String, dynamic>>();
+        _partnersLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _partnersLoading = false);
+    }
+    try {
+      final r = await dio.get('/api/rr/company-workers');
+      if (mounted) setState(() {
+        _opsWorkers = (r.data['workers'] as List? ?? []).cast<Map<String, dynamic>>();
+        _opsWorkersLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _opsWorkersLoading = false);
+    }
   }
 
   // Fetch company operation locations → populates the address selector
   Future<void> _loadCompanyLocations(String? companyId, {required bool isConsignor}) async {
     if (companyId == null || companyId.isEmpty) return;
-    final session = ref.read(rrSessionProvider);
-    final token = (session != null && session.isValid) ? session.token : '';
     try {
       final resp = await ref.read(dioProvider).get(
         '/api/rr/operation-locations',
-        queryParameters: {'company_id': companyId, 'rr_token': token},
+        queryParameters: {'company_id': companyId},
       );
       final locs = (resp.data['locations'] as List? ?? []).cast<Map<String, dynamic>>();
       if (!mounted) return;
@@ -443,11 +441,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (isConsignor) setState(() => _consignorCompaniesLoading = true);
     else             setState(() => _consigneeCompaniesLoading = true);
     try {
-      final session = ref.read(rrSessionProvider);
-      final token = (session != null && session.isValid) ? session.token : '';
       final resp = await ref.read(dioProvider).get(
         '/api/rr/partner-companies',
-        queryParameters: {'user_id': rrUserId, 'rr_token': token},
+        queryParameters: {'user_id': rrUserId},
       );
       final companies = (resp.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
       if (!mounted) return;
@@ -604,13 +600,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   Future<void> _lookUpVehicleProvider() async {
     final phone = _vpPhoneCtrl.text.trim();
     if (phone.isEmpty) return;
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
     setState(() { _vpLookingUp = true; _vpLookupError = null; _vpFoundUser = null; });
     try {
       final dio = ref.read(dioProvider);
-      final r = await dio.get('/api/rr/vehicle-provider-user',
-          queryParameters: {'phone': phone, 'rr_token': session.token});
+      final r = await runRrAction(context, ref, () => dio.get(
+          '/api/rr/vehicle-provider-user', queryParameters: {'phone': phone}));
       if (!mounted) return;
       setState(() {
         _vpFoundUser = Map<String, dynamic>.from(r.data as Map);
@@ -625,7 +619,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     }
   }
 
-  Future<void> _selectVpUser(String token) async {
+  Future<void> _selectVpUser() async {
     final user = _vpFoundUser;
     if (user == null) return;
     setState(() {
@@ -643,7 +637,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     // load companies + personal vehicles in parallel
     await Future.wait([
       dio.get('/api/rr/partner-companies',
-          queryParameters: {'user_id': userId, 'rr_token': token}).then((r) {
+          queryParameters: {'user_id': userId}).then((r) {
         if (!mounted) return;
         final list = (r.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
         setState(() { _vpCompanies = list; _vpCompaniesLoading = false; });
@@ -651,7 +645,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         if (mounted) setState(() => _vpCompaniesLoading = false);
       }),
       dio.get('/api/rr/user-vehicles',
-          queryParameters: {'user_id': userId, 'rr_token': token}).then((r) {
+          queryParameters: {'user_id': userId}).then((r) {
         if (!mounted) return;
         final list = (r.data['vehicles'] as List? ?? []).cast<Map<String, dynamic>>();
         setState(() => _vpPersonalVehicles = list);
@@ -659,7 +653,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     ]);
   }
 
-  Future<void> _loadVpCompanyVehicles(String companyId, String token) async {
+  Future<void> _loadVpCompanyVehicles(String companyId) async {
     setState(() {
       _vpVehiclesLoading = true; _vpVehicles = [];
       _vpSelectedVehicleRrId = null; _vpSelectedVehicleNumber = null;
@@ -667,7 +661,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     try {
       final dio = ref.read(dioProvider);
       final r = await dio.get('/api/rr/company-vehicles',
-          queryParameters: {'company_id': companyId, 'rr_token': token});
+          queryParameters: {'company_id': companyId});
       if (!mounted) return;
       final list = (r.data['vehicles'] as List? ?? []).cast<Map<String, dynamic>>();
       setState(() { _vpVehicles = list; _vpVehiclesLoading = false; });
@@ -684,15 +678,12 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   // a driver being selected here, because the vehicle's own crew was empty).
   Future<void> _assignDriverToVehicle(String driverUserId) async {
     if (_vpSelectedVehicleRrId == null || !_vehicleHasNoDriver) return;
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
     setState(() => _assigningDriverToVehicle = true);
     try {
-      await ref.read(rrSyncApiProvider).assignVehicleDriver(
-            rrToken: session.token,
+      await runRrAction(context, ref, () => ref.read(rrSyncApiProvider).assignVehicleDriver(
             vehicleId: _vpSelectedVehicleRrId!,
             driverUserId: driverUserId,
-          );
+          ));
       if (!mounted) return;
       void patchDriver(List<Map<String, dynamic>> list) {
         final idx = list.indexWhere((v) => v['rr_vehicle_id'] == _vpSelectedVehicleRrId);
@@ -969,10 +960,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     // Ops worker
     if (_selectedOpsWorkerLocalId != null) body['rr_ops_user_id'] = _selectedOpsWorkerLocalId;
 
-    // RR token
-    final rrSession = await ensureRrSession(context, ref);
-    if (rrSession != null && rrSession.isValid) body['rr_token'] = rrSession.token;
-    if (!mounted) return;
+    // RR token: omitted here on purpose — the backend falls back to the org's
+    // own RR session, so trip creation never needs a fresh interactive login.
 
     // Save current values for next time — unconditional, matching rr_kanpur's
     // own timing (saved right before submit, not gated on success).
@@ -1518,11 +1507,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               const SizedBox(height: 10),
               GestureDetector(
                 onTap: () async {
-                  final session = await ensureRrSession(context, ref);
-                  if (session != null && mounted) {
-                    setState(() { _fieldErr.remove('vpPhone'); _fieldErrMsg.remove('vpPhone'); });
-                    _selectVpUser(session.token);
-                  }
+                  setState(() { _fieldErr.remove('vpPhone'); _fieldErrMsg.remove('vpPhone'); });
+                  await _selectVpUser();
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1579,8 +1565,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                               _fieldErrMsg.remove('vpCompany');
                               _vpSelectedVehicleNumber = null;
                             });
-                            final session = await ensureRrSession(context, ref);
-                            if (session != null && mounted) _loadVpCompanyVehicles(v, session.token);
+                            _loadVpCompanyVehicles(v);
                           },
                         ),
               _inlineErr('vpCompany'),
@@ -1705,10 +1690,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               controller: _driverPhoneCtrl,
               keyboardType: TextInputType.text,
               search: (q) async {
-                final session = await ensureRrSession(context, ref);
-                if (session == null || !mounted) return [];
-                return ref.read(rrSyncApiProvider)
-                    .searchRrUsers(q, session.token, driversOnly: true);
+                return runRrAction(context, ref, () => ref.read(rrSyncApiProvider)
+                    .searchRrUsers(q, driversOnly: true));
               },
               itemLabel: (u) => u['name'] as String? ?? '',
               itemSubtitle: (u) => u['phone'] as String? ?? '',

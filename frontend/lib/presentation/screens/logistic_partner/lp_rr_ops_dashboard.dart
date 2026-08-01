@@ -7,10 +7,12 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
-import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
+import 'package:fleet_management/presentation/widgets/rr_connection_status.dart';
+import 'package:fleet_management/providers/notification_provider.dart';
+import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:fleet_management/presentation/widgets/available_loads_browser.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/providers/trip_provider.dart' show completedTripsProvider;
@@ -22,11 +24,8 @@ const _bg         = Color(0xFFF0F5FB);
 const _surface    = Color(0xFFFFFFFF);
 const _onSurface  = Color(0xFF191C1E);
 const _secondary  = Color(0xFF546067);
-const _border     = Color(0xFFDCE8F5);
 const _doneGreen  = Color(0xFF2E7D32);
-const _doneBg     = Color(0xFFE8F5E9);
 const _warnOrange = Color(0xFFE65100);
-const _warnBg     = Color(0xFFFFF3E0);
 
 TextStyle _manrope({
   double size = 14,
@@ -54,6 +53,7 @@ class LpRrOpsDashboard extends ConsumerStatefulWidget {
 class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   Timer? _pollTimer;
   int _navIndex = 0;
+  StreamSubscription<NotificationModel>? _rrExpirySub;
 
   void _switchNav(int i) {
     if (i == 0 && _navIndex != 0) _loadData();
@@ -70,6 +70,24 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
       if (mounted) _silentRefresh();
     });
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadData());
+
+    // Live "RR session expiring soon" banner — the RrConnectionStatus badge
+    // already shows this persistently, this catches it the moment it fires
+    // while the dashboard is open, with a one-tap way to reconnect.
+    _rrExpirySub = ref.read(notificationWsServiceProvider).stream.listen((n) {
+      if (n.type != 'rr_session_expiring' || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(n.body, style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: const Color(0xFFB25E00),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(
+          label: 'Reconnect',
+          textColor: Colors.white,
+          onPressed: () => ensureRrSession(context, ref),
+        ),
+      ));
+    });
   }
 
   void _loadData() {
@@ -228,6 +246,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _rrExpirySub?.cancel();
     super.dispose();
   }
 
@@ -242,7 +261,6 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
 
     final user      = ref.watch(authProvider).user;
     final tripState = ref.watch(tripProvider);
-    final session   = ref.watch(rrSessionProvider);
 
     // Fleet status: backend (rr_web=true) already scopes this to trips not yet
     // fully synced (current_stage < 5 or rr_sync_status != 'pod_synced') — no
@@ -357,18 +375,13 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
               ),
             ),
 
-            // ── RR connection banner ─────────────────────────────────────────
-            SliverToBoxAdapter(
+            // ── RR connection status — reflects the org's real server-side
+            // session (shared across every device/role), not just this
+            // device's local login state ──────────────────────────────────
+            const SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: _RrConnectionBanner(
-                  session: session,
-                  onConnect: () async {
-                    await ensureRrSession(context, ref);
-                  },
-                  onDisconnect: () =>
-                      ref.read(rrSessionProvider.notifier).clear(),
-                ),
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Align(alignment: Alignment.centerLeft, child: RrConnectionStatus()),
               ),
             ),
 
@@ -416,9 +429,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                     if (!tripState.isLoading) ...[
                       const SizedBox(width: 8),
                       Builder(builder: (ctx) => GestureDetector(
-                        onTap: () async {
-                          final session = await ensureRrSession(ctx, ref);
-                          if (session == null || !ctx.mounted) return;
+                        onTap: () {
                           Navigator.of(ctx).push(
                             MaterialPageRoute(builder: (_) => const CreateTripScreen()),
                           );
@@ -616,117 +627,6 @@ class _RrOpsRecordsTab extends ConsumerWidget {
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── RR Connection Banner ─────────────────────────────────────────────────────
-
-class _RrConnectionBanner extends StatelessWidget {
-  final RrSession? session;
-  final VoidCallback onConnect;
-  final VoidCallback onDisconnect;
-
-  const _RrConnectionBanner({
-    required this.session,
-    required this.onConnect,
-    required this.onDisconnect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final connected = session != null && session!.isValid;
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: connected ? _doneBg : _warnBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: connected
-              ? _doneGreen.withValues(alpha: 0.35)
-              : _warnOrange.withValues(alpha: 0.35),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: (connected ? _doneGreen : _warnOrange)
-                .withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: (connected ? _doneGreen : _warnOrange)
-                  .withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              connected
-                  ? Icons.cloud_done_rounded
-                  : Icons.cloud_off_rounded,
-              size: 18,
-              color: connected ? _doneGreen : _warnOrange,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  connected ? 'RR Web Connected' : 'RR Web Not Connected',
-                  style: _manrope(
-                    size: 13,
-                    weight: FontWeight.w700,
-                    color: connected ? _doneGreen : _warnOrange,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  connected
-                      ? 'You can upload loading slips'
-                      : 'Connect to upload loading slips',
-                  style: _inter(size: 11),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          GestureDetector(
-            onTap: connected ? onDisconnect : onConnect,
-            child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: connected ? _doneGreen : _rrBlue,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: (connected ? _doneGreen : _rrBlue)
-                        .withValues(alpha: 0.3),
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Text(
-                connected ? 'Disconnect' : 'Connect',
-                style: _inter(
-                    size: 12,
-                    weight: FontWeight.w700,
-                    color: Colors.white),
-              ),
-            ),
-          ),
         ],
       ),
     );

@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
-import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 
@@ -53,28 +52,9 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
   String? _cityId;
   String _businessType = _businessTypes.first;
   bool _submitting = false;
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureSessionOnOpen());
-  }
-
-  Future<void> _ensureSessionOnOpen() async {
-    final session = await ensureRrSession(context, ref);
-    if (!mounted) return;
-    if (session == null) {
-      Navigator.of(context).pop();
-      return;
-    }
-    setState(() => _ready = true);
-  }
-
-  String _currentToken() => ref.read(rrSessionProvider)?.token ?? '';
 
   Future<List<Map<String, dynamic>>> _searchOwners(String q) =>
-      ref.read(rrSyncApiProvider).searchRrUsers(q, _currentToken());
+      runRrAction(context, ref, () => ref.read(rrSyncApiProvider).searchRrUsers(q));
 
   Future<List<Map<String, dynamic>>> _searchCities(String q) async {
     final resp = await ref.read(rrSyncApiProvider).dio.get('/api/rr/cities', queryParameters: {'q': q});
@@ -100,19 +80,15 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
       return;
     }
 
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
-
     setState(() => _submitting = true);
     try {
-      final result = await ref.read(rrSyncApiProvider).createRrCompany(
-            rrToken: session.token,
+      final result = await runRrAction(context, ref, () => ref.read(rrSyncApiProvider).createRrCompany(
             name: _nameCtrl.text.trim(),
             cityId: _cityId!,
             businessType: _businessType,
             ownerUserId: _ownerId,
             newOwnerPhone: _ownerId == null ? ownerPhone : null,
-          );
+          ));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Company "${result['name']}" added on RR', style: _inter(size: 13, color: Colors.white)),
@@ -146,9 +122,7 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Add New Company', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _primary),
-      body: !_ready
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+      body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,

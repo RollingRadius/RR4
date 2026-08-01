@@ -76,8 +76,6 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   bool get _needsBookingConfirmation => trip.rrSyncStatus == 'failed';
 
   Future<void> _confirmBooking() async {
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
     setState(() => _confirmingBooking = true);
     try {
       // Two genuinely different failure points need two different retry
@@ -92,12 +90,22 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       //  - rrTripId already set: the trip exists on RR, a later stage's sync
       //    failed — /sync/retry is correct here, and does need polling since
       //    it only queues a background task.
+      //
+      // Both run via runRrAction — no RR login prompt unless the org
+      // genuinely has no valid session (backend returns 409), since the org's
+      // own auto-refreshing session already covers this the vast majority of
+      // the time.
       if (trip.rrTripId == null) {
-        final dio = ref.read(dioProvider);
-        final resp = await dio.post(
-          '/api/rr/complete-trip/${trip.id}',
-          data: {'rr_token': session.token},
-        );
+        final resp = await runRrAction(context, ref, () {
+          final dio = ref.read(dioProvider);
+          // RR's own /create_trip call has a 60s budget on the backend, plus
+          // up to ~15s more if the org's cached RR token needed a silent
+          // refresh first — extend past the app's global 60s receiveTimeout
+          // so a genuinely-slow-but-successful RR call isn't misreported as
+          // a client-side timeout.
+          return dio.post('/api/rr/complete-trip/${trip.id}', data: const {},
+              options: Options(receiveTimeout: const Duration(seconds: 90)));
+        });
         if (!mounted) return;
         final success = resp.data is Map && (resp.data['success'] == true);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -107,8 +115,10 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           behavior: SnackBarBehavior.floating,
         ));
       } else {
-        final dio = ref.read(dioProvider);
-        await dio.post('/api/rr/sync/retry/${trip.id}', data: {'rr_token': session.token});
+        await runRrAction(context, ref, () {
+          final dio = ref.read(dioProvider);
+          return dio.post('/api/rr/sync/retry/${trip.id}', data: const {});
+        });
         if (!mounted) return;
 
         // /sync/retry only queues a background task and returns immediately

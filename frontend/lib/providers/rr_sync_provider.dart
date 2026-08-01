@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/services/rr_sync_api.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
@@ -76,7 +77,7 @@ class RrSyncNotifier extends StateNotifier<RrSyncState> {
     }
   }
 
-  Future<void> syncTrip(String tripId, String rrToken) async {
+  Future<void> syncTrip(String tripId, [String? rrToken]) async {
     state = state.copyWith(syncingTripId: tripId);
     try {
       await _api.triggerTripSync(tripId, rrToken);
@@ -85,6 +86,12 @@ class RrSyncNotifier extends StateNotifier<RrSyncState> {
         syncingTripId: null,
         successMessage: 'Sync started — check back shortly',
       );
+    } on DioException catch (e) {
+      // 409 (no org RR session) is rethrown so runRrAction can prompt a login
+      // and retry — swallowing it here would silently strand the sync tap.
+      state = state.copyWith(syncingTripId: null);
+      if (e.response?.statusCode == 409) rethrow;
+      state = state.copyWith(error: 'Sync failed: $e');
     } catch (e) {
       state = state.copyWith(
         syncingTripId: null,

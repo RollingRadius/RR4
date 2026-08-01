@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
-import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 
 const _primary = Color(0xFFFF6B00);
@@ -48,39 +47,19 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
   DateTime? _startDate;
   DateTime? _endDate;
   bool _submitting = false;
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureSessionOnOpen());
-  }
-
-  Future<void> _ensureSessionOnOpen() async {
-    final session = await ensureRrSession(context, ref);
-    if (!mounted) return;
-    if (session == null) {
-      Navigator.of(context).pop();
-      return;
-    }
-    setState(() => _ready = true);
-  }
-
-  String _currentToken() => ref.read(rrSessionProvider)?.token ?? '';
 
   Future<List<Map<String, dynamic>>> _searchCompanies(String q) =>
-      ref.read(rrSyncApiProvider).searchRrCompanies(q, _currentToken());
+      runRrAction(context, ref, () => ref.read(rrSyncApiProvider).searchRrCompanies(q));
 
   Future<List<Map<String, dynamic>>> _searchUsers(String q) =>
-      ref.read(rrSyncApiProvider).searchRrUsers(q, _currentToken());
+      runRrAction(context, ref, () => ref.read(rrSyncApiProvider).searchRrUsers(q));
 
   Future<void> _loadOwnerVehicles() async {
     setState(() { _loadingVehicles = true; _ownerVehicles = []; _selectedVehicleId = null; });
     try {
-      final token = _currentToken();
-      final vehicles = _ownerCompanyId != null
-          ? await ref.read(rrSyncApiProvider).getCompanyVehicles(_ownerCompanyId!, token)
-          : await ref.read(rrSyncApiProvider).getUserVehicles(_ownerUserId!, token);
+      final vehicles = await runRrAction(context, ref, () => _ownerCompanyId != null
+          ? ref.read(rrSyncApiProvider).getCompanyVehicles(_ownerCompanyId!)
+          : ref.read(rrSyncApiProvider).getUserVehicles(_ownerUserId!));
       if (!mounted) return;
       setState(() => _ownerVehicles = vehicles);
     } catch (e) {
@@ -139,21 +118,20 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
       return;
     }
 
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
-
     setState(() => _submitting = true);
     try {
-      await ref.read(rrSyncApiProvider).createVehicleHireRequest(
-            rrToken: session.token,
+      await runRrAction(context, ref, () => ref.read(rrSyncApiProvider).createVehicleHireRequest(
             vehicleId: _selectedVehicleId!,
             ownerCompanyId: _ownerCompanyId,
             ownerUserId: _ownerUserId,
             hirerCompanyId: _hirePersonCompanyId,
             hirerUserId: _hirePersonUserId,
-            requestedStartDate: _startDate?.toIso8601String(),
-            requestedEndDate: _endDate?.toIso8601String(),
-          );
+            // RR stores whatever clock digits it's sent as literal UTC (no
+            // conversion on its side) — .toUtc() here is required, not
+            // cosmetic, or an IST pick lands 5:30h off in RR's DB.
+            requestedStartDate: _startDate?.toUtc().toIso8601String(),
+            requestedEndDate: _endDate?.toUtc().toIso8601String(),
+          ));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Hiring request sent successfully', style: _inter(size: 13, color: Colors.white)),
@@ -262,9 +240,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Add Market Vehicle', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _primary),
-      body: !_ready
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+      body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

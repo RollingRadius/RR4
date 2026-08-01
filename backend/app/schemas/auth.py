@@ -172,10 +172,24 @@ class LoginRequest(BaseModel):
     password: str = Field(..., min_length=1)
 
 
+class RefreshSessionRequest(BaseModel):
+    """Exchange a long-lived refresh token for a fresh access+refresh pair —
+    used to restore a session after the access token has genuinely expired,
+    unlike /api/user/refresh-token which requires one still be valid."""
+    refresh_token: str = Field(..., min_length=10)
+
+
+class LogoutRequest(BaseModel):
+    """refresh_token is optional so old app builds without it can still call
+    logout — but the server-side session only actually ends if it's sent."""
+    refresh_token: str | None = None
+
+
 class LoginResponse(BaseModel):
     """Login success response"""
     success: bool
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user_id: str
     username: str

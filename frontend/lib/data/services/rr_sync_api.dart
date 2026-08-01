@@ -39,12 +39,24 @@ class RrSyncApi {
     return RrLoginResult(token: token, rrUserId: rrUserId);
   }
 
+  /// GET /api/rr/connection-status
+  /// Returns {connected: bool, expires_at: String?, expiring_soon: bool}
+  Future<Map<String, dynamic>> getConnectionStatus() async {
+    final resp = await _apiService.dio.get('/api/rr/connection-status');
+    return Map<String, dynamic>.from(resp.data);
+  }
+
+  /// POST /api/rr/disconnect — LP/RR-ops only, the "Disconnect" button.
+  Future<void> disconnectRr() async {
+    await _apiService.dio.post('/api/rr/disconnect');
+  }
+
   /// POST /api/rr/sync/trip/{trip_id}
-  /// Body: {rr_token} — syncs a single trip using the LP's own RR token
-  Future<Map<String, dynamic>> triggerTripSync(String tripId, String rrToken) async {
+  /// Body: {rr_token} — [rrToken] is optional, falls back to the org's RR session.
+  Future<Map<String, dynamic>> triggerTripSync(String tripId, [String? rrToken]) async {
     final resp = await _apiService.dio.post(
       '/api/rr/sync/trip/$tripId',
-      data: {'rr_token': rrToken},
+      data: {if (rrToken != null) 'rr_token': rrToken},
     );
     return Map<String, dynamic>.from(resp.data);
   }
@@ -70,14 +82,17 @@ class RrSyncApi {
   /// who's assigned as the trip's driver (My Trips column + crew dialog),
   /// LP/RR-ops only. Independent of doc sync — call after uploading the new
   /// driver's docs/numbers if those need pushing too.
+  /// [rrToken] is optional — the backend falls back to the org's own
+  /// auto-refreshing RR session when omitted, only requiring a fresh
+  /// interactive login (409) if the org genuinely has no valid session.
   Future<Map<String, dynamic>> reassignDriver({
     required String tripId,
-    required String rrToken,
+    String? rrToken,
     required String driverRrId,
   }) async {
     final resp = await _apiService.dio.post(
       '/api/rr/reassign-driver/$tripId',
-      data: {'rr_token': rrToken, 'driver_rr_id': driverRrId},
+      data: {if (rrToken != null) 'rr_token': rrToken, 'driver_rr_id': driverRrId},
     );
     return Map<String, dynamic>.from(resp.data);
   }
@@ -107,36 +122,36 @@ class RrSyncApi {
   /// callers (vehicle owner / company contact / hire-person search) must
   /// leave it false so non-driver users aren't excluded.
   Future<List<Map<String, dynamic>>> searchRrUsers(
-    String q,
-    String rrToken, {
+    String q, {
+    String? rrToken,
     bool driversOnly = false,
   }) async {
     if (q.isEmpty) return [];
     final resp = await _apiService.dio.get(
       '/api/rr/users/search',
-      queryParameters: {'q': q, 'rr_token': rrToken, 'drivers_only': driversOnly},
+      queryParameters: {'q': q, if (rrToken != null) 'rr_token': rrToken, 'drivers_only': driversOnly},
     );
     final items = (resp.data as Map<String, dynamic>)['items'] as List? ?? [];
     return items.cast<Map<String, dynamic>>();
   }
 
   /// GET /api/rr/companies/search?q=&rr_token= — typeahead by company name
-  Future<List<Map<String, dynamic>>> searchRrCompanies(String q, String rrToken) async {
+  Future<List<Map<String, dynamic>>> searchRrCompanies(String q, [String? rrToken]) async {
     if (q.isEmpty) return [];
     final resp = await _apiService.dio.get(
       '/api/rr/companies/search',
-      queryParameters: {'q': q, 'rr_token': rrToken},
+      queryParameters: {'q': q, if (rrToken != null) 'rr_token': rrToken},
     );
     final items = (resp.data as Map<String, dynamic>)['items'] as List? ?? [];
     return items.cast<Map<String, dynamic>>();
   }
 
   /// GET /api/rr/vehicle-engine-models/search?q=&rr_token= — typeahead by engine model name
-  Future<List<Map<String, dynamic>>> searchVehicleEngineModels(String q, String rrToken) async {
+  Future<List<Map<String, dynamic>>> searchVehicleEngineModels(String q, [String? rrToken]) async {
     if (q.isEmpty) return [];
     final resp = await _apiService.dio.get(
       '/api/rr/vehicle-engine-models/search',
-      queryParameters: {'q': q, 'rr_token': rrToken},
+      queryParameters: {'q': q, if (rrToken != null) 'rr_token': rrToken},
     );
     final items = (resp.data as Map<String, dynamic>)['items'] as List? ?? [];
     return items.cast<Map<String, dynamic>>();
@@ -144,7 +159,7 @@ class RrSyncApi {
 
   /// POST /api/rr/vehicles — creates a new vehicle directly on RR
   Future<Map<String, dynamic>> createRrVehicle({
-    required String rrToken,
+    String? rrToken,
     required String engineModelId,
     required String rcNumber,
     required String ownerUserId,
@@ -153,7 +168,7 @@ class RrSyncApi {
     final resp = await _apiService.dio.post(
       '/api/rr/vehicles',
       data: {
-        'rr_token': rrToken,
+        if (rrToken != null) 'rr_token': rrToken,
         'engine_model_id': engineModelId,
         'rc_number': rcNumber,
         'owner_user_id': ownerUserId,
@@ -168,14 +183,14 @@ class RrSyncApi {
   /// crew field, not off any driver id passed alongside a trip — required
   /// before RR will let a driverless vehicle be booked.
   Future<Map<String, dynamic>> assignVehicleDriver({
-    required String rrToken,
+    String? rrToken,
     required String vehicleId,
     required String driverUserId,
   }) async {
     final resp = await _apiService.dio.post(
       '/api/rr/vehicles/assign-driver',
       data: {
-        'rr_token': rrToken,
+        if (rrToken != null) 'rr_token': rrToken,
         'vehicle_id': vehicleId,
         'driver_user_id': driverUserId,
       },
@@ -185,7 +200,7 @@ class RrSyncApi {
 
   /// POST /api/rr/companies — creates a new company (vehicle provider) directly on RR
   Future<Map<String, dynamic>> createRrCompany({
-    required String rrToken,
+    String? rrToken,
     required String name,
     required String cityId,
     required String businessType,
@@ -195,7 +210,7 @@ class RrSyncApi {
     final resp = await _apiService.dio.post(
       '/api/rr/companies',
       data: {
-        'rr_token': rrToken,
+        if (rrToken != null) 'rr_token': rrToken,
         'name': name,
         'city_id': cityId,
         'business_type': businessType,
@@ -208,13 +223,13 @@ class RrSyncApi {
 
   /// POST /api/rr/users — creates a new user (driver) directly on RR
   Future<Map<String, dynamic>> createRrUser({
-    required String rrToken,
+    String? rrToken,
     required String name,
     required String phone,
   }) async {
     final resp = await _apiService.dio.post(
       '/api/rr/users',
-      data: {'rr_token': rrToken, 'name': name, 'phone': phone},
+      data: {if (rrToken != null) 'rr_token': rrToken, 'name': name, 'phone': phone},
     );
     return Map<String, dynamic>.from(resp.data);
   }
@@ -223,10 +238,10 @@ class RrSyncApi {
 
   /// GET /api/rr/vehicle-hire-requests — pending hire requests for vehicles
   /// your company owns
-  Future<List<Map<String, dynamic>>> getVehicleHireRequests(String rrToken) async {
+  Future<List<Map<String, dynamic>>> getVehicleHireRequests([String? rrToken]) async {
     final resp = await _apiService.dio.get(
       '/api/rr/vehicle-hire-requests',
-      queryParameters: {'rr_token': rrToken},
+      queryParameters: {if (rrToken != null) 'rr_token': rrToken},
     );
     final items = (resp.data as Map<String, dynamic>)['items'] as List? ?? [];
     return items.cast<Map<String, dynamic>>();
@@ -235,7 +250,7 @@ class RrSyncApi {
   /// POST /api/rr/vehicle-hire-requests/{id}/review — approve or reject
   Future<void> reviewVehicleHireRequest({
     required String marketVehicleId,
-    required String rrToken,
+    String? rrToken,
     required String status, // "Approved" | "Rejected"
     String? approvedStartDate,
     String? approvedEndDate,
@@ -243,7 +258,7 @@ class RrSyncApi {
     await _apiService.dio.post(
       '/api/rr/vehicle-hire-requests/$marketVehicleId/review',
       data: {
-        'rr_token': rrToken,
+        if (rrToken != null) 'rr_token': rrToken,
         'status': status,
         if (approvedStartDate != null) 'approved_start_date': approvedStartDate,
         if (approvedEndDate != null) 'approved_end_date': approvedEndDate,
@@ -253,7 +268,7 @@ class RrSyncApi {
 
   /// POST /api/rr/vehicle-hire-requests — request to hire a vehicle you don't own
   Future<Map<String, dynamic>> createVehicleHireRequest({
-    required String rrToken,
+    String? rrToken,
     required String vehicleId,
     String? ownerUserId,
     String? ownerCompanyId,
@@ -265,7 +280,7 @@ class RrSyncApi {
     final resp = await _apiService.dio.post(
       '/api/rr/vehicle-hire-requests',
       data: {
-        'rr_token': rrToken,
+        if (rrToken != null) 'rr_token': rrToken,
         'vehicle_id': vehicleId,
         'owner_user_id': ownerUserId,
         'owner_company_id': ownerCompanyId,
@@ -279,20 +294,20 @@ class RrSyncApi {
   }
 
   /// GET /api/rr/user-vehicles — vehicles personally owned by an RR user
-  Future<List<Map<String, dynamic>>> getUserVehicles(String userId, String rrToken) async {
+  Future<List<Map<String, dynamic>>> getUserVehicles(String userId, [String? rrToken]) async {
     final resp = await _apiService.dio.get(
       '/api/rr/user-vehicles',
-      queryParameters: {'user_id': userId, 'rr_token': rrToken},
+      queryParameters: {'user_id': userId, if (rrToken != null) 'rr_token': rrToken},
     );
     final vehicles = (resp.data as Map<String, dynamic>)['vehicles'] as List? ?? [];
     return vehicles.cast<Map<String, dynamic>>();
   }
 
   /// GET /api/rr/company-vehicles — vehicles owned by an RR company
-  Future<List<Map<String, dynamic>>> getCompanyVehicles(String companyId, String rrToken) async {
+  Future<List<Map<String, dynamic>>> getCompanyVehicles(String companyId, [String? rrToken]) async {
     final resp = await _apiService.dio.get(
       '/api/rr/company-vehicles',
-      queryParameters: {'company_id': companyId, 'rr_token': rrToken},
+      queryParameters: {'company_id': companyId, if (rrToken != null) 'rr_token': rrToken},
     );
     final vehicles = (resp.data as Map<String, dynamic>)['vehicles'] as List? ?? [];
     return vehicles.cast<Map<String, dynamic>>();

@@ -3,7 +3,7 @@ Authentication Service
 Core business logic for user authentication and authorization
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -18,7 +18,11 @@ from app.models.user_security_answer import UserSecurityAnswer
 from app.models.recovery_attempt import RecoveryAttempt
 from app.models.audit_log import AuditLog
 from app.models.driver import Driver
-from app.core.security import hash_password, verify_password, create_access_token
+from app.models.refresh_token import RefreshToken
+from app.core.security import (
+    hash_password, verify_password, create_access_token,
+    generate_refresh_token, hash_refresh_token, REFRESH_TOKEN_EXPIRE_DAYS,
+)
 from app.core.encryption import generate_salt, encrypt_answer, decrypt_and_compare
 from app.services.token_service import TokenService
 from app.services.email_service import EmailService
@@ -280,7 +284,17 @@ class AuthService:
         user.failed_login_attempts = 0
         user.locked_until = None
         user.last_login = datetime.utcnow()
+        self.db.commit()
 
+        return self._issue_session(user, audit_action=AUDIT_ACTION_USER_LOGIN)
+
+    def _issue_session(self, user: User, audit_action: str) -> dict:
+        """
+        Build a fresh access + refresh token pair for an already-authenticated
+        user (password verified by login(), or refresh token verified by
+        refresh_session()) — shared so both paths return an identical shape
+        and apply the same org/role/driver resolution.
+        """
         # Get user's organization and role
         user_org = self.db.query(UserOrganization).filter(
             UserOrganization.user_id == user.id
@@ -303,8 +317,6 @@ class AuthService:
                     Organization.id == user_org.organization_id
                 ).first()
 
-        self.db.commit()
-
         # Record successful login
         self._record_successful_login(user.id)
 
@@ -312,7 +324,7 @@ class AuthService:
         self._log_audit(
             user_id=user.id,
             organization_id=company.id if company else None,
-            action=AUDIT_ACTION_USER_LOGIN,
+            action=audit_action,
             entity_type=ENTITY_TYPE_USER,
             entity_id=user.id
         )
@@ -335,10 +347,26 @@ class AuthService:
 
         access_token = create_access_token(token_data)
 
+        # Issue a long-lived refresh token alongside it so the app can
+        # restore this session later even after the access token itself has
+        # genuinely expired, without showing a login screen again.
+        raw_refresh_token = generate_refresh_token()
+        now = datetime.now(timezone.utc)
+        self.db.add(RefreshToken(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            token_hash=hash_refresh_token(raw_refresh_token),
+            created_at=now,
+            expires_at=now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+            revoked=False,
+        ))
+        self.db.commit()
+
         # Return response
         return {
             "success": True,
             "access_token": access_token,
+            "refresh_token": raw_refresh_token,
             "token_type": "bearer",
             "user_id": str(user.id),
             "username": user.username,
@@ -350,6 +378,49 @@ class AuthService:
             "company_name": company.company_name if company else None,
             "business_type": company.business_type if company else None
         }
+
+    def refresh_session(self, raw_refresh_token: str) -> dict:
+        """
+        Exchange a still-valid refresh token for a brand-new access+refresh
+        pair (rotation: the old refresh token is revoked the moment a new one
+        is issued from it). Unlike /api/user/refresh-token, this does NOT
+        require a currently-valid access token — it's the whole point: restore
+        a session after the access token has genuinely expired (e.g. the app
+        wasn't opened for a day or more).
+        """
+        token_hash = hash_refresh_token(raw_refresh_token)
+        record = self.db.query(RefreshToken).filter(
+            RefreshToken.token_hash == token_hash
+        ).first()
+
+        if not record or record.revoked:
+            raise HTTPException(status_code=401, detail="Refresh token has been revoked")
+        if record.expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=401, detail="Refresh token has expired, please log in again")
+
+        user = self.db.query(User).filter(User.id == record.user_id).first()
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        if not user.can_login():
+            raise HTTPException(status_code=403, detail=f"Account status: {user.status}")
+
+        # Rotate: this refresh token is single-use — revoke it now, a new one
+        # comes back from _issue_session below.
+        record.revoked = True
+        self.db.commit()
+
+        return self._issue_session(user, audit_action=AUDIT_ACTION_USER_LOGIN)
+
+    def revoke_refresh_token(self, raw_refresh_token: str) -> None:
+        """Called on logout so an explicit sign-out actually ends the session
+        server-side, not just client-side."""
+        token_hash = hash_refresh_token(raw_refresh_token)
+        record = self.db.query(RefreshToken).filter(
+            RefreshToken.token_hash == token_hash
+        ).first()
+        if record:
+            record.revoked = True
+            self.db.commit()
 
     def verify_email(self, token: str) -> dict:
         """Verify user's email using verification token"""

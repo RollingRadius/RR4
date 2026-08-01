@@ -408,10 +408,16 @@ async def create_trip(
     db.commit()
     db.refresh(trip)
 
+    # RR token: use the caller's if supplied, else fall back to the org's own
+    # auto-refreshing RR session — so creating a trip never needs a fresh
+    # interactive RR login, same as complete-trip/sync/reassign-driver.
+    from app.services.rr_org_token_service import get_org_rr_token
+    rr_token = body.rr_token or await get_org_rr_token(user_org.organization, db)
+
     # ── Resolve vehicle_provider_id via transporter phone ─────────────────────
     # If a phone number was supplied and we don't already have the RR company ID,
     # look it up from RR now so it's ready for Stage 0 sync later.
-    if body.transporter_phone and not trip.transporter_rr_company_id and body.rr_token:
+    if body.transporter_phone and not trip.transporter_rr_company_id and rr_token:
         import httpx
         from app.config import settings
         raw = body.transporter_phone.strip().lstrip("+")
@@ -422,7 +428,7 @@ async def create_trip(
                     resp = await client.get(
                         f"{settings.RR_API_BASE}/users/get_user_by_phone",
                         params={"phone_number": phone_10, "username": phone_10},
-                        headers={"Authorization": f"Bearer {body.rr_token}"},
+                        headers={"Authorization": f"Bearer {rr_token}"},
                     )
                 if resp.status_code == 200:
                     company_id = resp.json().get("company_id")
@@ -433,13 +439,13 @@ async def create_trip(
             except Exception:
                 pass  # non-fatal — Stage 0 sync will retry
 
-    # If LP provided their RR token, immediately call POST /create_trip on RR
-    if body.rr_token:
+    # If a token was resolved (caller's or the org's), immediately call POST /create_trip on RR
+    if rr_token:
         from app.config import settings
         if settings.RR_SYNC_ENABLED:
             from app.api.v1.rr_sync import _do_create_trip_in_rr
             try:
-                await _do_create_trip_in_rr(trip, body.rr_token, db)
+                await _do_create_trip_in_rr(trip, rr_token, db)
             except Exception as exc:
                 trip.rr_sync_status = "failed"
                 trip.rr_sync_error  = str(exc)[:500]

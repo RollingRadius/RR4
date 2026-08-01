@@ -40,6 +40,35 @@ class AuthApi {
     }
   }
 
+  /// Exchange a long-lived refresh token for a fresh access+refresh pair —
+  /// restores a session even after the access token has genuinely expired,
+  /// unlike UserApi.refreshToken() which needs one still valid. The
+  /// returned refresh_token replaces the one just used (rotation).
+  Future<Map<String, dynamic>> refreshSession(String refreshToken) async {
+    try {
+      final response = await _apiService.dio.post(
+        '/api/auth/refresh',
+        data: {'refresh_token': refreshToken},
+      );
+      return response.data;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
+  /// Best-effort: revokes the refresh token server-side so an explicit
+  /// logout actually ends the session, not just on this device.
+  Future<void> logout(String? refreshToken) async {
+    try {
+      await _apiService.dio.post(
+        '/api/auth/logout',
+        data: {if (refreshToken != null) 'refresh_token': refreshToken},
+      );
+    } catch (_) {
+      // Best-effort — local logout must proceed regardless.
+    }
+  }
+
   /// Verify email
   Future<Map<String, dynamic>> verifyEmail(String token) async {
     try {

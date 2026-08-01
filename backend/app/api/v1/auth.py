@@ -10,6 +10,7 @@ from app.database import get_db
 from app.schemas.auth import (
     SignupRequest, SignupResponse,
     LoginRequest, LoginResponse,
+    RefreshSessionRequest, LogoutRequest,
     EmailVerificationRequest, EmailVerificationCodeRequest, EmailVerificationResponse,
     ForgotPasswordRequest, PasswordResetResponse,
     ForgotPasswordEmailRequest, VerifyAnswersRequest, ResetPasswordRequest,
@@ -114,6 +115,27 @@ def login(
         password=login_data.password
     )
 
+    return LoginResponse(**result)
+
+
+@router.post("/refresh", response_model=LoginResponse)
+def refresh_session(
+    body: RefreshSessionRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Exchange a long-lived refresh token for a fresh access+refresh pair.
+
+    Unlike /api/user/refresh-token, this does NOT require a still-valid
+    access token — it's specifically for restoring a session after the
+    access token has genuinely expired (app not opened for a day or more),
+    without the user ever seeing a login screen.
+
+    The refresh token is single-use (rotated): a new one is returned, and
+    the one just used is revoked immediately.
+    """
+    auth_service = AuthService(db)
+    result = auth_service.refresh_session(body.refresh_token)
     return LoginResponse(**result)
 
 
@@ -351,12 +373,19 @@ def get_me(
 
 
 @router.post("/logout")
-def logout(current_user: User = Depends(get_current_user)):
+def logout(
+    body: LogoutRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     User logout.
 
     **Process:**
-    - JWT is stateless — token invalidation is handled client-side
-    - Call this to log the logout event
+    - Access token (JWT) is stateless — invalidation is handled client-side
+    - If a refresh_token is supplied, it's explicitly revoked here so the
+      session actually ends server-side too, not just on this device
     """
+    if body.refresh_token:
+        AuthService(db).revoke_refresh_token(body.refresh_token)
     return {"success": True, "message": "Logged out successfully"}

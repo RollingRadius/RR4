@@ -17,6 +17,9 @@ import 'package:fleet_management/providers/available_loads_provider.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
+import 'package:fleet_management/presentation/widgets/rr_connection_status.dart';
+import 'package:fleet_management/providers/notification_provider.dart';
+import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:fleet_management/presentation/widgets/available_loads_browser.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
@@ -72,6 +75,7 @@ class _LogisticPartnerDashboardState
     extends ConsumerState<LogisticPartnerDashboard> {
   int _navIndex = 0;
   Timer? _pollTimer;
+  StreamSubscription<NotificationModel>? _rrExpirySub;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
@@ -86,6 +90,24 @@ class _LogisticPartnerDashboardState
     });
     // Initial data load — runs after first frame so ref/auth are ready
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadAllData());
+
+    // Live "RR session expiring soon" banner — the RrConnectionStatus badge
+    // already shows this persistently, this catches it the moment it fires
+    // while the dashboard is open, with a one-tap way to reconnect.
+    _rrExpirySub = ref.read(notificationWsServiceProvider).stream.listen((n) {
+      if (n.type != 'rr_session_expiring' || !mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(n.body, style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: const Color(0xFFB25E00),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(
+          label: 'Reconnect',
+          textColor: Colors.white,
+          onPressed: () => ensureRrSession(context, ref),
+        ),
+      ));
+    });
   }
 
   void _showRrTripPopup(String value, String? tripId) {
@@ -271,6 +293,7 @@ class _LogisticPartnerDashboardState
   @override
   void dispose() {
     _pollTimer?.cancel();
+    _rrExpirySub?.cancel();
     super.dispose();
   }
 
@@ -875,9 +898,17 @@ class _DashboardTab extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Greeting
-          Text(
-            'Welcome back, $firstName',
-            style: _manrope(size: 22, weight: FontWeight.w800),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Welcome back, $firstName',
+                  style: _manrope(size: 22, weight: FontWeight.w800),
+                ),
+              ),
+              const RrConnectionStatus(),
+            ],
           ),
           const SizedBox(height: 2),
           Text('Logistic Partner Panel',
@@ -1074,9 +1105,7 @@ class _FleetStatusHeader extends ConsumerWidget {
         ),
         // New Trip button
         Builder(builder: (context) => GestureDetector(
-          onTap: () async {
-            final session = await ensureRrSession(context, ref);
-            if (session == null || !context.mounted) return;
+          onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const CreateTripScreen()),
             );
