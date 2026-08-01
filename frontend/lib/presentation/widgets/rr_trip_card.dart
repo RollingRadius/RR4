@@ -67,13 +67,21 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     return user?.roleKey == 'logistic_partner' || user?.isLpRrOperations == true;
   }
 
-  /// True when RR's own booking step failed (e.g. an unapproved third-party
-  /// vehicle hire) — a genuine attempted-and-errored sync, not the normal
-  /// "not yet synced/pending" states a trip passes through before it's even
-  /// tried. LP/RR-ops get a "Confirm Booking" retry action for this; FE
-  /// (logistic_partner_worker) gets blocked from entering the trip at all
-  /// until it's resolved, since there's nothing useful for them to do yet.
-  bool get _needsBookingConfirmation => trip.rrSyncStatus == 'failed';
+  /// True when RR's own booking step (POST /create_trip) itself failed (e.g.
+  /// an unapproved third-party vehicle hire) — a genuine attempted-and-errored
+  /// booking, not the normal "not yet synced/pending" states a trip passes
+  /// through before it's even tried. LP/RR-ops get a "Confirm Booking" retry
+  /// action for this; FE (logistic_partner_worker) gets blocked from entering
+  /// the trip at all until it's resolved, since there's nothing useful for
+  /// them to do yet.
+  ///
+  /// Must check rrTripId == null too: `rr_sync_status` is reused by
+  /// sync_all_to_rr for a LATER per-stage doc/slip sync failure on a trip
+  /// that's already booked on RR (rr_trip_id/rr_parcel_id already set) — that
+  /// is a completely different, unrelated failure, not "booking never
+  /// happened", and must never show this "Confirm Booking" banner.
+  bool get _needsBookingConfirmation =>
+      trip.rrTripId == null && trip.rrSyncStatus == 'failed';
 
   Future<void> _confirmBooking() async {
     setState(() => _confirmingBooking = true);
@@ -567,20 +575,6 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           _InfoRow(icon: null, label: 'Axle Type', value: trip.axleType!),
         if (trip.numberOfWheels != null)
           _InfoRow(icon: null, label: 'Wheels', value: '${trip.numberOfWheels}'),
-        _Divider(),
-
-        // Financials
-        if (trip.expectedFreight != null)
-          _InfoRow(icon: Icons.payments_outlined, label: 'Expected Freight',
-              value: '₹${trip.expectedFreight!.toStringAsFixed(0)}'),
-        _Divider(),
-
-        // RR identifiers
-        if (trip.rrTripNumber != null && trip.rrTripNumber!.isNotEmpty)
-          _InfoRow(icon: Icons.tag_rounded, label: 'RR Trip Number',
-              value: trip.rrTripNumber!),
-        if (trip.rrBookingId != null && trip.rrBookingId!.isNotEmpty)
-          _InfoRow(icon: null, label: 'RR Booking ID', value: trip.rrBookingId!),
       ]),
     );
   }
