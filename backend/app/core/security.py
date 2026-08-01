@@ -3,12 +3,30 @@ Core Security Utilities
 Password hashing with Bcrypt and JWT token management
 """
 
+import hashlib
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 
 from app.config import settings
+
+# Refresh tokens are opaque random strings (not JWTs) — nothing to decode,
+# so validity is checked purely via a DB lookup by hash. This lets a token
+# be revoked/rotated instantly server-side, unlike a self-contained JWT
+# which stays "valid" until its own expiry no matter what the server wants.
+REFRESH_TOKEN_EXPIRE_DAYS = 90
+
+
+def generate_refresh_token() -> str:
+    """A fresh opaque refresh token — return this to the client, store only its hash."""
+    return secrets.token_urlsafe(48)
+
+
+def hash_refresh_token(raw_token: str) -> str:
+    """SHA-256 hex digest — same principle as password hashing, never store the raw value."""
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
 # Password hashing context
 # Use argon2 instead of bcrypt due to Python 3.13 compatibility issues

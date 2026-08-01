@@ -26,6 +26,7 @@ class AppConfig {
 
   // Storage Keys
   static const String tokenKey = 'auth_token';
+  static const String refreshTokenKey = 'auth_refresh_token';
   static const String userKey = 'user_data';
   static const String onboardingKey = 'onboarding_completed';
 

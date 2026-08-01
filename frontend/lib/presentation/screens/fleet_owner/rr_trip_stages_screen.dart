@@ -231,22 +231,18 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
   Future<void> _releaseStage(int visualStage) async {}
 
   /// Trigger a full RR sync for this trip (all available stages).
-  /// Shows an RR login dialog first if no valid session exists.
+  /// Only prompts an RR login if the org genuinely has no valid session.
   Future<void> _triggerRrSync() async {
     if (_syncing) return;
 
-    // Step 1: ensure RR session (prompts login if needed)
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
-
-    // Step 2: retry any stalled per-stage sync (loading slip synced separately
-    // via post_loading_slip; S1/S3/S4/S5 — including the loading/unloading
+    // Retry any stalled per-stage sync (loading slip synced separately via
+    // post_loading_slip; S1/S3/S4/S5 — including the loading/unloading
     // datetime fields — retried here). /sync/trip's sync_all_to_rr is dead for
     // stages 2-5, so this AppBar button must hit /sync/retry, not /sync/trip.
     setState(() => _syncing = true);
     try {
       final dio = ref.read(dioProvider);
-      await dio.post('/api/rr/sync/retry/${_trip.id}', data: {});
+      await runRrAction(context, ref, () => dio.post('/api/rr/sync/retry/${_trip.id}', data: {}));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -545,16 +541,10 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
             onSyncDone: _fetchFreshTrip,
             readOnly: widget.readOnly,
           ),
-          if (_trip.rrTripId != null)
-            _RrPerStageSyncPanel(
-              key: ValueKey(
-                's_sync_${_trip.id}_${_trip.rrS1SyncStatus}_${_trip.rrSyncStatus}_'
-                '${_trip.rrS3SyncStatus}_${_trip.rrS4SyncStatus}_${_trip.rrS5SyncStatus}',
-              ),
-              trip: _trip,
-              onRetryDone: _fetchFreshTrip,
-              readOnly: widget.readOnly,
-            ),
+          // Per-stage sync panel (_RrPerStageSyncPanel) dropped — kept dead in
+          // this file, not deleted, in case it's needed for reference later.
+          // The single top-right AppBar sync icon + the post-Stage-5 "Sync
+          // Now" prompt are the only sync entry points now.
           Expanded(
             child: _editingStage != null
                 ? _buildEditForm(_editingStage!)
@@ -1026,16 +1016,13 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     );
     if (confirmed != true || !mounted) return;
 
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
-
     setState(() => _reassigning = true);
     try {
-      await ref.read(rrSyncApiProvider).reassignDriver(
+      // No pre-emptive RR login prompt — see runRrAction's doc comment.
+      await runRrAction(context, ref, () => ref.read(rrSyncApiProvider).reassignDriver(
         tripId: widget.trip.id,
-        rrToken: session.token,
         driverRrId: driverRrId,
-      );
+      ));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Driver reassigned', style: _inter(size: 13, color: Colors.white)),
@@ -1590,10 +1577,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                           label: 'Search Driver by Name or Phone',
                           controller: _newDriverSearchCtrl,
                           search: (q) async {
-                            final session = await ensureRrSession(context, ref);
-                            if (session == null || !mounted) return [];
-                            return ref.read(rrSyncApiProvider)
-                                .searchRrUsers(q, session.token, driversOnly: true);
+                            return runRrAction(context, ref, () => ref.read(rrSyncApiProvider)
+                                .searchRrUsers(q, driversOnly: true));
                           },
                           itemLabel: (u) => u['name'] as String? ?? '',
                           itemSubtitle: (u) => u['phone'] as String? ?? '',
@@ -3204,17 +3189,17 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
         _emptyWeightUnit.value  = trip.s3EmptyTruckWeightUnit ?? 'kg';
         _loadedWeightUnit.value = trip.s3LoadedTruckWeightUnit ?? 'kg';
         if (trip.s3VehicleReachDatetime != null) {
-          _vehicleReachDatetime = DateTime.tryParse(trip.s3VehicleReachDatetime!);
+          _vehicleReachDatetime = DateTime.tryParse(trip.s3VehicleReachDatetime!)?.toLocal();
         }
         if (trip.s3LoadingStartDatetime != null) {
-          _loadingStartDatetime = DateTime.tryParse(trip.s3LoadingStartDatetime!);
+          _loadingStartDatetime = DateTime.tryParse(trip.s3LoadingStartDatetime!)?.toLocal();
         }
         _ewayBillNumberCtrl.text = trip.s3EwayBillNumber ?? '';
         if (trip.s3EwayBillIssueDate != null) {
-          _ewayBillIssueDate = DateTime.tryParse(trip.s3EwayBillIssueDate!);
+          _ewayBillIssueDate = DateTime.tryParse(trip.s3EwayBillIssueDate!)?.toLocal();
         }
         if (trip.s3EwayBillExpiryDate != null) {
-          _ewayBillExpiryDate = DateTime.tryParse(trip.s3EwayBillExpiryDate!);
+          _ewayBillExpiryDate = DateTime.tryParse(trip.s3EwayBillExpiryDate!)?.toLocal();
         }
         _invoiceNumberCtrl.text = trip.s3InvoiceNumber ?? '';
         if (trip.s3ActualInvoiceValue != null) {
@@ -3237,9 +3222,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _emptyWeightUnit.value = d['empty_truck_weight_unit'] as String? ?? 'kg';
     _loadedWeightUnit.value = d['loaded_truck_weight_unit'] as String? ?? 'kg';
     final vehicleReachStr = d['vehicle_reach_datetime'] as String?;
-    if (vehicleReachStr != null) _vehicleReachDatetime = DateTime.tryParse(vehicleReachStr);
+    if (vehicleReachStr != null) _vehicleReachDatetime = DateTime.tryParse(vehicleReachStr)?.toLocal();
     final loadingStartStr = d['loading_start_datetime'] as String?;
-    if (loadingStartStr != null) _loadingStartDatetime = DateTime.tryParse(loadingStartStr);
+    if (loadingStartStr != null) _loadingStartDatetime = DateTime.tryParse(loadingStartStr)?.toLocal();
     // Restore Stage 2 Dharam Kanta data (if weight was recorded outside factory)
     _s2DharamKantaLoc   = d['s2_dharam_kanta_loc']    as String?;
     _s2EmptyWeight      = d['s2_empty_weight']         as String?;
@@ -3253,9 +3238,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     // Restore e-way bill upload
     _ewayBillNumberCtrl.text = d['eway_bill_number'] as String? ?? '';
     final ewayIssueStr = d['eway_bill_issue_date'] as String?;
-    if (ewayIssueStr != null) _ewayBillIssueDate = DateTime.tryParse(ewayIssueStr);
+    if (ewayIssueStr != null) _ewayBillIssueDate = DateTime.tryParse(ewayIssueStr)?.toLocal();
     final ewayExpiryStr = d['eway_bill_expiry_date'] as String?;
-    if (ewayExpiryStr != null) _ewayBillExpiryDate = DateTime.tryParse(ewayExpiryStr);
+    if (ewayExpiryStr != null) _ewayBillExpiryDate = DateTime.tryParse(ewayExpiryStr)?.toLocal();
     final ewayB64 = d['eway_bill_b64'] as String?;
     final ewayName = d['eway_bill_name'] as String?;
     if (ewayB64 != null && ewayName != null) {
@@ -3321,9 +3306,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           'loaded_truck_weight':     _loadedTruckWeight.text.trim(),
           'loaded_truck_weight_unit': _loadedWeightUnit.value,
           if (_vehicleReachDatetime != null)
-            'vehicle_reach_datetime': _vehicleReachDatetime!.toIso8601String(),
+            'vehicle_reach_datetime': _vehicleReachDatetime!.toUtc().toIso8601String(),
           if (_loadingStartDatetime != null)
-            'loading_start_datetime': _loadingStartDatetime!.toIso8601String(),
+            'loading_start_datetime': _loadingStartDatetime!.toUtc().toIso8601String(),
           // Persist S2 Dharam Kanta so it survives re-entry
           if (s2Loc != null) ...{
             's2_dharam_kanta_loc':    s2Loc,
@@ -3338,9 +3323,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           // E-way bill upload
           'eway_bill_number': _ewayBillNumberCtrl.text.trim(),
           if (_ewayBillIssueDate != null)
-            'eway_bill_issue_date': _ewayBillIssueDate!.toIso8601String(),
+            'eway_bill_issue_date': _ewayBillIssueDate!.toUtc().toIso8601String(),
           if (_ewayBillExpiryDate != null)
-            'eway_bill_expiry_date': _ewayBillExpiryDate!.toIso8601String(),
+            'eway_bill_expiry_date': _ewayBillExpiryDate!.toUtc().toIso8601String(),
           if (_ewayBillData != null) ...{
             'eway_bill_b64':  base64Encode(_ewayBillData!.bytes),
             'eway_bill_name': _ewayBillData!.name,
@@ -3513,14 +3498,14 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       'empty_truck_weight_unit':  weightFromS2 ? (stagesState.s2EmptyWeightUnit ?? _s2EmptyWeightUnit ?? 'kg') : _emptyWeightUnit.value,
       'loaded_truck_weight_kg':   _loadedTruckWeight.text.trim(),
       'loaded_truck_weight_unit': _loadedWeightUnit.value,
-      'vehicle_reach_datetime':   _vehicleReachDatetime!.toIso8601String(),
-      'loading_start_datetime':   _loadingStartDatetime!.toIso8601String(),
+      'vehicle_reach_datetime':   _vehicleReachDatetime!.toUtc().toIso8601String(),
+      'loading_start_datetime':   _loadingStartDatetime!.toUtc().toIso8601String(),
       if (_ewayBillNumberCtrl.text.trim().isNotEmpty)
         'eway_bill_number': _ewayBillNumberCtrl.text.trim(),
       if (_ewayBillIssueDate != null)
-        'eway_bill_issue_date': _ewayBillIssueDate!.toIso8601String(),
+        'eway_bill_issue_date': _ewayBillIssueDate!.toUtc().toIso8601String(),
       if (_ewayBillExpiryDate != null)
-        'eway_bill_expiry_date': _ewayBillExpiryDate!.toIso8601String(),
+        'eway_bill_expiry_date': _ewayBillExpiryDate!.toUtc().toIso8601String(),
       if (_invoiceNumberCtrl.text.trim().isNotEmpty)
         'invoice_number': _invoiceNumberCtrl.text.trim(),
       if (_actualInvoiceValueCtrl.text.trim().isNotEmpty)
@@ -5305,7 +5290,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
         _weightChecked   = trip.s4WeightChecked     ?? false;
         _materialChecked = trip.s4MaterialChecked   ?? false;
         if (trip.s4VehicleExitDatetime != null) {
-          _vehicleExitDatetime = DateTime.tryParse(trip.s4VehicleExitDatetime!);
+          _vehicleExitDatetime = DateTime.tryParse(trip.s4VehicleExitDatetime!)?.toLocal();
         }
       }
       return;
@@ -5319,7 +5304,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
       try { _dieselFile = (bytes: base64Decode(b64), name: name); } catch (_) {}
     }
     final exitDtStr = d['vehicle_exit_datetime'] as String?;
-    if (exitDtStr != null) _vehicleExitDatetime = DateTime.tryParse(exitDtStr);
+    if (exitDtStr != null) _vehicleExitDatetime = DateTime.tryParse(exitDtStr)?.toLocal();
     // Draft attributions override persistent ones
     final attrs = draft['attributions'] as Map<String, dynamic>?;
     if (attrs != null) {
@@ -5348,7 +5333,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           if (_dieselFile != null) 'diesel_bytes': base64Encode(_dieselFile!.bytes),
           if (_dieselFile != null) 'diesel_name':  _dieselFile!.name,
           if (_vehicleExitDatetime != null)
-            'vehicle_exit_datetime': _vehicleExitDatetime!.toIso8601String(),
+            'vehicle_exit_datetime': _vehicleExitDatetime!.toUtc().toIso8601String(),
         },
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
@@ -5390,7 +5375,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
         'bilty_checked':      _biltyChecked,
         'weight_checked':     _weightChecked,
         'material_checked':   _materialChecked,
-        'vehicle_exit_datetime': _vehicleExitDatetime!.toIso8601String(),
+        'vehicle_exit_datetime': _vehicleExitDatetime!.toUtc().toIso8601String(),
       });
       if (mounted) setState(() { _checklistSubmitting = false; _showDiesel = true; });
     } catch (e) {
@@ -5980,13 +5965,13 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
               hc % 1 == 0 ? hc.toInt().toString() : hc.toStringAsFixed(2);
         }
         if (trip.s5VehicleReachDatetime != null) {
-          _vehicleReachDatetime = DateTime.tryParse(trip.s5VehicleReachDatetime!);
+          _vehicleReachDatetime = DateTime.tryParse(trip.s5VehicleReachDatetime!)?.toLocal();
         }
         if (trip.s5UnloadingStartDatetime != null) {
-          _unloadingStartDatetime = DateTime.tryParse(trip.s5UnloadingStartDatetime!);
+          _unloadingStartDatetime = DateTime.tryParse(trip.s5UnloadingStartDatetime!)?.toLocal();
         }
         if (trip.s5UnloadingEndDatetime != null) {
-          _unloadingEndDatetime = DateTime.tryParse(trip.s5UnloadingEndDatetime!);
+          _unloadingEndDatetime = DateTime.tryParse(trip.s5UnloadingEndDatetime!)?.toLocal();
         }
       }
       return;
@@ -5999,11 +5984,11 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
     }
     _haltingChargeCtrl.text = data['halting_charge'] as String? ?? '';
     final vehicleReachStr = data['vehicle_reach_datetime'] as String?;
-    if (vehicleReachStr != null) _vehicleReachDatetime = DateTime.tryParse(vehicleReachStr);
+    if (vehicleReachStr != null) _vehicleReachDatetime = DateTime.tryParse(vehicleReachStr)?.toLocal();
     final unloadStartStr = data['unloading_start_datetime'] as String?;
-    if (unloadStartStr != null) _unloadingStartDatetime = DateTime.tryParse(unloadStartStr);
+    if (unloadStartStr != null) _unloadingStartDatetime = DateTime.tryParse(unloadStartStr)?.toLocal();
     final unloadEndStr = data['unloading_end_datetime'] as String?;
-    if (unloadEndStr != null) _unloadingEndDatetime = DateTime.tryParse(unloadEndStr);
+    if (unloadEndStr != null) _unloadingEndDatetime = DateTime.tryParse(unloadEndStr)?.toLocal();
     // Draft attributions override persistent ones
     final attrs = draft['attributions'] as Map<String, dynamic>?;
     if (attrs != null) {
@@ -6025,11 +6010,11 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           if (_podFile != null) 'pod_name':  _podFile!.name,
           if (_haltingChargeCtrl.text.isNotEmpty) 'halting_charge': _haltingChargeCtrl.text,
           if (_vehicleReachDatetime != null)
-            'vehicle_reach_datetime': _vehicleReachDatetime!.toIso8601String(),
+            'vehicle_reach_datetime': _vehicleReachDatetime!.toUtc().toIso8601String(),
           if (_unloadingStartDatetime != null)
-            'unloading_start_datetime': _unloadingStartDatetime!.toIso8601String(),
+            'unloading_start_datetime': _unloadingStartDatetime!.toUtc().toIso8601String(),
           if (_unloadingEndDatetime != null)
-            'unloading_end_datetime': _unloadingEndDatetime!.toIso8601String(),
+            'unloading_end_datetime': _unloadingEndDatetime!.toUtc().toIso8601String(),
         },
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
@@ -6108,9 +6093,9 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           'pod': MultipartFile.fromBytes(_podFile!.bytes, filename: _podFile!.name),
         if (_haltingChargeCtrl.text.trim().isNotEmpty)
           'halting_charge': _haltingChargeCtrl.text.trim(),
-        'vehicle_reach_datetime':   _vehicleReachDatetime!.toIso8601String(),
-        'unloading_start_datetime': _unloadingStartDatetime!.toIso8601String(),
-        'unloading_end_datetime':   _unloadingEndDatetime!.toIso8601String(),
+        'vehicle_reach_datetime':   _vehicleReachDatetime!.toUtc().toIso8601String(),
+        'unloading_start_datetime': _unloadingStartDatetime!.toUtc().toIso8601String(),
+        'unloading_end_datetime':   _unloadingEndDatetime!.toUtc().toIso8601String(),
       });
       final resp = await dio.post(
           '/api/trips/${widget.trip.id}/stage/5', data: formData);
@@ -6598,9 +6583,6 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
 
   Future<void> _syncToRr() async {
     if (_syncingToRr) return;
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
-
     setState(() { _syncingToRr = true; _rrSyncPromptError = null; });
     try {
       final dio = ref.read(dioProvider);
@@ -6609,7 +6591,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
       // this response, so don't treat a 200 here as "done". Poll a few times
       // for the real completion signal, which feeds the same ref.listen/
       // didUpdateWidget path that closes the screen once it's genuinely synced.
-      await dio.post('/api/rr/sync/retry/${widget.trip.id}', data: {});
+      await runRrAction(context, ref, () => dio.post('/api/rr/sync/retry/${widget.trip.id}', data: {}));
       if (!mounted) return;
       setState(() { _syncingToRr = false; });
       unawaited(_pollForSyncCompletion());
@@ -7036,15 +7018,21 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
   String? _sendError;
 
   Future<void> _sendToRr() async {
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
     setState(() { _sending = true; _sendError = null; });
     try {
-      final dio = ref.read(dioProvider);
-      await dio.post(
-        '/api/rr/complete-trip/${widget.trip.id}',
-        data: {'rr_token': session.token},
-      );
+      // No pre-emptive RR login prompt — the org's own auto-refreshing
+      // session already covers this most of the time; runRrAction only
+      // shows the login dialog reactively if the backend returns 409.
+      await runRrAction(context, ref, () {
+        final dio = ref.read(dioProvider);
+        // RR's own /create_trip call has a 60s budget on the backend, plus
+        // up to ~15s more if the org's cached RR token needed a silent
+        // refresh first — extend past the app's global 60s receiveTimeout
+        // so a genuinely-slow-but-successful RR call isn't misreported as
+        // a client-side timeout.
+        return dio.post('/api/rr/complete-trip/${widget.trip.id}', data: const {},
+            options: Options(receiveTimeout: const Duration(seconds: 90)));
+      });
       if (!mounted) return;
       widget.onSyncDone();
     } catch (e) {
@@ -7236,12 +7224,10 @@ class _RrPerStageSyncPanelState extends ConsumerState<_RrPerStageSyncPanel> {
   }
 
   Future<void> _retry() async {
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
     setState(() => _retrying = true);
     try {
       final dio = ref.read(dioProvider);
-      await dio.post('/api/rr/sync/retry/${widget.trip.id}', data: {});
+      await runRrAction(context, ref, () => dio.post('/api/rr/sync/retry/${widget.trip.id}', data: {}));
       if (!mounted) return;
       widget.onRetryDone();
     } catch (_) {
@@ -7382,7 +7368,7 @@ class _RrIdentityDocsSheetState extends ConsumerState<RrIdentityDocsSheet> {
     setState(() { _loading = true; _loadError = null; });
     try {
       final dio = ref.read(dioProvider);
-      final resp = await dio.get('/api/rr/identity-status/${widget.trip.id}');
+      final resp = await runRrAction(context, ref, () => dio.get('/api/rr/identity-status/${widget.trip.id}'));
       if (!mounted) return;
       setState(() {
         _items = List<Map<String, dynamic>>.from(resp.data['items'] as List);
@@ -7435,18 +7421,15 @@ class _RrIdentityDocsSheetState extends ConsumerState<RrIdentityDocsSheet> {
   }
 
   Future<void> _override(Map<String, dynamic> item) async {
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
-
     final key = '${item['entity_type']}_${item['id_name']}';
     setState(() => _overriding.add(key));
     try {
       final dio = ref.read(dioProvider);
-      await dio.post('/api/rr/identity-override', data: {
+      await runRrAction(context, ref, () => dio.post('/api/rr/identity-override', data: {
         'trip_id': widget.trip.id,
         'entity_type': item['entity_type'],
         'id_name': item['id_name'],
-      });
+      }));
       await _load();
     } catch (e) {
       if (mounted) {

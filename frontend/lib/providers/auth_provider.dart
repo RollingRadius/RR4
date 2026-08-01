@@ -173,35 +173,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final token = rawToken?.replaceAll(RegExp(r'\s+'), '');
 
       if (token != null && token.isNotEmpty) {
-        // Reject expired stored tokens immediately
         final expiry = _getTokenExpiry(token);
         if (expiry != null && DateTime.now().isAfter(expiry)) {
-          print('⏱️ Stored token is expired — clearing session');
-          await _storage.delete(key: AppConfig.tokenKey);
-          state = state.copyWith(isInitialized: true);
+          // Access token itself has expired (e.g. app wasn't opened for a
+          // day or more) — try the long-lived refresh token before giving
+          // up, so this doesn't force a fresh login just because of a gap
+          // longer than the access token's own lifetime.
+          print('⏱️ Stored access token expired — trying refresh token');
+          final restored = await _restoreViaRefreshToken();
+          if (!restored) {
+            await _storage.delete(key: AppConfig.tokenKey);
+            await _storage.delete(key: AppConfig.refreshTokenKey);
+            state = state.copyWith(isInitialized: true);
+          }
           return;
         }
 
-        // Set token in API service
-        _apiService.setToken(token);
-
-        // Load user profile
-        await loadUserProfile();
-
-        _scheduleExpiryLogout(token);
-
-        state = state.copyWith(
-          isAuthenticated: true,
-          token: token,
-          isInitialized: true,
-        );
-
-        // Subscribe to role topics (once) + sync FCM token if changed
-        final user = state.user;
-        if (user != null) {
-          await _subscribeToTopicsIfNeeded(user);
-          _sendFcmTokenToBackend();
-        }
+        await _applyRestoredSession(token);
       } else {
         state = state.copyWith(isInitialized: true);
       }
@@ -210,7 +198,57 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // Undecryptable secure-storage entry (e.g. Keystore key rotated after
       // reinstall) would otherwise fail identically on every future launch.
       await _storage.delete(key: AppConfig.tokenKey);
+      await _storage.delete(key: AppConfig.refreshTokenKey);
       state = state.copyWith(isInitialized: true);
+    }
+  }
+
+  /// Shared by _loadStoredAuth's "still valid" path and the refresh-token
+  /// restore path below — sets up everything a freshly-restored session
+  /// needs, identically either way.
+  Future<void> _applyRestoredSession(String token) async {
+    _apiService.setToken(token);
+    await loadUserProfile();
+    _scheduleExpiryLogout(token);
+
+    state = state.copyWith(
+      isAuthenticated: true,
+      token: token,
+      isInitialized: true,
+    );
+
+    final user = state.user;
+    if (user != null) {
+      await _subscribeToTopicsIfNeeded(user);
+      _sendFcmTokenToBackend();
+    }
+  }
+
+  /// The access token has expired — use the long-lived refresh token (if
+  /// any is stored) to get a fresh pair without showing a login screen.
+  /// Returns true if the session was successfully restored this way.
+  Future<bool> _restoreViaRefreshToken() async {
+    final refreshToken = await _storage.read(key: AppConfig.refreshTokenKey);
+    if (refreshToken == null || refreshToken.isEmpty) return false;
+
+    try {
+      final response = await _authApi.refreshSession(refreshToken);
+      final rawToken = response['access_token'] as String;
+      final newToken = rawToken.replaceAll(RegExp(r'\s+'), '');
+      final newRefreshToken = response['refresh_token'] as String?;
+
+      await _storage.write(key: AppConfig.tokenKey, value: newToken);
+      if (newRefreshToken != null) {
+        await _storage.write(key: AppConfig.refreshTokenKey, value: newRefreshToken);
+      }
+
+      await _applyRestoredSession(newToken);
+      print('🔄 Session restored via long-lived refresh token');
+      return true;
+    } catch (e) {
+      // Refresh token itself expired/revoked — genuinely needs a fresh login.
+      print('⚠️ Refresh token restore failed: $e');
+      return false;
     }
   }
 
@@ -236,6 +274,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // Store cleaned token
       await _storage.write(key: AppConfig.tokenKey, value: token);
+
+      // Long-lived refresh token — lets a future launch restore this session
+      // even after the access token itself has genuinely expired.
+      final refreshToken = response['refresh_token'] as String?;
+      if (refreshToken != null) {
+        await _storage.write(key: AppConfig.refreshTokenKey, value: refreshToken);
+      }
 
       // Set token in API service
       _apiService.setToken(token);
@@ -311,7 +356,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _expiryTimer = null;
     _preRefreshTimer?.cancel();
     _preRefreshTimer = null;
+
+    // Revoke server-side (best-effort) so this session actually ends, not
+    // just on this device — read before deleting, otherwise there's nothing
+    // left to send.
+    final refreshToken = await _storage.read(key: AppConfig.refreshTokenKey);
+    unawaited(_authApi.logout(refreshToken));
+
     await _storage.delete(key: AppConfig.tokenKey);
+    await _storage.delete(key: AppConfig.refreshTokenKey);
 
     // FCM token stays in DB and topic subscriptions stay active on the device —
     // push notifications continue to reach this device even when logged out.

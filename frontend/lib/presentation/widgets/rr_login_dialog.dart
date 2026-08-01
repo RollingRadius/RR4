@@ -44,6 +44,30 @@ Future<RrSession?> ensureRrSession(BuildContext context, WidgetRef ref) async {
   return ref.read(rrSessionProvider);
 }
 
+/// Runs an RR-backed action directly, WITHOUT pre-emptively showing the RR
+/// login dialog — the backend already falls back to the org's own
+/// auto-refreshing RR session (established once by any LP/RR-ops login) for
+/// complete-trip/sync-retry/reassign-driver, so most calls succeed with no
+/// prompt at all, even after the app was closed/reopened or the user logged
+/// out and back in. Only if the backend responds 409 ("RR login required" —
+/// meaning the org genuinely has no valid session) do we reactively show the
+/// login dialog, then retry [action] once after a successful login.
+Future<T> runRrAction<T>(
+  BuildContext context,
+  WidgetRef ref,
+  Future<T> Function() action,
+) async {
+  try {
+    return await action();
+  } on DioException catch (e) {
+    if (e.response?.statusCode != 409) rethrow;
+    if (!context.mounted) rethrow;
+    final session = await ensureRrSession(context, ref);
+    if (session == null) rethrow;
+    return await action();
+  }
+}
+
 // ─── Dialog widget ────────────────────────────────────────────────────────────
 
 /// Shared RR login dialog — collects RR credentials, calls POST /api/rr/auth/login,

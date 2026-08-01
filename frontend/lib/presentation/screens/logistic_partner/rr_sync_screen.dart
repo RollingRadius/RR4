@@ -266,9 +266,7 @@ class _ReadyTripTile extends ConsumerWidget {
   }
 
   Future<void> _onTap(BuildContext context, WidgetRef ref, String tripId) async {
-    final session = await ensureRrSession(context, ref);
-    if (session == null) return;
-    ref.read(rrSyncProvider.notifier).syncTrip(tripId, session.token);
+    await runRrAction(context, ref, () => ref.read(rrSyncProvider.notifier).syncTrip(tripId));
   }
 }
 

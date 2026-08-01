@@ -42,16 +42,12 @@ class _AddRrUserScreenState extends ConsumerState<AddRrUserScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
-
     setState(() => _submitting = true);
     try {
-      final result = await ref.read(rrSyncApiProvider).createRrUser(
-            rrToken: session.token,
+      final result = await runRrAction(context, ref, () => ref.read(rrSyncApiProvider).createRrUser(
             name: _nameCtrl.text.trim(),
             phone: _phoneCtrl.text.trim(),
-          );
+          ));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Driver "${result['name']}" added on RR', style: _inter(size: 13, color: Colors.white)),

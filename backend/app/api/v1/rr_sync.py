@@ -53,6 +53,31 @@ def _require_rr_session_role(current_user: User, db: Session) -> None:
         )
 
 
+async def _resolve_org_rr_token(rr_token: str, db: Session, current_user: User) -> str:
+    """
+    Read-only proxies accept an explicit rr_token from the client, but fall back to
+    the org's stored RR session so any active org member can use them without having
+    personally logged into RR (same org-token pattern as complete-trip/sync/reassign-driver).
+    Raises 409 (never a silent unauthenticated RR call) if neither is available, so the
+    frontend's runRrAction can uniformly catch it and prompt an RR login.
+    """
+    if rr_token:
+        return rr_token
+    from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_org_rr_token
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org or not user_org.organization:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+    token = await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+    return token
+
+
 # ── City proxy ────────────────────────────────────────────────────────────────
 
 @router.get("/cities", summary="Resolve city name to RR ObjectId")
@@ -281,10 +306,62 @@ async def rr_auth_login(
     return {"token": token, "rr_user_id": rr_user_id}
 
 
+@router.get("/connection-status", summary="Check the org's RR session status")
+async def rr_connection_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Powers the Connected/Disconnected badge on LP/RR-ops dashboards.
+    Any active org member may call this (read-only) — not restricted to
+    LP/RR-ops, same reasoning as get_prefill.
+    """
+    from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_rr_connection_status
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    return get_rr_connection_status(user_org.organization)
+
+
+@router.post("/disconnect", summary="Explicitly end the org's RR session")
+async def rr_disconnect(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """LP/RR-ops only — the 'Disconnect' button. Clears the org's stored RR
+    session; the next action requiring RR will prompt a fresh login."""
+    from app.models import UserOrganization
+
+    _require_rr_session_role(current_user, db)
+
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+    org = user_org.organization
+    org.rr_access_token = None
+    org.rr_refresh_token = None
+    org.rr_token_expires_at = None
+    org.rr_session_expires_at = None
+    org.rr_expiry_notified_at = None
+    db.commit()
+
+    return {"success": True, "connected": False}
+
+
 # ── Manual sync trigger ───────────────────────────────────────────────────────
 
 class RrSyncRequest(BaseModel):
-    rr_token: str
+    rr_token: str | None = None
 
 
 @router.post("/sync/trip/{trip_id}", summary="Manually trigger RR sync for a trip")
@@ -297,10 +374,11 @@ async def trigger_sync(
 ):
     """
     Manually trigger sync of a trip to RR (runs as background task).
-    Requires the LP's RR access token obtained from POST /auth/login.
+    Uses the caller's rr_token if supplied, else falls back to the org's stored RR session.
     """
     from app.services import rr_sync_service
     from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_org_rr_token
 
     _require_rr_session_role(current_user, db)
 
@@ -318,13 +396,17 @@ async def trigger_sync(
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
 
+    token = body.rr_token or await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
     # Reset failed status so sync will retry
     if trip.rr_sync_status == "failed":
         trip.rr_sync_status = "not_synced"
         trip.rr_sync_error = None
         db.commit()
 
-    background_tasks.add_task(rr_sync_service.sync_all_to_rr, trip_id, body.rr_token)
+    background_tasks.add_task(rr_sync_service.sync_all_to_rr, trip_id, token)
 
     return {
         "message": "Sync triggered — check status in a few seconds",
@@ -376,6 +458,13 @@ async def retry_stage_sync(
         store_org_rr_session(
             user_org.organization, db, body.rr_token, body.rr_refresh_token, current_user.id
         )
+
+    # Fail fast, synchronously, if the org genuinely has no usable RR session
+    # — otherwise this would silently queue background tasks that all fail
+    # the same way, with no clear signal back to the caller to prompt a login.
+    from app.services.rr_org_token_service import get_org_rr_token
+    if not await get_org_rr_token(user_org.organization, db):
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
 
     from app.services.rr_sync_service import sync_stage
     stages_to_sync = [s for s in (1, 2, 3, 4, 5) if s <= (trip.current_stage or 0)]
@@ -538,8 +627,11 @@ async def get_prefill(
     from app.models import UserOrganization
     from app.services.rr_org_token_service import get_org_rr_token
 
-    _require_rr_session_role(current_user, db)
-
+    # Deliberately NOT gated to LP/RR-ops (unlike RR write-actions elsewhere
+    # in this file) — this is read-only and uses the org's already-stored
+    # RR token, never FE's own credentials (FE has none). The whole point of
+    # pre-fill is to save FE from re-entering docs, so restricting it to
+    # LP/RR-ops would defeat its purpose. Any active org member may call it.
     user_org = db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id,
         UserOrganization.status == "active",
@@ -637,8 +729,10 @@ async def get_rr_file_preview(
     from app.models import UserOrganization
     from app.services.rr_org_token_service import get_org_rr_token
 
-    _require_rr_session_role(current_user, db)
-
+    # Same reasoning as get_prefill above: read-only, org-token-based, and
+    # this is the proxy pre-fill's photo previews depend on — restricting it
+    # to LP/RR-ops would silently break photo pre-fill for FE for no
+    # security benefit (no RR credentials of FE's own are ever used/exposed).
     user_org = db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id,
         UserOrganization.status == "active",
@@ -812,7 +906,8 @@ async def get_preferred_partners(
         }),
         "max_results": 100,
     }
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
         resp = await client.get(
             f"{settings.RR_API_BASE}/preferred_partners",
@@ -887,7 +982,8 @@ async def get_company_workers(
     if not lp_rr_company_id:
         return {"workers": []}
 
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
         resp = await client.get(
             f"{settings.RR_API_BASE}/get_company_workers",
@@ -925,14 +1021,16 @@ async def get_company_workers(
 async def get_partner_companies(
     user_id: str = Query(..., description="RR user ObjectId of the preferred partner"),
     rr_token: str = Query("", description="LP's RR session token"),
-    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Proxies GET /get_user_companies?user_id=<id>
     Called after the LP selects a preferred partner — returns the companies that partner belongs to.
     LP then picks one as the consignor/consignee company (rr_company_id).
     """
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
         resp = await client.get(
             f"{settings.RR_API_BASE}/get_user_companies",
@@ -962,14 +1060,16 @@ async def get_partner_companies(
 async def get_operation_locations(
     company_id: str = Query(..., description="RR company ObjectId"),
     rr_token: str = Query("", description="LP's RR session token"),
-    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Proxies GET /operation_locations?embedded={"city":1,"state":1}&where={"company":"<id>"}
     Called when a company-type partner is selected or a company is chosen from the dropdown,
     to populate the consignor/consignee address selector.
     """
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
         resp = await client.get(
             f"{settings.RR_API_BASE}/operation_locations",
@@ -1059,7 +1159,8 @@ def _extract_vehicle_entry(v: dict, source: str) -> dict | None:
 async def get_vehicle_provider_user(
     phone: str = Query(..., description="Phone number of the transporter"),
     rr_token: str = Query("", description="LP's RR session token"),
-    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Proxies GET /users/get_user_by_phone → returns {"_items": [{...}]}.
@@ -1067,7 +1168,8 @@ async def get_vehicle_provider_user(
     """
     raw = phone.strip().lstrip("+")
     phone_10 = raw[-10:] if len(raw) >= 10 else raw
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
         resp = await client.get(
             f"{settings.RR_API_BASE}/users/get_user_by_phone",
@@ -1091,13 +1193,15 @@ async def get_vehicle_provider_user(
 async def get_user_vehicles(
     user_id: str  = Query(..., description="RR user ObjectId"),
     rr_token: str = Query("", description="LP's RR session token"),
-    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Proxies GET /vehicles?where={"$and":[{"created_by":"<id>","$or":[...no company...]}]}
     Returns vehicles personally created by the user (not linked to a company).
     """
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     where = json.dumps({"$and": [
         {
             "created_by": user_id,
@@ -1132,7 +1236,8 @@ async def get_user_vehicles(
 async def get_company_vehicles(
     company_id: str = Query(..., description="RR company ObjectId"),
     rr_token: str   = Query("", description="LP's RR session token"),
-    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Combines:
@@ -1140,7 +1245,8 @@ async def get_company_vehicles(
     - GET /market_vehicles?where={"$and":[{"third_party_company_id":"<id>"},{"status":"Approved"},…]}
     Returns a deduplicated vehicle list.
     """
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     vehicles: list[dict] = []
 
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
@@ -1322,7 +1428,10 @@ _UNIT_MAP  = {"TONS": "TONNES", "KG": "KILOGRAMS", "QUINTAL": "TONNES"}
 
 
 class RrCompleteTripRequest(BaseModel):
-    rr_token: str
+    # Optional — falls back to the org's own auto-refreshing RR session
+    # (get_org_rr_token) when not supplied, same as /sync/retry already does.
+    # Kept for backward compatibility with any caller still supplying one.
+    rr_token: str | None = None
 
 
 async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
@@ -1604,6 +1713,7 @@ async def complete_trip_in_rr(
 ):
     """Calls _do_create_trip_in_rr after auth + ownership checks."""
     from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_org_rr_token
 
     _require_rr_session_role(current_user, db)
 
@@ -1623,8 +1733,12 @@ async def complete_trip_in_rr(
     if trip.rr_trip_id:
         raise HTTPException(status_code=409, detail="Trip already exists in RR")
 
+    token = body.rr_token or await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
     try:
-        result = await _do_create_trip_in_rr(trip, body.rr_token, db)
+        result = await _do_create_trip_in_rr(trip, token, db)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
@@ -1643,7 +1757,9 @@ async def complete_trip_in_rr(
 
 
 class RrReassignDriverRequest(BaseModel):
-    rr_token: str
+    # Optional — falls back to the org's own auto-refreshing RR session when
+    # not supplied, same as /sync/retry and /complete-trip.
+    rr_token: str | None = None
     driver_rr_id: str
 
 
@@ -1688,6 +1804,11 @@ async def reassign_driver(
     if not trip.rr_vehicle_id:
         raise HTTPException(status_code=409, detail="No vehicle assigned to this trip")
 
+    from app.services.rr_org_token_service import get_org_rr_token
+    token = body.rr_token or await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
     payload = {
         "crew": [{
             "worker": body.driver_rr_id,
@@ -1703,7 +1824,7 @@ async def reassign_driver(
             resp = await client.post(
                 f"{settings.RR_API_BASE}/add_vehicle_crew",
                 json=payload,
-                headers=_json_header(body.rr_token),
+                headers=_json_header(token),
             )
     except Exception as exc:
         raise HTTPException(status_code=503, detail=f"Could not reach RR server: {exc}")
@@ -2037,7 +2158,8 @@ async def search_rr_users(
     db: Session = Depends(get_db),
 ):
     _require_rr_session_role(current_user, db)
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     # RR's generic `GET /users?where=...` (Eve resource GET) is restricted
     # server-side to the querying token's own record (`auth_field` self-only —
     # confirmed live: even an Admin/CSR token searching for a known, existing
@@ -2077,7 +2199,8 @@ async def search_rr_companies(
     db: Session = Depends(get_db),
 ):
     _require_rr_session_role(current_user, db)
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     match = json.dumps({"name": {"$regex": f"^{q}", "$options": "-i"}})
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
         resp = await client.get(
@@ -2103,7 +2226,8 @@ async def search_vehicle_engine_models(
     db: Session = Depends(get_db),
 ):
     _require_rr_session_role(current_user, db)
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     where = json.dumps({"name": {"$regex": f"^{q}", "$options": "i"}})
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
         resp = await client.get(
@@ -2120,7 +2244,7 @@ async def search_vehicle_engine_models(
 
 
 class RrCreateVehicleRequest(BaseModel):
-    rr_token: str
+    rr_token: str | None = None
     engine_model_id: str
     rc_number: str
     owner_user_id: str
@@ -2133,7 +2257,20 @@ async def create_rr_vehicle(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_org_rr_token
+
     _require_rr_session_role(current_user, db)
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+    token = body.rr_token or await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
     payload = {
         "engine.model": body.engine_model_id,
         "body": {
@@ -2156,7 +2293,7 @@ async def create_rr_vehicle(
         resp = await client.post(
             f"{settings.RR_API_BASE}/vehicles",
             json=payload,
-            headers=_json_header(body.rr_token),
+            headers=_json_header(token),
         )
     if resp.status_code not in (200, 201):
         raise HTTPException(status_code=502, detail=f"RR vehicle creation failed: {resp.text[:400]}")
@@ -2165,7 +2302,7 @@ async def create_rr_vehicle(
 
 
 class RrAssignVehicleDriverRequest(BaseModel):
-    rr_token: str
+    rr_token: str | None = None
     vehicle_id: str
     driver_user_id: str
 
@@ -2185,8 +2322,21 @@ async def assign_vehicle_driver(
     driver for vehicle." (confirmed live against trip RR-71165). This actually
     writes that crew entry, rather than just recording the driver on our side.
     """
+    from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_org_rr_token
+
     _require_rr_session_role(current_user, db)
-    headers = _json_header(body.rr_token)
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+    token = body.rr_token or await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
+    headers = _json_header(token)
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
         get_resp = await client.get(
             f"{settings.RR_API_BASE}/vehicles/{body.vehicle_id}",
@@ -2215,7 +2365,7 @@ async def assign_vehicle_driver(
 
 
 class RrCreateCompanyRequest(BaseModel):
-    rr_token: str
+    rr_token: str | None = None
     name: str
     city_id: str
     business_type: str
@@ -2229,7 +2379,20 @@ async def create_rr_company(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_org_rr_token
+
     _require_rr_session_role(current_user, db)
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+    token = body.rr_token or await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
     if not body.owner_user_id and not body.new_owner_phone:
         raise HTTPException(status_code=400, detail="Provide either owner_user_id or new_owner_phone")
 
@@ -2259,7 +2422,7 @@ async def create_rr_company(
         resp = await client.post(
             f"{settings.RR_API_BASE}/add_company",
             json=payload,
-            headers=_json_header(body.rr_token),
+            headers=_json_header(token),
         )
     if resp.status_code not in (200, 201):
         raise HTTPException(status_code=502, detail=f"RR company creation failed: {resp.text[:400]}")
@@ -2272,7 +2435,7 @@ async def create_rr_company(
 
 
 class RrCreateUserRequest(BaseModel):
-    rr_token: str
+    rr_token: str | None = None
     name: str
     phone: str
 
@@ -2283,7 +2446,20 @@ async def create_rr_user(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_org_rr_token
+
     _require_rr_session_role(current_user, db)
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+    token = body.rr_token or await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
     payload = {
         "phone": {"country_phone_code": "91", "number": body.phone},
         "name": body.name,
@@ -2296,7 +2472,7 @@ async def create_rr_user(
         resp = await client.post(
             f"{settings.RR_API_BASE}/users",
             json=payload,
-            headers=_json_header(body.rr_token),
+            headers=_json_header(token),
         )
     if resp.status_code not in (200, 201):
         raise HTTPException(status_code=502, detail=f"RR user creation failed: {resp.text[:400]}")
@@ -2339,7 +2515,7 @@ def _resolve_org_rr_company_id(current_user: User, db: Session) -> str:
 
 
 class RrCreateHireRequest(BaseModel):
-    rr_token: str
+    rr_token: str | None = None
     vehicle_id: str
     owner_user_id: str | None = None
     owner_company_id: str | None = None
@@ -2364,7 +2540,19 @@ async def create_vehicle_hire_request(
     Supervisor — see get_vehicle_hire_requests above) can hire on behalf of
     any company, same as RR web's own CSR/Admin dashboard.
     """
+    from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_org_rr_token
+
     _require_rr_session_role(current_user, db)
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+    token = body.rr_token or await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
 
     if bool(body.owner_user_id) == bool(body.owner_company_id):
         raise HTTPException(status_code=400, detail="Provide exactly one of owner_user_id or owner_company_id")
@@ -2394,7 +2582,7 @@ async def create_vehicle_hire_request(
         resp = await client.post(
             f"{settings.RR_API_BASE}/market_vehicles",
             json=payload,
-            headers=_json_header(body.rr_token),
+            headers=_json_header(token),
         )
     if resp.status_code not in (200, 201):
         raise HTTPException(status_code=502, detail=f"RR hire request failed: {resp.text[:400]}")
@@ -2422,7 +2610,8 @@ async def get_vehicle_hire_requests(
     """
     _require_rr_session_role(current_user, db)
     company_id = _resolve_org_rr_company_id(current_user, db)
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     embedded = json.dumps({
         "vehicle_id": 1,
         "vehicle_id.engine.model": 1,
@@ -2504,7 +2693,7 @@ async def get_vehicle_hire_requests(
 
 
 class RrReviewHireRequest(BaseModel):
-    rr_token: str
+    rr_token: str | None = None
     status: str  # "Approved" | "Rejected"
     approved_start_date: str | None = None
     approved_end_date: str | None = None
@@ -2517,7 +2706,20 @@ async def review_vehicle_hire_request(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    from app.models import UserOrganization
+    from app.services.rr_org_token_service import get_org_rr_token
+
     _require_rr_session_role(current_user, db)
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == "active",
+    ).first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+    token = body.rr_token or await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
     if body.status not in ("Approved", "Rejected"):
         raise HTTPException(status_code=400, detail="status must be 'Approved' or 'Rejected'")
     if body.status == "Approved" and not (body.approved_start_date and body.approved_end_date):
@@ -2540,7 +2742,7 @@ async def review_vehicle_hire_request(
         resp = await client.post(
             f"{settings.RR_API_BASE}/review_market_vehicle_request",
             json=payload,
-            headers=_json_header(body.rr_token),
+            headers=_json_header(token),
         )
     if resp.status_code not in (200, 201):
         raise HTTPException(status_code=502, detail=f"RR review failed: {resp.text[:400]}")

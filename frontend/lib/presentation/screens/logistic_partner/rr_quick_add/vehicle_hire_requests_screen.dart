@@ -29,8 +29,15 @@ TextStyle _inter({double size = 13, FontWeight weight = FontWeight.w400, Color c
 
 String _fmtDateTime(dynamic iso) {
   if (iso == null) return '';
-  final dt = DateTime.tryParse(iso as String);
-  if (dt == null) return iso;
+  final naive = DateTime.tryParse(iso as String);
+  if (naive == null) return iso;
+  // RR echoes datetime fields back with no timezone marker (Eve's DATE_FORMAT
+  // has no offset token), but the value IS true UTC (we send it that way,
+  // and RR stores whatever it's sent literally) — DateTime.tryParse alone
+  // would misread these digits as already-local. Re-anchor as UTC first,
+  // then convert to the device's local time for display.
+  final utc = DateTime.utc(naive.year, naive.month, naive.day, naive.hour, naive.minute, naive.second);
+  final dt = utc.toLocal();
   final d = dt.day.toString().padLeft(2, '0');
   final m = dt.month.toString().padLeft(2, '0');
   final hh = dt.hour.toString().padLeft(2, '0');
@@ -65,14 +72,9 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
   }
 
   Future<void> _load() async {
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) {
-      setState(() { _loading = false; _errorMsg = 'RR login required'; });
-      return;
-    }
     setState(() { _loading = true; _errorMsg = null; });
     try {
-      final items = await ref.read(rrSyncApiProvider).getVehicleHireRequests(session.token);
+      final items = await runRrAction(context, ref, () => ref.read(rrSyncApiProvider).getVehicleHireRequests());
       if (!mounted) return;
       setState(() { _items = items; _loading = false; });
     } catch (e) {
@@ -92,18 +94,17 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
 
   Future<void> _submitReview(Map<String, dynamic> item, String status, {DateTime? start, DateTime? end}) async {
     final marketVehicleId = item['market_vehicle_id'] as String;
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
-
     setState(() => _actingOnId = marketVehicleId);
     try {
-      await ref.read(rrSyncApiProvider).reviewVehicleHireRequest(
+      await runRrAction(context, ref, () => ref.read(rrSyncApiProvider).reviewVehicleHireRequest(
             marketVehicleId: marketVehicleId,
-            rrToken: session.token,
             status: status,
-            approvedStartDate: start?.toIso8601String(),
-            approvedEndDate: end?.toIso8601String(),
-          );
+            // RR stores whatever clock digits it's sent as literal UTC (no
+            // conversion on its side) — .toUtc() here is required, not
+            // cosmetic, or an IST pick lands 5:30h off in RR's DB.
+            approvedStartDate: start?.toUtc().toIso8601String(),
+            approvedEndDate: end?.toUtc().toIso8601String(),
+          ));
       if (!mounted) return;
       setState(() => _actingOnId = null);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

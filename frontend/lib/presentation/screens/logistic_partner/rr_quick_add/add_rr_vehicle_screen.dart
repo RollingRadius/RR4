@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
-import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 
@@ -41,34 +40,15 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
   String? _engineModelId;
   String? _companyId;
   bool _submitting = false;
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _ensureSessionOnOpen());
-  }
-
-  Future<void> _ensureSessionOnOpen() async {
-    final session = await ensureRrSession(context, ref);
-    if (!mounted) return;
-    if (session == null) {
-      Navigator.of(context).pop();
-      return;
-    }
-    setState(() => _ready = true);
-  }
-
-  String _currentToken() => ref.read(rrSessionProvider)?.token ?? '';
 
   Future<List<Map<String, dynamic>>> _searchOwners(String q) =>
-      ref.read(rrSyncApiProvider).searchRrUsers(q, _currentToken());
+      runRrAction(context, ref, () => ref.read(rrSyncApiProvider).searchRrUsers(q));
 
   Future<List<Map<String, dynamic>>> _searchEngineModels(String q) =>
-      ref.read(rrSyncApiProvider).searchVehicleEngineModels(q, _currentToken());
+      runRrAction(context, ref, () => ref.read(rrSyncApiProvider).searchVehicleEngineModels(q));
 
   Future<List<Map<String, dynamic>>> _searchCompanies(String q) =>
-      ref.read(rrSyncApiProvider).searchRrCompanies(q, _currentToken());
+      runRrAction(context, ref, () => ref.read(rrSyncApiProvider).searchRrCompanies(q));
 
   void _onOwnerSelected(Map<String, dynamic> owner) {
     setState(() {
@@ -94,18 +74,14 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
       return;
     }
 
-    final session = await ensureRrSession(context, ref);
-    if (session == null || !mounted) return;
-
     setState(() => _submitting = true);
     try {
-      final result = await ref.read(rrSyncApiProvider).createRrVehicle(
-            rrToken: session.token,
+      final result = await runRrAction(context, ref, () => ref.read(rrSyncApiProvider).createRrVehicle(
             engineModelId: _engineModelId!,
             rcNumber: _rcCtrl.text.trim(),
             ownerUserId: _ownerId!,
             companyId: _companyId,
-          );
+          ));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Vehicle "${result['rc_number']}" added on RR', style: _inter(size: 13, color: Colors.white)),
@@ -140,9 +116,7 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text('Add New Vehicle', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _primary),
-      body: !_ready
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+      body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,

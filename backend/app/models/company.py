@@ -54,6 +54,12 @@ class Organization(Base):
     rr_refresh_token    = Column(Text, nullable=True)
     rr_token_expires_at = Column(TIMESTAMP(timezone=True), nullable=True)
     rr_token_updated_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    # The RR refresh token's own real ~30-day expiry (distinct from
+    # rr_token_expires_at above, which is just the derived access token's
+    # ~15min lifetime) — lets us warn LP/RR-ops before the session actually
+    # lapses, which nothing tracked before this.
+    rr_session_expires_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    rr_expiry_notified_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Status
     status = Column(String(20), nullable=False, default='active')

@@ -31,6 +31,7 @@ from .kpi import KPI, KPIHistory
 from .trip import Trip
 from .notification import Notification
 from .material_type import MaterialType
+from .refresh_token import RefreshToken
 
 __all__ = [
     "User",
@@ -74,4 +75,5 @@ __all__ = [
     "Trip",
     "Notification",
     "MaterialType",
+    "RefreshToken",
 ]
