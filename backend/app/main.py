@@ -3,6 +3,17 @@ Fleet Management System - FastAPI Main Application
 Authentication & Company Management API
 """
 
+import logging
+
+# Nothing else in the app ever configures a handler/level for the root logger,
+# so every logger.info()/logger.error() call across the codebase (RR sync
+# tracing included) was silently dropped — uvicorn's own access/error loggers
+# are separate and unaffected, this only wires up everything else.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
