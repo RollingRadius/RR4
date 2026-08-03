@@ -595,9 +595,9 @@ class _WorkerHomeTab extends ConsumerWidget {
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Worker';
     // Fleet status: backend (rr_web=true) already scopes this to trips not yet
-    // fully synced (current_stage < 5 or rr_sync_status != 'pod_synced') — no
-    // extra client-side filtering here, it used to wrongly drop trips as soon
-    // as their loading slip synced.
+    // explicitly moved to Records (moved_to_records_at is null) — no extra
+    // client-side filtering here. Finishing Stage 5 sync does NOT remove a
+    // trip from this list; only the long-press "Move to Records" action does.
     final ongoingTrips = tripState.activeTrips;
 
     return RefreshIndicator(

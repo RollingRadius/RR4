@@ -15,7 +15,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
 from pydantic import BaseModel
-from sqlalchemy import and_, or_
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -255,28 +255,27 @@ def list_trips(
         elif len(statuses) > 1:
             query = query.filter(Trip.status.in_(statuses))
 
-    # A trip is "done" only once Stage 5 is submitted locally AND its data has
-    # actually finished syncing to RR — pod_synced is only set by _sync_stage5
-    # on a successful PATCH, which itself only happens once LP/RR-ops's RR
-    # login has let the background per-stage sync go through. current_stage
-    # alone isn't enough: a trip can hit stage 5 locally before its sync clears.
-    _rr_fully_synced = and_(Trip.current_stage >= 5, Trip.rr_sync_status == 'pod_synced')
-
+    # Records is an explicit LP/RR-ops archive action (long-press → Move to
+    # Records → confirm) via POST .../move-to-records, never automatic —
+    # finishing Stage 5 sync must NOT by itself move a trip here. Reaching
+    # "fully synced" (current_stage >= 5 and rr_sync_status == 'pod_synced')
+    # used to be treated as equivalent to archived, which silently dropped a
+    # trip out of the fleet-status list and into Records the moment either
+    # sync button finished Stage 5 — moved_to_records_at is the only signal
+    # that should gate this.
     if rr_only:
-        # Records: fully completed AND fully synced to RR — see _rr_fully_synced above.
         query = query.filter(
             Trip.rr_trip_id.isnot(None),
             Trip.rr_trip_id != '',
-            _rr_fully_synced,
+            Trip.moved_to_records_at.isnot(None),
         )
 
     if rr_web:
-        # Fleet status: everything not yet fully synced stays here — holds the
-        # trip through loading slip / bilty / POD syncing for all three roles
-        # (LP, LP-worker/FE, RR-ops) until RR sync actually completes.
+        # Fleet status: stays here regardless of sync completeness — only an
+        # explicit Move to Records removes it from this list.
         query = query.filter(
             Trip.consignor_name.isnot(None),
-            ~_rr_fully_synced,
+            Trip.moved_to_records_at.is_(None),
         )
 
     total = query.count()
