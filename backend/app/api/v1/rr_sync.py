@@ -2711,6 +2711,146 @@ async def get_vehicle_hire_requests(
     return {"items": [_to_item(mv) for mv in all_mvs]}
 
 
+# ── Vehicle RC search + hire history (read-only reference on Hire Vehicle) ─────
+
+@router.get("/vehicles/search-by-rc", summary="Search RR vehicles by RC number prefix")
+async def search_vehicles_by_rc(
+    q: str = Query(..., min_length=2, description="RC number prefix, e.g. RJ14"),
+    rr_token: str = Query("", description="LP's RR session token"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Powers the RC-number autocomplete on the Hire Vehicle screen's read-only
+    history lookup. RC number isn't a top-level field on RR's `vehicles`
+    resource — it lives inside `identities[]` as
+    {id_name: "Registration Certificate", number: "..."}, same as driver
+    DL/Aadhaar — so this needs an $elemMatch, not a plain field regex.
+    """
+    _require_rr_session_role(current_user, db)
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    where = json.dumps({
+        "identities": {"$elemMatch": {
+            "id_name": "Registration Certificate",
+            "number": {"$regex": f"^{q}", "$options": "i"},
+        }}
+    })
+    embedded = json.dumps({"engine.model": 1, "created_by": 1, "created_by_company": 1})
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/vehicles",
+                params={"where": where, "embedded": embedded, "max_results": 20},
+                headers=headers,
+            )
+    except Exception as exc:
+        logger.error(f"RR vehicle RC search error: {exc}")
+        return {"items": []}
+    if resp.status_code != 200:
+        return {"items": []}
+
+    items = []
+    for v in resp.json().get("_items", []):
+        rc_number = ""
+        for ident in (v.get("identities") or []):
+            if ident.get("id_name") == "Registration Certificate":
+                rc_number = ident.get("number") or ""
+                break
+        if not rc_number:
+            continue
+        engine_model = ((v.get("engine") or {}).get("model") or {}).get("name") or ""
+        owner = v.get("created_by_company") if isinstance(v.get("created_by_company"), dict) else None
+        if not owner:
+            owner = v.get("created_by") if isinstance(v.get("created_by"), dict) else {}
+        items.append({
+            "vehicle_id": str(v.get("_id") or ""),
+            "rc_number": rc_number,
+            "model": engine_model,
+            "owner_name": (owner or {}).get("name") or "",
+        })
+    return {"items": items}
+
+
+@router.get("/vehicles/{vehicle_id}/hire-history", summary="Full hire history for one vehicle (any status) — read-only")
+async def get_vehicle_hire_history(
+    vehicle_id: str,
+    rr_token: str = Query("", description="LP's RR session token"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Read-only reference lookup for the Hire Vehicle screen — every hire ever
+    recorded for one specific vehicle (Requested/Approved/Terminated/
+    everything), unlike get_vehicle_hire_requests above which is scoped to
+    pending requests marketplace-wide. Mirrors what RR web's own CSR/Admin
+    "Market Vehicles" table shows when filtered to one RC number.
+    """
+    _require_rr_session_role(current_user, db)
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    embedded = json.dumps({
+        "vehicle_id": 1,
+        "vehicle_id.engine.model": 1,
+        "owner_company_id": 1,
+        "owner_user_id": 1,
+        "third_party_company_id": 1,
+        "third_party_user_id": 1,
+    })
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/market_vehicles",
+                params={
+                    "where": json.dumps({"vehicle_id": vehicle_id}),
+                    "sort": json.dumps([("_created", -1)]),
+                    "embedded": embedded,
+                    "max_results": 100,
+                },
+                headers=headers,
+            )
+    except Exception as exc:
+        logger.error(f"RR vehicle hire history error: {exc}")
+        return {"items": []}
+    if resp.status_code != 200:
+        return {"items": []}
+
+    items = []
+    for mv in resp.json().get("_items", []):
+        vehicle = mv.get("vehicle_id") if isinstance(mv.get("vehicle_id"), dict) else {}
+        rc_number = ""
+        for ident in (vehicle.get("identities") or []):
+            if ident.get("id_name") == "Registration Certificate":
+                rc_number = ident.get("number") or ""
+                break
+        engine_model = ((vehicle.get("engine") or {}).get("model") or {}).get("name") or ""
+
+        owner = mv.get("owner_company_id") if isinstance(mv.get("owner_company_id"), dict) else None
+        if not owner:
+            owner = mv.get("owner_user_id") if isinstance(mv.get("owner_user_id"), dict) else {}
+        hirer = mv.get("third_party_company_id") if isinstance(mv.get("third_party_company_id"), dict) else None
+        if not hirer:
+            hirer = mv.get("third_party_user_id") if isinstance(mv.get("third_party_user_id"), dict) else {}
+
+        items.append({
+            "market_vehicle_id": str(mv.get("_id") or ""),
+            "rc_number": rc_number,
+            "model": engine_model,
+            "owner_name": (owner or {}).get("name") or "",
+            "owner_phone": (owner or {}).get("phone") or "",
+            "contractor_name": (hirer or {}).get("name") or "",
+            "contractor_phone": (hirer or {}).get("phone") or "",
+            "contractor_business_type": (hirer or {}).get("business_type") or "",
+            "requested_start_date": mv.get("requested_start_date"),
+            "requested_end_date": mv.get("requested_end_date"),
+            "approved_start_date": mv.get("approved_start_date"),
+            "approved_end_date": mv.get("approved_end_date"),
+            "termination_date": mv.get("termination_date"),
+            "status": mv.get("status") or "",
+        })
+    return {"items": items}
+
+
 class RrReviewHireRequest(BaseModel):
     rr_token: str | None = None
     status: str  # "Approved" | "Rejected"

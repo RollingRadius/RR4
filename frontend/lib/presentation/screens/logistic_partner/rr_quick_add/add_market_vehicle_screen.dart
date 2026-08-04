@@ -11,11 +11,35 @@ const _secondary = Color(0xFF546067);
 const _onSurface = Color(0xFF191C1E);
 const _success = Color(0xFF2E7D32);
 const _error = Color(0xFFBA1A1A);
+const _border = Color(0xFFECEEF0);
 
 TextStyle _manrope({double size = 14, FontWeight weight = FontWeight.w700, Color color = _onSurface}) =>
     GoogleFonts.manrope(fontSize: size, fontWeight: weight, color: color);
 TextStyle _inter({double size = 13, FontWeight weight = FontWeight.w400, Color color = _secondary}) =>
     GoogleFonts.inter(fontSize: size, fontWeight: weight, color: color);
+
+String _fmtHistoryDateTime(dynamic iso) {
+  if (iso == null) return '';
+  final naive = DateTime.tryParse(iso as String);
+  if (naive == null) return iso;
+  // RR echoes datetime fields back with no timezone marker but the value IS
+  // true UTC — re-anchor as UTC first, then convert to local for display
+  // (same fix already applied in vehicle_hire_requests_screen.dart).
+  final utc = DateTime.utc(naive.year, naive.month, naive.day, naive.hour, naive.minute, naive.second);
+  final dt = utc.toLocal();
+  final d = dt.day.toString().padLeft(2, '0');
+  final m = dt.month.toString().padLeft(2, '0');
+  return '$d/$m/${dt.year}';
+}
+
+Color _historyStatusColor(String status) {
+  switch (status) {
+    case 'Approved': return _success;
+    case 'Rejected':
+    case 'Terminated': return _error;
+    default: return _primary; // Requested
+  }
+}
 
 /// Requester side of RR's vehicle-hire marketplace — mirrors RR web's "Hire
 /// Market Vehicle" dialog (hire-market-vehicle.component.html) field for
@@ -36,6 +60,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
   final _hirePersonUserCtrl = TextEditingController();
   final _ownerCompanyCtrl = TextEditingController();
   final _ownerUserCtrl = TextEditingController();
+  final _rcSearchCtrl = TextEditingController();
 
   String? _hirePersonCompanyId;
   String? _hirePersonUserId;
@@ -48,11 +73,36 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
   DateTime? _endDate;
   bool _submitting = false;
 
+  // Read-only reference lookup — independent of the vehicle actually
+  // selected for this hire request above (see _selectedVehicleId).
+  String? _historyVehicleLabel;
+  List<Map<String, dynamic>> _historyItems = [];
+  bool _loadingHistory = false;
+  String? _historyError;
+
   Future<List<Map<String, dynamic>>> _searchCompanies(String q) =>
       runRrAction(context, ref, () => ref.read(rrSyncApiProvider).searchRrCompanies(q));
 
   Future<List<Map<String, dynamic>>> _searchUsers(String q) =>
       runRrAction(context, ref, () => ref.read(rrSyncApiProvider).searchRrUsers(q));
+
+  Future<List<Map<String, dynamic>>> _searchVehiclesByRc(String q) =>
+      runRrAction(context, ref, () => ref.read(rrSyncApiProvider).searchVehiclesByRc(q));
+
+  Future<void> _loadVehicleHistory(String vehicleId) async {
+    setState(() { _loadingHistory = true; _historyItems = []; _historyError = null; });
+    try {
+      final items = await runRrAction(
+          context, ref, () => ref.read(rrSyncApiProvider).getVehicleHireHistory(vehicleId));
+      if (!mounted) return;
+      setState(() => _historyItems = items);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _historyError = 'Could not load history. Please try again.');
+    } finally {
+      if (mounted) setState(() => _loadingHistory = false);
+    }
+  }
 
   Future<void> _loadOwnerVehicles() async {
     setState(() { _loadingVehicles = true; _ownerVehicles = []; _selectedVehicleId = null; });
@@ -168,6 +218,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
     _hirePersonUserCtrl.dispose();
     _ownerCompanyCtrl.dispose();
     _ownerUserCtrl.dispose();
+    _rcSearchCtrl.dispose();
     super.dispose();
   }
 
@@ -245,6 +296,146 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // ── Vehicle history lookup (read-only reference) ──────────
+                  // Independent of the form below — search any vehicle by RC
+                  // number to see its full hire history before deciding
+                  // who/what to hire. Does not affect vehicle selection for
+                  // the actual request, which still happens via Lender
+                  // Detail → Lender Vehicles below.
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF7F8FA),
+                      border: Border.all(color: _border),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.history_rounded, size: 18, color: _secondary),
+                            const SizedBox(width: 6),
+                            Text('Check Vehicle History', style: _manrope(size: 13)),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Text('Reference only — look up a vehicle\'s past hires before deciding',
+                            style: _inter(size: 11.5)),
+                        const SizedBox(height: 10),
+                        RrSearchField<Map<String, dynamic>>(
+                          label: 'RC Number',
+                          hintText: 'e.g. RJ14',
+                          controller: _rcSearchCtrl,
+                          search: _searchVehiclesByRc,
+                          itemLabel: (v) => v['rc_number'] as String? ?? '',
+                          itemSubtitle: (v) => v['owner_name'] as String? ?? '',
+                          onSelected: (v) {
+                            final rc = v['rc_number'] as String? ?? '';
+                            final owner = v['owner_name'] as String? ?? '';
+                            setState(() {
+                              _rcSearchCtrl.text = owner.isEmpty ? rc : '$rc | $owner';
+                              _historyVehicleLabel = rc;
+                            });
+                            final vehicleId = v['vehicle_id'] as String?;
+                            if (vehicleId != null && vehicleId.isNotEmpty) {
+                              _loadVehicleHistory(vehicleId);
+                            }
+                          },
+                          onCleared: () => setState(() {
+                            _historyVehicleLabel = null;
+                            _historyItems = [];
+                            _historyError = null;
+                          }),
+                        ),
+                        if (_loadingHistory) ...[
+                          const SizedBox(height: 12),
+                          const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                        ] else if (_historyError != null) ...[
+                          const SizedBox(height: 10),
+                          Text(_historyError!, style: _inter(size: 12, color: _error)),
+                        ] else if (_historyVehicleLabel != null) ...[
+                          const SizedBox(height: 10),
+                          if (_historyItems.isEmpty)
+                            Text('No hire history found for $_historyVehicleLabel',
+                                style: _inter(size: 12))
+                          else
+                            ...(_historyItems.map((item) => Container(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    border: Border.all(color: _border),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              item['model'] as String? ?? '',
+                                              style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface),
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: _historyStatusColor(item['status'] as String? ?? '')
+                                                  .withValues(alpha: 0.1),
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            child: Text(
+                                              item['status'] as String? ?? '',
+                                              style: _inter(size: 10.5, weight: FontWeight.w700,
+                                                  color: _historyStatusColor(item['status'] as String? ?? '')),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Owner: ${item['owner_name'] ?? '—'}'
+                                        '${(item['owner_phone'] as String?)?.isNotEmpty == true ? ' (${item['owner_phone']})' : ''}',
+                                        style: _inter(size: 11.5),
+                                      ),
+                                      Text(
+                                        'Contractor: ${item['contractor_name'] ?? '—'}'
+                                        '${(item['contractor_phone'] as String?)?.isNotEmpty == true ? ' (${item['contractor_phone']})' : ''}'
+                                        '${(item['contractor_business_type'] as String?)?.isNotEmpty == true ? ' (${item['contractor_business_type']})' : ''}',
+                                        style: _inter(size: 11.5),
+                                      ),
+                                      if (item['requested_start_date'] != null) ...[
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          'Requested: ${_fmtHistoryDateTime(item['requested_start_date'])} to ${_fmtHistoryDateTime(item['requested_end_date'])}',
+                                          style: _inter(size: 11),
+                                        ),
+                                      ],
+                                      if (item['approved_start_date'] != null) ...[
+                                        Text(
+                                          'Approved: ${_fmtHistoryDateTime(item['approved_start_date'])} to ${_fmtHistoryDateTime(item['approved_end_date'])}',
+                                          style: _inter(size: 11),
+                                        ),
+                                      ],
+                                      if (item['termination_date'] != null) ...[
+                                        Text(
+                                          'Terminated: ${_fmtHistoryDateTime(item['termination_date'])}',
+                                          style: _inter(size: 11),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ))),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(),
+                  const SizedBox(height: 8),
+
                   // ── Vehicle Hire Person ──────────────────────────────────
                   _dualSearchField(
                     label: 'Vehicle Hire Person *',
