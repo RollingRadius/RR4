@@ -117,14 +117,17 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
   }
 
   /// Nudges the view down just enough to reveal that results appeared below
-  /// the Find button — not a full jump to the bottom, just a hint. Waits a
-  /// frame so the list has actually been laid out first (its height isn't
-  /// known until then).
+  /// the Find button — not a full jump to the bottom, just a hint. A single
+  /// post-frame callback isn't reliable here: the conditional results
+  /// section can still be mid-layout on that exact frame, so
+  /// maxScrollExtent reads stale (pre-results) and the "nudge" computes to
+  /// nothing. A short settle delay after the frame first renders fixes it.
   void _scrollToResults() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future.delayed(const Duration(milliseconds: 100));
       if (!mounted || !_scrollCtrl.hasClients) return;
       final target = (_scrollCtrl.offset + 180).clamp(0.0, _scrollCtrl.position.maxScrollExtent);
-      _scrollCtrl.animateTo(
+      await _scrollCtrl.animateTo(
         target,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
