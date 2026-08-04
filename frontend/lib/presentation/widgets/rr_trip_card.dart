@@ -209,11 +209,12 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
 
   // ── Build ───────────────────────────────────────────────────────────────────
 
-  /// A Records trip (fully completed + synced — same condition the backend
-  /// uses to move it into Records) opens read-only for LP/RR-ops and not at
-  /// all for FE/LP-worker. Anything still in Fleet Status opens normally for
-  /// whoever has access, unchanged.
-  bool get _isRecordsTrip => trip.currentStage >= 5 && trip.rrSyncStatus == 'pod_synced';
+  /// A Records trip (explicitly moved via long-press → Move to Records — same
+  /// condition the backend uses) opens read-only for LP/RR-ops and not at all
+  /// for FE/LP-worker. Anything still in Fleet Status opens normally and stays
+  /// editable/re-syncable for whoever has access, even once fully synced —
+  /// only the explicit archive action makes a trip read-only.
+  bool get _isRecordsTrip => trip.movedToRecordsAt != null;
 
   /// Tapping the card (outside the "Trip Info" expand toggle, which has its own
   /// tap handler and wins the hit-test first) opens the full S1-S5 stage process
@@ -391,17 +392,6 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: Colors.white.withOpacity(0.3)),
-            ),
-            child: Text('RR WEB',
-                style: _manrope(size: 10, weight: FontWeight.w800, color: _white)),
-          ),
-          const Spacer(),
           if (rrNum != null && rrNum.isNotEmpty) ...[
             Text(rrNum,
                 style: _manrope(size: 15, weight: FontWeight.w800, color: _white)),

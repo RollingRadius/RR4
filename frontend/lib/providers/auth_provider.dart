@@ -89,9 +89,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   Timer? _expiryTimer;
   Timer? _preRefreshTimer;
+  Future<bool>? _refreshInFlight;
 
   AuthNotifier(this._authApi, this._storage, this._apiService, this._userApi, this._fcmService, this._ref) : super(AuthState()) {
-    _apiService.setAuthCallbacks(onRefresh: refreshToken, onLogout: logout);
+    // The interceptor's 401-recovery must use the long-lived refresh-token
+    // exchange (_restoreViaRefreshToken → /api/auth/refresh), NOT the
+    // org-context refreshToken() below (/api/user/refresh-token) — that
+    // endpoint requires a STILL-VALID access token, so it can never recover
+    // from the exact case it was wired to handle (genuine token expiry).
+    // Every 401 caused by real expiry was silently forcing a full logout
+    // instead of the silent session restore that's already implemented and
+    // working at cold-start via _loadStoredAuth.
+    _apiService.setAuthCallbacks(onRefresh: _restoreViaRefreshTokenDeduped, onLogout: logout);
     _loadStoredAuth();
   }
 
@@ -180,7 +189,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           // up, so this doesn't force a fresh login just because of a gap
           // longer than the access token's own lifetime.
           print('⏱️ Stored access token expired — trying refresh token');
-          final restored = await _restoreViaRefreshToken();
+          final restored = await _restoreViaRefreshTokenDeduped();
           if (!restored) {
             await _storage.delete(key: AppConfig.tokenKey);
             await _storage.delete(key: AppConfig.refreshTokenKey);
@@ -250,6 +259,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
       print('⚠️ Refresh token restore failed: $e');
       return false;
     }
+  }
+
+  /// The refresh token is single-use (rotated server-side on every exchange)
+  /// — if several requests 401 around the same time (common right after
+  /// resume, when multiple screens fetch data in parallel), each one calling
+  /// _restoreViaRefreshToken independently would race: the first call's
+  /// rotation revokes the token the second call is still holding, failing it
+  /// even though the session is actually fine. This makes every concurrent
+  /// caller share one in-flight attempt instead.
+  Future<bool> _restoreViaRefreshTokenDeduped() {
+    return _refreshInFlight ??= _restoreViaRefreshToken().whenComplete(() {
+      _refreshInFlight = null;
+    });
   }
 
   /// Login

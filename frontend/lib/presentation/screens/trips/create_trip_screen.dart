@@ -392,7 +392,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       if (mounted) setState(() => _partnersLoading = false);
     }
     try {
-      final r = await dio.get('/api/rr/company-workers');
+      final r = await runRrAction(context, ref, () => dio.get('/api/rr/company-workers'));
       if (mounted) setState(() {
         _opsWorkers = (r.data['workers'] as List? ?? []).cast<Map<String, dynamic>>();
         _opsWorkersLoading = false;
@@ -406,10 +406,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   Future<void> _loadCompanyLocations(String? companyId, {required bool isConsignor}) async {
     if (companyId == null || companyId.isEmpty) return;
     try {
-      final resp = await ref.read(dioProvider).get(
+      final resp = await runRrAction(context, ref, () => ref.read(dioProvider).get(
         '/api/rr/operation-locations',
         queryParameters: {'company_id': companyId},
-      );
+      ));
       final locs = (resp.data['locations'] as List? ?? []).cast<Map<String, dynamic>>();
       if (!mounted) return;
       if (isConsignor) setState(() => _consignorAddresses = locs);
@@ -441,10 +441,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (isConsignor) setState(() => _consignorCompaniesLoading = true);
     else             setState(() => _consigneeCompaniesLoading = true);
     try {
-      final resp = await ref.read(dioProvider).get(
+      final resp = await runRrAction(context, ref, () => ref.read(dioProvider).get(
         '/api/rr/partner-companies',
         queryParameters: {'user_id': rrUserId},
-      );
+      ));
       final companies = (resp.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
       if (!mounted) return;
       if (isConsignor) setState(() { _consignorCompanies = companies; _consignorCompaniesLoading = false; });
@@ -522,7 +522,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       final session = ref.read(rrSessionProvider);
       final params = <String, dynamic>{'q': q};
       if (session != null && session.isValid) params['rr_token'] = session.token;
-      final resp = await ref.read(dioProvider).get('/api/rr/materials', queryParameters: params);
+      final resp = await runRrAction(context, ref,
+          () => ref.read(dioProvider).get('/api/rr/materials', queryParameters: params));
       final items = (resp.data['items'] as List? ?? []).cast<Map<String, dynamic>>();
       if (!mounted) return;
       setState(() { _materialResults = items; _materialLoading = false; });
@@ -634,23 +635,29 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     });
     final userId = user['user_id'] as String? ?? '';
     final dio = ref.read(dioProvider);
-    // load companies + personal vehicles in parallel
-    await Future.wait([
-      dio.get('/api/rr/partner-companies',
-          queryParameters: {'user_id': userId}).then((r) {
-        if (!mounted) return;
+    // Sequential, not parallel — same reasoning as _loadPartnerRRData above:
+    // running both through runRrAction concurrently risks two login dialogs
+    // stacking if the org has no RR session at all. The first call resolves
+    // the session (prompting once if needed); the second then runs with
+    // that same now-valid session.
+    try {
+      final r = await runRrAction(context, ref, () => dio.get('/api/rr/partner-companies',
+          queryParameters: {'user_id': userId}));
+      if (mounted) {
         final list = (r.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
         setState(() { _vpCompanies = list; _vpCompaniesLoading = false; });
-      }).catchError((_) {
-        if (mounted) setState(() => _vpCompaniesLoading = false);
-      }),
-      dio.get('/api/rr/user-vehicles',
-          queryParameters: {'user_id': userId}).then((r) {
-        if (!mounted) return;
+      }
+    } catch (_) {
+      if (mounted) setState(() => _vpCompaniesLoading = false);
+    }
+    try {
+      final r = await runRrAction(context, ref, () => dio.get('/api/rr/user-vehicles',
+          queryParameters: {'user_id': userId}));
+      if (mounted) {
         final list = (r.data['vehicles'] as List? ?? []).cast<Map<String, dynamic>>();
         setState(() => _vpPersonalVehicles = list);
-      }).catchError((_) {}),
-    ]);
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadVpCompanyVehicles(String companyId) async {
@@ -660,8 +667,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     });
     try {
       final dio = ref.read(dioProvider);
-      final r = await dio.get('/api/rr/company-vehicles',
-          queryParameters: {'company_id': companyId});
+      final r = await runRrAction(context, ref, () => dio.get('/api/rr/company-vehicles',
+          queryParameters: {'company_id': companyId}));
       if (!mounted) return;
       final list = (r.data['vehicles'] as List? ?? []).cast<Map<String, dynamic>>();
       setState(() { _vpVehicles = list; _vpVehiclesLoading = false; });

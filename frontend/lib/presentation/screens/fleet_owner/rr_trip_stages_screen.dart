@@ -631,10 +631,11 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
 
 (String, Color, Color) _tripStateColors(TripModel trip) {
   // A trip is "complete" either via the explicit /complete action (trip.status)
-  // or by reaching Records (all 5 stages done + fully synced to RR) — the
-  // latter never touches trip.status, so both must be checked here or the
-  // badge stays stuck on "IN TRANSIT" for trips sitting in Records.
-  final isRecordsComplete = trip.currentStage >= 5 && trip.rrSyncStatus == 'pod_synced';
+  // or by being explicitly moved to Records — the latter never touches
+  // trip.status, so both must be checked here. Finishing Stage 5 sync alone
+  // does NOT count — a fully-synced trip still sitting in Fleet Status stays
+  // "IN TRANSIT"/editable until someone explicitly archives it.
+  final isRecordsComplete = trip.movedToRecordsAt != null;
   if (trip.isCancelled) return ('CANCELLED', const Color(0xFFFFDAD6), const Color(0xFFBA1A1A));
   if (trip.isCompleted || isRecordsComplete) return ('COMPLETED', const Color(0xFFECEEF0), const Color(0xFF546067));
   if (trip.currentStage >= 4) return ('IN TRANSIT', const Color(0xFFD7F0D9), const Color(0xFF1B5E20));

@@ -5,6 +5,7 @@ import 'package:fleet_management/providers/profile_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/routing/dashboard_route.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
@@ -214,15 +215,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
             );
             // Navigate based on role
             final updatedUser = ref.read(authProvider).user;
-            if (updatedUser?.isLoadOwner == true) {
-              context.go(AppConstants.routeLoadOwnerHome);
-            } else if (updatedUser?.isTransporter == true) {
-              context.go(AppConstants.routeTransporterHome);
-            } else if (updatedUser?.isDriver == true) {
-              context.go('/driver/home');
-            } else {
-              context.go(AppConstants.routeDashboard);
-            }
+            context.go(updatedUser != null ? dashboardRouteFor(updatedUser) : AppConstants.routeDashboard);
           }
         }
       } else {

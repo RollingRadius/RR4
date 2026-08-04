@@ -8,7 +8,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
-import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
 import 'package:fleet_management/providers/driver_provider.dart';
@@ -2142,41 +2141,43 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
           });
         }).catchError((_) {});
 
-    // Partners and workers require an RR token — ask for login if no valid session.
-    final session = await ensureRrSession(context, ref);
-    if (session == null) {
-      if (mounted) setState(() { _partnersLoading = false; _opsWorkersLoading = false; });
-      return;
-    }
-    final token = session.token;
+    // Partners + workers use the org's own RR session — no personal login
+    // needed unless it's genuinely expired. runRrAction reactively prompts
+    // login only if the backend responds 409 (org has no valid session),
+    // instead of pre-emptively checking here and missing the case where the
+    // session expires between the check and the actual call. Sequential, not
+    // parallel — running both through runRrAction concurrently risks two
+    // login dialogs stacking if the org has no RR session at all. The first
+    // call resolves the session (prompting once if needed); the second then
+    // runs with that same now-valid session.
     setState(() { _partnersLoading = true; _opsWorkersLoading = true; });
-    await Future.wait([
-      api.get('/api/rr/preferred-partners', queryParameters: {'rr_token': token})
-          .then((r) {
-            if (mounted) setState(() {
-              _partners = (r.data['partners'] as List? ?? []).cast<Map<String, dynamic>>();
-              _partnersLoading = false;
-            });
-          }).catchError((_) { if (mounted) setState(() => _partnersLoading = false); }),
-      api.get('/api/rr/company-workers', queryParameters: {'rr_token': token})
-          .then((r) {
-            if (mounted) setState(() {
-              _opsWorkers = (r.data['workers'] as List? ?? []).cast<Map<String, dynamic>>();
-              _opsWorkersLoading = false;
-            });
-          }).catchError((_) { if (mounted) setState(() => _opsWorkersLoading = false); }),
-    ]);
+    try {
+      final r = await runRrAction(context, ref, () => api.get('/api/rr/preferred-partners'));
+      if (mounted) setState(() {
+        _partners = (r.data['partners'] as List? ?? []).cast<Map<String, dynamic>>();
+        _partnersLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _partnersLoading = false);
+    }
+    try {
+      final r = await runRrAction(context, ref, () => api.get('/api/rr/company-workers'));
+      if (mounted) setState(() {
+        _opsWorkers = (r.data['workers'] as List? ?? []).cast<Map<String, dynamic>>();
+        _opsWorkersLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _opsWorkersLoading = false);
+    }
   }
 
   Future<void> _loadCompanyLocations(String? companyId, {required bool isConsignor}) async {
     if (companyId == null || companyId.isEmpty) return;
-    final session = ref.read(rrSessionProvider);
-    final token = (session != null && session.isValid) ? session.token : '';
     try {
-      final resp = await ref.read(apiServiceProvider).dio.get(
+      final resp = await runRrAction(context, ref, () => ref.read(apiServiceProvider).dio.get(
         '/api/rr/operation-locations',
-        queryParameters: {'company_id': companyId, 'rr_token': token},
-      );
+        queryParameters: {'company_id': companyId},
+      ));
       final locs = (resp.data['locations'] as List? ?? []).cast<Map<String, dynamic>>();
       if (!mounted) return;
       if (isConsignor) setState(() => _consignorAddresses = locs);
@@ -2203,12 +2204,10 @@ class _FulfillSheetState extends ConsumerState<_FulfillSheet> {
     if (isConsignor) setState(() => _consignorCompaniesLoading = true);
     else             setState(() => _consigneeCompaniesLoading = true);
     try {
-      final session = ref.read(rrSessionProvider);
-      final token = (session != null && session.isValid) ? session.token : '';
-      final resp = await ref.read(apiServiceProvider).dio.get(
+      final resp = await runRrAction(context, ref, () => ref.read(apiServiceProvider).dio.get(
         '/api/rr/partner-companies',
-        queryParameters: {'user_id': rrUserId, 'rr_token': token},
-      );
+        queryParameters: {'user_id': rrUserId},
+      ));
       final companies = (resp.data['companies'] as List? ?? []).cast<Map<String, dynamic>>();
       if (!mounted) return;
       if (isConsignor) setState(() { _consignorCompanies = companies; _consignorCompaniesLoading = false; });

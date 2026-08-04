@@ -76,6 +76,7 @@ import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_schedule_confirmed_screen.dart';
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_maintenance_history_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/routing/dashboard_route.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/presentation/screens/splash/splash_screen.dart';
 
@@ -128,8 +129,32 @@ final routerProvider = Provider<GoRouter>((ref) {
         return AppConstants.routeLogin;
       }
 
-      // Prevent transporters from accessing LP/fleet-manager routes
       final user = auth.user;
+
+      // Global profile-completion gate — covers every entry path uniformly
+      // (signup, login, or a silently-restored session on relaunch), not
+      // just the ad hoc check that used to live only in login_screen.dart.
+      // A profile-incomplete user must never reach a dashboard directly.
+      // /splash is excluded for the same reason as the login/signup bounce
+      // below — it owns its own navigation timing once auth state resolves,
+      // so its minimum on-screen time isn't cut short by a redirect firing
+      // the instant isInitialized flips true.
+      if (auth.isAuthenticated && user != null && !user.profileCompleted &&
+          state.matchedLocation != '/profile-complete' &&
+          state.matchedLocation != '/splash') {
+        return '/profile-complete';
+      }
+
+      // An authenticated user landing on /login or /signup (stale deep link,
+      // back navigation, or a silently-restored session) belongs on their
+      // own dashboard, not the login form.
+      if (auth.isAuthenticated && user != null && user.profileCompleted &&
+          (state.matchedLocation == AppConstants.routeLogin ||
+              state.matchedLocation == AppConstants.routeSignup)) {
+        return dashboardRouteFor(user);
+      }
+
+      // Prevent transporters from accessing LP/fleet-manager routes
       if (user != null && user.isTransporter) {
         final loc = state.matchedLocation;
         final isTransporterPage = loc.startsWith(AppConstants.routeTransporterHome) ||

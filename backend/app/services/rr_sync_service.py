@@ -203,6 +203,28 @@ async def _fetch_driver_identities_via_vehicle(
     return None
 
 
+def _rebuild_positional_photos(
+    photos: list[dict], front_id: str | None, back_id: str | None,
+) -> list[dict]:
+    """
+    RR's own save_identities Flask handler — and several of its web UI table
+    components — read a photo's side by ARRAY POSITION (photos[0] is always
+    treated as Front, photos[1] as Back) instead of the "side" field on each
+    entry. Filtering out the changed side and appending the replacement at
+    the end (the previous approach here) breaks that positional invariant
+    the instant only one side changes, causing RR to display Front/Back
+    swapped. This rebuilds photos as a strict [Front, Back] positional list
+    every time, keeping whichever side wasn't touched in its existing slot.
+    """
+    existing_front = next((p for p in photos if p.get("side") == "Front"), None)
+    existing_back = next((p for p in photos if p.get("side") == "Back"), None)
+    if front_id:
+        existing_front = {"photo": front_id, "side": "Front"}
+    if back_id:
+        existing_back = {"photo": back_id, "side": "Back"}
+    return [p for p in (existing_front, existing_back) if p is not None]
+
+
 async def _push_driver_identities(
     entity,
     driver_rr_id: str,
@@ -268,23 +290,23 @@ async def _push_driver_identities(
         need_back = bool(it["back_url"]) and synced_urls.get(_back_key(it)) != it["back_url"]
         idx = existing_by_name.get(it["id_name"])
 
+        front_id = back_id = None
+        if need_front:
+            front_id = await _upload_file(it["front_url"], client, token)
+            if front_id:
+                local_updates.append((it["front_attr"], front_id))
+                synced_url_updates[_front_key(it)] = it["front_url"]
+        if need_back:
+            back_id = await _upload_file(it["back_url"], client, token)
+            if back_id:
+                if it["back_attr"]:
+                    local_updates.append((it["back_attr"], back_id))
+                synced_url_updates[_back_key(it)] = it["back_url"]
+
         if idx is not None:
-            photos = [p for p in (existing[idx].get("photos") or [])]
-            if need_front:
-                front_id = await _upload_file(it["front_url"], client, token)
-                if front_id:
-                    photos = [p for p in photos if p.get("side") != "Front"]
-                    photos.append({"photo": front_id, "side": "Front"})
-                    local_updates.append((it["front_attr"], front_id))
-                    synced_url_updates[_front_key(it)] = it["front_url"]
-            if need_back:
-                back_id = await _upload_file(it["back_url"], client, token)
-                if back_id:
-                    photos = [p for p in photos if p.get("side") != "Back"]
-                    photos.append({"photo": back_id, "side": "Back"})
-                    if it["back_attr"]:
-                        local_updates.append((it["back_attr"], back_id))
-                    synced_url_updates[_back_key(it)] = it["back_url"]
+            photos = _rebuild_positional_photos(
+                existing[idx].get("photos") or [], front_id, back_id,
+            )
             updated_entry = {**existing[idx], "photos": photos}
             if it.get("number") and existing[idx].get("number") != it["number"]:
                 updated_entry["number"] = it["number"]
@@ -292,20 +314,7 @@ async def _push_driver_identities(
             existing[idx] = updated_entry
             continue
 
-        photos = []
-        if need_front and it["front_url"]:
-            front_id = await _upload_file(it["front_url"], client, token)
-            if front_id:
-                photos.append({"photo": front_id, "side": "Front"})
-                local_updates.append((it["front_attr"], front_id))
-                synced_url_updates[_front_key(it)] = it["front_url"]
-        if need_back and it["back_url"]:
-            back_id = await _upload_file(it["back_url"], client, token)
-            if back_id:
-                photos.append({"photo": back_id, "side": "Back"})
-                if it["back_attr"]:
-                    local_updates.append((it["back_attr"], back_id))
-                synced_url_updates[_back_key(it)] = it["back_url"]
+        photos = _rebuild_positional_photos([], front_id, back_id)
         if photos or it.get("number"):
             new_entry = {"id_name": it["id_name"], "photos": photos}
             if it.get("number"):
@@ -416,47 +425,30 @@ async def _push_identities(
         need_back = bool(it["back_url"]) and synced_urls.get(_back_key(it)) != it["back_url"]
         idx = existing_by_name.get(it["id_name"])
 
+        front_id = back_id = None
+        if need_front:
+            front_id = await _upload_file(it["front_url"], client, token)
+            if front_id:
+                local_updates.append((it["front_attr"], front_id))
+                synced_url_updates[_front_key(it)] = it["front_url"]
+        if need_back:
+            back_id = await _upload_file(it["back_url"], client, token)
+            if back_id:
+                if it["back_attr"]:
+                    local_updates.append((it["back_attr"], back_id))
+                synced_url_updates[_back_key(it)] = it["back_url"]
+
         if idx is not None:
-            photos = [p for p in (identities[idx].get("photos") or [])]
-            changed = False
-            if need_front:
-                front_id = await _upload_file(it["front_url"], client, token)
-                if front_id:
-                    photos = [p for p in photos if p.get("side") != "Front"]
-                    photos.append({"photo": front_id, "side": "Front"})
-                    local_updates.append((it["front_attr"], front_id))
-                    synced_url_updates[_front_key(it)] = it["front_url"]
-                    changed = True
-            if need_back:
-                back_id = await _upload_file(it["back_url"], client, token)
-                if back_id:
-                    photos = [p for p in photos if p.get("side") != "Back"]
-                    photos.append({"photo": back_id, "side": "Back"})
-                    if it["back_attr"]:
-                        local_updates.append((it["back_attr"], back_id))
-                    synced_url_updates[_back_key(it)] = it["back_url"]
-                    changed = True
-            if changed:
-                patches[idx] = photos
+            if front_id or back_id:
+                patches[idx] = _rebuild_positional_photos(
+                    identities[idx].get("photos") or [], front_id, back_id,
+                )
             if it.get("number") and identities[idx].get("number") != it["number"]:
                 number_patches[idx] = it["number"]
             continue
 
         # RR has no entry for this id_name at all — push a fresh one.
-        photos = []
-        if need_front and it["front_url"]:
-            front_id = await _upload_file(it["front_url"], client, token)
-            if front_id:
-                photos.append({"photo": front_id, "side": "Front"})
-                local_updates.append((it["front_attr"], front_id))
-                synced_url_updates[_front_key(it)] = it["front_url"]
-        if need_back and it["back_url"]:
-            back_id = await _upload_file(it["back_url"], client, token)
-            if back_id:
-                photos.append({"photo": back_id, "side": "Back"})
-                if it["back_attr"]:
-                    local_updates.append((it["back_attr"], back_id))
-                synced_url_updates[_back_key(it)] = it["back_url"]
+        photos = _rebuild_positional_photos([], front_id, back_id)
         if photos or it.get("number"):
             new_entry = {"id_name": it["id_name"], "photos": photos}
             if it.get("number"):
