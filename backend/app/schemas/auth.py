@@ -196,8 +196,10 @@ class LoginResponse(BaseModel):
     email: Optional[str]
     profile_completed: bool
     role: Optional[str]
+    role_key: Optional[str] = None
     company_id: Optional[str]
     company_name: Optional[str]
+    business_type: Optional[str] = None
 
 
 # Email Verification Schemas
