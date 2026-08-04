@@ -61,6 +61,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
   final _ownerCompanyCtrl = TextEditingController();
   final _ownerUserCtrl = TextEditingController();
   final _rcSearchCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
 
   String? _hirePersonCompanyId;
   String? _hirePersonUserId;
@@ -112,6 +113,23 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
     } finally {
       if (mounted) setState(() => _loadingHistory = false);
     }
+    _scrollToResults();
+  }
+
+  /// Nudges the view down just enough to reveal that results appeared below
+  /// the Find button — not a full jump to the bottom, just a hint. Waits a
+  /// frame so the list has actually been laid out first (its height isn't
+  /// known until then).
+  void _scrollToResults() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollCtrl.hasClients) return;
+      final target = (_scrollCtrl.offset + 180).clamp(0.0, _scrollCtrl.position.maxScrollExtent);
+      _scrollCtrl.animateTo(
+        target,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   Future<void> _loadOwnerVehicles() async {
@@ -229,6 +247,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
     _ownerCompanyCtrl.dispose();
     _ownerUserCtrl.dispose();
     _rcSearchCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
@@ -302,6 +321,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
     return Scaffold(
       appBar: AppBar(title: Text('Add Market Vehicle', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _primary),
       body: SingleChildScrollView(
+              controller: _scrollCtrl,
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
