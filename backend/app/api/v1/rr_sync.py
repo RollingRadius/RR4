@@ -33,6 +33,20 @@ router = APIRouter()
 _RR_SESSION_ROLES = ('logistic_partner', 'lp_rr_operations', 'super_admin')
 
 
+def _extract_phone(phone) -> str:
+    """
+    RR's `phone` field is a nested {"country_phone_code", "number"} dict on
+    users, not a flat string (same shape encountered when investigating
+    driver-profile sync) — plain strings can still show up on some embedded
+    records though, so handle both rather than assuming one shape.
+    """
+    if isinstance(phone, dict):
+        return phone.get("number") or ""
+    if isinstance(phone, str):
+        return phone
+    return ""
+
+
 def _require_rr_session_role(current_user: User, db: Session) -> None:
     from app.models import UserOrganization
     from app.models.role import Role
@@ -2837,9 +2851,9 @@ async def get_vehicle_hire_history(
             "rc_number": rc_number,
             "model": engine_model,
             "owner_name": (owner or {}).get("name") or "",
-            "owner_phone": (owner or {}).get("phone") or "",
+            "owner_phone": _extract_phone((owner or {}).get("phone")),
             "contractor_name": (hirer or {}).get("name") or "",
-            "contractor_phone": (hirer or {}).get("phone") or "",
+            "contractor_phone": _extract_phone((hirer or {}).get("phone")),
             "contractor_business_type": (hirer or {}).get("business_type") or "",
             "requested_start_date": mv.get("requested_start_date"),
             "requested_end_date": mv.get("requested_end_date"),
