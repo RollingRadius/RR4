@@ -106,16 +106,6 @@ def is_rr_session_expiring_soon(org: Organization) -> bool:
     return datetime.now(timezone.utc) >= org.rr_session_expires_at - timedelta(days=1)
 
 
-def get_rr_connection_status(org: Organization) -> dict:
-    """Powers the Connected/Disconnected badge + expiry warning in the app."""
-    connected = bool(org.rr_refresh_token)
-    return {
-        "connected": connected,
-        "expires_at": org.rr_session_expires_at.isoformat() if org.rr_session_expires_at else None,
-        "expiring_soon": connected and is_rr_session_expiring_soon(org),
-    }
-
-
 async def maybe_notify_rr_expiry(org: Organization, db: Session) -> None:
     """
     Fire an in-app + push notification to LP/RR-ops once per day while the

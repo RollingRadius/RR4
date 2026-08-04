@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/core/routing/dashboard_route.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -40,38 +41,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _showSnackBar('Please complete your profile to continue',
               AppTheme.statusWarning, Icons.info_outline);
           context.go('/profile-complete');
-        } else if (user?.isLoadReceiver == true) {
+        } else if (user != null) {
           _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
               Icons.check_circle);
-          context.go(AppConstants.routeLoadReceiverHome);
-        } else if (user?.isLpRrOperations == true) {
-          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
-              Icons.check_circle);
-          context.go(AppConstants.routeLpRrOperationsHome);
-        } else if (user?.isLogisticPartnerWorker == true) {
-          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
-              Icons.check_circle);
-          context.go(AppConstants.routeLogisticPartnerWorkerHome);
-        } else if (user?.isLoadOwnerWorker == true) {
-          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
-              Icons.check_circle);
-          context.go(AppConstants.routeLoadOwnerWorkerHome);
-        } else if (user?.isLoadOwner == true) {
-          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
-              Icons.check_circle);
-          context.go(AppConstants.routeLoadOwnerHome);
-        } else if (user?.isTransporter == true) {
-          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
-              Icons.check_circle);
-          context.go(AppConstants.routeTransporterHome);
-        } else if (user?.isDriver == true) {
-          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
-              Icons.check_circle);
-          context.go('/driver/home');
-        } else {
-          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
-              Icons.check_circle);
-          context.go(AppConstants.routeDashboard);
+          context.go(dashboardRouteFor(user));
         }
       } else {
         final error = ref.read(authProvider).error;

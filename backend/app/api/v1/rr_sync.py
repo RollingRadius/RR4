@@ -319,9 +319,18 @@ async def rr_connection_status(
     Powers the Connected/Disconnected badge on LP/RR-ops dashboards.
     Any active org member may call this (read-only) — not restricted to
     LP/RR-ops, same reasoning as get_prefill.
+
+    Actually attempts a live token refresh (via get_org_rr_token, the exact
+    path every real sync/prefill call already goes through) instead of
+    trusting our own locally-stored 30-day expiry alone — that alone can't
+    detect the RR-side account being deactivated or having its password
+    changed on RR's own end, which RR would reject immediately regardless of
+    where our own timer sits. get_org_rr_token's own ~15-min access-token
+    cache naturally rate-limits how often this actually reaches RR, so
+    repeated badge loads stay cheap.
     """
     from app.models import UserOrganization
-    from app.services.rr_org_token_service import get_rr_connection_status
+    from app.services.rr_org_token_service import get_org_rr_token, is_rr_session_expiring_soon
 
     user_org = db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id,
@@ -330,7 +339,13 @@ async def rr_connection_status(
     if not user_org:
         raise HTTPException(status_code=403, detail="User must be in an active organization")
 
-    return get_rr_connection_status(user_org.organization)
+    org = user_org.organization
+    connected = await get_org_rr_token(org, db) is not None
+    return {
+        "connected": connected,
+        "expires_at": org.rr_session_expires_at.isoformat() if org.rr_session_expires_at else None,
+        "expiring_soon": connected and is_rr_session_expiring_soon(org),
+    }
 
 
 @router.post("/disconnect", summary="Explicitly end the org's RR session")
