@@ -120,18 +120,22 @@ async def get_rr_cities(
 async def get_materials(
     q: str = Query("", description="Material name prefix to search"),
     rr_token: str = Query("", description="LP's RR session token"),
-    _: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Proxy to RR GET /material_types endpoint.
     Returns a list of {rr_material_id, name} matches for the given prefix.
-    rr_token required on RR 3.6 (prod) where material_types is not public.
+    rr_token required on RR 3.6 (prod) where material_types is not public —
+    falls back to the org's shared RR session (same pattern as the other
+    RR-token proxies below) so it works without a personal RR login.
     """
     import json
     params: dict = {"max_results": 20}
     if q:
         params["where"] = json.dumps({"name": {"$regex": f"^{q}", "$options": "i"}})
-    headers = {"Authorization": f"Bearer {rr_token}"} if rr_token else {}
+    token = await _resolve_org_rr_token(rr_token, db, current_user)
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
             resp = await client.get(
