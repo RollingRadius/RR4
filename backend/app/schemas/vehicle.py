@@ -224,6 +224,8 @@ class VehicleResponse(BaseModel):
     document_count: int = 0
     has_expiring_docs: bool = False
     created_by: Optional[str] = None
+    assigned_by_name: Optional[str] = None
+    assigned_at: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

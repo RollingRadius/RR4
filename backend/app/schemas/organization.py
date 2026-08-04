@@ -22,6 +22,11 @@ class OrganizationMemberResponse(BaseModel):
     approved_at: Optional[datetime]
     is_pending: bool
     is_active: bool
+    # Only set for pending users (GET /pending-users) — the role they asked
+    # for, distinct from `role`/`role_key` above which reflect their
+    # eventual approved role once active.
+    requested_role: Optional[str] = None
+    requested_role_key: Optional[str] = None
 
 
 class OrganizationMembersListResponse(BaseModel):
