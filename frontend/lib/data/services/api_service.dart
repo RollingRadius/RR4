@@ -76,9 +76,16 @@ class ApiService {
       onError: (DioException error, ErrorInterceptorHandler handler) async {
         // Auto-handle 401: try refresh once, then force logout
         if (error.response?.statusCode == 401 && _onRefresh != null) {
-          // Don't retry auth or refresh endpoints — those failures are not retryable
+          // Don't retry auth or refresh endpoints — those failures are not retryable.
+          // /auth/refresh specifically must be excluded: it's what onRefresh
+          // itself calls, so a failing refresh would otherwise have the
+          // interceptor call onRefresh again for its own in-flight request —
+          // the in-flight dedup guard then returns that same still-pending
+          // future, which can never resolve since it's waiting on itself. A
+          // deadlock, not just a slow request.
           final path = error.requestOptions.path;
           final isAuthCall = path.contains('/refresh-token') ||
+              path.contains('/auth/refresh') ||
               path.contains('/auth/login') ||
               path.contains('/auth/signup');
           if (!isAuthCall) {
