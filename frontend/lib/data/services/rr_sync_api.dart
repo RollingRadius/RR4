@@ -266,6 +266,31 @@ class RrSyncApi {
     );
   }
 
+  // ─── RC search + hire history (read-only reference on Hire Vehicle) ───────────
+
+  /// GET /api/rr/vehicles/search-by-rc — autocomplete as the user types an
+  /// RC number prefix, e.g. "RJ14"
+  Future<List<Map<String, dynamic>>> searchVehiclesByRc(String q, [String? rrToken]) async {
+    final resp = await _apiService.dio.get(
+      '/api/rr/vehicles/search-by-rc',
+      queryParameters: {'q': q, if (rrToken != null) 'rr_token': rrToken},
+    );
+    final items = (resp.data as Map<String, dynamic>)['items'] as List? ?? [];
+    return items.cast<Map<String, dynamic>>();
+  }
+
+  /// GET /api/rr/vehicles/{id}/hire-history — every hire ever recorded for
+  /// one vehicle, any status, read-only reference (not the pending-only
+  /// list getVehicleHireRequests returns)
+  Future<List<Map<String, dynamic>>> getVehicleHireHistory(String vehicleId, [String? rrToken]) async {
+    final resp = await _apiService.dio.get(
+      '/api/rr/vehicles/$vehicleId/hire-history',
+      queryParameters: {if (rrToken != null) 'rr_token': rrToken},
+    );
+    final items = (resp.data as Map<String, dynamic>)['items'] as List? ?? [];
+    return items.cast<Map<String, dynamic>>();
+  }
+
   /// POST /api/rr/vehicle-hire-requests — request to hire a vehicle you don't own
   Future<Map<String, dynamic>> createVehicleHireRequest({
     String? rrToken,
