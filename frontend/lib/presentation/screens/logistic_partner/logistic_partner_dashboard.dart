@@ -17,6 +17,7 @@ import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/rr_connection_status.dart';
+import 'package:fleet_management/presentation/widgets/trip_search_field.dart';
 import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:fleet_management/presentation/widgets/available_loads_browser.dart';
@@ -869,12 +870,26 @@ class _BottomNav extends StatelessWidget {
 
 // ─── Dashboard Tab ────────────────────────────────────────────────────────────
 
-class _DashboardTab extends ConsumerWidget {
+class _DashboardTab extends ConsumerStatefulWidget {
   final VoidCallback onSearchLoads;
   const _DashboardTab({required this.onSearchLoads});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DashboardTab> createState() => _DashboardTabState();
+}
+
+class _DashboardTabState extends ConsumerState<_DashboardTab> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tripState = ref.watch(tripProvider);
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Logistic Partner';
@@ -884,6 +899,9 @@ class _DashboardTab extends ConsumerWidget {
     // client-side filtering here. Finishing Stage 5 sync does NOT remove a
     // trip from this list; only the long-press "Move to Records" action does.
     final ongoingTrips = tripState.activeTrips;
+    final filteredTrips = ongoingTrips
+        .where((t) => matchesTripSearch(_query, t.tripNumber, t.rrTripNumber))
+        .toList();
 
     return RefreshIndicator(
       color: _primary,
@@ -915,7 +933,7 @@ class _DashboardTab extends ConsumerWidget {
           const SizedBox(height: 16),
 
           // Search New Loads
-          _SearchLoadsComingSoon(onTap: onSearchLoads),
+          _SearchLoadsComingSoon(onTap: widget.onSearchLoads),
           const SizedBox(height: 24),
 
           // ── Fleet Status — ongoing trips with Locate button ──────────
@@ -924,6 +942,13 @@ class _DashboardTab extends ConsumerWidget {
             isLive: !tripState.isLoading,
           ),
           const SizedBox(height: 12),
+          if (ongoingTrips.isNotEmpty) ...[
+            TripSearchField(
+              controller: _searchCtrl,
+              onChanged: (v) => setState(() => _query = v),
+            ),
+            const SizedBox(height: 12),
+          ],
           if (tripState.isLoading && ongoingTrips.isEmpty)
             _TripLoadingShimmer()
           else if (tripState.error != null && ongoingTrips.isEmpty)
@@ -935,6 +960,8 @@ class _DashboardTab extends ConsumerWidget {
             )
           else if (ongoingTrips.isEmpty)
             _EmptyTrips()
+          else if (filteredTrips.isEmpty)
+            _NoSearchMatches(query: _query)
           else
             // This list is already server-filtered to rr_web:true trips (see
             // loadTrips(statusFilter: 'ongoing,pending') above, which the
@@ -945,7 +972,7 @@ class _DashboardTab extends ConsumerWidget {
             // /create_trip failed partway (rr_trip_id stays null even though
             // rr_vehicle_id/rr_driver_id are set) — hiding RR branding/actions
             // on exactly the trips that most need them (failed bookings).
-            ...ongoingTrips.map(
+            ...filteredTrips.map(
               (t) => Padding(
                 padding: const EdgeInsets.only(bottom: 14),
                 child: RrTripCard(
@@ -1212,6 +1239,36 @@ class _EmptyTrips extends StatelessWidget {
               label: Text('Create Trip',
                   style: _manrope(size: 13, weight: FontWeight.w700, color: Colors.white)),
             )),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── No search matches state ──────────────────────────────────────────────────
+
+class _NoSearchMatches extends StatelessWidget {
+  final String query;
+  const _NoSearchMatches({required this.query});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      decoration: BoxDecoration(
+        color: _surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _surfaceContainer, width: 1.5),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.search_off_rounded, color: _secondary, size: 40),
+            const SizedBox(height: 8),
+            Text('No trips match "$query"',
+                style: _inter(size: 14, weight: FontWeight.w600, color: _secondary)),
           ],
         ),
       ),
