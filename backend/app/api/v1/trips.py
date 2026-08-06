@@ -947,7 +947,6 @@ async def submit_stage3(
     actual_invoice_value:    Optional[str] = Form(None),
     material_docs:           Optional[List[UploadFile]] = File(None),
     vehicle_reach_datetime:  str = Form(...),
-    loading_start_datetime:  str = Form(...),
     current_user: User = Depends(get_current_user),
 ):
     """Stage 3 — Truck Arrival at Factory. Completes the trip intake.
@@ -965,9 +964,8 @@ async def submit_stage3(
 
         try:
             parsed_vehicle_reach_dt = datetime.fromisoformat(vehicle_reach_datetime)
-            parsed_loading_start_dt = datetime.fromisoformat(loading_start_datetime)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date/time format for vehicle reach or loading start")
+            raise HTTPException(status_code=400, detail="Invalid date/time format for vehicle reach")
 
         parsed_eway_issue_dt = None
         parsed_eway_expiry_dt = None
@@ -1087,7 +1085,6 @@ async def submit_stage3(
         if material_urls:
             trip.s3_material_doc_urls = json.dumps(material_urls)
         trip.s3_vehicle_reach_datetime   = parsed_vehicle_reach_dt
-        trip.s3_loading_start_datetime   = parsed_loading_start_dt
         trip.s3_submitted_by             = current_user.id
         trip.s3_claimed_by               = None  # release claim on submit
         trip.s3_claimed_at               = None
@@ -1243,7 +1240,6 @@ async def submit_stage5(
     pod: Optional[UploadFile] = File(None),
     halting_charge: Optional[str] = Form(None),
     vehicle_reach_datetime:   str = Form(...),
-    unloading_start_datetime: str = Form(...),
     unloading_end_datetime:   str = Form(...),
     current_user: User = Depends(get_current_user),
 ):
@@ -1276,7 +1272,6 @@ async def submit_stage5(
 
         try:
             parsed_vehicle_reach_dt   = datetime.fromisoformat(vehicle_reach_datetime)
-            parsed_unloading_start_dt = datetime.fromisoformat(unloading_start_datetime)
             parsed_unloading_end_dt   = datetime.fromisoformat(unloading_end_datetime)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid date/time format for unloading timestamps")
@@ -1317,7 +1312,6 @@ async def submit_stage5(
             except decimal.InvalidOperation:
                 pass
         trip.s5_vehicle_reach_datetime   = parsed_vehicle_reach_dt
-        trip.s5_unloading_start_datetime = parsed_unloading_start_dt
         trip.s5_unloading_end_datetime   = parsed_unloading_end_dt
         trip.s5_submitted_by = current_user.id
         trip.s5_completed_at = datetime.now(timezone.utc)

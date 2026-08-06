@@ -16,6 +16,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/trip_stages_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
@@ -44,6 +46,8 @@ String _pickErrorMessage(Object e, ImageSource source) {
       ? 'Permission denied. Enable ${isCamera ? "Camera" : "Photos"} access for this app in Settings and try again.'
       : 'Could not ${isCamera ? "open camera" : "access gallery"}. Please try again.';
 }
+
+bool _isPdfFile(String nameOrUrl) => nameOrUrl.toLowerCase().endsWith('.pdf');
 
 /// Shows [_pickErrorMessage] as a SnackBar — for pickers with no local
 /// inline error-text widget to fall back on.
@@ -3198,9 +3202,10 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   bool _wheelStoppers      = false;
   bool _safetyGear         = false;
 
-  // RR loading.truck_reach_datetime / loading.start_datetime
+  // RR loading.truck_reach_datetime — loading.start_datetime intentionally
+  // no longer collected in-app; reach + Stage 4's vehicle exit time already
+  // bracket the loading window.
   DateTime? _vehicleReachDatetime;
-  DateTime? _loadingStartDatetime;
   bool _showDatetimeErrors = false;
 
   // ── Per-field attribution ─────────────────────────────────────────────────
@@ -3217,7 +3222,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   final _wheelStoppersKey     = GlobalKey();
   final _safetyGearKey        = GlobalKey();
   final _vehicleReachKey      = GlobalKey();
-  final _loadingStartKey      = GlobalKey();
 
   final _emptyTruckWeight  = TextEditingController();
   final _loadedTruckWeight = TextEditingController();
@@ -3289,9 +3293,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
         if (trip.s3VehicleReachDatetime != null) {
           _vehicleReachDatetime = DateTime.tryParse(trip.s3VehicleReachDatetime!)?.toLocal();
         }
-        if (trip.s3LoadingStartDatetime != null) {
-          _loadingStartDatetime = DateTime.tryParse(trip.s3LoadingStartDatetime!)?.toLocal();
-        }
         _ewayBillNumberCtrl.text = trip.s3EwayBillNumber ?? '';
         if (trip.s3EwayBillIssueDate != null) {
           _ewayBillIssueDate = DateTime.tryParse(trip.s3EwayBillIssueDate!)?.toLocal();
@@ -3321,8 +3322,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _loadedWeightUnit.value = d['loaded_truck_weight_unit'] as String? ?? 'kg';
     final vehicleReachStr = d['vehicle_reach_datetime'] as String?;
     if (vehicleReachStr != null) _vehicleReachDatetime = DateTime.tryParse(vehicleReachStr)?.toLocal();
-    final loadingStartStr = d['loading_start_datetime'] as String?;
-    if (loadingStartStr != null) _loadingStartDatetime = DateTime.tryParse(loadingStartStr)?.toLocal();
     // Restore Stage 2 Dharam Kanta data (if weight was recorded outside factory)
     _s2DharamKantaLoc   = d['s2_dharam_kanta_loc']    as String?;
     _s2EmptyWeight      = d['s2_empty_weight']         as String?;
@@ -3405,8 +3404,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           'loaded_truck_weight_unit': _loadedWeightUnit.value,
           if (_vehicleReachDatetime != null)
             'vehicle_reach_datetime': _vehicleReachDatetime!.toUtc().toIso8601String(),
-          if (_loadingStartDatetime != null)
-            'loading_start_datetime': _loadingStartDatetime!.toUtc().toIso8601String(),
           // Persist S2 Dharam Kanta so it survives re-entry
           if (s2Loc != null) ...{
             's2_dharam_kanta_loc':    s2Loc,
@@ -3500,7 +3497,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   bool get _checklistDone =>
       _driverParked && _docsSubmitted && _securityVerified &&
       _driverExitedCabin && _wheelStoppers && _safetyGear &&
-      _vehicleReachDatetime != null && _loadingStartDatetime != null;
+      _vehicleReachDatetime != null;
 
   bool get _allChecked => _checklistDone && _loadingComplete;
 
@@ -3522,7 +3519,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       (_wheelStoppersKey,     _wheelStoppers),
       (_safetyGearKey,        _safetyGear),
       (_vehicleReachKey,      _vehicleReachDatetime != null),
-      (_loadingStartKey,      _loadingStartDatetime != null),
     ];
     for (final (key, checked) in checks) {
       if (!checked) {
@@ -3597,7 +3593,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       'loaded_truck_weight_kg':   _loadedTruckWeight.text.trim(),
       'loaded_truck_weight_unit': _loadedWeightUnit.value,
       'vehicle_reach_datetime':   _vehicleReachDatetime!.toUtc().toIso8601String(),
-      'loading_start_datetime':   _loadingStartDatetime!.toUtc().toIso8601String(),
       if (_ewayBillNumberCtrl.text.trim().isNotEmpty)
         'eway_bill_number': _ewayBillNumberCtrl.text.trim(),
       if (_ewayBillIssueDate != null)
@@ -3733,17 +3728,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             onChanged: (dt) {
               setState(() => _vehicleReachDatetime = dt);
               _touchField('vehicle_reach_datetime');
-              _saveDraft();
-            },
-          ),
-          _DateTimeField(
-            fieldKey: _loadingStartKey,
-            label: 'Loading Start Date And Time',
-            value: _loadingStartDatetime,
-            showError: _showDatetimeErrors && _loadingStartDatetime == null,
-            onChanged: (dt) {
-              setState(() => _loadingStartDatetime = dt);
-              _touchField('loading_start_datetime');
               _saveDraft();
             },
           ),
@@ -5321,6 +5305,92 @@ class _PickerOption extends StatelessWidget {
   }
 }
 
+/// Card shown in place of an image thumbnail when the selected/uploaded POD
+/// is a PDF — [onOpen] opens an already-uploaded PDF externally, [onRemove]
+/// discards a freshly-picked one, [onReplace] re-opens the picker sheet.
+class _PodPdfCard extends StatelessWidget {
+  final String filename;
+  final String badgeText;
+  final VoidCallback? onOpen;
+  final VoidCallback? onRemove;
+  final VoidCallback? onReplace;
+
+  const _PodPdfCard({
+    required this.filename,
+    required this.badgeText,
+    this.onOpen,
+    this.onRemove,
+    this.onReplace,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(children: [
+      GestureDetector(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+          child: Column(children: [
+            Icon(Icons.picture_as_pdf_rounded, size: 44, color: _error),
+            const SizedBox(height: 10),
+            Text(filename,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface)),
+            if (onOpen != null) ...[
+              const SizedBox(height: 4),
+              Text('Tap to view', style: _inter(size: 11, color: _secondary)),
+            ],
+          ]),
+        ),
+      ),
+      if (onRemove != null)
+        Positioned(
+          top: 8, right: 8,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              child: Icon(Icons.close_rounded, size: 16, color: _error),
+            ),
+          ),
+        ),
+      Positioned(
+        top: 8, left: 8,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(20)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+            const SizedBox(width: 4),
+            Text(badgeText,
+                style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+          ]),
+        ),
+      ),
+      if (onReplace != null)
+        Positioned(
+          bottom: 8, right: 8,
+          child: GestureDetector(
+            onTap: onReplace,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration:
+                  BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 12),
+                const SizedBox(width: 4),
+                Text('Tap to replace', style: _inter(size: 11, color: Colors.white)),
+              ]),
+            ),
+          ),
+        ),
+    ]);
+  }
+}
+
 // ─── Stage 4: Truck Exit From Factory ─────────────────────────────────────────
 
 class _Stage4Form extends ConsumerStatefulWidget {
@@ -6008,9 +6078,10 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
   String? _errorMsg;
   DateTime? _lastSaved;
 
-  // RR unloading.{truck_reach_datetime,start_datetime,end_datetime}
+  // RR unloading.{truck_reach_datetime,end_datetime} — start_datetime
+  // intentionally no longer collected in-app; reach + end already bracket
+  // the unloading window.
   DateTime? _vehicleReachDatetime;
-  DateTime? _unloadingStartDatetime;
   DateTime? _unloadingEndDatetime;
   bool _showDatetimeErrors = false;
 
@@ -6065,9 +6136,6 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
         if (trip.s5VehicleReachDatetime != null) {
           _vehicleReachDatetime = DateTime.tryParse(trip.s5VehicleReachDatetime!)?.toLocal();
         }
-        if (trip.s5UnloadingStartDatetime != null) {
-          _unloadingStartDatetime = DateTime.tryParse(trip.s5UnloadingStartDatetime!)?.toLocal();
-        }
         if (trip.s5UnloadingEndDatetime != null) {
           _unloadingEndDatetime = DateTime.tryParse(trip.s5UnloadingEndDatetime!)?.toLocal();
         }
@@ -6083,8 +6151,6 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
     _haltingChargeCtrl.text = data['halting_charge'] as String? ?? '';
     final vehicleReachStr = data['vehicle_reach_datetime'] as String?;
     if (vehicleReachStr != null) _vehicleReachDatetime = DateTime.tryParse(vehicleReachStr)?.toLocal();
-    final unloadStartStr = data['unloading_start_datetime'] as String?;
-    if (unloadStartStr != null) _unloadingStartDatetime = DateTime.tryParse(unloadStartStr)?.toLocal();
     final unloadEndStr = data['unloading_end_datetime'] as String?;
     if (unloadEndStr != null) _unloadingEndDatetime = DateTime.tryParse(unloadEndStr)?.toLocal();
     // Draft attributions override persistent ones
@@ -6109,8 +6175,6 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           if (_haltingChargeCtrl.text.isNotEmpty) 'halting_charge': _haltingChargeCtrl.text,
           if (_vehicleReachDatetime != null)
             'vehicle_reach_datetime': _vehicleReachDatetime!.toUtc().toIso8601String(),
-          if (_unloadingStartDatetime != null)
-            'unloading_start_datetime': _unloadingStartDatetime!.toUtc().toIso8601String(),
           if (_unloadingEndDatetime != null)
             'unloading_end_datetime': _unloadingEndDatetime!.toUtc().toIso8601String(),
         },
@@ -6134,6 +6198,40 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _errorMsg = _pickErrorMessage(e, source));
+    }
+  }
+
+  Future<void> _pickPodDocument() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+      final file = result?.files.single;
+      final bytes = file?.bytes;
+      if (file == null || bytes == null || !mounted) return;
+      setState(() { _podFile = (bytes: bytes, name: file.name); _errorMsg = null; });
+      _touchField('pod_doc');
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMsg = 'Could not open file picker. Please try again.');
+    }
+  }
+
+  Future<void> _openPdfUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open the PDF.', style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
 
@@ -6166,6 +6264,11 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                   icon: Icons.photo_library_rounded, label: 'Gallery', color: _secondary,
                   onTap: () { Navigator.pop(context); _pickPod(ImageSource.gallery); },
                 )),
+                const SizedBox(width: 12),
+                Expanded(child: _PickerOption(
+                  icon: Icons.picture_as_pdf_rounded, label: 'File (PDF)', color: _error,
+                  onTap: () { Navigator.pop(context); _pickPodDocument(); },
+                )),
               ]),
             ],
           ),
@@ -6179,7 +6282,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
       setState(() => _errorMsg = 'Please upload the Proof of Delivery document');
       return;
     }
-    if (_vehicleReachDatetime == null || _unloadingStartDatetime == null || _unloadingEndDatetime == null) {
+    if (_vehicleReachDatetime == null || _unloadingEndDatetime == null) {
       setState(() => _showDatetimeErrors = true);
       return;
     }
@@ -6192,7 +6295,6 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
         if (_haltingChargeCtrl.text.trim().isNotEmpty)
           'halting_charge': _haltingChargeCtrl.text.trim(),
         'vehicle_reach_datetime':   _vehicleReachDatetime!.toUtc().toIso8601String(),
-        'unloading_start_datetime': _unloadingStartDatetime!.toUtc().toIso8601String(),
         'unloading_end_datetime':   _unloadingEndDatetime!.toUtc().toIso8601String(),
       });
       final resp = await dio.post(
@@ -6299,7 +6401,15 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
               ),
             ),
             child: _podFile != null
-                ? Stack(children: [
+                ? (_isPdfFile(_podFile!.name)
+                    ? _PodPdfCard(
+                        filename: _podFile!.name,
+                        badgeText: 'Ready to Upload',
+                        onRemove: widget.readOnly
+                            ? null
+                            : () { setState(() => _podFile = null); _saveDraft(); },
+                      )
+                    : Stack(children: [
                     GestureDetector(
                       onTap: () => _showImagePreview(context, bytes: _podFile!.bytes),
                       child: ClipRRect(
@@ -6336,9 +6446,16 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                         ]),
                       ),
                     ),
-                  ])
+                  ]))
                 : showExisting
-                    ? Stack(children: [
+                    ? (_isPdfFile(existingPodUrl)
+                        ? _PodPdfCard(
+                            filename: existingPodUrl.split('/').last,
+                            badgeText: 'POD Uploaded',
+                            onOpen: () => _openPdfUrl(podImageUrl!),
+                            onReplace: widget.readOnly ? null : _showPodPicker,
+                          )
+                        : Stack(children: [
                         GestureDetector(
                           onTap: () => _showImagePreview(context, url: podImageUrl),
                           child: ClipRRect(
@@ -6397,7 +6514,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                               ),
                             ),
                           ),
-                      ])
+                      ]))
                     : GestureDetector(
                         onTap: widget.readOnly ? null : _showPodPicker,
                         child: Padding(
@@ -6410,7 +6527,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                                 style: _inter(size: 13, weight: FontWeight.w600,
                                     color: _secondary)),
                             const SizedBox(height: 4),
-                            Text('Camera or Gallery',
+                            Text('Camera, Gallery, or PDF File',
                                 style: _inter(
                                     size: 11,
                                     color: _secondary.withValues(alpha: 0.7))),
@@ -6432,17 +6549,6 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
             onChanged: (dt) {
               setState(() => _vehicleReachDatetime = dt);
               _touchField('vehicle_reach_datetime');
-              _saveDraft();
-            },
-          ),
-          _DateTimeField(
-            label: 'Unloading Start Date And Time',
-            value: _unloadingStartDatetime,
-            showError: _showDatetimeErrors && _unloadingStartDatetime == null,
-            disallowFuture: true,
-            onChanged: (dt) {
-              setState(() => _unloadingStartDatetime = dt);
-              _touchField('unloading_start_datetime');
               _saveDraft();
             },
           ),
