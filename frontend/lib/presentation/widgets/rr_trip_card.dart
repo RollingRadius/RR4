@@ -37,6 +37,19 @@ TextStyle _inter({
 }) =>
     GoogleFonts.inter(fontSize: size, fontWeight: weight, color: color);
 
+/// RR4's own `created_at` is a proper timezone-aware ISO timestamp (unlike
+/// RR's naive-echo quirk seen elsewhere), so a plain parse + toLocal is safe.
+String _fmtCreatedAt(String? iso) {
+  if (iso == null) return '—';
+  final dt = DateTime.tryParse(iso)?.toLocal();
+  if (dt == null) return '—';
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+  final minute = dt.minute.toString().padLeft(2, '0');
+  final ampm = dt.hour < 12 ? 'AM' : 'PM';
+  return '${dt.day} ${months[dt.month - 1]}, $hour12:$minute $ampm';
+}
+
 // ─── Main card widget ─────────────────────────────────────────────────────────
 
 class RrTripCard extends ConsumerStatefulWidget {
@@ -392,13 +405,21 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          if (rrNum != null && rrNum.isNotEmpty) ...[
-            Text(rrNum,
-                style: _manrope(size: 15, weight: FontWeight.w800, color: _white)),
-          ] else
-            Text(trip.tripNumber,
-                style: _manrope(size: 13, weight: FontWeight.w600,
-                    color: _white.withOpacity(0.7))),
+          Expanded(
+            child: (rrNum != null && rrNum.isNotEmpty)
+                ? Text(rrNum,
+                    style: _manrope(size: 15, weight: FontWeight.w800, color: _white),
+                    overflow: TextOverflow.ellipsis)
+                : Text(trip.tripNumber,
+                    style: _manrope(size: 13, weight: FontWeight.w600,
+                        color: _white.withOpacity(0.7)),
+                    overflow: TextOverflow.ellipsis),
+          ),
+          if (trip.vehicleNumber != null && trip.vehicleNumber!.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Text(trip.vehicleNumber!,
+                style: _manrope(size: 13, weight: FontWeight.w700, color: _white)),
+          ],
         ]),
         const SizedBox(height: 8),
         Row(children: [
@@ -421,10 +442,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
         ]),
         const SizedBox(height: 4),
         Text(
-          [
-            trip.loadItem,
-            if (trip.weight != null && trip.weight!.isNotEmpty) trip.weight!,
-          ].join(' · '),
+          'Created ${_fmtCreatedAt(trip.createdAt)}',
           style: _inter(size: 12, color: _white.withOpacity(0.8)),
           overflow: TextOverflow.ellipsis,
         ),
@@ -501,6 +519,10 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       color: const Color(0xFFF8FAFB),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        _InfoRow(icon: Icons.schedule_outlined, label: 'Created At',
+            value: _fmtCreatedAt(trip.createdAt)),
+        _Divider(),
+
         // Parties
         if (trip.consignorName != null || trip.consigneeName != null) ...[
           _InfoRow(icon: Icons.business_outlined, label: 'Consignor',

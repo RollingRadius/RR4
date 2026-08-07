@@ -92,6 +92,9 @@ class TripModel {
   final String? s4NotifiedAt;
   final String? s4DieselReceiptUrl;   // uploaded after truck exits factory
   final String? s4VehicleExitDatetime;   // RR loading.end_datetime
+  final String? s4BiltyNumber;   // RR parcels.documents.bilty
+  final String? s4BiltyUrl;      // RR parcels.documents.manual_bilty.photos[].manual_photo
+  final String? s4BiltyDate;     // optional backdating, matches RR web's own field
 
   // ── Stage 5 fields — Unloading ────────────────────────────────────────────────
   final String?  s5PodUrl;
@@ -280,6 +283,9 @@ class TripModel {
     this.s4NotifiedAt,
     this.s4DieselReceiptUrl,
     this.s4VehicleExitDatetime,
+    this.s4BiltyNumber,
+    this.s4BiltyUrl,
+    this.s4BiltyDate,
     this.s5PodUrl,
     this.s5HaltingCharge,
     this.s5SubmittedBy,
@@ -448,6 +454,9 @@ class TripModel {
       s4NotifiedAt:       json['s4_notified_at']         as String?,
       s4DieselReceiptUrl: json['s4_diesel_receipt_url']  as String?,
       s4VehicleExitDatetime: json['s4_vehicle_exit_datetime'] as String?,
+      s4BiltyNumber:      json['s4_bilty_number']        as String?,
+      s4BiltyUrl:         json['s4_bilty_url']           as String?,
+      s4BiltyDate:        json['s4_bilty_date']          as String?,
       s5PodUrl:           json['s5_pod_url']             as String?,
       s5HaltingCharge:    (json['s5_halting_charge'] as num?)?.toDouble(),
       s5SubmittedBy:      json['s5_submitted_by']        as String?,

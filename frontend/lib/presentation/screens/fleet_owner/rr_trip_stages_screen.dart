@@ -5422,6 +5422,13 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   bool _dieselUploading = false;
   String? _dieselError;
 
+  // ── Bilty (under diesel receipt) — RR parcels.documents.bilty /
+  // documents.manual_bilty. Date is optional, matches RR web's own field.
+  final _biltyNumberCtrl = TextEditingController();
+  ({Uint8List bytes, String name})? _biltyDocFile;
+  DateTime? _biltyDate;
+  String? _biltyNumberError;
+
   // ── Per-field attribution ─────────────────────────────────────────────────
   final Map<String, String> _fieldAttributions = {};
   final Set<String> _touchedByMe = {};
@@ -5437,6 +5444,11 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     super.initState();
     // If checklist already submitted, go straight to diesel phase
     if (widget.trip.currentStage >= 4) _showDiesel = true;
+    _biltyNumberCtrl.addListener(() {
+      _touchField('bilty_number');
+      if (_biltyNumberError != null) setState(() => _biltyNumberError = null);
+      _onCheckChanged();
+    });
     _prefillFromDraft();
   }
 
@@ -5460,6 +5472,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
         if (trip.s4VehicleExitDatetime != null) {
           _vehicleExitDatetime = DateTime.tryParse(trip.s4VehicleExitDatetime!)?.toLocal();
         }
+        if (trip.s4BiltyNumber != null) _biltyNumberCtrl.text = trip.s4BiltyNumber!;
+        if (trip.s4BiltyDate != null) {
+          _biltyDate = DateTime.tryParse(trip.s4BiltyDate!)?.toLocal();
+        }
       }
       return;
     }
@@ -5473,6 +5489,14 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     }
     final exitDtStr = d['vehicle_exit_datetime'] as String?;
     if (exitDtStr != null) _vehicleExitDatetime = DateTime.tryParse(exitDtStr)?.toLocal();
+    _biltyNumberCtrl.text = d['bilty_number'] as String? ?? '';
+    final biltyB64  = d['bilty_bytes'] as String?;
+    final biltyName = d['bilty_name']  as String? ?? 'bilty.jpg';
+    if (biltyB64 != null && biltyB64.isNotEmpty) {
+      try { _biltyDocFile = (bytes: base64Decode(biltyB64), name: biltyName); } catch (_) {}
+    }
+    final biltyDtStr = d['bilty_date'] as String?;
+    if (biltyDtStr != null) _biltyDate = DateTime.tryParse(biltyDtStr)?.toLocal();
     // Draft attributions override persistent ones
     final attrs = draft['attributions'] as Map<String, dynamic>?;
     if (attrs != null) {
@@ -5502,6 +5526,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           if (_dieselFile != null) 'diesel_name':  _dieselFile!.name,
           if (_vehicleExitDatetime != null)
             'vehicle_exit_datetime': _vehicleExitDatetime!.toUtc().toIso8601String(),
+          if (_biltyNumberCtrl.text.trim().isNotEmpty) 'bilty_number': _biltyNumberCtrl.text.trim(),
+          if (_biltyDocFile != null) 'bilty_bytes': base64Encode(_biltyDocFile!.bytes),
+          if (_biltyDocFile != null) 'bilty_name':  _biltyDocFile!.name,
+          if (_biltyDate != null) 'bilty_date': _biltyDate!.toUtc().toIso8601String(),
         },
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
@@ -5514,6 +5542,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
 
   @override
   void dispose() {
+    _biltyNumberCtrl.dispose();
     if (_debounce?.isActive ?? false) {
       _debounce!.cancel();
       unawaited(_saveDraft(duringDispose: true));
@@ -5556,6 +5585,26 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
       }
+    }
+  }
+
+  // ── Bilty doc pick (under diesel receipt) ─────────────────────────────────
+  Future<void> _pickBiltyDoc(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      setState(() => _biltyDocFile = (bytes: bytes, name: picked.name));
+      _touchField('bilty_doc');
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_pickErrorMessage(e, source)),
+        backgroundColor: _error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
     }
   }
 
@@ -5612,11 +5661,22 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
 
   Future<void> _uploadDiesel() async {
     if (_dieselFile == null || _dieselUploading) return;
+    final biltyNumber = _biltyNumberCtrl.text.trim();
+    if (biltyNumber.isNotEmpty && !RegExp(r'^\d{4}$').hasMatch(biltyNumber)) {
+      setState(() => _biltyNumberError = 'Bilty Number must be exactly 4 digits');
+      return;
+    }
     setState(() { _dieselUploading = true; _dieselError = null; });
     try {
       final dio = ref.read(dioProvider);
       final formData = FormData.fromMap({
         'receipt': MultipartFile.fromBytes(_dieselFile!.bytes, filename: _dieselFile!.name),
+        if (_biltyNumberCtrl.text.trim().isNotEmpty)
+          'bilty_number': _biltyNumberCtrl.text.trim(),
+        if (_biltyDocFile != null)
+          'bilty_doc': MultipartFile.fromBytes(_biltyDocFile!.bytes, filename: _biltyDocFile!.name),
+        if (_biltyDate != null)
+          'bilty_date': _biltyDate!.toUtc().toIso8601String(),
       });
       final resp = await dio.post(
         '/api/trips/${widget.trip.id}/stage/4/diesel',
@@ -6018,6 +6078,47 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                 ),
               ),
             ],
+            const SizedBox(height: 20),
+
+            _SectionHeader(icon: Icons.receipt_long_rounded, title: 'Bilty'),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _biltyNumberCtrl,
+              enabled: !widget.readOnly,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+              decoration: _stageFieldDec('Bilty Number (4 digits)').copyWith(
+                errorText: _biltyNumberError,
+              ),
+            ),
+            _FieldAttribution(username: _attrOf('bilty_number')),
+            const SizedBox(height: 14),
+            _DocUploadTile(
+              label: 'Manual Bilty Upload',
+              subtitle: 'Upload the physical bilty document',
+              bytes: _biltyDocFile?.bytes,
+              fileName: _biltyDocFile?.name,
+              existingUrl: widget.trip.s4BiltyUrl,
+              onPickSource: _pickBiltyDoc,
+              onRemove: () { setState(() => _biltyDocFile = null); _saveDraft(); },
+              readOnly: widget.readOnly,
+            ),
+            _FieldAttribution(username: _attrOf('bilty_doc')),
+            const SizedBox(height: 14),
+            _DateTimeField(
+              label: 'Bilty Date And Time (Optional)',
+              value: _biltyDate,
+              showError: false,
+              onChanged: (dt) {
+                setState(() => _biltyDate = dt);
+                _touchField('bilty_date');
+                _saveDraft();
+              },
+            ),
             const SizedBox(height: 20),
 
             if (_lastSaved != null)

@@ -1193,9 +1193,16 @@ class DraftPayload(BaseModel):
 async def submit_stage4_diesel(
     trip_id: str,
     receipt: UploadFile = File(...),
+    bilty_number: Optional[str] = Form(None),
+    bilty_doc: Optional[UploadFile] = File(None),
+    bilty_date: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
 ):
-    """Stage 4 Diesel — Upload diesel receipt after truck exits factory. Does not advance currentStage."""
+    """Stage 4 Diesel — Upload diesel receipt after truck exits factory, plus optional
+    Bilty Number + manual Bilty upload (synced to RR's parcels.documents.bilty /
+    documents.manual_bilty). Does not advance currentStage."""
+    import re
+    from datetime import datetime
     from app.config import settings
 
     # Phase 1 — quick checks on a short-lived session, closed before file I/O
@@ -1209,6 +1216,16 @@ async def submit_stage4_diesel(
         trip = _get_fleet_trip(trip_id, user_org, db)
         if trip.current_stage < 4:
             raise HTTPException(status_code=409, detail="Complete exit checklist first")
+
+        if bilty_number and not re.fullmatch(r"\d{4}", bilty_number.strip()):
+            raise HTTPException(status_code=400, detail="Bilty Number must be exactly 4 digits")
+
+        parsed_bilty_date = None
+        if bilty_date:
+            try:
+                parsed_bilty_date = datetime.fromisoformat(bilty_date)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date/time format for bilty date")
     finally:
         db.close()
 
@@ -1221,12 +1238,26 @@ async def submit_stage4_diesel(
     (trip_dir / filename).write_bytes(content)
     receipt_url = f"/uploads/trips/{trip_id}/{filename}"
 
+    bilty_url = None
+    if bilty_doc and bilty_doc.filename:
+        ext = Path(bilty_doc.filename).suffix or '.jpg'
+        bilty_filename = f"bilty_{_uuid_module.uuid4().hex}{ext}"
+        bilty_content = await bilty_doc.read()
+        (trip_dir / bilty_filename).write_bytes(bilty_content)
+        bilty_url = f"/uploads/trips/{trip_id}/{bilty_filename}"
+
     # Phase 3 — quick write on a fresh session, opened only now
     db = SessionLocal()
     try:
         trip = _get_fleet_trip(trip_id, user_org, db)
         trip.s4_diesel_receipt_url = receipt_url
-        _apply_attributions(trip, ['diesel_receipt'], current_user, role_key)
+        if bilty_number:
+            trip.s4_bilty_number = bilty_number.strip()
+        if bilty_url:
+            trip.s4_bilty_url = bilty_url
+        if parsed_bilty_date:
+            trip.s4_bilty_date = parsed_bilty_date
+        _apply_attributions(trip, ['diesel_receipt', 'bilty_number', 'bilty_doc'], current_user, role_key)
         db.commit()
         db.refresh(trip)
         return {"success": True, "message": "Diesel receipt uploaded.", "trip": _enrich(trip, db)}

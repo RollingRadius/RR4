@@ -147,6 +147,10 @@ class Trip(Base):
     s4_diesel_receipt_url = Column(Text, nullable=True)   # uploaded after truck exits factory
     # RR parcels.loading.end_datetime
     s4_vehicle_exit_datetime = Column(TIMESTAMP(timezone=True), nullable=True)
+    # RR parcels.documents.bilty (number) / documents.manual_bilty.photos[].manual_photo (upload)
+    s4_bilty_number = Column(String(100), nullable=True)
+    s4_bilty_url    = Column(String(500), nullable=True)
+    s4_bilty_date   = Column(TIMESTAMP(timezone=True), nullable=True)   # optional backdating, matches RR web's own field
 
     # Stage 5 — Unloading (Proof of Delivery + Halting Charge)
     s5_pod_url        = Column(Text,                    nullable=True)
@@ -414,6 +418,9 @@ class Trip(Base):
             "s4_notified_at": self.s4_notified_at.isoformat() if self.s4_notified_at else None,
             "s4_diesel_receipt_url": self.s4_diesel_receipt_url,
             "s4_vehicle_exit_datetime": self.s4_vehicle_exit_datetime.isoformat() if self.s4_vehicle_exit_datetime else None,
+            "s4_bilty_number": self.s4_bilty_number,
+            "s4_bilty_url": self.s4_bilty_url,
+            "s4_bilty_date": self.s4_bilty_date.isoformat() if self.s4_bilty_date else None,
             # Stage 5 — Unloading
             "s5_pod_url": self.s5_pod_url,
             "s5_halting_charge": float(self.s5_halting_charge) if self.s5_halting_charge is not None else None,
