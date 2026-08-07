@@ -1192,7 +1192,7 @@ class DraftPayload(BaseModel):
 @router.post("/trips/{trip_id}/stage/4/diesel", status_code=200)
 async def submit_stage4_diesel(
     trip_id: str,
-    receipt: UploadFile = File(...),
+    receipt: Optional[UploadFile] = File(None),
     bilty_number: Optional[str] = Form(None),
     bilty_doc: Optional[UploadFile] = File(None),
     bilty_date: Optional[str] = Form(None),
@@ -1217,6 +1217,9 @@ async def submit_stage4_diesel(
         if trip.current_stage < 4:
             raise HTTPException(status_code=409, detail="Complete exit checklist first")
 
+        if not receipt and not trip.s4_diesel_receipt_url:
+            raise HTTPException(status_code=400, detail="Diesel receipt is required")
+
         if bilty_number and not re.fullmatch(r"\d{4}", bilty_number.strip()):
             raise HTTPException(status_code=400, detail="Bilty Number must be exactly 4 digits")
 
@@ -1232,11 +1235,14 @@ async def submit_stage4_diesel(
     # Phase 2 — slow file I/O, no DB session held
     trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
     trip_dir.mkdir(parents=True, exist_ok=True)
-    ext = Path(receipt.filename).suffix if receipt.filename else '.jpg'
-    filename = f"diesel_receipt_{_uuid_module.uuid4().hex}{ext}"
-    content = await receipt.read()
-    (trip_dir / filename).write_bytes(content)
-    receipt_url = f"/uploads/trips/{trip_id}/{filename}"
+
+    receipt_url = None
+    if receipt and receipt.filename:
+        ext = Path(receipt.filename).suffix or '.jpg'
+        filename = f"diesel_receipt_{_uuid_module.uuid4().hex}{ext}"
+        content = await receipt.read()
+        (trip_dir / filename).write_bytes(content)
+        receipt_url = f"/uploads/trips/{trip_id}/{filename}"
 
     bilty_url = None
     if bilty_doc and bilty_doc.filename:
@@ -1250,7 +1256,8 @@ async def submit_stage4_diesel(
     db = SessionLocal()
     try:
         trip = _get_fleet_trip(trip_id, user_org, db)
-        trip.s4_diesel_receipt_url = receipt_url
+        if receipt_url:
+            trip.s4_diesel_receipt_url = receipt_url
         if bilty_number:
             trip.s4_bilty_number = bilty_number.strip()
         if bilty_url:

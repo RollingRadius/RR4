@@ -1061,10 +1061,13 @@ async def _sync_stage4_fuel_slip(trip, client: httpx.AsyncClient, token: str, db
             errors.append(f"get_and_update_bilty_number exception: {exc}")
         else:
             if bilty_resp.status_code in (200, 201):
+                trip.s4_bilty_synced = True
                 logger.info(f"[RR Sync S4] Trip {trip.trip_number} bilty number synced")
             elif bilty_resp.status_code == 400 and "already exists" in bilty_resp.text.lower():
                 # RR's endpoint is a one-time assignment per parcel — a retry/re-sync
-                # hitting this means it's already synced, not a real failure.
+                # hitting this means it's already synced, not a real failure. Lock the
+                # field so the frontend stops offering edits RR will never accept again.
+                trip.s4_bilty_synced = True
                 logger.info(
                     f"[RR Sync S4] Trip {trip.trip_number} bilty number already set on RR — treating as synced"
                 )

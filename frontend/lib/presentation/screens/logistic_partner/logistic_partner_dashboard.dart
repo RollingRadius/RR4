@@ -881,10 +881,13 @@ class _DashboardTab extends ConsumerStatefulWidget {
 class _DashboardTabState extends ConsumerState<_DashboardTab> {
   final _searchCtrl = TextEditingController();
   String _query = '';
+  final _biltySearchCtrl = TextEditingController();
+  String _biltyQuery = '';
 
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _biltySearchCtrl.dispose();
     super.dispose();
   }
 
@@ -901,6 +904,7 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
     final ongoingTrips = tripState.activeTrips;
     final filteredTrips = ongoingTrips
         .where((t) => matchesTripSearch(_query, t.tripNumber, t.rrTripNumber))
+        .where((t) => matchesBiltySearch(_biltyQuery, t.s4BiltyNumber))
         .toList();
 
     return RefreshIndicator(
@@ -943,10 +947,22 @@ class _DashboardTabState extends ConsumerState<_DashboardTab> {
           ),
           const SizedBox(height: 12),
           if (ongoingTrips.isNotEmpty) ...[
-            TripSearchField(
-              controller: _searchCtrl,
-              onChanged: (v) => setState(() => _query = v),
-            ),
+            Row(children: [
+              Expanded(
+                child: TripSearchField(
+                  controller: _searchCtrl,
+                  onChanged: (v) => setState(() => _query = v),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TripSearchField(
+                  controller: _biltySearchCtrl,
+                  hintText: 'Search by bilty number',
+                  onChanged: (v) => setState(() => _biltyQuery = v),
+                ),
+              ),
+            ]),
             const SizedBox(height: 12),
           ],
           if (tripState.isLoading && ongoingTrips.isEmpty)

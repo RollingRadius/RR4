@@ -63,3 +63,10 @@ bool matchesTripSearch(String query, String tripNumber, String? rrTripNumber) {
   if (rrTripNumber != null && rrTripNumber.toLowerCase().contains(q)) return true;
   return false;
 }
+
+/// Case-insensitive match against a trip's Stage 4 Bilty Number.
+bool matchesBiltySearch(String query, String? biltyNumber) {
+  if (query.isEmpty) return true;
+  if (biltyNumber == null || biltyNumber.isEmpty) return false;
+  return biltyNumber.toLowerCase().contains(query.trim().toLowerCase());
+}

@@ -348,12 +348,17 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
           trip: _trip,
           readOnly: widget.readOnly,
           onComplete: (updated) {
+            // Only leave the stage form on a genuine first-time completion —
+            // re-saving an already-completed stage (e.g. updating the Bilty
+            // Number after full trip sync) should keep the user right here
+            // instead of bouncing to the post-Stage-5 completion screen.
+            final wasAlreadyDone = _trip.currentStage >= 4;
             setState(() {
               _trip = updated;
               _stage4Done = true;
               ref.read(tripProvider.notifier).patchTrip(updated);
             });
-            _exitEditMode();
+            if (!wasAlreadyDone) _exitEditMode();
           },
         );
       case 4:
@@ -363,12 +368,13 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
           trip: _trip,
           readOnly: widget.readOnly,
           onComplete: (updated) {
+            final wasAlreadyDone = _trip.currentStage >= 5;
             setState(() {
               _trip = updated;
               _stage5Done = true;
               ref.read(tripProvider.notifier).patchTrip(updated);
             });
-            _exitEditMode();
+            if (!wasAlreadyDone) _exitEditMode();
           },
         );
     }
@@ -4293,6 +4299,7 @@ class _DateTimeField extends StatelessWidget {
   // at sync time. Set true for those fields so it can't be picked in the
   // first place. RR's loading.* fields have no such restriction.
   final bool disallowFuture;
+  final bool enabled;
 
   const _DateTimeField({
     required this.label,
@@ -4301,6 +4308,7 @@ class _DateTimeField extends StatelessWidget {
     this.showError = false,
     this.fieldKey,
     this.disallowFuture = false,
+    this.enabled = true,
   });
 
   Future<void> _pick(BuildContext context) async {
@@ -4345,12 +4353,12 @@ class _DateTimeField extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: () => _pick(context),
+        onTap: enabled ? () => _pick(context) : null,
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: label,
             labelStyle: _inter(size: 13, color: showError ? _error : _secondary),
-            suffixIcon: Icon(Icons.calendar_today_rounded, size: 18,
+            suffixIcon: Icon(enabled ? Icons.calendar_today_rounded : Icons.lock_outline_rounded, size: 18,
                 color: showError ? _error : _secondary),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -4358,6 +4366,7 @@ class _DateTimeField extends StatelessWidget {
             ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             errorText: showError ? '$label is required' : null,
+            helperText: enabled ? null : 'Locked — already synced to RR',
           ),
           child: Text(
             hasValue ? _format(value!) : 'Select date & time',
@@ -5442,8 +5451,9 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   @override
   void initState() {
     super.initState();
-    // If checklist already submitted, go straight to diesel phase
-    if (widget.trip.currentStage >= 4) _showDiesel = true;
+    // Always land on the exit checklist first when (re-)opening this stage —
+    // the diesel/bilty phase is reachable via the nav button below, not
+    // auto-selected, so a completed checklist stays visible/editable.
     _biltyNumberCtrl.addListener(() {
       _touchField('bilty_number');
       if (_biltyNumberError != null) setState(() => _biltyNumberError = null);
@@ -5551,6 +5561,12 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     }
     super.dispose();
   }
+
+  // RR's bilty-number endpoint is a one-time assignment per parcel — once the
+  // first sync succeeds, RR rejects every later call for that parcel, so a
+  // re-edit here would never actually reach RR. Lock the fields instead of
+  // silently accepting edits that can't be synced.
+  bool get _biltyLocked => widget.trip.s4BiltySynced == true;
 
   bool get _allChecklistDone =>
       _truckMoved && _securityCheck && _biltyChecked && _weightChecked && _materialChecked &&
@@ -5660,7 +5676,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   }
 
   Future<void> _uploadDiesel() async {
-    if (_dieselFile == null || _dieselUploading) return;
+    if ((_dieselFile == null && widget.trip.s4DieselReceiptUrl == null) || _dieselUploading) return;
     final biltyNumber = _biltyNumberCtrl.text.trim();
     if (biltyNumber.isNotEmpty && !RegExp(r'^\d{4}$').hasMatch(biltyNumber)) {
       setState(() => _biltyNumberError = 'Bilty Number must be exactly 4 digits');
@@ -5670,7 +5686,8 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     try {
       final dio = ref.read(dioProvider);
       final formData = FormData.fromMap({
-        'receipt': MultipartFile.fromBytes(_dieselFile!.bytes, filename: _dieselFile!.name),
+        if (_dieselFile != null)
+          'receipt': MultipartFile.fromBytes(_dieselFile!.bytes, filename: _dieselFile!.name),
         if (_biltyNumberCtrl.text.trim().isNotEmpty)
           'bilty_number': _biltyNumberCtrl.text.trim(),
         if (_biltyDocFile != null)
@@ -5812,7 +5829,23 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _showDiesel = !_showDiesel),
+              icon: Icon(
+                _showDiesel ? Icons.arrow_back_rounded : Icons.arrow_forward_rounded,
+                size: 16,
+              ),
+              label: Text(_showDiesel ? 'Exit Checklist' : 'Diesel Receipt and Bilty'),
+              style: TextButton.styleFrom(
+                foregroundColor: _StageTheme.rrWeb.primary,
+                textStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
 
           if (!_showDiesel) ...[ // ── Phase 1: Checklist ──────────────────────
             _SectionHeader(icon: Icons.directions_car_outlined, title: 'Exit Procedure'),
@@ -6084,7 +6117,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _biltyNumberCtrl,
-              enabled: !widget.readOnly,
+              enabled: !widget.readOnly && !_biltyLocked,
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
@@ -6093,6 +6126,8 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
               style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
               decoration: _stageFieldDec('Bilty Number (4 digits)').copyWith(
                 errorText: _biltyNumberError,
+                helperText: _biltyLocked ? 'Locked — already synced to RR' : null,
+                suffixIcon: _biltyLocked ? const Icon(Icons.lock_outline_rounded, size: 18) : null,
               ),
             ),
             _FieldAttribution(username: _attrOf('bilty_number')),
@@ -6113,6 +6148,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
               label: 'Bilty Date And Time (Optional)',
               value: _biltyDate,
               showError: false,
+              enabled: !widget.readOnly && !_biltyLocked,
               onChanged: (dt) {
                 setState(() => _biltyDate = dt);
                 _touchField('bilty_date');
@@ -6132,16 +6168,17 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                 ]),
               ),
 
-            if (_dieselFile != null || !showExistingDiesel)
-              SizedBox(
+            SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: (_dieselFile != null && !_dieselUploading && !widget.readOnly) ? _uploadDiesel : null,
+                  onPressed: ((_dieselFile != null || showExistingDiesel) && !_dieselUploading && !widget.readOnly)
+                      ? _uploadDiesel
+                      : null,
                   icon: _dieselUploading
                       ? const SizedBox(width: 18, height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.upload_rounded, size: 20),
-                  label: Text(_dieselUploading ? 'Uploading…' : 'Submit Diesel Receipt'),
+                  label: Text(_dieselUploading ? 'Uploading…' : (showExistingDiesel && _dieselFile == null ? 'Save' : 'Submit Diesel Receipt')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _StageTheme.rrWeb.primary,
                     foregroundColor: Colors.white,

@@ -57,6 +57,8 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   StreamSubscription<NotificationModel>? _rrExpirySub;
   final _searchCtrl = TextEditingController();
   String _query = '';
+  final _biltySearchCtrl = TextEditingController();
+  String _biltyQuery = '';
 
   void _switchNav(int i) {
     if (i == 0 && _navIndex != 0) _loadData();
@@ -251,6 +253,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     _pollTimer?.cancel();
     _rrExpirySub?.cancel();
     _searchCtrl.dispose();
+    _biltySearchCtrl.dispose();
     super.dispose();
   }
 
@@ -273,6 +276,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     final rrTrips = tripState.trips;
     final filteredTrips = rrTrips
         .where((t) => matchesTripSearch(_query, t.tripNumber, t.rrTripNumber))
+        .where((t) => matchesBiltySearch(_biltyQuery, t.s4BiltyNumber))
         .toList();
 
     return Scaffold(
@@ -462,15 +466,27 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
               ),
             ),
 
-            // ── Search by trip number ─────────────────────────────────────────
+            // ── Search by trip number / bilty number (side by side) ───────────
             if (!tripState.isLoading && rrTrips.isNotEmpty)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: TripSearchField(
-                    controller: _searchCtrl,
-                    onChanged: (v) => setState(() => _query = v),
-                  ),
+                  child: Row(children: [
+                    Expanded(
+                      child: TripSearchField(
+                        controller: _searchCtrl,
+                        onChanged: (v) => setState(() => _query = v),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TripSearchField(
+                        controller: _biltySearchCtrl,
+                        hintText: 'Search by bilty number',
+                        onChanged: (v) => setState(() => _biltyQuery = v),
+                      ),
+                    ),
+                  ]),
                 ),
               ),
 

@@ -440,6 +440,18 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
                 textAlign: TextAlign.right),
           ),
         ]),
+        if (trip.s4BiltyNumber != null && trip.s4BiltyNumber!.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Row(children: [
+            Icon(Icons.receipt_long_rounded, color: _white.withOpacity(0.8), size: 13),
+            const SizedBox(width: 4),
+            Text(
+              'Bilty No: ${trip.s4BiltyNumber}',
+              style: _inter(size: 12, color: _white.withOpacity(0.9), weight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ]),
+        ],
         const SizedBox(height: 4),
         Text(
           'Created ${_fmtCreatedAt(trip.createdAt)}',
@@ -587,6 +599,11 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           _InfoRow(icon: null, label: 'Axle Type', value: trip.axleType!),
         if (trip.numberOfWheels != null)
           _InfoRow(icon: null, label: 'Wheels', value: '${trip.numberOfWheels}'),
+        if (trip.s4BiltyNumber != null && trip.s4BiltyNumber!.isNotEmpty) ...[
+          _Divider(),
+          _InfoRow(icon: Icons.receipt_long_rounded, label: 'Bilty Number',
+              value: trip.s4BiltyNumber!),
+        ],
       ]),
     );
   }
