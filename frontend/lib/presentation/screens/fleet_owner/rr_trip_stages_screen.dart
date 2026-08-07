@@ -5702,7 +5702,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
       final updated = TripModel.fromJson(
         (resp.data as Map<String, dynamic>)['trip'] as Map<String, dynamic>,
       );
-      if (mounted) widget.onComplete(updated);
+      if (mounted) {
+        setState(() { _dieselUploading = false; _dieselFile = null; });
+        widget.onComplete(updated);
+      }
     } catch (e) {
       final msg = e is DioException
           ? _dioErrorDetail(e, 'Upload failed')
