@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/services/tracking_api.dart';
 import 'package:fleet_management/data/services/location_service.dart';
@@ -126,8 +127,11 @@ class LocationTrackingNotifier extends StateNotifier<LocationTrackingState> {
     try {
       final response = await _trackingApi.getMyTrackingStatus();
       state = state.copyWith(trackingEnabled: response['tracking_enabled'] as bool);
-    } catch (_) {
-      // No driver profile, or a transient error — leave trackingEnabled as-is.
+    } catch (e) {
+      // No driver profile, or a transient error — leave trackingEnabled as-is
+      // (never surfaced to the user), but log it so a silent tracking
+      // failure is traceable in device logs instead of leaving no trace.
+      debugPrint('⚠️ refreshMyTrackingEnabled failed: $e');
     }
   }
 
@@ -146,9 +150,11 @@ class LocationTrackingNotifier extends StateNotifier<LocationTrackingState> {
       }
       await _trackingApi.updateDriverTracking(driverId, true);
       state = state.copyWith(trackingEnabled: true);
-    } catch (_) {
+    } catch (e) {
       // No driver profile, or a transient error — leave trackingEnabled as-is;
-      // the app never blocks or nags the user over this.
+      // the app never blocks or nags the user over this, but log it so a
+      // silent self-enable failure is traceable in device logs.
+      debugPrint('⚠️ selfEnableTracking failed: $e');
     }
   }
 
