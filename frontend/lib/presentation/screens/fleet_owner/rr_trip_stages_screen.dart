@@ -3277,11 +3277,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   void initState() {
     super.initState();
     _prefillFromDraft();
-    // Pre-fill the truck phone field from the driver's Stage 1 phone, unless
-    // a draft already restored something (that restore runs before this).
-    if (_truckPhoneNumberCtrl.text.isEmpty) {
-      _truckPhoneNumberCtrl.text = widget.trip.s1DriverPhone ?? '';
-    }
     _truckPhoneNumberCtrl.addListener(() { _touchField('truck_phone_number'); _onFieldChanged(); });
     _emptyTruckWeight.addListener(() { _touchField('empty_truck_weight'); _onFieldChanged(); });
     _loadedTruckWeight.addListener(() { _touchField('loaded_truck_weight'); _onFieldChanged(); });

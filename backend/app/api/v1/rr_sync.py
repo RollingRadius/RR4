@@ -23,6 +23,7 @@ from app.models.company import Organization
 from app.models.trip import Trip
 from app.models.user import User
 from app.services.rr_sync_service import _json_header
+from app.services.driver_link_service import link_driver_to_trip
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -1768,6 +1769,15 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
     trip.rr_synced_at   = _dt.utcnow()
     db.commit()
 
+    # Best-effort local driver link (phone match) — never blocks trip-creation
+    # success. Covers both the first-attempt path and the Stage-0 retry path
+    # (complete_trip_in_rr also calls this function).
+    if rr_driver_id:
+        try:
+            await link_driver_to_trip(trip, rr_driver_id, rr_token, db)
+        except Exception:
+            logger.exception(f"[Create Trip] driver phone-link failed for {trip.trip_number}")
+
     logger.info(
         f"[Create Trip] {trip.trip_number} -> rr_trip_id={rr_trip_id}, "
         f"rr_trip_number={rr_trip_number}, parcel_id={rr_parcel_id}, booking_id={rr_booking_id}"
@@ -1919,6 +1929,14 @@ async def reassign_driver(
     trip.rr_aadhaar_file_id = None
     trip.rr_aadhaar_back_file_id = None
     db.commit()
+
+    # Re-link (or clear) the local Driver used for GPS tracking — same
+    # phone-match as trip creation. Best-effort, never raises.
+    try:
+        await link_driver_to_trip(trip, body.driver_rr_id, token, db)
+    except Exception:
+        logger.exception(f"[Reassign Driver] driver phone-link failed for {trip.trip_number}")
+
     db.refresh(trip)
 
     # Real-time propagation: LP/RR-ops/FE viewing this trip's Stage 1 should

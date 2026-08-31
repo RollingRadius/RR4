@@ -91,9 +91,22 @@ def get_current_user_profile(
 
     if user_org:
         # Always return role info (even for transporters who have no organization)
+        role_key = user_org.role.role_key if user_org.role else None
+        role_name = user_org.role.role_name if user_org.role else None
+        # Same driver-detection correction auth_service.py's login and
+        # /user/refresh-token already apply — without it, this endpoint
+        # (called on every app launch via loadUserProfile()) clobbers the
+        # corrected 'driver' role_key those set with the raw, uncorrected
+        # DB value for any legacy self-registered driver still stored as
+        # role_key='independent_user'.
+        if role_key == 'independent_user':
+            driver_record = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+            if driver_record:
+                role_key = 'driver'
+                role_name = 'Driver'
         response.update({
-            "role": user_org.role.role_name if user_org.role else None,
-            "role_key": user_org.role.role_key if user_org.role else None,
+            "role": role_name,
+            "role_key": role_key,
         })
         if user_org.organization:
             response.update({

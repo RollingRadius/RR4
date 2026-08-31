@@ -24,6 +24,7 @@ from app.dependencies import get_current_user
 from app.models import User, UserOrganization
 from app.models.trip import Trip
 from app.models.role import Role
+from app.models.driver import Driver
 from app.services import fcm_service
 
 router = APIRouter()
@@ -245,6 +246,21 @@ def list_trips(
         query = query.filter(Trip.organization_id == user_org.organization_id)
     elif role_key == 'load_owner':
         query = query.filter(Trip.load_owner_org_id == user_org.organization_id)
+    elif role_key in ('driver', 'independent_user'):
+        # LP-added drivers get role_key='driver' (driver_service.py), but a
+        # self-registered driver's UserOrganization row is created with
+        # role_key='independent_user' (profile_service.py's driver signup
+        # path deliberately reuses that role) — so this branch must key off
+        # having a linked Driver record, not role_key alone, or self-
+        # registered drivers would silently fall into the generic org-wide
+        # `else` below and see zero trips (Trip.organization_id == None
+        # never matches). A plain independent_user with no Driver row still
+        # correctly falls through to that same `else`.
+        driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+        if driver:
+            query = query.filter(Trip.driver_id == driver.id)
+        else:
+            query = query.filter(Trip.organization_id == user_org.organization_id)
     else:
         query = query.filter(Trip.organization_id == user_org.organization_id)
 
@@ -330,6 +346,10 @@ def get_trip(
             raise HTTPException(status_code=403, detail="Access denied")
     elif role_key == 'load_owner':
         if str(trip.load_owner_org_id) != str(user_org.organization_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif role_key in ('driver', 'independent_user'):
+        driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+        if not driver or trip.driver_id != driver.id:
             raise HTTPException(status_code=403, detail="Access denied")
     else:
         if str(trip.organization_id) != str(user_org.organization_id):
@@ -512,49 +532,60 @@ def get_trip_vehicle_location(
     if role_key == 'load_owner':
         if str(trip.load_owner_org_id) != org_id_str:
             raise HTTPException(status_code=403, detail="Access denied")
+    elif role_key in ('driver', 'independent_user'):
+        # A driver (self-registered ones have no organization at all — see
+        # the same driver/independent_user duality handled in list_trips)
+        # can only ever look up their OWN linked trip, never an org match.
+        driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+        if not driver or trip.driver_id != driver.id:
+            raise HTTPException(status_code=403, detail="Access denied")
     else:
         if str(trip.organization_id) != org_id_str:
             raise HTTPException(status_code=403, detail="Access denied")
 
-    if not trip.vehicle_id:
-        raise HTTPException(status_code=404, detail="No vehicle assigned to this trip")
-
-    # Pull latest location from driver_locations table via the vehicle's current driver
-    from app.models.vehicle import Vehicle
-    vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
-    if not vehicle:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+    # No local Driver linked to this trip yet (never registered on RR4, or
+    # not yet phone-matched) — graceful "not available", not an error. Most
+    # trips created via the RR-picker flow never set the local vehicle_id
+    # FK either, so this must key off driver_id, not vehicle_id.
+    driver_id = str(trip.driver_id) if trip.driver_id else None
+    if not driver_id:
+        return {
+            "trip_id": trip_id,
+            "trip_number": trip.trip_number,
+            "vehicle_id": str(trip.vehicle_id) if trip.vehicle_id else None,
+            "driver_id": None,
+            "has_location": False,
+            "message": "No driver linked to this trip yet",
+        }
 
     # Try to get latest GPS location for the driver assigned to the trip
-    driver_id = str(trip.driver_id) if trip.driver_id else None
-    if driver_id:
-        try:
-            from app.models.driver_location import DriverLocation
-            loc = db.query(DriverLocation).filter(
-                DriverLocation.driver_id == trip.driver_id
-            ).order_by(DriverLocation.timestamp.desc()).first()
+    try:
+        from app.models.tracking import DriverLocation
+        loc = db.query(DriverLocation).filter(
+            DriverLocation.driver_id == trip.driver_id
+        ).order_by(DriverLocation.timestamp.desc()).first()
 
-            if loc:
-                return {
-                    "trip_id": trip_id,
-                    "trip_number": trip.trip_number,
-                    "vehicle_id": str(trip.vehicle_id),
-                    "driver_id": driver_id,
-                    "latitude": float(loc.latitude),
-                    "longitude": float(loc.longitude),
-                    "speed": float(loc.speed) if loc.speed else None,
-                    "heading": float(loc.heading) if loc.heading else None,
-                    "timestamp": loc.timestamp.isoformat() if loc.timestamp else None,
-                    "has_location": True,
-                }
-        except Exception:
-            pass
+        if loc:
+            return {
+                "trip_id": trip_id,
+                "trip_number": trip.trip_number,
+                "vehicle_id": str(trip.vehicle_id) if trip.vehicle_id else None,
+                "driver_id": driver_id,
+                "latitude": float(loc.latitude),
+                "longitude": float(loc.longitude),
+                "speed": float(loc.speed) if loc.speed else None,
+                "heading": float(loc.heading) if loc.heading else None,
+                "timestamp": loc.timestamp.isoformat() if loc.timestamp else None,
+                "has_location": True,
+            }
+    except Exception:
+        pass
 
     # No location data available yet
     return {
         "trip_id": trip_id,
         "trip_number": trip.trip_number,
-        "vehicle_id": str(trip.vehicle_id),
+        "vehicle_id": str(trip.vehicle_id) if trip.vehicle_id else None,
         "driver_id": driver_id,
         "has_location": False,
         "message": "No GPS location available yet for this trip",

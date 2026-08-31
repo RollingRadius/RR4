@@ -2,11 +2,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
+import 'package:fleet_management/providers/location_tracking_provider.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_detail_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
+
+/// Persisted once permission has ever been asked — the one-time-ask
+/// requirement means we must never re-prompt even if the driver denied it.
+const _kLocationPermissionAskedOnceKey = 'location_permission_asked_once';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _primary = Color(0xFFEC5B13);
@@ -46,11 +52,17 @@ class _DriverHomeDashboardScreenState extends ConsumerState<DriverHomeDashboardS
   @override
   void initState() {
     super.initState();
-    Future.microtask(
-        () => ref.read(tripProvider.notifier).loadTrips());
+    Future.microtask(() async {
+      await ref.read(tripProvider.notifier).loadTrips();
+      await _maybeRequestPermissionAndEnableTrackingOnce();
+      await _syncTrackingToAssignment();
+    });
     _pollTimer = Timer.periodic(
       const Duration(seconds: 30),
-      (_) => ref.read(tripProvider.notifier).silentRefresh(),
+      (_) async {
+        await ref.read(tripProvider.notifier).silentRefresh();
+        await _syncTrackingToAssignment();
+      },
     );
   }
 
@@ -58,6 +70,37 @@ class _DriverHomeDashboardScreenState extends ConsumerState<DriverHomeDashboardS
   void dispose() {
     _pollTimer?.cancel();
     super.dispose();
+  }
+
+  /// Asked exactly once, ever — never re-prompts even on denial. Enables
+  /// tracking (self-service, no admin step) only if granted.
+  ///
+  /// The "asked once" flag is persisted only AFTER the permission request
+  /// has actually resolved, not before — persisting it first would mean a
+  /// widget disposed mid-request (fast nav away, logout, backgrounding)
+  /// permanently marks this driver as "asked" despite the OS dialog never
+  /// having shown, with no way to ever prompt them again.
+  Future<void> _maybeRequestPermissionAndEnableTrackingOnce() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool(_kLocationPermissionAskedOnceKey) == true) return;
+    if (!mounted) return;
+
+    final granted = await ref.read(locationTrackingProvider.notifier).requestPermission();
+    await prefs.setBool(_kLocationPermissionAskedOnceKey, true);
+    // The OS permission dialog is a long, user-interruptible pause — the
+    // driver can background the app or navigate away before answering it,
+    // disposing this widget while the await above was still pending. `ref`
+    // is unusable once that happens, so re-check before touching it again.
+    if (!mounted) return;
+    if (granted) {
+      await ref.read(locationTrackingProvider.notifier).selfEnableTracking();
+    }
+    // Denied: do nothing further — no new UI, no re-prompt, ever.
+  }
+
+  Future<void> _syncTrackingToAssignment() async {
+    if (!mounted) return;
+    await syncDriverTrackingToActiveTrip(ref);
   }
 
   String _greeting() {

@@ -51,7 +51,7 @@ class TrackingService:
     async def create_location(
         self,
         driver_id: UUID,
-        organization_id: UUID,
+        organization_id: Optional[UUID],
         location_data: LocationCreate
     ) -> DriverLocation:
         """
@@ -110,7 +110,7 @@ class TrackingService:
     async def create_locations_batch(
         self,
         driver_id: UUID,
-        organization_id: UUID,
+        organization_id: Optional[UUID],
         locations: List[LocationCreate]
     ) -> List[DriverLocation]:
         """

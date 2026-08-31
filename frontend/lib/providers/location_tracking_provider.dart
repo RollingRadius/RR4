@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/services/tracking_api.dart';
 import 'package:fleet_management/data/services/location_service.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/trip_provider.dart';
 
 /// Tracking API Provider
 final trackingApiProvider = Provider<TrackingApi>((ref) {
@@ -117,6 +118,40 @@ class LocationTrackingNotifier extends StateNotifier<LocationTrackingState> {
     }
   }
 
+  /// Self-lookup version of the above — no driver_id needed, works for the
+  /// current user's own driver profile. Silently no-ops if the account has
+  /// no linked driver (e.g. not a driver-role user), so callers can call
+  /// this unconditionally without checking role first.
+  Future<void> refreshMyTrackingEnabled() async {
+    try {
+      final response = await _trackingApi.getMyTrackingStatus();
+      state = state.copyWith(trackingEnabled: response['tracking_enabled'] as bool);
+    } catch (_) {
+      // No driver profile, or a transient error — leave trackingEnabled as-is.
+    }
+  }
+
+  /// One-time flow: called once permission has just been granted. Flips the
+  /// backend flag on for the current user's own driver record (self-service,
+  /// no admin action needed — see tracking.py's PUT .../tracking) and
+  /// updates local state to match. Silently no-ops if there's no driver
+  /// profile for this account.
+  Future<void> selfEnableTracking() async {
+    try {
+      final status = await _trackingApi.getMyTrackingStatus();
+      final driverId = status['driver_id'] as String;
+      if (status['tracking_enabled'] == true) {
+        state = state.copyWith(trackingEnabled: true);
+        return;
+      }
+      await _trackingApi.updateDriverTracking(driverId, true);
+      state = state.copyWith(trackingEnabled: true);
+    } catch (_) {
+      // No driver profile, or a transient error — leave trackingEnabled as-is;
+      // the app never blocks or nags the user over this.
+    }
+  }
+
   /// Start location tracking
   Future<void> startTracking() async {
     if (state.isTracking) {
@@ -189,6 +224,29 @@ class LocationTrackingNotifier extends StateNotifier<LocationTrackingState> {
   /// Clear error
   void clearError() {
     state = state.copyWith(error: null);
+  }
+}
+
+/// Starts tracking if the current driver has an active (ongoing/pending)
+/// trip assigned, stops it otherwise. Shared by driver_dashboard_screen.dart
+/// (initial load + 30s poll) and main.dart (app-resume lifecycle hook), so
+/// both entry points stay in sync without duplicating the logic. Safe to
+/// call for any role — no-ops harmlessly if there are simply no trips.
+Future<void> syncDriverTrackingToActiveTrip(WidgetRef ref) async {
+  final trips = ref.read(tripProvider).trips;
+  final hasActiveTrip = trips.any((t) => t.isOngoing || t.isPending);
+  final notifier = ref.read(locationTrackingProvider.notifier);
+  await notifier.refreshMyTrackingEnabled();
+  final trackingEnabled = ref.read(locationTrackingProvider).trackingEnabled;
+  // trackingEnabled can flip false mid-session (an admin disabling it via
+  // PUT /drivers/{id}/tracking while this driver is already tracking) —
+  // startTracking()'s own trackingEnabled guard only runs on a fresh start,
+  // it never re-checks once isTracking is already true, so this explicit
+  // stop is what actually honors an admin's disable while a trip is active.
+  if (hasActiveTrip && trackingEnabled) {
+    await notifier.startTracking();
+  } else {
+    await notifier.stopTracking();
   }
 }
 

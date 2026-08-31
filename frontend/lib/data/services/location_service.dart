@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
+import 'package:geolocator_android/geolocator_android.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fleet_management/data/models/driver_location.dart';
@@ -126,12 +127,29 @@ class LocationService {
 
     debugPrint('📍 Starting location tracking...');
 
-    // Configure location settings
-    const locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 10, // Update every 10 meters
-      timeLimit: Duration(seconds: 15), // Or every 15 seconds
-    );
+    // On Android, a plain LocationSettings stream does NOT run a foreground
+    // service — geolocator only starts one when given AndroidSettings with
+    // foregroundNotificationConfig, which is required for GPS updates to
+    // keep flowing once the app is backgrounded/screen-off (Android 10+).
+    // The manifest already declares ACCESS_BACKGROUND_LOCATION /
+    // FOREGROUND_SERVICE / FOREGROUND_SERVICE_LOCATION — this is what
+    // actually puts them to use.
+    final LocationSettings locationSettings = defaultTargetPlatform == TargetPlatform.android
+        ? AndroidSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10, // Update every 10 meters
+            intervalDuration: const Duration(seconds: 15),
+            foregroundNotificationConfig: const ForegroundNotificationConfig(
+              notificationTitle: 'RR4 — Trip tracking active',
+              notificationText: 'Sharing your location for your assigned trip',
+              enableWakeLock: true,
+            ),
+          )
+        : const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 10,
+            timeLimit: Duration(seconds: 15),
+          );
 
     // Start position stream
     _positionStream = Geolocator.getPositionStream(

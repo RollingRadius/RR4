@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
+import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
@@ -263,6 +264,15 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     ).then((_) => widget.onRefresh?.call());
   }
 
+  /// LP/RR-ops only (gated at the call site via _canManageRr) — opens the
+  /// same live-location map Load Owner already has for their own trips, so
+  /// LP/RR-ops can track whichever driver is currently linked to this trip.
+  void _openTrackScreen(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => TripLocateScreen(trip: trip)),
+    );
+  }
+
   // ── Move to Records — long-press context menu, LP/RR-ops only ──────────────
   // Independent of sync progress: no gating on stage completeness or sync
   // status, intentional so abandoned/cancelled trips can be archived too.
@@ -419,6 +429,17 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
             const SizedBox(width: 8),
             Text(trip.vehicleNumber!,
                 style: _manrope(size: 13, weight: FontWeight.w700, color: _white)),
+          ],
+          if (_canManageRr) ...[
+            const SizedBox(width: 4),
+            InkWell(
+              onTap: () => _openTrackScreen(context),
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(Icons.location_on_outlined, size: 18, color: _white.withOpacity(0.9)),
+              ),
+            ),
           ],
         ]),
         const SizedBox(height: 8),

@@ -16,6 +16,8 @@ import 'package:fleet_management/routes/app_router.dart';
 import 'package:fleet_management/providers/settings_provider.dart';
 import 'package:fleet_management/providers/theme_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/trip_provider.dart';
+import 'package:fleet_management/providers/location_tracking_provider.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -106,6 +108,17 @@ class _FleetManagementAppState extends ConsumerState<FleetManagementApp>
       // Re-check token expiry only when returning from a true background pause.
       // The OS may have suspended the Dart isolate, killing any active Timer.
       ref.read(authProvider.notifier).checkTokenExpiry();
+
+      // Same "true background→foreground only" reasoning applies to
+      // tracking: the OS may have paused the position stream/timers, so a
+      // driver's trip assignment could have changed while backgrounded —
+      // re-sync once resumed. No-op for every other role.
+      final user = ref.read(authProvider).user;
+      if (user?.isDriver == true) {
+        ref.read(tripProvider.notifier).silentRefresh().then((_) {
+          if (mounted) syncDriverTrackingToActiveTrip(ref);
+        });
+      }
     }
   }
 
