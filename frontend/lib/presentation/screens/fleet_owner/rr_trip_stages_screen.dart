@@ -3235,6 +3235,20 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   final _loadedWeightUnit  = ValueNotifier<String>('kg');
   ({Uint8List bytes, String name})? _weightSlipData;
 
+  // Truck exterior photos (4 required sides + 1 optional extra), forwarded to
+  // trucks-app for OCR identification — fire-and-forget, nothing stored on
+  // RR4's side once sent. Draft-saved locally until submitted.
+  ({Uint8List bytes, String name})? _truckFrontPhoto;
+  ({Uint8List bytes, String name})? _truckBackPhoto;
+  ({Uint8List bytes, String name})? _truckLeftPhoto;
+  ({Uint8List bytes, String name})? _truckRightPhoto;
+  ({Uint8List bytes, String name})? _truckExtraPhoto;
+  // Phone number on the truck — pre-filled from the driver's Stage 1 phone,
+  // editable in case the truck owner's number is known and differs.
+  final _truckPhoneNumberCtrl = TextEditingController();
+  bool _truckReportSending = false;
+  bool _truckReportSent = false;
+
   // "Loading Completed" checkbox — part of the checklist required before
   // Complete Stage; no longer gates visibility of the rest of the form.
   bool _loadingComplete = false;
@@ -3263,6 +3277,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   void initState() {
     super.initState();
     _prefillFromDraft();
+    // Pre-fill the truck phone field from the driver's Stage 1 phone, unless
+    // a draft already restored something (that restore runs before this).
+    if (_truckPhoneNumberCtrl.text.isEmpty) {
+      _truckPhoneNumberCtrl.text = widget.trip.s1DriverPhone ?? '';
+    }
+    _truckPhoneNumberCtrl.addListener(() { _touchField('truck_phone_number'); _onFieldChanged(); });
     _emptyTruckWeight.addListener(() { _touchField('empty_truck_weight'); _onFieldChanged(); });
     _loadedTruckWeight.addListener(() { _touchField('loaded_truck_weight'); _onFieldChanged(); });
     _emptyWeightUnit.addListener(_onFieldChanged);
@@ -3338,6 +3358,37 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     if (slipB64 != null && slipName != null) {
       _weightSlipData = (bytes: base64Decode(slipB64), name: slipName);
     }
+    // Restore truck photos (front/back/left/right + optional extra)
+    final truckFrontB64  = d['truck_front_b64']  as String?;
+    final truckFrontName = d['truck_front_name'] as String?;
+    if (truckFrontB64 != null && truckFrontName != null) {
+      _truckFrontPhoto = (bytes: base64Decode(truckFrontB64), name: truckFrontName);
+    }
+    final truckBackB64  = d['truck_back_b64']  as String?;
+    final truckBackName = d['truck_back_name'] as String?;
+    if (truckBackB64 != null && truckBackName != null) {
+      _truckBackPhoto = (bytes: base64Decode(truckBackB64), name: truckBackName);
+    }
+    final truckLeftB64  = d['truck_left_b64']  as String?;
+    final truckLeftName = d['truck_left_name'] as String?;
+    if (truckLeftB64 != null && truckLeftName != null) {
+      _truckLeftPhoto = (bytes: base64Decode(truckLeftB64), name: truckLeftName);
+    }
+    final truckRightB64  = d['truck_right_b64']  as String?;
+    final truckRightName = d['truck_right_name'] as String?;
+    if (truckRightB64 != null && truckRightName != null) {
+      _truckRightPhoto = (bytes: base64Decode(truckRightB64), name: truckRightName);
+    }
+    final truckExtraB64  = d['truck_extra_b64']  as String?;
+    final truckExtraName = d['truck_extra_name'] as String?;
+    if (truckExtraB64 != null && truckExtraName != null) {
+      _truckExtraPhoto = (bytes: base64Decode(truckExtraB64), name: truckExtraName);
+    }
+    final draftedPhone = d['truck_phone_number'] as String?;
+    if (draftedPhone != null && draftedPhone.isNotEmpty) {
+      _truckPhoneNumberCtrl.text = draftedPhone;
+    }
+    _truckReportSent = d['truck_report_sent'] as bool? ?? false;
     // Restore e-way bill upload
     _ewayBillNumberCtrl.text = d['eway_bill_number'] as String? ?? '';
     final ewayIssueStr = d['eway_bill_issue_date'] as String?;
@@ -3421,6 +3472,31 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             'weight_slip_b64':  base64Encode(_weightSlipData!.bytes),
             'weight_slip_name': _weightSlipData!.name,
           },
+          // Truck pictures (front/back/left/right + optional extra) + the
+          // phone number typed alongside them, forwarded to trucks-app on
+          // submit — not part of the final Stage 3 payload.
+          if (_truckFrontPhoto != null) ...{
+            'truck_front_b64':  base64Encode(_truckFrontPhoto!.bytes),
+            'truck_front_name': _truckFrontPhoto!.name,
+          },
+          if (_truckBackPhoto != null) ...{
+            'truck_back_b64':  base64Encode(_truckBackPhoto!.bytes),
+            'truck_back_name': _truckBackPhoto!.name,
+          },
+          if (_truckLeftPhoto != null) ...{
+            'truck_left_b64':  base64Encode(_truckLeftPhoto!.bytes),
+            'truck_left_name': _truckLeftPhoto!.name,
+          },
+          if (_truckRightPhoto != null) ...{
+            'truck_right_b64':  base64Encode(_truckRightPhoto!.bytes),
+            'truck_right_name': _truckRightPhoto!.name,
+          },
+          if (_truckExtraPhoto != null) ...{
+            'truck_extra_b64':  base64Encode(_truckExtraPhoto!.bytes),
+            'truck_extra_name': _truckExtraPhoto!.name,
+          },
+          'truck_phone_number': _truckPhoneNumberCtrl.text.trim(),
+          'truck_report_sent': _truckReportSent,
           // E-way bill upload
           'eway_bill_number': _ewayBillNumberCtrl.text.trim(),
           if (_ewayBillIssueDate != null)
@@ -3461,6 +3537,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _emptyWeightUnit.dispose();
     _loadedWeightUnit.dispose();
     _ewayBillNumberCtrl.dispose();
+    _truckPhoneNumberCtrl.dispose();
     _invoiceNumberCtrl.dispose();
     _actualInvoiceValueCtrl.dispose();
     super.dispose();
@@ -3498,6 +3575,241 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     setState(() => _materialDocs = null);
     _touchField('material_docs');
     _saveDraft();
+  }
+
+  ({Uint8List bytes, String name})? _truckPhotoFor(String side) {
+    switch (side) {
+      case 'front': return _truckFrontPhoto;
+      case 'back':  return _truckBackPhoto;
+      case 'left':  return _truckLeftPhoto;
+      case 'right': return _truckRightPhoto;
+      case 'extra': return _truckExtraPhoto;
+    }
+    return null;
+  }
+
+  void _setTruckPhoto(String side, ({Uint8List bytes, String name})? data) {
+    setState(() {
+      switch (side) {
+        case 'front': _truckFrontPhoto = data; break;
+        case 'back':  _truckBackPhoto  = data; break;
+        case 'left':  _truckLeftPhoto  = data; break;
+        case 'right': _truckRightPhoto = data; break;
+        case 'extra': _truckExtraPhoto = data; break;
+      }
+      // Any change after a successful send means the photos no longer match
+      // what was actually forwarded — require an explicit re-send.
+      _truckReportSent = false;
+    });
+    _touchField('truck_pictures');
+    _saveDraft();
+  }
+
+  Future<void> _pickTruckPhoto(String side, ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      _setTruckPhoto(side, (bytes: bytes, name: picked.name));
+    } catch (e) {
+      if (!mounted) return;
+      _showPickError(context, e, source);
+    }
+  }
+
+  bool get _truckReportReady =>
+      _truckFrontPhoto != null && _truckRightPhoto != null &&
+      _truckLeftPhoto != null && _truckBackPhoto != null &&
+      _truckPhoneNumberCtrl.text.trim().isNotEmpty;
+
+  Future<void> _sendTruckReport() async {
+    if (!_truckReportReady || _truckReportSending) return;
+    setState(() => _truckReportSending = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final images = <MultipartFile>[
+        MultipartFile.fromBytes(_truckFrontPhoto!.bytes, filename: _truckFrontPhoto!.name),
+        MultipartFile.fromBytes(_truckRightPhoto!.bytes, filename: _truckRightPhoto!.name),
+        MultipartFile.fromBytes(_truckLeftPhoto!.bytes,  filename: _truckLeftPhoto!.name),
+        MultipartFile.fromBytes(_truckBackPhoto!.bytes,  filename: _truckBackPhoto!.name),
+        if (_truckExtraPhoto != null)
+          MultipartFile.fromBytes(_truckExtraPhoto!.bytes, filename: _truckExtraPhoto!.name),
+      ];
+      final formData = FormData.fromMap({
+        'images': images,
+        'phone_number': _truckPhoneNumberCtrl.text.trim(),
+      });
+      await dio.post('/api/trips/${widget.trip.id}/truck-report', data: formData);
+      if (!mounted) return;
+      setState(() { _truckReportSending = false; _truckReportSent = true; });
+      _saveDraft();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Truck photos sent for identification.')));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _truckReportSending = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not send truck photos: $e')));
+    }
+  }
+
+  void _showTruckPicturesSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          Future<void> pick(String side) async {
+            final source = await _showSourcePicker(sheetContext);
+            if (source == null) return;
+            await _pickTruckPhoto(side, source);
+            setSheetState(() {});
+          }
+          void remove(String side) {
+            _setTruckPhoto(side, null);
+            setSheetState(() {});
+          }
+          void preview(String side) {
+            final data = _truckPhotoFor(side);
+            if (data != null) _showImagePreview(sheetContext, bytes: data.bytes);
+          }
+          Future<void> send() async {
+            await _sendTruckReport();
+            setSheetState(() {});
+          }
+
+          const slots = [
+            ('front', 'Front'),
+            ('right', 'Right Side'),
+            ('left',  'Left Side'),
+            ('back',  'Back'),
+          ];
+
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                20, 16, 20, 24 + MediaQuery.of(sheetContext).viewInsets.bottom),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Truck Pictures', style: _manrope(size: 16, weight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text('Add photos of all 4 sides of the truck',
+                        style: _inter(size: 12, color: _secondary)),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _truckPhoneNumberCtrl,
+                      keyboardType: TextInputType.phone,
+                      style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+                      onChanged: (_) => setSheetState(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'Phone number on the truck',
+                        labelStyle: _inter(size: 12, color: _secondary),
+                        filled: true,
+                        fillColor: _bg,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: _border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: _border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: _primary, width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    for (final (side, label) in slots) ...[
+                      _TruckPhotoSlot(
+                        label: label,
+                        data: _truckPhotoFor(side),
+                        onAdd: () => pick(side),
+                        onRemove: () => remove(side),
+                        onPreview: () => preview(side),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    const SizedBox(height: 6),
+                    Text('Extra info (optional)',
+                        style: _manrope(size: 13, weight: FontWeight.w800, color: _onSurface)),
+                    const SizedBox(height: 4),
+                    Text('Anything that helps — a close-up of the plate, a visible phone number, etc.',
+                        style: _inter(size: 11, color: _secondary)),
+                    const SizedBox(height: 10),
+                    _TruckPhotoSlot(
+                      label: 'Extra photo',
+                      data: _truckPhotoFor('extra'),
+                      onAdd: () => pick('extra'),
+                      onRemove: () => remove('extra'),
+                      onPreview: () => preview('extra'),
+                    ),
+                    const SizedBox(height: 16),
+                    if (_truckReportSent)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: _success.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _success.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_circle_rounded, color: _success, size: 18),
+                            const SizedBox(width: 8),
+                            Text('Sent for identification',
+                                style: _manrope(size: 13, weight: FontWeight.w700, color: _success)),
+                          ],
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _primary,
+                            disabledBackgroundColor: _primary.withValues(alpha: 0.35),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: (_truckReportReady && !_truckReportSending) ? send : null,
+                          child: _truckReportSending
+                              ? const SizedBox(
+                                  width: 18, height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text('Send for Identification',
+                                  style: _manrope(size: 14, weight: FontWeight.w700, color: Colors.white)),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        child: Text('Close',
+                            style: _manrope(size: 13, weight: FontWeight.w700, color: _secondary)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   bool get _checklistDone =>
@@ -3661,6 +3973,15 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                 ? widget.trip.s3SubmittedByUsername
                 : null,
           ),
+
+          _TruckPicturesOption(
+            count: [_truckFrontPhoto, _truckBackPhoto, _truckLeftPhoto, _truckRightPhoto]
+                .where((p) => p != null).length,
+            phoneFilled: _truckPhoneNumberCtrl.text.trim().isNotEmpty,
+            sent: _truckReportSent,
+            onTap: _showTruckPicturesSheet,
+          ),
+          const SizedBox(height: 16),
 
           Text('RR Executive coordinates with driver:',
               style: _manrope(size: 16, weight: FontWeight.w800)),
@@ -4141,6 +4462,133 @@ class _StageAttribution extends StatelessWidget {
             'Submitted by @$username',
             style: _inter(size: 12, weight: FontWeight.w600, color: _success),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Truck Pictures (Stage 3) ─────────────────────────────────────────────────
+
+class _TruckPicturesOption extends StatelessWidget {
+  final int count;
+  final bool phoneFilled;
+  final bool sent;
+  final VoidCallback onTap;
+  const _TruckPicturesOption({
+    required this.count,
+    required this.phoneFilled,
+    required this.sent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = count >= 4 && phoneFilled;
+    final done = sent;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: done ? _success.withValues(alpha: 0.4) : _border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: (done ? _success : _primary).withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                done ? Icons.check_circle_rounded : Icons.local_shipping_rounded,
+                color: done ? _success : _primary, size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Truck Pictures',
+                      style: _manrope(size: 14, weight: FontWeight.w800, color: _onSurface)),
+                  const SizedBox(height: 2),
+                  Text(
+                    done
+                        ? 'Sent for identification'
+                        : (phoneFilled ? '$count/4 photos added' : '$count/4 photos · phone number needed'),
+                    style: _inter(size: 12, color: done ? _success : (ready ? _secondary : _secondary)),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: _secondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TruckPhotoSlot extends StatelessWidget {
+  final String label;
+  final ({Uint8List bytes, String name})? data;
+  final VoidCallback onAdd;
+  final VoidCallback onRemove;
+  final VoidCallback onPreview;
+
+  const _TruckPhotoSlot({
+    required this.label,
+    required this.data,
+    required this.onAdd,
+    required this.onRemove,
+    required this.onPreview,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: data != null ? onPreview : onAdd,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: data != null
+                  ? Image.memory(data!.bytes, width: 48, height: 48, fit: BoxFit.cover)
+                  : Container(
+                      width: 48, height: 48,
+                      color: _primary.withValues(alpha: 0.08),
+                      child: const Icon(Icons.local_shipping_rounded, color: _primary, size: 20),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(label,
+                style: _manrope(size: 13, weight: FontWeight.w700, color: _onSurface)),
+          ),
+          if (data != null)
+            IconButton(
+              icon: const Icon(Icons.close_rounded, size: 20, color: _error),
+              onPressed: onRemove,
+              tooltip: 'Remove',
+            )
+          else
+            TextButton(
+              onPressed: onAdd,
+              child: Text('Add', style: _manrope(size: 13, weight: FontWeight.w700, color: _primary)),
+            ),
         ],
       ),
     );

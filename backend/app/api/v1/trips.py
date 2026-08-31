@@ -1120,6 +1120,78 @@ async def submit_stage3(
         db.close()
 
 
+@router.post("/trips/{trip_id}/truck-report", status_code=200)
+async def forward_truck_report(
+    trip_id: str,
+    images: List[UploadFile] = File(...),
+    phone_number: str = Form(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Forward Stage 3 truck exterior photos to trucks-app (FreightDesk) for
+    OCR-based plate/company identification. Fire-and-forget: RR4 sends the
+    photos and trip context, then stores nothing about the submission or its
+    result — trucks-app owns everything downstream (OCR, review, storage).
+
+    Submitted anonymously (no Authorization header) so that `reported_by`
+    below is actually honored — trucks-app ignores it when a Bearer token is
+    sent, attributing to the logged-in account instead."""
+    import httpx
+
+    # Phase 1 — auth/role check + trip field snapshot on a short-lived session
+    db = SessionLocal()
+    try:
+        user_org = _get_user_org(current_user, db)
+        role_key = _get_role_key(user_org, db)
+        if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
+            raise HTTPException(status_code=403, detail="Fleet managers only")
+
+        if not (1 <= len(images) <= 5):
+            raise HTTPException(status_code=400, detail="Send 1 to 5 images")
+        if not phone_number.strip():
+            raise HTTPException(status_code=400, detail="phone_number is required")
+
+        trip = _get_fleet_trip(trip_id, user_org, db)
+        fields = {
+            'phone_number': phone_number.strip(),
+            'reported_by': f"RR4 - {trip.trip_number}",
+        }
+        if trip.vehicle_number:
+            fields['vehicle_number'] = trip.vehicle_number
+        if trip.vehicle_body_type:
+            fields['body_type'] = trip.vehicle_body_type
+        if trip.load_item:
+            fields['material_type'] = trip.load_item
+        if trip.s1_driver_name:
+            fields['driver_name'] = trip.s1_driver_name
+        if trip.number_of_wheels:
+            fields['number_of_wheels'] = str(trip.number_of_wheels)
+        if trip.axle_type:
+            fields['axle_type'] = trip.axle_type
+    finally:
+        db.close()
+
+    # Phase 2 — slow network I/O to trucks-app, no DB session held
+    files = []
+    for img in images:
+        content = await img.read()
+        files.append(('images', (img.filename or 'photo.jpg', content, img.content_type or 'image/jpeg')))
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{settings.TRUCKSAPP_API_BASE}/api/trucks/report",
+                data=fields,
+                files=files,
+            )
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Could not reach trucks-app: {e}")
+
+    if resp.status_code not in (200, 202):
+        raise HTTPException(status_code=502, detail=f"trucks-app rejected the report: {resp.text}")
+
+    return {"success": True, "message": "Truck photos sent for identification."}
+
+
 class Stage4Payload(BaseModel):
     truck_moved:       bool
     security_verified: bool
