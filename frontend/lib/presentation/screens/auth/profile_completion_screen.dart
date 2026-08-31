@@ -9,6 +9,7 @@ import 'package:fleet_management/core/routing/dashboard_route.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/main.dart' show rootScaffoldMessengerKey;
 
 class ProfileCompletionScreen extends ConsumerStatefulWidget {
   const ProfileCompletionScreen({super.key});
@@ -168,7 +169,13 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
           // Worker join: logout and return to login with a waiting message
           await ref.read(authProvider.notifier).logout();
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            // Routed through the app-wide messenger — logout() above already
+            // triggers a reactive router redirect that can tear down this
+            // screen's own Scaffold before/while this SnackBar tries to
+            // show, throwing "No Material widget found" + a bogus giant
+            // RenderFlex overflow on the orphaned SnackBar's remaining
+            // animation frames (confirmed live for the driver-nav case below).
+            rootScaffoldMessengerKey.currentState?.showSnackBar(
               SnackBar(
                 content: const Row(
                   children: [
@@ -197,7 +204,12 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
           await ref.read(authProvider.notifier).refreshToken();
 
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            // Routed through the app-wide messenger — this is called right
+            // before context.go() replaces this whole screen; a screen-local
+            // ScaffoldMessenger gets torn down mid-animation along with it
+            // (confirmed live: "No Material widget found" + a bogus giant
+            // RenderFlex overflow on the orphaned SnackBar's remaining frames).
+            rootScaffoldMessengerKey.currentState?.showSnackBar(
               SnackBar(
                 content: const Row(
                   children: [

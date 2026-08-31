@@ -5,6 +5,7 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/routing/dashboard_route.dart';
+import 'package:fleet_management/main.dart' show rootScaffoldMessengerKey;
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -59,7 +60,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _showSnackBar(String message, Color color, IconData icon) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    // Routed through the app-wide messenger, not ScaffoldMessenger.of(context)
+    // — this is called right before context.go() replaces this whole screen,
+    // and a screen-local ScaffoldMessenger gets torn down mid-animation along
+    // with it, throwing "No Material widget found" + a bogus giant RenderFlex
+    // overflow on the SnackBar's remaining animation frames.
+    rootScaffoldMessengerKey.currentState?.showSnackBar(
       SnackBar(
         content: Row(children: [
           Icon(icon, color: Colors.white),

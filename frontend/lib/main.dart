@@ -19,6 +19,18 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/location_tracking_provider.dart';
 
+/// App-wide ScaffoldMessenger — outlives any single screen's own Scaffold.
+/// A SnackBar shown via a screen-local `ScaffoldMessenger.of(context)`
+/// immediately followed by `context.go(...)` (a full route REPLACE, not a
+/// push) gets torn down mid-animation along with that screen's Scaffold —
+/// the orphaned SnackBar then throws "No Material widget found" and a
+/// nonsensical giant RenderFlex overflow on its remaining animation frames
+/// (confirmed root cause of a live crash right after driver login/profile
+/// completion navigating to the dashboard). Routing SnackBars through this
+/// key instead means they're anchored to the whole app, not whichever
+/// screen happens to be getting replaced underneath them.
+final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
@@ -134,6 +146,7 @@ class _FleetManagementAppState extends ConsumerState<FleetManagementApp>
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,
       routerConfig: router,
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
     );
   }
 }
