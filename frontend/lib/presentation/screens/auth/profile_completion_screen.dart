@@ -357,7 +357,6 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                         'Driver',
                         'Register as a driver with license information',
                         Icons.local_shipping_outlined,
-                        comingSoon: true,
                       ),
                       const SizedBox(height: 12),
                       _buildRoleOption(

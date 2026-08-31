@@ -178,7 +178,15 @@ def refresh_token(
         "company_name": user_org.organization.company_name if user_org and user_org.organization else None,
         "business_type": user_org.organization.business_type if user_org and user_org.organization else None,
         "role": effective_role_name,
-        "role_key": effective_role_key
+        "role_key": effective_role_key,
+        # Without this, UserModel.mergeJson() (frontend) falls back to
+        # whatever profileCompleted value was already in state — right
+        # after a successful profile completion, that's still the stale
+        # `false` from before, since completeProfile() itself never updates
+        # authProvider.user. The router then sees profileCompleted==false
+        # and bounces the user straight back to /profile-complete instead
+        # of the dashboard, even though the profile genuinely just completed.
+        "profile_completed": current_user.profile_completed,
     }
 
 
