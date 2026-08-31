@@ -272,9 +272,13 @@ def list_trips(
 
     if rr_web:
         # Fleet status: stays here regardless of sync completeness — only an
-        # explicit Move to Records removes it from this list.
+        # explicit Move to Records removes it from this list. consignor_name
+        # is a free-text display field independent of consignor_rr_company_id
+        # (the field RR's own create_trip actually needs) — gating visibility
+        # on it let a fully valid, RR-booked trip go permanently invisible
+        # here just because that text box was left blank (incident: trip
+        # rlplwmz4063 / RR-03625, 2026-08-27).
         query = query.filter(
-            Trip.consignor_name.isnot(None),
             Trip.moved_to_records_at.is_(None),
         )
 

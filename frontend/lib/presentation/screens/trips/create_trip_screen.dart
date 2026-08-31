@@ -172,6 +172,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   // ── Scroll-to anchors (one GlobalKey per mandatory field) ─────────────────
   final _keyConsignorCompany = GlobalKey();
+  final _keyConsignorName    = GlobalKey();
   final _keyPickupCity       = GlobalKey();
   final _keyUnloadCity       = GlobalKey();
   final _keyMaterial         = GlobalKey();
@@ -206,6 +207,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     // _vpPhoneCtrl.text from the cache, and that assignment is what's
     // supposed to auto-trigger the live VP lookup via _onVpPhoneChanged.
     _vpPhoneCtrl.addListener(_onVpPhoneChanged);
+    _consignorNameCtrl.addListener(() => _clearFieldErr('consignorName'));
     _weightCtrl.addListener(() => _clearFieldErr('weight'));
     _invoiceValueCtrl.addListener(() => _clearFieldErr('invoiceValue'));
     _expectedFreightCtrl.addListener(() => _clearFieldErr('expectedFreight'));
@@ -777,6 +779,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   }
 
   bool _validateStep0() {
+    if (_consignorNameCtrl.text.trim().isEmpty) {
+      _failField(0, _keyConsignorName, 'consignorName',
+          'Consignor Name is required — pick a partner above or type it in');
+      return false;
+    }
     if (_consignorRrCompanyId == null) {
       _failField(0, _keyConsignorCompany, 'consignorCompany',
           'Must select company from dropdown');
@@ -1082,9 +1089,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             ],
 
             const SizedBox(height: 10),
-            _FieldLabel(label: 'Consignor Name'),
+            _FieldLabel(key: _keyConsignorName, label: 'Consignor Name *'),
             const SizedBox(height: 6),
-            _TextInput(controller: _consignorNameCtrl, hint: 'e.g. Tata Steel Ltd'),
+            _TextInput(
+              controller: _consignorNameCtrl,
+              hint: 'e.g. Tata Steel Ltd',
+              hasError: _fieldErr['consignorName'] == true,
+            ),
+            _inlineErr('consignorName'),
 
             const SizedBox(height: 10),
             _FieldLabel(key: _keyConsignorCompany, label: 'Select Consignor Company *'),
@@ -1117,9 +1129,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                             _consignorRrCompanyId  = v;
                             _consignorCompanyName  = c['name'] as String?;
                             _consignorGstinCtrl.text = c['gstin'] as String? ?? '';
+                            // Only fill if the user hasn't typed their own
+                            // name already — this must never clobber a
+                            // manual edit, only spare the common case of
+                            // leaving it blank after picking a company.
+                            if (_consignorNameCtrl.text.trim().isEmpty) {
+                              _consignorNameCtrl.text = c['name'] as String? ?? '';
+                            }
                             _consignorAddresses    = [];
                             _fieldErr.remove('consignorCompany');
                             _fieldErrMsg.remove('consignorCompany');
+                            // consignorName's own error clears itself via
+                            // the controller listener above when this fill
+                            // actually changes its text — left alone here so
+                            // a company with no name doesn't falsely clear
+                            // a still-blank required field.
                           });
                           _loadCompanyLocations(v, isConsignor: true);
                         },
