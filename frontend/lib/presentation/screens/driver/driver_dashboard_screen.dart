@@ -1,14 +1,20 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/location_tracking_provider.dart';
 import 'package:fleet_management/data/services/location_service.dart' show LocationPermissionStatus;
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_detail_screen.dart';
-import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
+// NOTE: driver dashboard is intentionally minimal + read-only for now —
+// home, trip details (read-only), and logout only. Map/navigate and the
+// quick-actions/stats/vehicle sections below are commented out, not
+// deleted, so they're easy to bring back later.
+// import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _primary = Color(0xFFEC5B13);
@@ -140,9 +146,11 @@ class _DriverHomeDashboardScreenState extends ConsumerState<DriverHomeDashboardS
 
     final ongoingTrip =
         tripState.trips.where((t) => t.isOngoing).firstOrNull;
-    final completedCount =
-        tripState.trips.where((t) => t.isCompleted).length;
-    final totalToday = tripState.trips.length;
+    // Stats/vehicle/quick-actions sections are commented out below for now
+    // (minimal + read-only dashboard) — these are unused until re-enabled.
+    // final completedCount =
+    //     tripState.trips.where((t) => t.isCompleted).length;
+    // final totalToday = tripState.trips.length;
 
     return Scaffold(
       backgroundColor: _bg,
@@ -174,27 +182,26 @@ class _DriverHomeDashboardScreenState extends ConsumerState<DriverHomeDashboardS
                     else
                       const _NoActiveTripCard(),
 
-                    const SizedBox(height: 20),
-
-                    // Stats
-                    _StatsRow(
-                        totalToday: totalToday,
-                        completed: completedCount),
-
-                    const SizedBox(height: 20),
-
-                    // Vehicle status
-                    if (ongoingTrip?.hasVehicle == true) ...[
-                      _SectionLabel(label: 'Assigned Vehicle'),
-                      const SizedBox(height: 12),
-                      _VehicleCard(trip: ongoingTrip!),
-                      const SizedBox(height: 20),
-                    ],
-
-                    // Quick actions
-                    _SectionLabel(label: 'Quick Actions'),
-                    const SizedBox(height: 12),
-                    const _QuickActionsGrid(),
+                    // Stats / vehicle card / quick actions — commented out
+                    // for now, keeping the driver dashboard minimal +
+                    // read-only. Uncomment to bring these back.
+                    //
+                    // const SizedBox(height: 20),
+                    // _StatsRow(
+                    //     totalToday: totalToday,
+                    //     completed: completedCount),
+                    //
+                    // const SizedBox(height: 20),
+                    // if (ongoingTrip?.hasVehicle == true) ...[
+                    //   _SectionLabel(label: 'Assigned Vehicle'),
+                    //   const SizedBox(height: 12),
+                    //   _VehicleCard(trip: ongoingTrip!),
+                    //   const SizedBox(height: 20),
+                    // ],
+                    //
+                    // _SectionLabel(label: 'Quick Actions'),
+                    // const SizedBox(height: 12),
+                    // const _QuickActionsGrid(),
                   ],
                 ),
               ),
@@ -260,36 +267,33 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          // Notification bell
-          Stack(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.notifications_outlined,
-                    color: _onSurface, size: 22),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _primary,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: _surface, width: 1.5),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          // Logout (driver dashboard is minimal — no notifications/settings for now)
+          _LogoutButton(),
         ],
       ),
+    );
+  }
+}
+
+// ─── Logout button ────────────────────────────────────────────────────────────
+
+class _LogoutButton extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return IconButton(
+      icon: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(Icons.logout_rounded, color: _onSurface, size: 20),
+      ),
+      onPressed: () async {
+        await ref.read(authProvider.notifier).logout();
+        if (context.mounted) context.go(AppConstants.routeLogin);
+      },
     );
   }
 }
@@ -305,20 +309,24 @@ class _ActiveTripCard extends ConsumerStatefulWidget {
 }
 
 class _ActiveTripCardState extends ConsumerState<_ActiveTripCard> {
-  bool _locating = false;
-
-  Future<void> _locate() async {
-    setState(() => _locating = true);
-    final loc = await ref
-        .read(tripProvider.notifier)
-        .fetchTripLocation(widget.trip.id);
-    if (!mounted) return;
-    setState(() => _locating = false);
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) =>
-          TripLocateScreen(trip: widget.trip, location: loc),
-    ));
-  }
+  // "Navigate" (live map) is commented out for now — driver dashboard is
+  // minimal + read-only, Details is the only action. Uncomment along with
+  // the trip_locate_screen.dart import above to bring it back.
+  //
+  // bool _locating = false;
+  //
+  // Future<void> _locate() async {
+  //   setState(() => _locating = true);
+  //   final loc = await ref
+  //       .read(tripProvider.notifier)
+  //       .fetchTripLocation(widget.trip.id);
+  //   if (!mounted) return;
+  //   setState(() => _locating = false);
+  //   Navigator.of(context).push(MaterialPageRoute(
+  //     builder: (_) =>
+  //         TripLocateScreen(trip: widget.trip, location: loc),
+  //   ));
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -495,57 +503,29 @@ class _ActiveTripCardState extends ConsumerState<_ActiveTripCard> {
                   ],
                 ),
                 const SizedBox(height: 14),
-                // Action buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => TripDetailScreen(trip: trip),
-                          ),
-                        ),
-                        icon: const Icon(Icons.info_outline_rounded,
-                            size: 16),
-                        label: const Text('Details'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: _primary,
-                          side: BorderSide(
-                              color: _primary.withValues(alpha: 0.4)),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 10),
-                        ),
+                // Action buttons — Details only, read-only (no entering
+                // trip stages). "Navigate" is commented out for now, see
+                // _ActiveTripCardState above.
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            TripDetailScreen(trip: trip, readOnly: true),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _locating ? null : _locate,
-                        icon: _locating
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white))
-                            : const Icon(Icons.navigation_rounded,
-                                size: 16),
-                        label: Text(
-                            _locating ? 'Locating…' : 'Navigate'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primary,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                      ),
+                    icon: const Icon(Icons.info_outline_rounded, size: 16),
+                    label: const Text('Details'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _primary,
+                      side:
+                          BorderSide(color: _primary.withValues(alpha: 0.4)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
