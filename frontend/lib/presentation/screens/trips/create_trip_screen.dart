@@ -156,6 +156,15 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   String? _selectedDriverName;
   bool _vehicleHasNoDriver = false;
   bool _assigningDriverToVehicle = false;
+  // True when the selected vehicle came from the caller's OWN fleet
+  // (_extract_vehicle_entry's "vehicles" source), false for a market-hired
+  // vehicle ("market_vehicles" source) owned by a different company. Gates
+  // whether picking a driver here is allowed to overwrite the vehicle's RR
+  // crew — RR itself has no server-side ownership check on add_vehicle_crew
+  // (confirmed by reading rrbc-api directly), so this app-side check is the
+  // only thing preventing one company's trip creation from silently
+  // clobbering another company's shared/hired vehicle's driver assignment.
+  bool _vpSelectedVehicleOwned = false;
 
   static const _axleTypes    = ['Single', 'Double', 'Triple', 'Multiple'];
   static const _wheelOptions = [4, 6, 8, 10, 12, 14, 16, 18, 22];
@@ -685,23 +694,44 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   // off any driver id we send alongside the trip (confirmed live: trip
   // RR-71165 hit "Please add driver for vehicle." at Confirm Booking despite
   // a driver being selected here, because the vehicle's own crew was empty).
+  //
+  // Always attempts this now — not just when the vehicle previously had no
+  // driver — so picking a different driver for a vehicle that already has
+  // one on RR actually updates it, instead of leaving RR showing a stale
+  // driver while only this one trip's own reference changes. Still gated on
+  // _vpSelectedVehicleOwned: RR's add_vehicle_crew has no server-side
+  // ownership check at all (confirmed by reading rrbc-api), so this is the
+  // only thing stopping a market-hired (someone else's) vehicle's crew from
+  // being silently overwritten by whichever company happens to book it.
   Future<void> _assignDriverToVehicle(String driverUserId) async {
-    if (_vpSelectedVehicleRrId == null || !_vehicleHasNoDriver) return;
+    if (_vpSelectedVehicleRrId == null || !_vpSelectedVehicleOwned) return;
+    // Capture the target vehicle (and its driver name) up front — if the
+    // user switches the vehicle dropdown while this RR call is still in
+    // flight, the live _vpSelectedVehicleRrId/_selectedDriverName fields
+    // would otherwise refer to whatever's newly selected by the time this
+    // resolves, patching the WRONG vehicle's list entry and touching the
+    // newly-selected vehicle's "no driver" warning instead of the one this
+    // call was actually for.
+    final targetVehicleId = _vpSelectedVehicleRrId!;
+    final targetDriverName = _selectedDriverName ?? '';
     setState(() => _assigningDriverToVehicle = true);
     try {
       await runRrAction(context, ref, () => ref.read(rrSyncApiProvider).assignVehicleDriver(
-            vehicleId: _vpSelectedVehicleRrId!,
+            vehicleId: targetVehicleId,
             driverUserId: driverUserId,
           ));
       if (!mounted) return;
       void patchDriver(List<Map<String, dynamic>> list) {
-        final idx = list.indexWhere((v) => v['rr_vehicle_id'] == _vpSelectedVehicleRrId);
+        final idx = list.indexWhere((v) => v['rr_vehicle_id'] == targetVehicleId);
         if (idx != -1) {
-          list[idx] = {...list[idx], 'driver_id': driverUserId, 'driver_name': _selectedDriverName ?? ''};
+          list[idx] = {...list[idx], 'driver_id': driverUserId, 'driver_name': targetDriverName};
         }
       }
       setState(() {
-        _vehicleHasNoDriver = false;
+        // Only clear the "no driver" warning if the target vehicle is still
+        // the one currently shown — otherwise this success belongs to a
+        // vehicle the user has since navigated away from.
+        if (_vpSelectedVehicleRrId == targetVehicleId) _vehicleHasNoDriver = false;
         _assigningDriverToVehicle = false;
         patchDriver(_vpVehicles);
         patchDriver(_vpPersonalVehicles);
@@ -1661,6 +1691,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                           setState(() {
                             _vpSelectedVehicleRrId   = id;
                             _vpSelectedVehicleNumber = picked['number'] as String?;
+                            _vpSelectedVehicleOwned  = picked['source'] == 'vehicles';
                             _fieldErr.remove('vehicle');
                             _fieldErrMsg.remove('vehicle');
 
@@ -1728,19 +1759,26 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               itemSubtitle: (u) => u['phone'] as String? ?? '',
               onSelected: (u) {
                 final driverId = u['user_id'] as String?;
-                final wasVehicleDriverless = _vehicleHasNoDriver;
                 setState(() {
                   _selectedDriverRrId = driverId;
                   _selectedDriverName = u['name'] as String?;
                   _driverPhoneCtrl.text = '${u['name']} (${u['phone']})';
                   _fieldErr.remove('driver');
                   _fieldErrMsg.remove('driver');
+                  // NOT clearing _vehicleHasNoDriver here — it must stay an
+                  // honest reflection of whether RR's vehicle crew actually
+                  // has a driver. _assignDriverToVehicle's own success
+                  // branch is the only place that clears it (or leaves it
+                  // set if the vehicle is market-hired/not owned, or if the
+                  // RR call fails) — otherwise the warning banner would
+                  // silently disappear even when the crew was never
+                  // actually updated, hiding exactly the failure this
+                  // mechanism exists to prevent (RR-71165).
                 });
-                if (wasVehicleDriverless && driverId != null) {
-                  _assignDriverToVehicle(driverId);
-                } else {
-                  setState(() => _vehicleHasNoDriver = false);
-                }
+                // Always attempt now (gated internally on
+                // _vpSelectedVehicleOwned, not on whether the vehicle
+                // already had a driver) — see _assignDriverToVehicle.
+                if (driverId != null) _assignDriverToVehicle(driverId);
               },
               onCleared: () => setState(() { _selectedDriverRrId = null; _selectedDriverName = null; }),
             ),
@@ -1752,7 +1790,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             const SizedBox(height: 8),
             TextButton.icon(
               onPressed: () async {
-                final wasVehicleDriverless = _vehicleHasNoDriver;
                 final result = await Navigator.of(context).push<Map<String, dynamic>>(
                   MaterialPageRoute(builder: (_) => const AddRrUserScreen()),
                 );
@@ -1764,12 +1801,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                     _driverPhoneCtrl.text = '${result['name']} (${result['phone']})';
                     _fieldErr.remove('driver');
                     _fieldErrMsg.remove('driver');
+                    // Not cleared here — see the identical note on the
+                    // other onSelected handler above; only a genuine RR
+                    // success in _assignDriverToVehicle clears this.
                   });
-                  if (wasVehicleDriverless && driverId != null) {
-                    _assignDriverToVehicle(driverId);
-                  } else {
-                    setState(() => _vehicleHasNoDriver = false);
-                  }
+                  if (driverId != null) _assignDriverToVehicle(driverId);
                 }
               },
               icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
