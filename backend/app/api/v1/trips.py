@@ -1210,7 +1210,7 @@ async def forward_truck_report(
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(
-                f"{settings.TRUCKSAPP_API_BASE}/api/trucks/report",
+                f"{settings.FREIGHTDESK_API_BASE}/api/trucks/report",
                 data=fields,
                 files=files,
             )

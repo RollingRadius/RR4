@@ -3974,7 +3974,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                 .where((p) => p != null).length,
             phoneFilled: _truckPhoneNumberCtrl.text.trim().isNotEmpty,
             sent: _truckReportSent,
-            onTap: _showTruckPicturesSheet,
+            onTap: widget.readOnly ? null : _showTruckPicturesSheet,
           ),
           const SizedBox(height: 16),
 
@@ -4469,7 +4469,7 @@ class _TruckPicturesOption extends StatelessWidget {
   final int count;
   final bool phoneFilled;
   final bool sent;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   const _TruckPicturesOption({
     required this.count,
     required this.phoneFilled,

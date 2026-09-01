@@ -124,7 +124,7 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
                   markers: [
                     Marker(
                       point: _vehicleLatLng,
-                      width: 60,
+                      width: 100,
                       height: 60,
                       child: _VehicleMarker(
                         vehiclePlate: widget.trip.vehiclePlate,
@@ -386,6 +386,9 @@ class _VehicleMarker extends StatelessWidget {
           ),
           child: Text(
             vehiclePlate ?? 'VEHICLE',
+            softWrap: false,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,

@@ -90,7 +90,7 @@ class Settings(BaseSettings):
     # Truck-photo forwarding — Stage 3 truck exterior photos are forwarded to
     # trucks-app (FreightDesk) for OCR-based plate/company identification.
     # Fire-and-forget: RR4 sends and stores nothing about the result.
-    TRUCKSAPP_API_BASE: str = "http://localhost:8000"  # local FreightDesk sandbox; change to http://34.31.185.19:8090 for the real integration
+    FREIGHTDESK_API_BASE: str = "http://localhost:8000"  # local FreightDesk sandbox; change to http://34.31.185.19:8090 for the real integration
 
     # Observability — OpenTelemetry → SigNoz
     OTEL_ENABLED: bool = False
