@@ -430,17 +430,6 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
             Text(trip.vehicleNumber!,
                 style: _manrope(size: 13, weight: FontWeight.w700, color: _white)),
           ],
-          if (_canManageRr) ...[
-            const SizedBox(width: 4),
-            InkWell(
-              onTap: () => _openTrackScreen(context),
-              borderRadius: BorderRadius.circular(16),
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Icon(Icons.location_on_outlined, size: 18, color: _white.withOpacity(0.9)),
-              ),
-            ),
-          ],
         ]),
         const SizedBox(height: 8),
         Row(children: [
@@ -554,6 +543,30 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       color: const Color(0xFFF8FAFB),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Track is an action, not a read-only field — kept visually distinct
+        // (tappable row + chevron) from the plain _InfoRow entries below it.
+        // LP/RR-ops only, same gating as everywhere else on this card.
+        if (_canManageRr) ...[
+          InkWell(
+            onTap: () => _openTrackScreen(context),
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_on_outlined, size: 18, color: _rrBlue),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('Track Driver Location',
+                        style: _manrope(size: 13, weight: FontWeight.w700, color: _rrBlue)),
+                  ),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: _rrBlue.withOpacity(0.7)),
+                ],
+              ),
+            ),
+          ),
+          _Divider(),
+        ],
         _InfoRow(icon: Icons.schedule_outlined, label: 'Created At',
             value: _fmtCreatedAt(trip.createdAt)),
         _Divider(),
