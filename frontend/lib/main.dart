@@ -16,6 +16,20 @@ import 'package:fleet_management/routes/app_router.dart';
 import 'package:fleet_management/providers/settings_provider.dart';
 import 'package:fleet_management/providers/theme_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/trip_provider.dart';
+import 'package:fleet_management/providers/location_tracking_provider.dart';
+
+/// App-wide ScaffoldMessenger — outlives any single screen's own Scaffold.
+/// A SnackBar shown via a screen-local `ScaffoldMessenger.of(context)`
+/// immediately followed by `context.go(...)` (a full route REPLACE, not a
+/// push) gets torn down mid-animation along with that screen's Scaffold —
+/// the orphaned SnackBar then throws "No Material widget found" and a
+/// nonsensical giant RenderFlex overflow on its remaining animation frames
+/// (confirmed root cause of a live crash right after driver login/profile
+/// completion navigating to the dashboard). Routing SnackBars through this
+/// key instead means they're anchored to the whole app, not whichever
+/// screen happens to be getting replaced underneath them.
+final rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -106,6 +120,17 @@ class _FleetManagementAppState extends ConsumerState<FleetManagementApp>
       // Re-check token expiry only when returning from a true background pause.
       // The OS may have suspended the Dart isolate, killing any active Timer.
       ref.read(authProvider.notifier).checkTokenExpiry();
+
+      // Same "true background→foreground only" reasoning applies to
+      // tracking: the OS may have paused the position stream/timers, so a
+      // driver's trip assignment could have changed while backgrounded —
+      // re-sync once resumed. No-op for every other role.
+      final user = ref.read(authProvider).user;
+      if (user?.isDriver == true) {
+        ref.read(tripProvider.notifier).silentRefresh().then((_) {
+          if (mounted) syncDriverTrackingToActiveTrip(ref);
+        });
+      }
     }
   }
 
@@ -121,6 +146,7 @@ class _FleetManagementAppState extends ConsumerState<FleetManagementApp>
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.light,
       routerConfig: router,
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
     );
   }
 }

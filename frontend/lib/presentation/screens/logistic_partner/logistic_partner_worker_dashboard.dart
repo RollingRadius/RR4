@@ -10,6 +10,7 @@ import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
+import 'package:fleet_management/presentation/widgets/trip_search_field.dart';
 
 // ─── Typography ───────────────────────────────────────────────────────────────
 TextStyle _manrope({
@@ -586,11 +587,28 @@ class _WorkerBottomNav extends StatelessWidget {
 
 // ─── Home Tab ─────────────────────────────────────────────────────────────────
 
-class _WorkerHomeTab extends ConsumerWidget {
+class _WorkerHomeTab extends ConsumerStatefulWidget {
   const _WorkerHomeTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_WorkerHomeTab> createState() => _WorkerHomeTabState();
+}
+
+class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+  final _biltySearchCtrl = TextEditingController();
+  String _biltyQuery = '';
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _biltySearchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tripState = ref.watch(tripProvider);
     final user = ref.watch(authProvider).user;
     final firstName = user?.fullName.split(' ').first ?? 'Worker';
@@ -599,6 +617,10 @@ class _WorkerHomeTab extends ConsumerWidget {
     // client-side filtering here. Finishing Stage 5 sync does NOT remove a
     // trip from this list; only the long-press "Move to Records" action does.
     final ongoingTrips = tripState.activeTrips;
+    final filteredTrips = ongoingTrips
+        .where((t) => matchesTripSearch(_query, t.tripNumber, t.rrTripNumber))
+        .where((t) => matchesBiltySearch(_biltyQuery, t.s4BiltyNumber))
+        .toList();
 
     return RefreshIndicator(
       color: _primary,
@@ -628,6 +650,25 @@ class _WorkerHomeTab extends ConsumerWidget {
               isLive: !tripState.isLoading,
             ),
             const SizedBox(height: 12),
+            if (ongoingTrips.isNotEmpty) ...[
+              Row(children: [
+                Expanded(
+                  child: TripSearchField(
+                    controller: _searchCtrl,
+                    onChanged: (v) => setState(() => _query = v),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TripSearchField(
+                    controller: _biltySearchCtrl,
+                    hintText: 'Search by bilty number',
+                    onChanged: (v) => setState(() => _biltyQuery = v),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 12),
+            ],
             if (tripState.isLoading && ongoingTrips.isEmpty)
               _TripLoadingShimmer()
             else if (tripState.error != null && ongoingTrips.isEmpty)
@@ -639,8 +680,10 @@ class _WorkerHomeTab extends ConsumerWidget {
               )
             else if (ongoingTrips.isEmpty)
               _EmptyTrips()
+            else if (filteredTrips.isEmpty)
+              _NoSearchMatches(query: _query)
             else
-              ...ongoingTrips.map(
+              ...filteredTrips.map(
                 (t) => Padding(
                   padding: const EdgeInsets.only(bottom: 14),
                   child: RrTripCard(
@@ -754,6 +797,36 @@ class _EmptyTrips extends StatelessWidget {
             const SizedBox(height: 4),
             Text('You will be notified when a new trip is assigned',
                 style: _inter(size: 12)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── No search matches ────────────────────────────────────────────────────────
+
+class _NoSearchMatches extends StatelessWidget {
+  final String query;
+  const _NoSearchMatches({required this.query});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 28),
+      decoration: BoxDecoration(
+        color: _surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: _surfaceContainer, width: 1.5),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.search_off_rounded, color: _secondary, size: 40),
+            const SizedBox(height: 8),
+            Text('No trips match "$query"',
+                style: _inter(size: 14, weight: FontWeight.w600, color: _secondary)),
           ],
         ),
       ),

@@ -24,6 +24,7 @@ from app.dependencies import get_current_user
 from app.models import User, UserOrganization
 from app.models.trip import Trip
 from app.models.role import Role
+from app.models.driver import Driver
 from app.services import fcm_service
 
 router = APIRouter()
@@ -245,6 +246,21 @@ def list_trips(
         query = query.filter(Trip.organization_id == user_org.organization_id)
     elif role_key == 'load_owner':
         query = query.filter(Trip.load_owner_org_id == user_org.organization_id)
+    elif role_key in ('driver', 'independent_user'):
+        # LP-added drivers get role_key='driver' (driver_service.py), but a
+        # self-registered driver's UserOrganization row is created with
+        # role_key='independent_user' (profile_service.py's driver signup
+        # path deliberately reuses that role) — so this branch must key off
+        # having a linked Driver record, not role_key alone, or self-
+        # registered drivers would silently fall into the generic org-wide
+        # `else` below and see zero trips (Trip.organization_id == None
+        # never matches). A plain independent_user with no Driver row still
+        # correctly falls through to that same `else`.
+        driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+        if driver:
+            query = query.filter(Trip.driver_id == driver.id)
+        else:
+            query = query.filter(Trip.organization_id == user_org.organization_id)
     else:
         query = query.filter(Trip.organization_id == user_org.organization_id)
 
@@ -272,9 +288,13 @@ def list_trips(
 
     if rr_web:
         # Fleet status: stays here regardless of sync completeness — only an
-        # explicit Move to Records removes it from this list.
+        # explicit Move to Records removes it from this list. consignor_name
+        # is a free-text display field independent of consignor_rr_company_id
+        # (the field RR's own create_trip actually needs) — gating visibility
+        # on it let a fully valid, RR-booked trip go permanently invisible
+        # here just because that text box was left blank (incident: trip
+        # rlplwmz4063 / RR-03625, 2026-08-27).
         query = query.filter(
-            Trip.consignor_name.isnot(None),
             Trip.moved_to_records_at.is_(None),
         )
 
@@ -326,6 +346,10 @@ def get_trip(
             raise HTTPException(status_code=403, detail="Access denied")
     elif role_key == 'load_owner':
         if str(trip.load_owner_org_id) != str(user_org.organization_id):
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif role_key in ('driver', 'independent_user'):
+        driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+        if not driver or trip.driver_id != driver.id:
             raise HTTPException(status_code=403, detail="Access denied")
     else:
         if str(trip.organization_id) != str(user_org.organization_id):
@@ -508,49 +532,60 @@ def get_trip_vehicle_location(
     if role_key == 'load_owner':
         if str(trip.load_owner_org_id) != org_id_str:
             raise HTTPException(status_code=403, detail="Access denied")
+    elif role_key in ('driver', 'independent_user'):
+        # A driver (self-registered ones have no organization at all — see
+        # the same driver/independent_user duality handled in list_trips)
+        # can only ever look up their OWN linked trip, never an org match.
+        driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+        if not driver or trip.driver_id != driver.id:
+            raise HTTPException(status_code=403, detail="Access denied")
     else:
         if str(trip.organization_id) != org_id_str:
             raise HTTPException(status_code=403, detail="Access denied")
 
-    if not trip.vehicle_id:
-        raise HTTPException(status_code=404, detail="No vehicle assigned to this trip")
-
-    # Pull latest location from driver_locations table via the vehicle's current driver
-    from app.models.vehicle import Vehicle
-    vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
-    if not vehicle:
-        raise HTTPException(status_code=404, detail="Vehicle not found")
+    # No local Driver linked to this trip yet (never registered on RR4, or
+    # not yet phone-matched) — graceful "not available", not an error. Most
+    # trips created via the RR-picker flow never set the local vehicle_id
+    # FK either, so this must key off driver_id, not vehicle_id.
+    driver_id = str(trip.driver_id) if trip.driver_id else None
+    if not driver_id:
+        return {
+            "trip_id": trip_id,
+            "trip_number": trip.trip_number,
+            "vehicle_id": str(trip.vehicle_id) if trip.vehicle_id else None,
+            "driver_id": None,
+            "has_location": False,
+            "message": "No driver linked to this trip yet",
+        }
 
     # Try to get latest GPS location for the driver assigned to the trip
-    driver_id = str(trip.driver_id) if trip.driver_id else None
-    if driver_id:
-        try:
-            from app.models.driver_location import DriverLocation
-            loc = db.query(DriverLocation).filter(
-                DriverLocation.driver_id == trip.driver_id
-            ).order_by(DriverLocation.timestamp.desc()).first()
+    try:
+        from app.models.tracking import DriverLocation
+        loc = db.query(DriverLocation).filter(
+            DriverLocation.driver_id == trip.driver_id
+        ).order_by(DriverLocation.timestamp.desc()).first()
 
-            if loc:
-                return {
-                    "trip_id": trip_id,
-                    "trip_number": trip.trip_number,
-                    "vehicle_id": str(trip.vehicle_id),
-                    "driver_id": driver_id,
-                    "latitude": float(loc.latitude),
-                    "longitude": float(loc.longitude),
-                    "speed": float(loc.speed) if loc.speed else None,
-                    "heading": float(loc.heading) if loc.heading else None,
-                    "timestamp": loc.timestamp.isoformat() if loc.timestamp else None,
-                    "has_location": True,
-                }
-        except Exception:
-            pass
+        if loc:
+            return {
+                "trip_id": trip_id,
+                "trip_number": trip.trip_number,
+                "vehicle_id": str(trip.vehicle_id) if trip.vehicle_id else None,
+                "driver_id": driver_id,
+                "latitude": float(loc.latitude),
+                "longitude": float(loc.longitude),
+                "speed": float(loc.speed) if loc.speed else None,
+                "heading": float(loc.heading) if loc.heading else None,
+                "timestamp": loc.timestamp.isoformat() if loc.timestamp else None,
+                "has_location": True,
+            }
+    except Exception:
+        pass
 
     # No location data available yet
     return {
         "trip_id": trip_id,
         "trip_number": trip.trip_number,
-        "vehicle_id": str(trip.vehicle_id),
+        "vehicle_id": str(trip.vehicle_id) if trip.vehicle_id else None,
         "driver_id": driver_id,
         "has_location": False,
         "message": "No GPS location available yet for this trip",
@@ -947,7 +982,6 @@ async def submit_stage3(
     actual_invoice_value:    Optional[str] = Form(None),
     material_docs:           Optional[List[UploadFile]] = File(None),
     vehicle_reach_datetime:  str = Form(...),
-    loading_start_datetime:  str = Form(...),
     current_user: User = Depends(get_current_user),
 ):
     """Stage 3 — Truck Arrival at Factory. Completes the trip intake.
@@ -965,9 +999,8 @@ async def submit_stage3(
 
         try:
             parsed_vehicle_reach_dt = datetime.fromisoformat(vehicle_reach_datetime)
-            parsed_loading_start_dt = datetime.fromisoformat(loading_start_datetime)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date/time format for vehicle reach or loading start")
+            raise HTTPException(status_code=400, detail="Invalid date/time format for vehicle reach")
 
         parsed_eway_issue_dt = None
         parsed_eway_expiry_dt = None
@@ -1087,7 +1120,6 @@ async def submit_stage3(
         if material_urls:
             trip.s3_material_doc_urls = json.dumps(material_urls)
         trip.s3_vehicle_reach_datetime   = parsed_vehicle_reach_dt
-        trip.s3_loading_start_datetime   = parsed_loading_start_dt
         trip.s3_submitted_by             = current_user.id
         trip.s3_claimed_by               = None  # release claim on submit
         trip.s3_claimed_at               = None
@@ -1117,6 +1149,78 @@ async def submit_stage3(
         return {"success": True, "message": msg, "trip": _enrich(trip, db)}
     finally:
         db.close()
+
+
+@router.post("/trips/{trip_id}/truck-report", status_code=200)
+async def forward_truck_report(
+    trip_id: str,
+    images: List[UploadFile] = File(...),
+    phone_number: str = Form(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Forward Stage 3 truck exterior photos to trucks-app (FreightDesk) for
+    OCR-based plate/company identification. Fire-and-forget: RR4 sends the
+    photos and trip context, then stores nothing about the submission or its
+    result — trucks-app owns everything downstream (OCR, review, storage).
+
+    Submitted anonymously (no Authorization header) so that `reported_by`
+    below is actually honored — trucks-app ignores it when a Bearer token is
+    sent, attributing to the logged-in account instead."""
+    import httpx
+
+    # Phase 1 — auth/role check + trip field snapshot on a short-lived session
+    db = SessionLocal()
+    try:
+        user_org = _get_user_org(current_user, db)
+        role_key = _get_role_key(user_org, db)
+        if role_key not in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
+            raise HTTPException(status_code=403, detail="Fleet managers only")
+
+        if not (1 <= len(images) <= 5):
+            raise HTTPException(status_code=400, detail="Send 1 to 5 images")
+        if not phone_number.strip():
+            raise HTTPException(status_code=400, detail="phone_number is required")
+
+        trip = _get_fleet_trip(trip_id, user_org, db)
+        fields = {
+            'phone_number': phone_number.strip(),
+            'reported_by': f"RR4 - {trip.trip_number}",
+        }
+        if trip.vehicle_number:
+            fields['vehicle_number'] = trip.vehicle_number
+        if trip.vehicle_body_type:
+            fields['body_type'] = trip.vehicle_body_type
+        if trip.load_item:
+            fields['material_type'] = trip.load_item
+        if trip.s1_driver_name:
+            fields['driver_name'] = trip.s1_driver_name
+        if trip.number_of_wheels:
+            fields['number_of_wheels'] = str(trip.number_of_wheels)
+        if trip.axle_type:
+            fields['axle_type'] = trip.axle_type
+    finally:
+        db.close()
+
+    # Phase 2 — slow network I/O to trucks-app, no DB session held
+    files = []
+    for img in images:
+        content = await img.read()
+        files.append(('images', (img.filename or 'photo.jpg', content, img.content_type or 'image/jpeg')))
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{settings.FREIGHTDESK_API_BASE}/api/trucks/report",
+                data=fields,
+                files=files,
+            )
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=502, detail=f"Could not reach trucks-app: {e}")
+
+    if resp.status_code not in (200, 202):
+        raise HTTPException(status_code=502, detail=f"trucks-app rejected the report: {resp.text}")
+
+    return {"success": True, "message": "Truck photos sent for identification."}
 
 
 class Stage4Payload(BaseModel):
@@ -1195,10 +1299,17 @@ class DraftPayload(BaseModel):
 @router.post("/trips/{trip_id}/stage/4/diesel", status_code=200)
 async def submit_stage4_diesel(
     trip_id: str,
-    receipt: UploadFile = File(...),
+    receipt: Optional[UploadFile] = File(None),
+    bilty_number: Optional[str] = Form(None),
+    bilty_doc: Optional[UploadFile] = File(None),
+    bilty_date: Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
 ):
-    """Stage 4 Diesel — Upload diesel receipt after truck exits factory. Does not advance currentStage."""
+    """Stage 4 Diesel — Upload diesel receipt after truck exits factory, plus optional
+    Bilty Number + manual Bilty upload (synced to RR's parcels.documents.bilty /
+    documents.manual_bilty). Does not advance currentStage."""
+    import re
+    from datetime import datetime
     from app.config import settings
 
     # Phase 1 — quick checks on a short-lived session, closed before file I/O
@@ -1212,24 +1323,55 @@ async def submit_stage4_diesel(
         trip = _get_fleet_trip(trip_id, user_org, db)
         if trip.current_stage < 4:
             raise HTTPException(status_code=409, detail="Complete exit checklist first")
+
+        if not receipt and not trip.s4_diesel_receipt_url:
+            raise HTTPException(status_code=400, detail="Diesel receipt is required")
+
+        if bilty_number and not re.fullmatch(r"\d{4}", bilty_number.strip()):
+            raise HTTPException(status_code=400, detail="Bilty Number must be exactly 4 digits")
+
+        parsed_bilty_date = None
+        if bilty_date:
+            try:
+                parsed_bilty_date = datetime.fromisoformat(bilty_date)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid date/time format for bilty date")
     finally:
         db.close()
 
     # Phase 2 — slow file I/O, no DB session held
     trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
     trip_dir.mkdir(parents=True, exist_ok=True)
-    ext = Path(receipt.filename).suffix if receipt.filename else '.jpg'
-    filename = f"diesel_receipt_{_uuid_module.uuid4().hex}{ext}"
-    content = await receipt.read()
-    (trip_dir / filename).write_bytes(content)
-    receipt_url = f"/uploads/trips/{trip_id}/{filename}"
+
+    receipt_url = None
+    if receipt and receipt.filename:
+        ext = Path(receipt.filename).suffix or '.jpg'
+        filename = f"diesel_receipt_{_uuid_module.uuid4().hex}{ext}"
+        content = await receipt.read()
+        (trip_dir / filename).write_bytes(content)
+        receipt_url = f"/uploads/trips/{trip_id}/{filename}"
+
+    bilty_url = None
+    if bilty_doc and bilty_doc.filename:
+        ext = Path(bilty_doc.filename).suffix or '.jpg'
+        bilty_filename = f"bilty_{_uuid_module.uuid4().hex}{ext}"
+        bilty_content = await bilty_doc.read()
+        (trip_dir / bilty_filename).write_bytes(bilty_content)
+        bilty_url = f"/uploads/trips/{trip_id}/{bilty_filename}"
 
     # Phase 3 — quick write on a fresh session, opened only now
     db = SessionLocal()
     try:
         trip = _get_fleet_trip(trip_id, user_org, db)
-        trip.s4_diesel_receipt_url = receipt_url
-        _apply_attributions(trip, ['diesel_receipt'], current_user, role_key)
+        if receipt_url:
+            trip.s4_diesel_receipt_url = receipt_url
+        if bilty_number:
+            trip.s4_bilty_number = bilty_number.strip()
+        if bilty_url:
+            trip.s4_bilty_url = bilty_url
+        if parsed_bilty_date:
+            trip.s4_bilty_date = parsed_bilty_date
+        _apply_attributions(trip, ['diesel_receipt', 'bilty_number', 'bilty_doc'], current_user, role_key)
         db.commit()
         db.refresh(trip)
         return {"success": True, "message": "Diesel receipt uploaded.", "trip": _enrich(trip, db)}
@@ -1243,7 +1385,6 @@ async def submit_stage5(
     pod: Optional[UploadFile] = File(None),
     halting_charge: Optional[str] = Form(None),
     vehicle_reach_datetime:   str = Form(...),
-    unloading_start_datetime: str = Form(...),
     unloading_end_datetime:   str = Form(...),
     current_user: User = Depends(get_current_user),
 ):
@@ -1276,7 +1417,6 @@ async def submit_stage5(
 
         try:
             parsed_vehicle_reach_dt   = datetime.fromisoformat(vehicle_reach_datetime)
-            parsed_unloading_start_dt = datetime.fromisoformat(unloading_start_datetime)
             parsed_unloading_end_dt   = datetime.fromisoformat(unloading_end_datetime)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid date/time format for unloading timestamps")
@@ -1317,7 +1457,6 @@ async def submit_stage5(
             except decimal.InvalidOperation:
                 pass
         trip.s5_vehicle_reach_datetime   = parsed_vehicle_reach_dt
-        trip.s5_unloading_start_datetime = parsed_unloading_start_dt
         trip.s5_unloading_end_datetime   = parsed_unloading_end_dt
         trip.s5_submitted_by = current_user.id
         trip.s5_completed_at = datetime.now(timezone.utc)

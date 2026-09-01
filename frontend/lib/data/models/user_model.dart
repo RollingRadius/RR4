@@ -48,6 +48,29 @@ class UserModel {
     );
   }
 
+  /// Merges only the fields present in [json] onto this user, leaving
+  /// everything else (profileCompleted, phone, status, ...) untouched.
+  /// Use for partial responses like /api/user/refresh-token, which only
+  /// return token + org context — UserModel.fromJson on those would reset
+  /// every other field to its JSON default.
+  UserModel mergeJson(Map<String, dynamic> json) {
+    return UserModel(
+      userId: json['user_id'] as String? ?? userId,
+      username: json['username'] as String? ?? username,
+      email: json['email'] as String? ?? email,
+      fullName: json['full_name'] as String? ?? fullName,
+      phone: json['phone'] as String? ?? phone,
+      authMethod: json['auth_method'] as String? ?? authMethod,
+      status: json['status'] as String? ?? status,
+      profileCompleted: json['profile_completed'] as bool? ?? profileCompleted,
+      companyId: json['company_id'] as String? ?? companyId,
+      companyName: json['company_name'] as String? ?? companyName,
+      businessType: json['business_type'] as String? ?? businessType,
+      role: json['role'] as String? ?? role,
+      roleKey: (json['role_key'] ?? json['role']) as String? ?? roleKey,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'user_id': userId,

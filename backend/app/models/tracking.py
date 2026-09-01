@@ -31,10 +31,16 @@ class DriverLocation(Base):
         nullable=False,
         index=True
     )
+    # Nullable — a driver's org affiliation isn't fixed in this domain (RR
+    # separates vehicle ownership from who currently operates/hires it, and
+    # a driver can legitimately work trips for different companies over
+    # time). Not load-bearing for access control anywhere the per-trip Track
+    # feature uses (that resolves org via Trip.driver_id instead) — see
+    # alembic/versions/091_nullable_driver_location_org.py for the full audit.
     organization_id = Column(
         UUID(as_uuid=True),
         ForeignKey("organizations.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True
     )
 

@@ -66,6 +66,19 @@ def _get_user_org_id(current_user: User, db: Session) -> UUID:
     return user_org.organization_id
 
 
+def _get_user_org_id_optional(current_user: User, db: Session) -> UUID | None:
+    """Same lookup as _get_user_org_id, but returns None instead of raising
+    when the user has no organization — for GPS submission specifically, a
+    driver's org affiliation isn't fixed in this domain (see
+    alembic/versions/091_nullable_driver_location_org.py), so location
+    writes must not be blocked just because a driver currently has none."""
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == 'active'
+    ).first()
+    return user_org.organization_id if user_org else None
+
+
 def check_capability(capability: str, db: Session, current_user: User) -> None:
     """Check if user has required capability (sync)."""
     user_org = db.query(UserOrganization).filter(
@@ -135,8 +148,17 @@ async def create_location(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only drivers can submit location data"
         )
+    if not driver.tracking_enabled:
+        # tracking_enabled was previously advisory-only (checked client-side
+        # before starting, never enforced here) — an admin disabling it via
+        # PUT /drivers/{id}/tracking mid-trip had no actual effect on writes
+        # already in flight from a client that hadn't re-checked the flag.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tracking is disabled for this driver"
+        )
 
-    org_id = _get_user_org_id(current_user, db)
+    org_id = _get_user_org_id_optional(current_user, db)
 
     try:
         location = await tracking_service.create_location(
@@ -172,8 +194,13 @@ async def create_locations_batch(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only drivers can submit location data"
         )
+    if not driver.tracking_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tracking is disabled for this driver"
+        )
 
-    org_id = _get_user_org_id(current_user, db)
+    org_id = _get_user_org_id_optional(current_user, db)
 
     try:
         locations = await tracking_service.create_locations_batch(
@@ -608,6 +635,29 @@ async def delete_route(
 # Admin Controls
 # ============================================================================
 
+@router.get(
+    "/my-status",
+    response_model=DriverTrackingStatusResponse,
+    summary="Get the current user's own driver id + tracking status",
+    description="Self-lookup so a driver's client knows which driver_id to "
+                 "use for the self-service PUT/GET .../tracking endpoints "
+                 "below, without needing a separate 'my driver profile' route."
+)
+async def get_my_tracking_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="No driver profile found for this account")
+    return DriverTrackingStatusResponse(
+        driver_id=driver.id,
+        driver_name=driver.full_name,
+        tracking_enabled=driver.tracking_enabled,
+        updated_at=driver.updated_at
+    )
+
+
 @router.put(
     "/drivers/{driver_id}/tracking",
     response_model=DriverTrackingStatusResponse,
@@ -620,10 +670,26 @@ async def update_driver_tracking(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Enable or disable tracking for a driver"""
-    check_capability("tracking.admin.control", db, current_user)
+    """Enable or disable tracking for a driver.
 
-    driver = get_driver_and_check_org(driver_id, current_user, db)
+    A driver may always flip this on their own record (the one-time
+    permission-grant flow relies on this — self-registered independent
+    drivers have no organization, so get_driver_and_check_org's org check
+    would otherwise 403 them out of enabling their own tracking). Acting on
+    anyone else's driver still requires the admin capability + org match.
+    """
+    self_driver = db.query(Driver).filter(
+        Driver.id == driver_id, Driver.user_id == current_user.id
+    ).first()
+    if self_driver:
+        driver = self_driver
+    else:
+        # Capability-first (matches the GET counterpart below) — an
+        # unprivileged caller must not be able to learn whether a driver_id
+        # exists or which org owns it (404 vs 403) before the capability
+        # gate is even checked.
+        check_capability("tracking.admin.control", db, current_user)
+        driver = get_driver_and_check_org(driver_id, current_user, db)
 
     driver.tracking_enabled = tracking_update.tracking_enabled
     db.commit()
@@ -652,10 +718,13 @@ async def get_driver_tracking_status(
     own_driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
     is_own_status = own_driver and own_driver.id == driver_id
 
-    if not is_own_status:
+    if is_own_status:
+        # Same reasoning as the PUT above: an orgless self-registered driver
+        # must be able to read their own status without an org match.
+        driver = own_driver
+    else:
         check_capability("tracking.view.status", db, current_user)
-
-    driver = get_driver_and_check_org(driver_id, current_user, db)
+        driver = get_driver_and_check_org(driver_id, current_user, db)
 
     return DriverTrackingStatusResponse(
         driver_id=driver.id,

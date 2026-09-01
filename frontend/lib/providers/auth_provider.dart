@@ -90,6 +90,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Timer? _expiryTimer;
   Timer? _preRefreshTimer;
   Future<bool>? _refreshInFlight;
+  bool _loggingOut = false;
 
   AuthNotifier(this._authApi, this._storage, this._apiService, this._userApi, this._fcmService, this._ref) : super(AuthState()) {
     // The interceptor's 401-recovery must use the long-lived refresh-token
@@ -374,26 +375,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Logout
   Future<void> logout() async {
-    _expiryTimer?.cancel();
-    _expiryTimer = null;
-    _preRefreshTimer?.cancel();
-    _preRefreshTimer = null;
+    // Dedup guard: a burst of concurrent requests failing 401 at once (e.g.
+    // several dashboard calls in flight when the token dies) each
+    // independently call logout() via the interceptor's onLogout callback.
+    // Without this, every one of them races to read/delete the refresh
+    // token and fire its own /api/auth/logout — later callers lose the
+    // race and hit a pointless 401 "Not authenticated" on a token an
+    // earlier call already deleted.
+    if (_loggingOut) return;
+    _loggingOut = true;
+    try {
+      _expiryTimer?.cancel();
+      _expiryTimer = null;
+      _preRefreshTimer?.cancel();
+      _preRefreshTimer = null;
 
-    // Revoke server-side (best-effort) so this session actually ends, not
-    // just on this device — read before deleting, otherwise there's nothing
-    // left to send.
-    final refreshToken = await _storage.read(key: AppConfig.refreshTokenKey);
-    unawaited(_authApi.logout(refreshToken));
+      // Revoke server-side (best-effort) so this session actually ends, not
+      // just on this device — read before deleting, otherwise there's nothing
+      // left to send.
+      final refreshToken = await _storage.read(key: AppConfig.refreshTokenKey);
+      unawaited(_authApi.logout(refreshToken));
 
-    await _storage.delete(key: AppConfig.tokenKey);
-    await _storage.delete(key: AppConfig.refreshTokenKey);
+      await _storage.delete(key: AppConfig.tokenKey);
+      await _storage.delete(key: AppConfig.refreshTokenKey);
 
-    // FCM token stays in DB and topic subscriptions stay active on the device —
-    // push notifications continue to reach this device even when logged out.
+      // FCM token stays in DB and topic subscriptions stay active on the device —
+      // push notifications continue to reach this device even when logged out.
 
-    _apiService.removeToken();
-    _ref.read(rrSessionProvider.notifier).clear();
-    state = AuthState();
+      _apiService.removeToken();
+      _ref.read(rrSessionProvider.notifier).clear();
+      // isInitialized: true — we've just definitively resolved "no session
+      // exists," so the router's `if (!auth.isInitialized) return null;` guard
+      // must not disable itself here. A bare AuthState() would reset
+      // isInitialized to false (its default), silently turning off every
+      // redirect-to-login check until the app is fully restarted, since
+      // nothing else ever re-initializes auth state mid-session.
+      state = AuthState(isInitialized: true);
+    } finally {
+      _loggingOut = false;
+    }
   }
 
   /// Verify email
@@ -490,8 +510,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
         // Set token in API service
         _apiService.setToken(token);
 
-        // Update user info from response
-        final user = UserModel.fromJson(response);
+        // Merge onto the existing user — this response only carries token +
+        // org context (no profile_completed/phone/status), so rebuilding via
+        // UserModel.fromJson would silently reset those to their JSON
+        // defaults (profileCompleted: false), bouncing a fully-onboarded
+        // user to /profile-complete on every periodic refresh.
+        final existingUser = state.user;
+        final user = existingUser != null
+            ? existingUser.mergeJson(response)
+            : UserModel.fromJson(response);
 
         _scheduleExpiryLogout(token);
 

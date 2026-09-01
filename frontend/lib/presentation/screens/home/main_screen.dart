@@ -129,6 +129,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Widget _buildBottomNav(bool isMsUser, bool isDriverUser, dynamic user) {
+    // Driver dashboard is intentionally minimal (home + read-only trip
+    // details + logout, all on the one screen) — no bottom nav needed.
+    // My Trips / My Vehicle / Settings tabs are disabled for now, not
+    // deleted (see _driverNavItems / _driverRoutes above).
+    if (isDriverUser) return const SizedBox.shrink();
+
     final items =
         isMsUser ? _msNavItems : (isDriverUser ? _driverNavItems : _navItems);
     final isDark = isMsUser;

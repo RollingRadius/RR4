@@ -129,6 +129,9 @@ async def startup_event():
             role_count = tmpl_service.seed_predefined_roles()
             if role_count > 0:
                 print(f"Seeded {role_count} predefined roles")
+
+            from app.services.partition_service import ensure_driver_location_partitions
+            ensure_driver_location_partitions(db)
         except Exception as seed_error:
             # Tables may not exist yet if migrations haven't been run
             print(f"Warning: Seeding skipped (run migrations first): {seed_error}")

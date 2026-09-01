@@ -11,6 +11,7 @@ import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/widgets/rr_connection_status.dart';
+import 'package:fleet_management/presentation/widgets/trip_search_field.dart';
 import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:fleet_management/presentation/widgets/available_loads_browser.dart';
@@ -54,6 +55,10 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   Timer? _pollTimer;
   int _navIndex = 0;
   StreamSubscription<NotificationModel>? _rrExpirySub;
+  final _searchCtrl = TextEditingController();
+  String _query = '';
+  final _biltySearchCtrl = TextEditingController();
+  String _biltyQuery = '';
 
   void _switchNav(int i) {
     if (i == 0 && _navIndex != 0) _loadData();
@@ -247,6 +252,8 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   void dispose() {
     _pollTimer?.cancel();
     _rrExpirySub?.cancel();
+    _searchCtrl.dispose();
+    _biltySearchCtrl.dispose();
     super.dispose();
   }
 
@@ -267,6 +274,10 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     // client-side filtering here. Finishing Stage 5 sync does NOT remove a
     // trip from this list; only the long-press "Move to Records" action does.
     final rrTrips = tripState.trips;
+    final filteredTrips = rrTrips
+        .where((t) => matchesTripSearch(_query, t.tripNumber, t.rrTripNumber))
+        .where((t) => matchesBiltySearch(_biltyQuery, t.s4BiltyNumber))
+        .toList();
 
     return Scaffold(
       backgroundColor: _bg,
@@ -455,6 +466,30 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
               ),
             ),
 
+            // ── Search by trip number / bilty number (side by side) ───────────
+            if (!tripState.isLoading && rrTrips.isNotEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Row(children: [
+                    Expanded(
+                      child: TripSearchField(
+                        controller: _searchCtrl,
+                        onChanged: (v) => setState(() => _query = v),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TripSearchField(
+                        controller: _biltySearchCtrl,
+                        hintText: 'Search by bilty number',
+                        onChanged: (v) => setState(() => _biltyQuery = v),
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+
             // ── Trip list / empty / loading ──────────────────────────────────
             if (tripState.isLoading)
               const SliverFillRemaining(
@@ -466,14 +501,19 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                 hasScrollBody: false,
                 child: _EmptyState(),
               )
+            else if (filteredTrips.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: _NoSearchMatches(query: _query),
+              )
             else
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
                 sliver: SliverList.separated(
-                  itemCount: rrTrips.length,
+                  itemCount: filteredTrips.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (_, i) => RrTripCard(
-                    trip: rrTrips[i],
+                    trip: filteredTrips[i],
                     onRefresh: _silentRefresh,
                   ),
                 ),
@@ -741,6 +781,39 @@ class _EmptyState extends StatelessWidget {
               style: _inter(size: 13),
               textAlign: TextAlign.center,
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoSearchMatches extends StatelessWidget {
+  final String query;
+  const _NoSearchMatches({required this.query});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: _rrBlue.withValues(alpha: 0.08),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.search_off_rounded,
+                  size: 36, color: _rrBlue),
+            ),
+            const SizedBox(height: 20),
+            Text('No trips match "$query"',
+                style: _manrope(size: 17, weight: FontWeight.w700),
+                textAlign: TextAlign.center),
           ],
         ),
       ),

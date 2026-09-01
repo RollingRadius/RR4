@@ -16,6 +16,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/trip_stages_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
@@ -44,6 +46,8 @@ String _pickErrorMessage(Object e, ImageSource source) {
       ? 'Permission denied. Enable ${isCamera ? "Camera" : "Photos"} access for this app in Settings and try again.'
       : 'Could not ${isCamera ? "open camera" : "access gallery"}. Please try again.';
 }
+
+bool _isPdfFile(String nameOrUrl) => nameOrUrl.toLowerCase().endsWith('.pdf');
 
 /// Shows [_pickErrorMessage] as a SnackBar — for pickers with no local
 /// inline error-text widget to fall back on.
@@ -344,12 +348,17 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
           trip: _trip,
           readOnly: widget.readOnly,
           onComplete: (updated) {
+            // Only leave the stage form on a genuine first-time completion —
+            // re-saving an already-completed stage (e.g. updating the Bilty
+            // Number after full trip sync) should keep the user right here
+            // instead of bouncing to the post-Stage-5 completion screen.
+            final wasAlreadyDone = _trip.currentStage >= 4;
             setState(() {
               _trip = updated;
               _stage4Done = true;
               ref.read(tripProvider.notifier).patchTrip(updated);
             });
-            _exitEditMode();
+            if (!wasAlreadyDone) _exitEditMode();
           },
         );
       case 4:
@@ -359,12 +368,13 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
           trip: _trip,
           readOnly: widget.readOnly,
           onComplete: (updated) {
+            final wasAlreadyDone = _trip.currentStage >= 5;
             setState(() {
               _trip = updated;
               _stage5Done = true;
               ref.read(tripProvider.notifier).patchTrip(updated);
             });
-            _exitEditMode();
+            if (!wasAlreadyDone) _exitEditMode();
           },
         );
     }
@@ -3198,9 +3208,10 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   bool _wheelStoppers      = false;
   bool _safetyGear         = false;
 
-  // RR loading.truck_reach_datetime / loading.start_datetime
+  // RR loading.truck_reach_datetime — loading.start_datetime intentionally
+  // no longer collected in-app; reach + Stage 4's vehicle exit time already
+  // bracket the loading window.
   DateTime? _vehicleReachDatetime;
-  DateTime? _loadingStartDatetime;
   bool _showDatetimeErrors = false;
 
   // ── Per-field attribution ─────────────────────────────────────────────────
@@ -3217,13 +3228,26 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   final _wheelStoppersKey     = GlobalKey();
   final _safetyGearKey        = GlobalKey();
   final _vehicleReachKey      = GlobalKey();
-  final _loadingStartKey      = GlobalKey();
 
   final _emptyTruckWeight  = TextEditingController();
   final _loadedTruckWeight = TextEditingController();
   final _emptyWeightUnit   = ValueNotifier<String>('kg');
   final _loadedWeightUnit  = ValueNotifier<String>('kg');
   ({Uint8List bytes, String name})? _weightSlipData;
+
+  // Truck exterior photos (4 required sides + 1 optional extra), forwarded to
+  // trucks-app for OCR identification — fire-and-forget, nothing stored on
+  // RR4's side once sent. Draft-saved locally until submitted.
+  ({Uint8List bytes, String name})? _truckFrontPhoto;
+  ({Uint8List bytes, String name})? _truckBackPhoto;
+  ({Uint8List bytes, String name})? _truckLeftPhoto;
+  ({Uint8List bytes, String name})? _truckRightPhoto;
+  ({Uint8List bytes, String name})? _truckExtraPhoto;
+  // Phone number on the truck — pre-filled from the driver's Stage 1 phone,
+  // editable in case the truck owner's number is known and differs.
+  final _truckPhoneNumberCtrl = TextEditingController();
+  bool _truckReportSending = false;
+  bool _truckReportSent = false;
 
   // "Loading Completed" checkbox — part of the checklist required before
   // Complete Stage; no longer gates visibility of the rest of the form.
@@ -3253,6 +3277,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
   void initState() {
     super.initState();
     _prefillFromDraft();
+    _truckPhoneNumberCtrl.addListener(() { _touchField('truck_phone_number'); _onFieldChanged(); });
     _emptyTruckWeight.addListener(() { _touchField('empty_truck_weight'); _onFieldChanged(); });
     _loadedTruckWeight.addListener(() { _touchField('loaded_truck_weight'); _onFieldChanged(); });
     _emptyWeightUnit.addListener(_onFieldChanged);
@@ -3289,9 +3314,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
         if (trip.s3VehicleReachDatetime != null) {
           _vehicleReachDatetime = DateTime.tryParse(trip.s3VehicleReachDatetime!)?.toLocal();
         }
-        if (trip.s3LoadingStartDatetime != null) {
-          _loadingStartDatetime = DateTime.tryParse(trip.s3LoadingStartDatetime!)?.toLocal();
-        }
         _ewayBillNumberCtrl.text = trip.s3EwayBillNumber ?? '';
         if (trip.s3EwayBillIssueDate != null) {
           _ewayBillIssueDate = DateTime.tryParse(trip.s3EwayBillIssueDate!)?.toLocal();
@@ -3321,8 +3343,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _loadedWeightUnit.value = d['loaded_truck_weight_unit'] as String? ?? 'kg';
     final vehicleReachStr = d['vehicle_reach_datetime'] as String?;
     if (vehicleReachStr != null) _vehicleReachDatetime = DateTime.tryParse(vehicleReachStr)?.toLocal();
-    final loadingStartStr = d['loading_start_datetime'] as String?;
-    if (loadingStartStr != null) _loadingStartDatetime = DateTime.tryParse(loadingStartStr)?.toLocal();
     // Restore Stage 2 Dharam Kanta data (if weight was recorded outside factory)
     _s2DharamKantaLoc   = d['s2_dharam_kanta_loc']    as String?;
     _s2EmptyWeight      = d['s2_empty_weight']         as String?;
@@ -3333,6 +3353,37 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     if (slipB64 != null && slipName != null) {
       _weightSlipData = (bytes: base64Decode(slipB64), name: slipName);
     }
+    // Restore truck photos (front/back/left/right + optional extra)
+    final truckFrontB64  = d['truck_front_b64']  as String?;
+    final truckFrontName = d['truck_front_name'] as String?;
+    if (truckFrontB64 != null && truckFrontName != null) {
+      _truckFrontPhoto = (bytes: base64Decode(truckFrontB64), name: truckFrontName);
+    }
+    final truckBackB64  = d['truck_back_b64']  as String?;
+    final truckBackName = d['truck_back_name'] as String?;
+    if (truckBackB64 != null && truckBackName != null) {
+      _truckBackPhoto = (bytes: base64Decode(truckBackB64), name: truckBackName);
+    }
+    final truckLeftB64  = d['truck_left_b64']  as String?;
+    final truckLeftName = d['truck_left_name'] as String?;
+    if (truckLeftB64 != null && truckLeftName != null) {
+      _truckLeftPhoto = (bytes: base64Decode(truckLeftB64), name: truckLeftName);
+    }
+    final truckRightB64  = d['truck_right_b64']  as String?;
+    final truckRightName = d['truck_right_name'] as String?;
+    if (truckRightB64 != null && truckRightName != null) {
+      _truckRightPhoto = (bytes: base64Decode(truckRightB64), name: truckRightName);
+    }
+    final truckExtraB64  = d['truck_extra_b64']  as String?;
+    final truckExtraName = d['truck_extra_name'] as String?;
+    if (truckExtraB64 != null && truckExtraName != null) {
+      _truckExtraPhoto = (bytes: base64Decode(truckExtraB64), name: truckExtraName);
+    }
+    final draftedPhone = d['truck_phone_number'] as String?;
+    if (draftedPhone != null && draftedPhone.isNotEmpty) {
+      _truckPhoneNumberCtrl.text = draftedPhone;
+    }
+    _truckReportSent = d['truck_report_sent'] as bool? ?? false;
     // Restore e-way bill upload
     _ewayBillNumberCtrl.text = d['eway_bill_number'] as String? ?? '';
     final ewayIssueStr = d['eway_bill_issue_date'] as String?;
@@ -3405,8 +3456,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           'loaded_truck_weight_unit': _loadedWeightUnit.value,
           if (_vehicleReachDatetime != null)
             'vehicle_reach_datetime': _vehicleReachDatetime!.toUtc().toIso8601String(),
-          if (_loadingStartDatetime != null)
-            'loading_start_datetime': _loadingStartDatetime!.toUtc().toIso8601String(),
           // Persist S2 Dharam Kanta so it survives re-entry
           if (s2Loc != null) ...{
             's2_dharam_kanta_loc':    s2Loc,
@@ -3418,6 +3467,31 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             'weight_slip_b64':  base64Encode(_weightSlipData!.bytes),
             'weight_slip_name': _weightSlipData!.name,
           },
+          // Truck pictures (front/back/left/right + optional extra) + the
+          // phone number typed alongside them, forwarded to trucks-app on
+          // submit — not part of the final Stage 3 payload.
+          if (_truckFrontPhoto != null) ...{
+            'truck_front_b64':  base64Encode(_truckFrontPhoto!.bytes),
+            'truck_front_name': _truckFrontPhoto!.name,
+          },
+          if (_truckBackPhoto != null) ...{
+            'truck_back_b64':  base64Encode(_truckBackPhoto!.bytes),
+            'truck_back_name': _truckBackPhoto!.name,
+          },
+          if (_truckLeftPhoto != null) ...{
+            'truck_left_b64':  base64Encode(_truckLeftPhoto!.bytes),
+            'truck_left_name': _truckLeftPhoto!.name,
+          },
+          if (_truckRightPhoto != null) ...{
+            'truck_right_b64':  base64Encode(_truckRightPhoto!.bytes),
+            'truck_right_name': _truckRightPhoto!.name,
+          },
+          if (_truckExtraPhoto != null) ...{
+            'truck_extra_b64':  base64Encode(_truckExtraPhoto!.bytes),
+            'truck_extra_name': _truckExtraPhoto!.name,
+          },
+          'truck_phone_number': _truckPhoneNumberCtrl.text.trim(),
+          'truck_report_sent': _truckReportSent,
           // E-way bill upload
           'eway_bill_number': _ewayBillNumberCtrl.text.trim(),
           if (_ewayBillIssueDate != null)
@@ -3458,6 +3532,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _emptyWeightUnit.dispose();
     _loadedWeightUnit.dispose();
     _ewayBillNumberCtrl.dispose();
+    _truckPhoneNumberCtrl.dispose();
     _invoiceNumberCtrl.dispose();
     _actualInvoiceValueCtrl.dispose();
     super.dispose();
@@ -3497,10 +3572,245 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     _saveDraft();
   }
 
+  ({Uint8List bytes, String name})? _truckPhotoFor(String side) {
+    switch (side) {
+      case 'front': return _truckFrontPhoto;
+      case 'back':  return _truckBackPhoto;
+      case 'left':  return _truckLeftPhoto;
+      case 'right': return _truckRightPhoto;
+      case 'extra': return _truckExtraPhoto;
+    }
+    return null;
+  }
+
+  void _setTruckPhoto(String side, ({Uint8List bytes, String name})? data) {
+    setState(() {
+      switch (side) {
+        case 'front': _truckFrontPhoto = data; break;
+        case 'back':  _truckBackPhoto  = data; break;
+        case 'left':  _truckLeftPhoto  = data; break;
+        case 'right': _truckRightPhoto = data; break;
+        case 'extra': _truckExtraPhoto = data; break;
+      }
+      // Any change after a successful send means the photos no longer match
+      // what was actually forwarded — require an explicit re-send.
+      _truckReportSent = false;
+    });
+    _touchField('truck_pictures');
+    _saveDraft();
+  }
+
+  Future<void> _pickTruckPhoto(String side, ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      _setTruckPhoto(side, (bytes: bytes, name: picked.name));
+    } catch (e) {
+      if (!mounted) return;
+      _showPickError(context, e, source);
+    }
+  }
+
+  bool get _truckReportReady =>
+      _truckFrontPhoto != null && _truckRightPhoto != null &&
+      _truckLeftPhoto != null && _truckBackPhoto != null &&
+      _truckPhoneNumberCtrl.text.trim().isNotEmpty;
+
+  Future<void> _sendTruckReport() async {
+    if (!_truckReportReady || _truckReportSending) return;
+    setState(() => _truckReportSending = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final images = <MultipartFile>[
+        MultipartFile.fromBytes(_truckFrontPhoto!.bytes, filename: _truckFrontPhoto!.name),
+        MultipartFile.fromBytes(_truckRightPhoto!.bytes, filename: _truckRightPhoto!.name),
+        MultipartFile.fromBytes(_truckLeftPhoto!.bytes,  filename: _truckLeftPhoto!.name),
+        MultipartFile.fromBytes(_truckBackPhoto!.bytes,  filename: _truckBackPhoto!.name),
+        if (_truckExtraPhoto != null)
+          MultipartFile.fromBytes(_truckExtraPhoto!.bytes, filename: _truckExtraPhoto!.name),
+      ];
+      final formData = FormData.fromMap({
+        'images': images,
+        'phone_number': _truckPhoneNumberCtrl.text.trim(),
+      });
+      await dio.post('/api/trips/${widget.trip.id}/truck-report', data: formData);
+      if (!mounted) return;
+      setState(() { _truckReportSending = false; _truckReportSent = true; });
+      _saveDraft();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Truck photos sent for identification.')));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _truckReportSending = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not send truck photos: $e')));
+    }
+  }
+
+  void _showTruckPicturesSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          Future<void> pick(String side) async {
+            final source = await _showSourcePicker(sheetContext);
+            if (source == null) return;
+            await _pickTruckPhoto(side, source);
+            setSheetState(() {});
+          }
+          void remove(String side) {
+            _setTruckPhoto(side, null);
+            setSheetState(() {});
+          }
+          void preview(String side) {
+            final data = _truckPhotoFor(side);
+            if (data != null) _showImagePreview(sheetContext, bytes: data.bytes);
+          }
+          Future<void> send() async {
+            await _sendTruckReport();
+            setSheetState(() {});
+          }
+
+          const slots = [
+            ('front', 'Front'),
+            ('right', 'Right Side'),
+            ('left',  'Left Side'),
+            ('back',  'Back'),
+          ];
+
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                20, 16, 20, 24 + MediaQuery.of(sheetContext).viewInsets.bottom),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Truck Pictures', style: _manrope(size: 16, weight: FontWeight.w800)),
+                    const SizedBox(height: 4),
+                    Text('Add photos of all 4 sides of the truck',
+                        style: _inter(size: 12, color: _secondary)),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _truckPhoneNumberCtrl,
+                      keyboardType: TextInputType.phone,
+                      style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+                      onChanged: (_) => setSheetState(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'Phone number on the truck',
+                        labelStyle: _inter(size: 12, color: _secondary),
+                        filled: true,
+                        fillColor: _bg,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: _border),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: _border),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: _primary, width: 1.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    for (final (side, label) in slots) ...[
+                      _TruckPhotoSlot(
+                        label: label,
+                        data: _truckPhotoFor(side),
+                        onAdd: () => pick(side),
+                        onRemove: () => remove(side),
+                        onPreview: () => preview(side),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    const SizedBox(height: 6),
+                    Text('Extra info (optional)',
+                        style: _manrope(size: 13, weight: FontWeight.w800, color: _onSurface)),
+                    const SizedBox(height: 4),
+                    Text('Anything that helps — a close-up of the plate, a visible phone number, etc.',
+                        style: _inter(size: 11, color: _secondary)),
+                    const SizedBox(height: 10),
+                    _TruckPhotoSlot(
+                      label: 'Extra photo',
+                      data: _truckPhotoFor('extra'),
+                      onAdd: () => pick('extra'),
+                      onRemove: () => remove('extra'),
+                      onPreview: () => preview('extra'),
+                    ),
+                    const SizedBox(height: 16),
+                    if (_truckReportSent)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        decoration: BoxDecoration(
+                          color: _success.withValues(alpha: 0.10),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _success.withValues(alpha: 0.4)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.check_circle_rounded, color: _success, size: 18),
+                            const SizedBox(width: 8),
+                            Text('Sent for identification',
+                                style: _manrope(size: 13, weight: FontWeight.w700, color: _success)),
+                          ],
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: _primary,
+                            disabledBackgroundColor: _primary.withValues(alpha: 0.35),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          onPressed: (_truckReportReady && !_truckReportSending) ? send : null,
+                          child: _truckReportSending
+                              ? const SizedBox(
+                                  width: 18, height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text('Send for Identification',
+                                  style: _manrope(size: 14, weight: FontWeight.w700, color: Colors.white)),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        child: Text('Close',
+                            style: _manrope(size: 13, weight: FontWeight.w700, color: _secondary)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   bool get _checklistDone =>
       _driverParked && _docsSubmitted && _securityVerified &&
       _driverExitedCabin && _wheelStoppers && _safetyGear &&
-      _vehicleReachDatetime != null && _loadingStartDatetime != null;
+      _vehicleReachDatetime != null;
 
   bool get _allChecked => _checklistDone && _loadingComplete;
 
@@ -3522,7 +3832,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       (_wheelStoppersKey,     _wheelStoppers),
       (_safetyGearKey,        _safetyGear),
       (_vehicleReachKey,      _vehicleReachDatetime != null),
-      (_loadingStartKey,      _loadingStartDatetime != null),
     ];
     for (final (key, checked) in checks) {
       if (!checked) {
@@ -3597,7 +3906,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       'loaded_truck_weight_kg':   _loadedTruckWeight.text.trim(),
       'loaded_truck_weight_unit': _loadedWeightUnit.value,
       'vehicle_reach_datetime':   _vehicleReachDatetime!.toUtc().toIso8601String(),
-      'loading_start_datetime':   _loadingStartDatetime!.toUtc().toIso8601String(),
       if (_ewayBillNumberCtrl.text.trim().isNotEmpty)
         'eway_bill_number': _ewayBillNumberCtrl.text.trim(),
       if (_ewayBillIssueDate != null)
@@ -3660,6 +3968,15 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                 ? widget.trip.s3SubmittedByUsername
                 : null,
           ),
+
+          _TruckPicturesOption(
+            count: [_truckFrontPhoto, _truckBackPhoto, _truckLeftPhoto, _truckRightPhoto]
+                .where((p) => p != null).length,
+            phoneFilled: _truckPhoneNumberCtrl.text.trim().isNotEmpty,
+            sent: _truckReportSent,
+            onTap: widget.readOnly ? null : _showTruckPicturesSheet,
+          ),
+          const SizedBox(height: 16),
 
           Text('RR Executive coordinates with driver:',
               style: _manrope(size: 16, weight: FontWeight.w800)),
@@ -3733,17 +4050,6 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             onChanged: (dt) {
               setState(() => _vehicleReachDatetime = dt);
               _touchField('vehicle_reach_datetime');
-              _saveDraft();
-            },
-          ),
-          _DateTimeField(
-            fieldKey: _loadingStartKey,
-            label: 'Loading Start Date And Time',
-            value: _loadingStartDatetime,
-            showError: _showDatetimeErrors && _loadingStartDatetime == null,
-            onChanged: (dt) {
-              setState(() => _loadingStartDatetime = dt);
-              _touchField('loading_start_datetime');
               _saveDraft();
             },
           ),
@@ -4157,6 +4463,133 @@ class _StageAttribution extends StatelessWidget {
   }
 }
 
+// ─── Truck Pictures (Stage 3) ─────────────────────────────────────────────────
+
+class _TruckPicturesOption extends StatelessWidget {
+  final int count;
+  final bool phoneFilled;
+  final bool sent;
+  final VoidCallback? onTap;
+  const _TruckPicturesOption({
+    required this.count,
+    required this.phoneFilled,
+    required this.sent,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = count >= 4 && phoneFilled;
+    final done = sent;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: _surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: done ? _success.withValues(alpha: 0.4) : _border),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color: (done ? _success : _primary).withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                done ? Icons.check_circle_rounded : Icons.local_shipping_rounded,
+                color: done ? _success : _primary, size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Truck Pictures',
+                      style: _manrope(size: 14, weight: FontWeight.w800, color: _onSurface)),
+                  const SizedBox(height: 2),
+                  Text(
+                    done
+                        ? 'Sent for identification'
+                        : (phoneFilled ? '$count/4 photos added' : '$count/4 photos · phone number needed'),
+                    style: _inter(size: 12, color: done ? _success : (ready ? _secondary : _secondary)),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: _secondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TruckPhotoSlot extends StatelessWidget {
+  final String label;
+  final ({Uint8List bytes, String name})? data;
+  final VoidCallback onAdd;
+  final VoidCallback onRemove;
+  final VoidCallback onPreview;
+
+  const _TruckPhotoSlot({
+    required this.label,
+    required this.data,
+    required this.onAdd,
+    required this.onRemove,
+    required this.onPreview,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: _bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: data != null ? onPreview : onAdd,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: data != null
+                  ? Image.memory(data!.bytes, width: 48, height: 48, fit: BoxFit.cover)
+                  : Container(
+                      width: 48, height: 48,
+                      color: _primary.withValues(alpha: 0.08),
+                      child: const Icon(Icons.local_shipping_rounded, color: _primary, size: 20),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(label,
+                style: _manrope(size: 13, weight: FontWeight.w700, color: _onSurface)),
+          ),
+          if (data != null)
+            IconButton(
+              icon: const Icon(Icons.close_rounded, size: 20, color: _error),
+              onPressed: onRemove,
+              tooltip: 'Remove',
+            )
+          else
+            TextButton(
+              onPressed: onAdd,
+              child: Text('Add', style: _manrope(size: 13, weight: FontWeight.w700, color: _primary)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -4309,6 +4742,7 @@ class _DateTimeField extends StatelessWidget {
   // at sync time. Set true for those fields so it can't be picked in the
   // first place. RR's loading.* fields have no such restriction.
   final bool disallowFuture;
+  final bool enabled;
 
   const _DateTimeField({
     required this.label,
@@ -4317,6 +4751,7 @@ class _DateTimeField extends StatelessWidget {
     this.showError = false,
     this.fieldKey,
     this.disallowFuture = false,
+    this.enabled = true,
   });
 
   Future<void> _pick(BuildContext context) async {
@@ -4361,12 +4796,12 @@ class _DateTimeField extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 14),
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
-        onTap: () => _pick(context),
+        onTap: enabled ? () => _pick(context) : null,
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: label,
             labelStyle: _inter(size: 13, color: showError ? _error : _secondary),
-            suffixIcon: Icon(Icons.calendar_today_rounded, size: 18,
+            suffixIcon: Icon(enabled ? Icons.calendar_today_rounded : Icons.lock_outline_rounded, size: 18,
                 color: showError ? _error : _secondary),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
@@ -4374,6 +4809,7 @@ class _DateTimeField extends StatelessWidget {
             ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             errorText: showError ? '$label is required' : null,
+            helperText: enabled ? null : 'Locked — already synced to RR',
           ),
           child: Text(
             hasValue ? _format(value!) : 'Select date & time',
@@ -5321,6 +5757,92 @@ class _PickerOption extends StatelessWidget {
   }
 }
 
+/// Card shown in place of an image thumbnail when the selected/uploaded POD
+/// is a PDF — [onOpen] opens an already-uploaded PDF externally, [onRemove]
+/// discards a freshly-picked one, [onReplace] re-opens the picker sheet.
+class _PodPdfCard extends StatelessWidget {
+  final String filename;
+  final String badgeText;
+  final VoidCallback? onOpen;
+  final VoidCallback? onRemove;
+  final VoidCallback? onReplace;
+
+  const _PodPdfCard({
+    required this.filename,
+    required this.badgeText,
+    this.onOpen,
+    this.onRemove,
+    this.onReplace,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(children: [
+      GestureDetector(
+        onTap: onOpen,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
+          child: Column(children: [
+            Icon(Icons.picture_as_pdf_rounded, size: 44, color: _error),
+            const SizedBox(height: 10),
+            Text(filename,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface)),
+            if (onOpen != null) ...[
+              const SizedBox(height: 4),
+              Text('Tap to view', style: _inter(size: 11, color: _secondary)),
+            ],
+          ]),
+        ),
+      ),
+      if (onRemove != null)
+        Positioned(
+          top: 8, right: 8,
+          child: GestureDetector(
+            onTap: onRemove,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+              child: Icon(Icons.close_rounded, size: 16, color: _error),
+            ),
+          ),
+        ),
+      Positioned(
+        top: 8, left: 8,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(color: _success, borderRadius: BorderRadius.circular(20)),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
+            const SizedBox(width: 4),
+            Text(badgeText,
+                style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+          ]),
+        ),
+      ),
+      if (onReplace != null)
+        Positioned(
+          bottom: 8, right: 8,
+          child: GestureDetector(
+            onTap: onReplace,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration:
+                  BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 12),
+                const SizedBox(width: 4),
+                Text('Tap to replace', style: _inter(size: 11, color: Colors.white)),
+              ]),
+            ),
+          ),
+        ),
+    ]);
+  }
+}
+
 // ─── Stage 4: Truck Exit From Factory ─────────────────────────────────────────
 
 class _Stage4Form extends ConsumerStatefulWidget {
@@ -5352,6 +5874,13 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   bool _dieselUploading = false;
   String? _dieselError;
 
+  // ── Bilty (under diesel receipt) — RR parcels.documents.bilty /
+  // documents.manual_bilty. Date is optional, matches RR web's own field.
+  final _biltyNumberCtrl = TextEditingController();
+  ({Uint8List bytes, String name})? _biltyDocFile;
+  DateTime? _biltyDate;
+  String? _biltyNumberError;
+
   // ── Per-field attribution ─────────────────────────────────────────────────
   final Map<String, String> _fieldAttributions = {};
   final Set<String> _touchedByMe = {};
@@ -5365,8 +5894,14 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   @override
   void initState() {
     super.initState();
-    // If checklist already submitted, go straight to diesel phase
-    if (widget.trip.currentStage >= 4) _showDiesel = true;
+    // Always land on the exit checklist first when (re-)opening this stage —
+    // the diesel/bilty phase is reachable via the nav button below, not
+    // auto-selected, so a completed checklist stays visible/editable.
+    _biltyNumberCtrl.addListener(() {
+      _touchField('bilty_number');
+      if (_biltyNumberError != null) setState(() => _biltyNumberError = null);
+      _onCheckChanged();
+    });
     _prefillFromDraft();
   }
 
@@ -5390,6 +5925,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
         if (trip.s4VehicleExitDatetime != null) {
           _vehicleExitDatetime = DateTime.tryParse(trip.s4VehicleExitDatetime!)?.toLocal();
         }
+        if (trip.s4BiltyNumber != null) _biltyNumberCtrl.text = trip.s4BiltyNumber!;
+        if (trip.s4BiltyDate != null) {
+          _biltyDate = DateTime.tryParse(trip.s4BiltyDate!)?.toLocal();
+        }
       }
       return;
     }
@@ -5403,6 +5942,14 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     }
     final exitDtStr = d['vehicle_exit_datetime'] as String?;
     if (exitDtStr != null) _vehicleExitDatetime = DateTime.tryParse(exitDtStr)?.toLocal();
+    _biltyNumberCtrl.text = d['bilty_number'] as String? ?? '';
+    final biltyB64  = d['bilty_bytes'] as String?;
+    final biltyName = d['bilty_name']  as String? ?? 'bilty.jpg';
+    if (biltyB64 != null && biltyB64.isNotEmpty) {
+      try { _biltyDocFile = (bytes: base64Decode(biltyB64), name: biltyName); } catch (_) {}
+    }
+    final biltyDtStr = d['bilty_date'] as String?;
+    if (biltyDtStr != null) _biltyDate = DateTime.tryParse(biltyDtStr)?.toLocal();
     // Draft attributions override persistent ones
     final attrs = draft['attributions'] as Map<String, dynamic>?;
     if (attrs != null) {
@@ -5432,6 +5979,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           if (_dieselFile != null) 'diesel_name':  _dieselFile!.name,
           if (_vehicleExitDatetime != null)
             'vehicle_exit_datetime': _vehicleExitDatetime!.toUtc().toIso8601String(),
+          if (_biltyNumberCtrl.text.trim().isNotEmpty) 'bilty_number': _biltyNumberCtrl.text.trim(),
+          if (_biltyDocFile != null) 'bilty_bytes': base64Encode(_biltyDocFile!.bytes),
+          if (_biltyDocFile != null) 'bilty_name':  _biltyDocFile!.name,
+          if (_biltyDate != null) 'bilty_date': _biltyDate!.toUtc().toIso8601String(),
         },
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
@@ -5444,6 +5995,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
 
   @override
   void dispose() {
+    _biltyNumberCtrl.dispose();
     if (_debounce?.isActive ?? false) {
       _debounce!.cancel();
       unawaited(_saveDraft(duringDispose: true));
@@ -5452,6 +6004,12 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     }
     super.dispose();
   }
+
+  // RR's bilty-number endpoint is a one-time assignment per parcel — once the
+  // first sync succeeds, RR rejects every later call for that parcel, so a
+  // re-edit here would never actually reach RR. Lock the fields instead of
+  // silently accepting edits that can't be synced.
+  bool get _biltyLocked => widget.trip.s4BiltySynced == true;
 
   bool get _allChecklistDone =>
       _truckMoved && _securityCheck && _biltyChecked && _weightChecked && _materialChecked &&
@@ -5486,6 +6044,26 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
       }
+    }
+  }
+
+  // ── Bilty doc pick (under diesel receipt) ─────────────────────────────────
+  Future<void> _pickBiltyDoc(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      setState(() => _biltyDocFile = (bytes: bytes, name: picked.name));
+      _touchField('bilty_doc');
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_pickErrorMessage(e, source)),
+        backgroundColor: _error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
     }
   }
 
@@ -5541,12 +6119,24 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   }
 
   Future<void> _uploadDiesel() async {
-    if (_dieselFile == null || _dieselUploading) return;
+    if ((_dieselFile == null && widget.trip.s4DieselReceiptUrl == null) || _dieselUploading) return;
+    final biltyNumber = _biltyNumberCtrl.text.trim();
+    if (biltyNumber.isNotEmpty && !RegExp(r'^\d{4}$').hasMatch(biltyNumber)) {
+      setState(() => _biltyNumberError = 'Bilty Number must be exactly 4 digits');
+      return;
+    }
     setState(() { _dieselUploading = true; _dieselError = null; });
     try {
       final dio = ref.read(dioProvider);
       final formData = FormData.fromMap({
-        'receipt': MultipartFile.fromBytes(_dieselFile!.bytes, filename: _dieselFile!.name),
+        if (_dieselFile != null)
+          'receipt': MultipartFile.fromBytes(_dieselFile!.bytes, filename: _dieselFile!.name),
+        if (_biltyNumberCtrl.text.trim().isNotEmpty)
+          'bilty_number': _biltyNumberCtrl.text.trim(),
+        if (_biltyDocFile != null)
+          'bilty_doc': MultipartFile.fromBytes(_biltyDocFile!.bytes, filename: _biltyDocFile!.name),
+        if (_biltyDate != null)
+          'bilty_date': _biltyDate!.toUtc().toIso8601String(),
       });
       final resp = await dio.post(
         '/api/trips/${widget.trip.id}/stage/4/diesel',
@@ -5555,7 +6145,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
       final updated = TripModel.fromJson(
         (resp.data as Map<String, dynamic>)['trip'] as Map<String, dynamic>,
       );
-      if (mounted) widget.onComplete(updated);
+      if (mounted) {
+        setState(() { _dieselUploading = false; _dieselFile = null; });
+        widget.onComplete(updated);
+      }
     } catch (e) {
       final msg = e is DioException
           ? _dioErrorDetail(e, 'Upload failed')
@@ -5682,7 +6275,23 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => setState(() => _showDiesel = !_showDiesel),
+              icon: Icon(
+                _showDiesel ? Icons.arrow_back_rounded : Icons.arrow_forward_rounded,
+                size: 16,
+              ),
+              label: Text(_showDiesel ? 'Exit Checklist' : 'Diesel Receipt and Bilty'),
+              style: TextButton.styleFrom(
+                foregroundColor: _StageTheme.rrWeb.primary,
+                textStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
 
           if (!_showDiesel) ...[ // ── Phase 1: Checklist ──────────────────────
             _SectionHeader(icon: Icons.directions_car_outlined, title: 'Exit Procedure'),
@@ -5950,6 +6559,50 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
             ],
             const SizedBox(height: 20),
 
+            _SectionHeader(icon: Icons.receipt_long_rounded, title: 'Bilty'),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _biltyNumberCtrl,
+              enabled: !widget.readOnly && !_biltyLocked,
+              keyboardType: TextInputType.number,
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(4),
+              ],
+              style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
+              decoration: _stageFieldDec('Bilty Number (4 digits)').copyWith(
+                errorText: _biltyNumberError,
+                helperText: _biltyLocked ? 'Locked — already synced to RR' : null,
+                suffixIcon: _biltyLocked ? const Icon(Icons.lock_outline_rounded, size: 18) : null,
+              ),
+            ),
+            _FieldAttribution(username: _attrOf('bilty_number')),
+            const SizedBox(height: 14),
+            _DocUploadTile(
+              label: 'Manual Bilty Upload',
+              subtitle: 'Upload the physical bilty document',
+              bytes: _biltyDocFile?.bytes,
+              fileName: _biltyDocFile?.name,
+              existingUrl: widget.trip.s4BiltyUrl,
+              onPickSource: _pickBiltyDoc,
+              onRemove: () { setState(() => _biltyDocFile = null); _saveDraft(); },
+              readOnly: widget.readOnly,
+            ),
+            _FieldAttribution(username: _attrOf('bilty_doc')),
+            const SizedBox(height: 14),
+            _DateTimeField(
+              label: 'Bilty Date And Time (Optional)',
+              value: _biltyDate,
+              showError: false,
+              enabled: !widget.readOnly && !_biltyLocked,
+              onChanged: (dt) {
+                setState(() => _biltyDate = dt);
+                _touchField('bilty_date');
+                _saveDraft();
+              },
+            ),
+            const SizedBox(height: 20),
+
             if (_lastSaved != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
@@ -5961,16 +6614,17 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                 ]),
               ),
 
-            if (_dieselFile != null || !showExistingDiesel)
-              SizedBox(
+            SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: (_dieselFile != null && !_dieselUploading && !widget.readOnly) ? _uploadDiesel : null,
+                  onPressed: ((_dieselFile != null || showExistingDiesel) && !_dieselUploading && !widget.readOnly)
+                      ? _uploadDiesel
+                      : null,
                   icon: _dieselUploading
                       ? const SizedBox(width: 18, height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.upload_rounded, size: 20),
-                  label: Text(_dieselUploading ? 'Uploading…' : 'Submit Diesel Receipt'),
+                  label: Text(_dieselUploading ? 'Uploading…' : (showExistingDiesel && _dieselFile == null ? 'Save' : 'Submit Diesel Receipt')),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _StageTheme.rrWeb.primary,
                     foregroundColor: Colors.white,
@@ -6008,9 +6662,10 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
   String? _errorMsg;
   DateTime? _lastSaved;
 
-  // RR unloading.{truck_reach_datetime,start_datetime,end_datetime}
+  // RR unloading.{truck_reach_datetime,end_datetime} — start_datetime
+  // intentionally no longer collected in-app; reach + end already bracket
+  // the unloading window.
   DateTime? _vehicleReachDatetime;
-  DateTime? _unloadingStartDatetime;
   DateTime? _unloadingEndDatetime;
   bool _showDatetimeErrors = false;
 
@@ -6065,9 +6720,6 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
         if (trip.s5VehicleReachDatetime != null) {
           _vehicleReachDatetime = DateTime.tryParse(trip.s5VehicleReachDatetime!)?.toLocal();
         }
-        if (trip.s5UnloadingStartDatetime != null) {
-          _unloadingStartDatetime = DateTime.tryParse(trip.s5UnloadingStartDatetime!)?.toLocal();
-        }
         if (trip.s5UnloadingEndDatetime != null) {
           _unloadingEndDatetime = DateTime.tryParse(trip.s5UnloadingEndDatetime!)?.toLocal();
         }
@@ -6083,8 +6735,6 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
     _haltingChargeCtrl.text = data['halting_charge'] as String? ?? '';
     final vehicleReachStr = data['vehicle_reach_datetime'] as String?;
     if (vehicleReachStr != null) _vehicleReachDatetime = DateTime.tryParse(vehicleReachStr)?.toLocal();
-    final unloadStartStr = data['unloading_start_datetime'] as String?;
-    if (unloadStartStr != null) _unloadingStartDatetime = DateTime.tryParse(unloadStartStr)?.toLocal();
     final unloadEndStr = data['unloading_end_datetime'] as String?;
     if (unloadEndStr != null) _unloadingEndDatetime = DateTime.tryParse(unloadEndStr)?.toLocal();
     // Draft attributions override persistent ones
@@ -6109,8 +6759,6 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           if (_haltingChargeCtrl.text.isNotEmpty) 'halting_charge': _haltingChargeCtrl.text,
           if (_vehicleReachDatetime != null)
             'vehicle_reach_datetime': _vehicleReachDatetime!.toUtc().toIso8601String(),
-          if (_unloadingStartDatetime != null)
-            'unloading_start_datetime': _unloadingStartDatetime!.toUtc().toIso8601String(),
           if (_unloadingEndDatetime != null)
             'unloading_end_datetime': _unloadingEndDatetime!.toUtc().toIso8601String(),
         },
@@ -6134,6 +6782,40 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _errorMsg = _pickErrorMessage(e, source));
+    }
+  }
+
+  Future<void> _pickPodDocument() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        withData: true,
+      );
+      final file = result?.files.single;
+      final bytes = file?.bytes;
+      if (file == null || bytes == null || !mounted) return;
+      setState(() { _podFile = (bytes: bytes, name: file.name); _errorMsg = null; });
+      _touchField('pod_doc');
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMsg = 'Could not open file picker. Please try again.');
+    }
+  }
+
+  Future<void> _openPdfUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open the PDF.', style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
     }
   }
 
@@ -6166,6 +6848,11 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                   icon: Icons.photo_library_rounded, label: 'Gallery', color: _secondary,
                   onTap: () { Navigator.pop(context); _pickPod(ImageSource.gallery); },
                 )),
+                const SizedBox(width: 12),
+                Expanded(child: _PickerOption(
+                  icon: Icons.picture_as_pdf_rounded, label: 'File (PDF)', color: _error,
+                  onTap: () { Navigator.pop(context); _pickPodDocument(); },
+                )),
               ]),
             ],
           ),
@@ -6179,7 +6866,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
       setState(() => _errorMsg = 'Please upload the Proof of Delivery document');
       return;
     }
-    if (_vehicleReachDatetime == null || _unloadingStartDatetime == null || _unloadingEndDatetime == null) {
+    if (_vehicleReachDatetime == null || _unloadingEndDatetime == null) {
       setState(() => _showDatetimeErrors = true);
       return;
     }
@@ -6192,7 +6879,6 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
         if (_haltingChargeCtrl.text.trim().isNotEmpty)
           'halting_charge': _haltingChargeCtrl.text.trim(),
         'vehicle_reach_datetime':   _vehicleReachDatetime!.toUtc().toIso8601String(),
-        'unloading_start_datetime': _unloadingStartDatetime!.toUtc().toIso8601String(),
         'unloading_end_datetime':   _unloadingEndDatetime!.toUtc().toIso8601String(),
       });
       final resp = await dio.post(
@@ -6299,7 +6985,15 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
               ),
             ),
             child: _podFile != null
-                ? Stack(children: [
+                ? (_isPdfFile(_podFile!.name)
+                    ? _PodPdfCard(
+                        filename: _podFile!.name,
+                        badgeText: 'Ready to Upload',
+                        onRemove: widget.readOnly
+                            ? null
+                            : () { setState(() => _podFile = null); _saveDraft(); },
+                      )
+                    : Stack(children: [
                     GestureDetector(
                       onTap: () => _showImagePreview(context, bytes: _podFile!.bytes),
                       child: ClipRRect(
@@ -6336,9 +7030,16 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                         ]),
                       ),
                     ),
-                  ])
+                  ]))
                 : showExisting
-                    ? Stack(children: [
+                    ? (_isPdfFile(existingPodUrl)
+                        ? _PodPdfCard(
+                            filename: existingPodUrl.split('/').last,
+                            badgeText: 'POD Uploaded',
+                            onOpen: () => _openPdfUrl(podImageUrl!),
+                            onReplace: widget.readOnly ? null : _showPodPicker,
+                          )
+                        : Stack(children: [
                         GestureDetector(
                           onTap: () => _showImagePreview(context, url: podImageUrl),
                           child: ClipRRect(
@@ -6397,7 +7098,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                               ),
                             ),
                           ),
-                      ])
+                      ]))
                     : GestureDetector(
                         onTap: widget.readOnly ? null : _showPodPicker,
                         child: Padding(
@@ -6410,7 +7111,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                                 style: _inter(size: 13, weight: FontWeight.w600,
                                     color: _secondary)),
                             const SizedBox(height: 4),
-                            Text('Camera or Gallery',
+                            Text('Camera, Gallery, or PDF File',
                                 style: _inter(
                                     size: 11,
                                     color: _secondary.withValues(alpha: 0.7))),
@@ -6432,17 +7133,6 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
             onChanged: (dt) {
               setState(() => _vehicleReachDatetime = dt);
               _touchField('vehicle_reach_datetime');
-              _saveDraft();
-            },
-          ),
-          _DateTimeField(
-            label: 'Unloading Start Date And Time',
-            value: _unloadingStartDatetime,
-            showError: _showDatetimeErrors && _unloadingStartDatetime == null,
-            disallowFuture: true,
-            onChanged: (dt) {
-              setState(() => _unloadingStartDatetime = dt);
-              _touchField('unloading_start_datetime');
               _saveDraft();
             },
           ),

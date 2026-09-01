@@ -238,6 +238,18 @@ class TrackingApi {
     }
   }
 
+  /// Get the current user's own driver_id + tracking status. Throws if the
+  /// account has no linked driver profile (404) — callers should treat that
+  /// as "not applicable," not a hard error.
+  Future<Map<String, dynamic>> getMyTrackingStatus() async {
+    try {
+      final response = await _apiService.dio.get('/api/v1/tracking/my-status');
+      return response.data;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
   // ========================================================================
   // Admin Controls
   // ========================================================================

@@ -87,7 +87,14 @@ class ApiService {
           final isAuthCall = path.contains('/refresh-token') ||
               path.contains('/auth/refresh') ||
               path.contains('/auth/login') ||
-              path.contains('/auth/signup');
+              path.contains('/auth/signup') ||
+              // /auth/logout requires a still-valid access token
+              // (Depends(get_current_user)) — but logout() only ever calls it
+              // BECAUSE the token is already dead, so it can never succeed.
+              // Without this exclusion, its own 401 re-triggers refresh-then-
+              // logout, which calls logout() again, which fires another
+              // doomed /auth/logout call — an infinite loop.
+              path.contains('/auth/logout');
           if (!isAuthCall) {
             final refreshed = await _onRefresh!();
             if (refreshed) {
@@ -102,16 +109,13 @@ class ApiService {
                 // retry also failed — fall through to logout
               }
             }
-            // Only logout if the failed path is one the user is authorized to access.
-            // 401 on LP-only endpoints (stages, claims) for a load_owner are
-            // permission errors — do not log the user out.
-            final isLpOnly = path.contains('/claim-stage') ||
-                path.contains('/submit-stage') ||
-                path.contains('/stage/') ||
-                path.contains('/save-draft');
-            if (!isLpOnly) {
-              await _onLogout?.call();
-            }
+            // A 401 here is always genuine token invalidity — get_current_user
+            // (backend/app/dependencies.py) is the only source of 401 on any
+            // endpoint, including stage/claim-stage/save-draft; real permission
+            // failures (e.g. "Fleet managers only") use 403, never 401. So
+            // every 401 that survives a failed refresh means the session is
+            // dead and the user must be logged out, regardless of path.
+            await _onLogout?.call();
           }
         }
         handler.next(error);

@@ -968,13 +968,23 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
 
 async def _sync_stage4_fuel_slip(trip, client: httpx.AsyncClient, token: str, db) -> None:
     """
-    Two independent pushes for Stage 4:
+    Independent pushes for Stage 4:
       - fuel_slip photo   → POST /post_loading_slip (trip_documents, "Fuel Slip")
       - loading.end_datetime (vehicle exit) → PATCH /parcels/{id} (needs its own
         etag fetch — different RR endpoint from post_loading_slip entirely)
-    Either part runs independently of the other being present.
+      - bilty number      → GET /get_and_update_bilty_number (RR's own dedicated,
+        idempotency-guarded assignment endpoint — NOT a raw PATCH, matches RR's
+        own web UI, which uses this same endpoint from its "Generate Bilty" dialog)
+      - manual bilty photo → PATCH /parcels/{id}, documents.manual_bilty.photos[]
+        (note the photo key is "manual_photo", not "photo" like every other doc type)
+    Each part runs independently of the others being present.
     """
-    if not trip.s4_diesel_receipt_url and not trip.s4_vehicle_exit_datetime:
+    if (
+        not trip.s4_diesel_receipt_url
+        and not trip.s4_vehicle_exit_datetime
+        and not trip.s4_bilty_number
+        and not trip.s4_bilty_url
+    ):
         return
 
     errors: list[str] = []
@@ -1030,6 +1040,69 @@ async def _sync_stage4_fuel_slip(trip, client: httpx.AsyncClient, token: str, db
                 else:
                     trip.rr_parcel_etag = patch_resp.json().get("_etag", etag)
                     logger.info(f"[RR Sync S4] Trip {trip.trip_number} loading.end_datetime synced")
+
+    # ── Bilty number (RR's own dedicated, idempotency-guarded endpoint) ──────────
+    if trip.s4_bilty_number:
+        attempted = True
+        if not trip.rr_parcel_id:
+            trip.rr_s4_sync_status = "pending_trip_creation"
+            db.commit()
+            return
+        params = {"parcel_id": trip.rr_parcel_id, "bilty_number": trip.s4_bilty_number}
+        if trip.s4_bilty_date:
+            params["bilty_date"] = trip.s4_bilty_date.strftime("%Y-%m-%dT%H:%M:%S")
+        try:
+            bilty_resp = await client.get(
+                f"{settings.RR_API_BASE}/get_and_update_bilty_number",
+                params=params,
+                headers=_auth_header(token),
+            )
+        except Exception as exc:
+            errors.append(f"get_and_update_bilty_number exception: {exc}")
+        else:
+            if bilty_resp.status_code in (200, 201):
+                trip.s4_bilty_synced = True
+                logger.info(f"[RR Sync S4] Trip {trip.trip_number} bilty number synced")
+            elif bilty_resp.status_code == 400 and "already exists" in bilty_resp.text.lower():
+                # RR's endpoint is a one-time assignment per parcel — a retry/re-sync
+                # hitting this means it's already synced, not a real failure. Lock the
+                # field so the frontend stops offering edits RR will never accept again.
+                trip.s4_bilty_synced = True
+                logger.info(
+                    f"[RR Sync S4] Trip {trip.trip_number} bilty number already set on RR — treating as synced"
+                )
+            else:
+                errors.append(f"get_and_update_bilty_number HTTP {bilty_resp.status_code}: {bilty_resp.text[:300]}")
+
+    # ── Manual bilty photo ────────────────────────────────────────────────────────
+    if trip.s4_bilty_url:
+        attempted = True
+        if not trip.rr_parcel_id:
+            trip.rr_s4_sync_status = "pending_trip_creation"
+            db.commit()
+            return
+        rr_bilty_photo_id = await _upload_file(trip.s4_bilty_url, client, token)
+        if not rr_bilty_photo_id:
+            errors.append("Manual bilty photo upload to RR failed")
+        else:
+            etag = await _fetch_parcel_etag(trip.rr_parcel_id, client, token)
+            if not etag:
+                errors.append("Could not fetch parcel etag from RR for manual_bilty photo")
+            else:
+                try:
+                    patch_resp = await client.patch(
+                        f"{settings.RR_API_BASE}/parcels/{trip.rr_parcel_id}",
+                        json={"documents": {"manual_bilty": {"photos": [{"manual_photo": rr_bilty_photo_id, "side": "Front"}]}}},
+                        headers={**_json_header(token), "If-Match": etag},
+                    )
+                except Exception as exc:
+                    errors.append(f"PATCH parcel (manual_bilty) exception: {exc}")
+                else:
+                    if patch_resp.status_code not in (200, 201):
+                        errors.append(f"PATCH parcel (manual_bilty) HTTP {patch_resp.status_code}: {patch_resp.text[:300]}")
+                    else:
+                        trip.rr_parcel_etag = patch_resp.json().get("_etag", etag)
+                        logger.info(f"[RR Sync S4] Trip {trip.trip_number} manual bilty photo synced")
 
     if not attempted:
         return

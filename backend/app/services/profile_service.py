@@ -169,8 +169,14 @@ class ProfileService:
                 )
             driver_id = driver.id
 
-            # Drivers are independent users with a driver record
-            role = self._get_role_by_key('independent_user')
+            # Self-registered drivers get the real 'driver' role (same role_key
+            # driver_service.py's LP-added-driver flow assigns) — previously
+            # this assigned 'independent_user' instead, which meant a self-
+            # registered driver could never reach the driver dashboard at all
+            # (UserModel.isDriver / dashboardRouteFor key off role_key=='driver'
+            # specifically). No organization for this signup path — same as
+            # before — since they aren't part of any LP's fleet.
+            role = self._get_role_by_key('driver')
             user_org = UserOrganization(
                 user_id=user.id,
                 organization_id=None,
@@ -417,9 +423,19 @@ class ProfileService:
 
         is_independent = current_role and current_role.is_independent_user()
         is_pending = current_role and current_role.is_pending_user()
+        # A self-registered driver (role_key='driver', organization_id=None
+        # — the driver signup path above assigns the real 'driver' role, not
+        # 'independent_user') must be able to change their role/company the
+        # same way an independent user can; they were never an "active
+        # organization member" just because their role isn't independent_user.
+        is_orgless_driver = (
+            current_role and current_role.role_key == 'driver'
+            and user_org.organization_id is None
+        )
 
-        # Only Independent Users and Pending Users can change their role/company
-        if not is_independent and not is_pending:
+        # Only Independent Users, Pending Users, and orgless drivers can
+        # change their role/company directly.
+        if not is_independent and not is_pending and not is_orgless_driver:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Active organization members cannot change their role directly. Contact your organization admin."
@@ -513,8 +529,13 @@ class ProfileService:
                 )
             driver_id = driver.id
 
-            # Role remains Independent User
-            role = current_role
+            # Same fix as the initial-signup driver path above: assign the
+            # real 'driver' role (not "remains Independent User" — the old
+            # comment here matched the intent, but this branch never actually
+            # applied `role` to user_org.role_id at all, unlike every sibling
+            # branch below, so the role never changed either way).
+            role = self._get_role_by_key('driver')
+            user_org.role_id = role.id
 
         elif role_type == 'join_company':
             # Join existing company

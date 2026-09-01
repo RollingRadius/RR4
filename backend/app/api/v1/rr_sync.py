@@ -23,6 +23,7 @@ from app.models.company import Organization
 from app.models.trip import Trip
 from app.models.user import User
 from app.services.rr_sync_service import _json_header
+from app.services.driver_link_service import link_driver_to_trip
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -1230,39 +1231,82 @@ async def get_user_vehicles(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Proxies GET /vehicles?where={"$and":[{"created_by":"<id>","$or":[...no company...]}]}
-    Returns vehicles personally created by the user (not linked to a company).
+    Combines:
+    - GET /vehicles?where={"$and":[{"created_by":"<id>","$or":[...no company...]}]}  (owned fleet)
+    - GET /market_vehicles?where={"$and":[{"third_party_user_id":"<id>"},{"status":"Approved"},…]}
+    Returns a deduplicated vehicle list.
     """
     token = await _resolve_org_rr_token(rr_token, db, current_user)
     headers = {"Authorization": f"Bearer {token}"} if token else {}
-    where = json.dumps({"$and": [
-        {
-            "created_by": user_id,
-            "$or": [
-                {"created_by_company": {"$eq": None}},
-                {"created_by_company": {"$exists": False}},
-            ],
-        }
-    ]})
+    vehicles: list[dict] = []
+
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
-        resp = await client.get(
-            f"{settings.RR_API_BASE}/vehicles",
-            params={
-                "where":      where,
-                "embedded":   json.dumps({"engine.model": 1, "created_by": 1, "crew.worker": 1}),
-                "sort":       json.dumps([("_created", -1)]),
-                "max_results": 300000,
-            },
-            headers=headers,
-        )
-    if resp.status_code != 200:
-        raise HTTPException(status_code=502, detail=f"RR API error {resp.status_code}")
-    vehicles = []
-    for v in resp.json().get("_items", []):
-        entry = _extract_vehicle_entry(v, "vehicles")
-        if entry:
-            vehicles.append(entry)
-    return {"vehicles": vehicles}
+        # ── Owned fleet vehicles ──────────────────────────────────────────────
+        try:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/vehicles",
+                params={
+                    "where": json.dumps({"$and": [
+                        {
+                            "created_by": user_id,
+                            "$or": [
+                                {"created_by_company": {"$eq": None}},
+                                {"created_by_company": {"$exists": False}},
+                            ],
+                        }
+                    ]}),
+                    "embedded":   json.dumps({"engine.model": 1, "created_by": 1, "crew.worker": 1}),
+                    "sort":       json.dumps([("_created", -1)]),
+                    "max_results": 300000,
+                },
+                headers=headers,
+            )
+            if resp.status_code == 200:
+                for v in resp.json().get("_items", []):
+                    entry = _extract_vehicle_entry(v, "vehicles")
+                    if entry:
+                        vehicles.append(entry)
+        except Exception as exc:
+            logger.warning(f"[user-vehicles] /vehicles failed: {exc}")
+
+        # ── Market vehicles (third-party, approved) ───────────────────────────
+        try:
+            resp = await client.get(
+                f"{settings.RR_API_BASE}/market_vehicles",
+                params={
+                    "where": json.dumps({"$and": [
+                        {"third_party_user_id": user_id},
+                        {"status": "Approved"},
+                        {"approved_start_date": {"$exists": True, "$ne": None}},
+                        {"approved_end_date":   {"$exists": True, "$ne": None}},
+                        {"$or": [
+                            {"third_party_company_id": {"$eq": None}},
+                            {"third_party_company_id": {"$exists": False}},
+                        ]},
+                    ]}),
+                    "embedded":   json.dumps({"vehicle_id": 1, "vehicle_id.engine.model": 1,
+                                              "vehicle_id.crew.worker": 1,
+                                              "third_party_user_id": 1}),
+                    "max_results": 300000,
+                },
+                headers=headers,
+            )
+            if resp.status_code == 200:
+                for v in resp.json().get("_items", []):
+                    entry = _extract_vehicle_entry(v, "market_vehicles")
+                    if entry:
+                        vehicles.append(entry)
+        except Exception as exc:
+            logger.warning(f"[user-vehicles] /market_vehicles failed: {exc}")
+
+    # deduplicate by rr_vehicle_id
+    seen: set[str] = set()
+    unique = []
+    for v in vehicles:
+        if v["rr_vehicle_id"] not in seen:
+            seen.add(v["rr_vehicle_id"])
+            unique.append(v)
+    return {"vehicles": unique}
 
 
 @router.get("/company-vehicles", summary="Get vehicles linked to an RR company")
@@ -1725,6 +1769,15 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
     trip.rr_synced_at   = _dt.utcnow()
     db.commit()
 
+    # Best-effort local driver link (phone match) — never blocks trip-creation
+    # success. Covers both the first-attempt path and the Stage-0 retry path
+    # (complete_trip_in_rr also calls this function).
+    if rr_driver_id:
+        try:
+            await link_driver_to_trip(trip, rr_driver_id, rr_token, db)
+        except Exception:
+            logger.exception(f"[Create Trip] driver phone-link failed for {trip.trip_number}")
+
     logger.info(
         f"[Create Trip] {trip.trip_number} -> rr_trip_id={rr_trip_id}, "
         f"rr_trip_number={rr_trip_number}, parcel_id={rr_parcel_id}, booking_id={rr_booking_id}"
@@ -1876,6 +1929,14 @@ async def reassign_driver(
     trip.rr_aadhaar_file_id = None
     trip.rr_aadhaar_back_file_id = None
     db.commit()
+
+    # Re-link (or clear) the local Driver used for GPS tracking — same
+    # phone-match as trip creation. Best-effort, never raises.
+    try:
+        await link_driver_to_trip(trip, body.driver_rr_id, token, db)
+    except Exception:
+        logger.exception(f"[Reassign Driver] driver phone-link failed for {trip.trip_number}")
+
     db.refresh(trip)
 
     # Real-time propagation: LP/RR-ops/FE viewing this trip's Stage 1 should
@@ -2643,6 +2704,12 @@ async def get_vehicle_hire_requests(
     """
     _require_rr_session_role(current_user, db)
     company_id = _resolve_org_rr_company_id(current_user, db)
+    # current_user.rr_company_id is misleadingly named — on first RR login
+    # (see rr_auth_login above) it's set to the user's own RR *user* id, not
+    # a company id. That's the only local record of "my personal RR
+    # identity", needed below to catch market vehicles owned by an
+    # individual (owner_user_id) rather than by the org's company record.
+    own_rr_user_id = current_user.rr_company_id
     token = await _resolve_org_rr_token(rr_token, db, current_user)
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     embedded = json.dumps({
@@ -2670,6 +2737,11 @@ async def get_vehicle_hire_requests(
             hirer = mv.get("third_party_user_id") if isinstance(mv.get("third_party_user_id"), dict) else {}
         raw_owner_company_id = mv.get("owner_company_id")
         owner_company_id = raw_owner_company_id.get("_id") if isinstance(raw_owner_company_id, dict) else raw_owner_company_id
+        raw_owner_user_id = mv.get("owner_user_id")
+        owner_user_id = raw_owner_user_id.get("_id") if isinstance(raw_owner_user_id, dict) else raw_owner_user_id
+        is_mine = str(owner_company_id or "") == company_id
+        if not is_mine and own_rr_user_id:
+            is_mine = str(owner_user_id or "") == own_rr_user_id
         return {
             "market_vehicle_id": str(mv.get("_id") or ""),
             "vehicle_number": rc_number,
@@ -2678,7 +2750,7 @@ async def get_vehicle_hire_requests(
             "hirer_name": (hirer or {}).get("name") or "",
             "requested_start_date": mv.get("requested_start_date"),
             "requested_end_date": mv.get("requested_end_date"),
-            "is_mine": str(owner_company_id or "") == company_id,
+            "is_mine": is_mine,
         }
 
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
@@ -2686,10 +2758,11 @@ async def get_vehicle_hire_requests(
         # so a busy shared test/prod DB can never bury the requests this user
         # actually needs to act on. Sorted the same as the marketplace query
         # so the merge below produces one newest-first list either way.
+        own_where = {"$and": [{"status": "Requested"}, {"owner_company_id": company_id}]}
         own_resp = await client.get(
             f"{settings.RR_API_BASE}/market_vehicles",
             params={
-                "where": json.dumps({"$and": [{"status": "Requested"}, {"owner_company_id": company_id}]}),
+                "where": json.dumps(own_where),
                 "sort": json.dumps([("_created", -1)]),
                 "embedded": embedded,
                 "max_results": 300,
@@ -2699,6 +2772,24 @@ async def get_vehicle_hire_requests(
         if own_resp.status_code != 200:
             raise HTTPException(status_code=502, detail=f"RR API error {own_resp.status_code}: {own_resp.text[:300]}")
         own_mvs = own_resp.json().get("_items", [])
+
+        # Same guarantee for vehicles owned by this user personally (not
+        # through a company) — otherwise these are only ever caught by the
+        # capped marketplace query below and can silently fall off the list.
+        if own_rr_user_id:
+            own_user_resp = await client.get(
+                f"{settings.RR_API_BASE}/market_vehicles",
+                params={
+                    "where": json.dumps({"$and": [{"status": "Requested"}, {"owner_user_id": own_rr_user_id}]}),
+                    "sort": json.dumps([("_created", -1)]),
+                    "embedded": embedded,
+                    "max_results": 300,
+                },
+                headers=headers,
+            )
+            if own_user_resp.status_code == 200:
+                own_mvs += own_user_resp.json().get("_items", [])
+
         own_ids = {mv.get("_id") for mv in own_mvs}
 
         # Rest of the marketplace, newest first.

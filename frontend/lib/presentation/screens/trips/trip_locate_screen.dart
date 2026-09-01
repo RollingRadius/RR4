@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 
@@ -123,7 +124,7 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
                   markers: [
                     Marker(
                       point: _vehicleLatLng,
-                      width: 60,
+                      width: 100,
                       height: 60,
                       child: _VehicleMarker(
                         vehiclePlate: widget.trip.vehiclePlate,
@@ -385,6 +386,9 @@ class _VehicleMarker extends StatelessWidget {
           ),
           child: Text(
             vehiclePlate ?? 'VEHICLE',
+            softWrap: false,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: GoogleFonts.inter(
                 fontSize: 10,
                 fontWeight: FontWeight.w700,
@@ -556,6 +560,29 @@ class _BottomSheet extends StatelessWidget {
             Text(
               'Last updated: ${_formatTime(location!.timestamp!)}',
               style: _inter(size: 11),
+            ),
+          ],
+
+          if (hasGps && location?.latitude != null && location?.longitude != null) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => launchUrl(
+                  Uri.parse(
+                    'https://www.google.com/maps/search/?api=1&query=${location!.latitude},${location!.longitude}',
+                  ),
+                  mode: LaunchMode.externalApplication,
+                ),
+                icon: const Icon(Icons.map_outlined, size: 18),
+                label: const Text('Open in Google Maps'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _primary,
+                  side: const BorderSide(color: _primary),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
             ),
           ],
         ],
