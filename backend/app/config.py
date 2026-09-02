@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     ENVIRONMENT: str = "development"
 
+    # SQL query logging — independent of DEBUG so it can be enabled on test
+    # without also exposing tracebacks to API callers. Bind-parameter values
+    # are still hidden regardless (see database.py's hide_parameters=True).
+    SQL_ECHO: bool = False
+
     # Server
     HOST: str = "0.0.0.0"
     PORT: int = 8000

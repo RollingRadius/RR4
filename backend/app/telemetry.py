@@ -18,6 +18,10 @@ from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def setup_otel(app, engine=None, service_name: str = "fleet-management-api",
                service_version: str = "1.0.0", otlp_endpoint: str = "http://localhost:4317"):
@@ -58,7 +62,7 @@ def setup_otel(app, engine=None, service_name: str = "fleet-management-api",
     # Instrument outbound HTTP (requests lib) — attaches external call spans
     RequestsInstrumentor().instrument()
 
-    print(f"[OTEL] Tracing enabled → {otlp_endpoint}  service={service_name}")
+    logger.info(f"[OTEL] Tracing enabled → {otlp_endpoint}  service={service_name}")
 
 
 def setup_prometheus(app):
@@ -78,4 +82,4 @@ def setup_prometheus(app):
         should_respect_env_var=False,
     ).instrument(app).expose(app, endpoint="/metrics")
 
-    print("[Prometheus] Metrics exposed → /metrics")
+    logger.info("[Prometheus] Metrics exposed → /metrics")

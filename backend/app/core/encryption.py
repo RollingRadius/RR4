@@ -238,37 +238,3 @@ def re_encrypt_answers(
             return []
 
     return re_encrypted
-
-
-# Test function for development/debugging
-def test_encryption():
-    """
-    Test encryption/decryption cycle.
-    This function can be used to verify that encryption is working correctly.
-    """
-    # Generate test data
-    test_password = "TestPassword123!"
-    test_answer = "Portland"
-    test_salt = generate_salt()
-
-    # Encrypt
-    encrypted = encrypt_answer(test_answer, test_password, test_salt)
-    print(f"Salt: {test_salt}")
-    print(f"Encrypted: {encrypted}")
-
-    # Verify correct answer
-    is_correct = decrypt_and_compare(encrypted, "portland", test_password, test_salt)
-    print(f"Correct answer verification: {is_correct}")  # Should be True
-
-    # Verify wrong answer
-    is_wrong = decrypt_and_compare(encrypted, "Seattle", test_password, test_salt)
-    print(f"Wrong answer verification: {is_wrong}")  # Should be False
-
-    # Verify with wrong password
-    wrong_pwd = decrypt_and_compare(encrypted, "portland", "WrongPassword", test_salt)
-    print(f"Wrong password verification: {wrong_pwd}")  # Should be False
-
-
-if __name__ == "__main__":
-    # Run test if executed directly
-    test_encryption()

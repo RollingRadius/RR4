@@ -3,6 +3,7 @@ Custom Role Service
 Business logic for custom role management
 """
 from typing import List, Dict, Optional
+import logging
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 import uuid
@@ -10,6 +11,8 @@ import uuid
 from app.models import Role, CustomRole, UserOrganization
 from app.services.capability_service import CapabilityService
 from app.services.template_service import TemplateService
+
+logger = logging.getLogger(__name__)
 
 
 class CustomRoleService:

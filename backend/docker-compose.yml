@@ -1,5 +1,13 @@
 version: '3.4'
 
+# Docker's json-file driver has no size limit by default — without this, a
+# busy container can write unbounded logs and fill the server's disk.
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # PostgreSQL Database
   postgres:
@@ -21,6 +29,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    logging: *default-logging
     networks:
       - fleet-network
     deploy:
@@ -46,6 +55,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+    logging: *default-logging
     networks:
       - fleet-network
     deploy:
@@ -109,6 +119,8 @@ services:
       retries: 3
       start_period: 90s
 
+    logging: *default-logging
+
     networks:
       - fleet-network
 
@@ -139,6 +151,8 @@ services:
 
     depends_on:
       - postgres
+
+    logging: *default-logging
 
     networks:
       - fleet-network

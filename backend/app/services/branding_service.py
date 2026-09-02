@@ -6,10 +6,13 @@ Business logic for organization branding management
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status, UploadFile
 from typing import Optional, Dict, Any
+import logging
 import uuid
 import os
 from datetime import datetime
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 from app.models.organization_branding import OrganizationBranding
 from app.models.audit_log import AuditLog
@@ -321,4 +324,4 @@ class BrandingService:
                 file_path.unlink()
             except Exception as e:
                 # Log error but don't fail the operation
-                print(f"Error deleting logo file {file_path}: {e}")
+                logger.error(f"Error deleting logo file {file_path}: {e}")

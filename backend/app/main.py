@@ -4,23 +4,65 @@ Authentication & Company Management API
 """
 
 import logging
+import re
+import uuid
+
+from app.config import settings
+from app.core.request_context import request_id_ctx
+
+
+class _RequestIdFilter(logging.Filter):
+    """Injects the current request's correlation ID into every log record."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.request_id = request_id_ctx.get()
+        return True
+
 
 # Nothing else in the app ever configures a handler/level for the root logger,
 # so every logger.info()/logger.error() call across the codebase (RR sync
 # tracing included) was silently dropped — uvicorn's own access/error loggers
 # are separate and unaffected, this only wires up everything else.
+_log_handler = logging.StreamHandler()
+_log_handler.addFilter(_RequestIdFilter())
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    format="%(asctime)s %(levelname)s %(name)s [%(request_id)s]: %(message)s",
+    handlers=[_log_handler],
 )
+# LOG_LEVEL only tunes our own app.* loggers (scoped by getLogger(__name__)
+# giving names like app.services.rr_sync_service) — the root logger stays at
+# INFO so third-party libraries (SQLAlchemy, urllib3, etc.) don't get flooded
+# with DEBUG output just because we want more detail from our own code.
+logging.getLogger("app").setLevel(settings.LOG_LEVEL)
 
-from fastapi import FastAPI
+_TOKEN_PATTERN = re.compile(r"(token=)[^&\s\"]+", re.IGNORECASE)
+
+
+class _TokenRedactionFilter(logging.Filter):
+    """Masks token=/rr_token= values in uvicorn's access log before they're written."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple):
+            record.args = tuple(
+                _TOKEN_PATTERN.sub(r"\1[REDACTED]", arg) if isinstance(arg, str) else arg
+                for arg in record.args
+            )
+        elif isinstance(record.msg, str):
+            record.msg = _TOKEN_PATTERN.sub(r"\1[REDACTED]", record.msg)
+        return True
+
+
+logging.getLogger("uvicorn.access").addFilter(_TokenRedactionFilter())
+
+logger = logging.getLogger(__name__)
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 import os
-
-from app.config import settings
 
 # Create FastAPI application
 app = FastAPI(
@@ -58,6 +100,24 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"],
 )
+
+
+class RequestIdMiddleware(BaseHTTPMiddleware):
+    """Tags every request with a correlation ID so its log lines can be
+    pulled out of the interleaved stream from concurrent requests."""
+
+    async def dispatch(self, request: Request, call_next):
+        req_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+        token = request_id_ctx.set(req_id)
+        try:
+            response = await call_next(request)
+        finally:
+            request_id_ctx.reset(token)
+        response.headers["X-Request-ID"] = req_id
+        return response
+
+
+app.add_middleware(RequestIdMiddleware)
 
 
 @app.get("/", tags=["Health"])
@@ -99,6 +159,18 @@ def internal_error_handler(request, exc):
     )
 
 
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request, exc):
+    """Catches crashes that aren't a deliberately-raised HTTPException(500) —
+    those bypass the handler above entirely and would otherwise only show up
+    as a bare uvicorn traceback with no request context attached."""
+    logger.exception(f"Unhandled error on {request.method} {request.url.path}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"}
+    )
+
+
 # Application startup event
 @app.on_event("startup")
 async def startup_event():
@@ -106,9 +178,9 @@ async def startup_event():
     from app.services import rr_token_service
     rr_token_service.start_token_refresh()
 
-    print(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
-    print(f"Environment: {settings.ENVIRONMENT}")
-    print(f"Debug mode: {settings.DEBUG}")
+    logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    logger.info(f"Debug mode: {settings.DEBUG}")
 
     # Auto-seed capabilities and predefined roles (idempotent - safe to run every startup)
     try:
@@ -122,24 +194,24 @@ async def startup_event():
             cap_service = CapabilityService(db)
             cap_count = cap_service.seed_capabilities()
             if cap_count > 0:
-                print(f"Seeded {cap_count} capabilities")
+                logger.info(f"Seeded {cap_count} capabilities")
 
             # Seed predefined role templates with their capability assignments
             tmpl_service = TemplateService(db)
             role_count = tmpl_service.seed_predefined_roles()
             if role_count > 0:
-                print(f"Seeded {role_count} predefined roles")
+                logger.info(f"Seeded {role_count} predefined roles")
 
             from app.services.partition_service import ensure_driver_location_partitions
             ensure_driver_location_partitions(db)
         except Exception as seed_error:
             # Tables may not exist yet if migrations haven't been run
-            print(f"Warning: Seeding skipped (run migrations first): {seed_error}")
+            logger.warning(f"Seeding skipped (run migrations first): {seed_error}")
             db.rollback()
         finally:
             db.close()
     except Exception as e:
-        print(f"Warning: Could not initialize seeding: {e}")
+        logger.warning(f"Could not initialize seeding: {e}")
 
 
 # Application shutdown event
@@ -148,7 +220,7 @@ async def shutdown_event():
     """Cleanup on shutdown"""
     from app.services import rr_token_service
     rr_token_service.stop_token_refresh()
-    print(f"Shutting down {settings.APP_NAME}")
+    logger.info(f"Shutting down {settings.APP_NAME}")
 
 
 # Import and include API routers
