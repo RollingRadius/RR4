@@ -102,11 +102,25 @@ class _FleetManagementAppState extends ConsumerState<FleetManagementApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Best-effort instant refresh on reassignment (see FcmService and
+    // driver_link_service.py:_nudge_driver_refresh) — same reaction as the
+    // app-resume lifecycle hook below, just triggered by a silent push
+    // instead of a background→foreground transition. No-op for non-drivers,
+    // and harmless if the push never arrives — the periodic poll is unaffected.
+    FcmService.onTripReassignedNudge = () {
+      final user = ref.read(authProvider).user;
+      if (user?.isDriver != true) return;
+      ref.read(tripProvider.notifier).silentRefresh().then((_) {
+        if (mounted) syncDriverTrackingToActiveTrip(ref);
+      });
+    };
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    FcmService.onTripReassignedNudge = null;
     super.dispose();
   }
 

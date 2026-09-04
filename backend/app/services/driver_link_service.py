@@ -39,6 +39,20 @@ def _notify_driver_assigned(driver: Driver, trip: Trip) -> None:
         logger.warning(f"[Driver Link] Failed to notify driver {driver.id} of assignment", exc_info=True)
 
 
+def _nudge_driver_refresh(driver: Driver, trip: Trip) -> None:
+    """Silent, data-only push (no visible banner) telling the driver's app to
+    immediately re-check its trip list/tracking assignment instead of waiting
+    for its next ~30s poll. Sent to whichever driver a link/unlink just
+    affected — best-effort, never raises, and is purely a latency nudge: the
+    periodic poll remains the source of truth if this doesn't arrive."""
+    try:
+        token = driver.user.fcm_token if driver.user else None
+        if token:
+            fcm_service.send_data_only(token, {"type": "trip_reassigned", "trip_id": str(trip.id)})
+    except Exception:
+        logger.warning(f"[Driver Link] Failed to nudge driver {driver.id} to refresh", exc_info=True)
+
+
 def _driver_has_other_open_trip(db: Session, driver_id, exclude_trip_id) -> bool:
     """True if `driver_id` already has another ongoing, not-yet-stage-5-complete
     trip besides `exclude_trip_id`. Mirrors the same rule enforced in
@@ -134,12 +148,21 @@ async def link_driver_to_trip(trip: Trip, rr_driver_id: str, rr_token: str, db: 
     previous_driver_id = trip.driver_id
     trip.driver_id = matched.id if matched else None
     db.commit()
+
+    # Only act on a genuine change — link_driver_to_trip also runs on
+    # idempotent Stage-0 retries, which must not re-spam a driver already
+    # correctly linked to this trip.
+    driver_changed = trip.driver_id != previous_driver_id
+
     if matched:
         logger.info(f"[Driver Link] Trip {trip.trip_number} linked to local driver {matched.id}")
-        # Only notify on a genuine new assignment — link_driver_to_trip also
-        # runs on idempotent Stage-0 retries, which must not re-spam a driver
-        # already correctly linked to this trip.
-        if matched.id != previous_driver_id:
+        if driver_changed:
             _notify_driver_assigned(matched, trip)
+            _nudge_driver_refresh(matched, trip)
     else:
         logger.info(f"[Driver Link] Trip {trip.trip_number} — no local driver matched rr_driver_id={rr_driver_id}")
+
+    if driver_changed and previous_driver_id:
+        old_driver = db.query(Driver).filter(Driver.id == previous_driver_id).first()
+        if old_driver:
+            _nudge_driver_refresh(old_driver, trip)

@@ -510,7 +510,7 @@ class _ActiveTripCardState extends ConsumerState<_ActiveTripCard> {
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(3),
                                   child: LinearProgressIndicator(
-                                    value: 0.65,
+                                    value: (trip.currentStage / 5.0).clamp(0.0, 1.0),
                                     backgroundColor: Colors.white
                                         .withValues(alpha: 0.25),
                                     valueColor:
