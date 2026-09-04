@@ -99,9 +99,25 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
     return _defaultCenter;
   }
 
+  // Past this age, a location is shown as stale rather than live — the dot
+  // last reported here may no longer reflect where the driver actually is.
+  static const _staleThreshold = Duration(minutes: 15);
+
+  bool get _isStale {
+    final iso = _currentLocation?.timestamp;
+    if (iso == null) return false;
+    try {
+      final age = DateTime.now().toUtc().difference(DateTime.parse(iso).toUtc());
+      return age > _staleThreshold;
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasGps = _currentLocation?.hasLocation == true;
+    final isStale = hasGps && _isStale;
 
     return Scaffold(
       body: Stack(
@@ -128,6 +144,7 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
                       height: 60,
                       child: _VehicleMarker(
                         vehiclePlate: widget.trip.vehiclePlate,
+                        isStale: isStale,
                       ),
                     ),
                   ],
@@ -190,6 +207,7 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
               trip: widget.trip,
               location: _currentLocation,
               hasGps: hasGps,
+              isStale: isStale,
             ),
           ),
 
@@ -364,21 +382,25 @@ class _TopBar extends StatelessWidget {
 
 class _VehicleMarker extends StatelessWidget {
   final String? vehiclePlate;
-  const _VehicleMarker({this.vehiclePlate});
+  final bool isStale;
+  const _VehicleMarker({this.vehiclePlate, this.isStale = false});
 
   @override
   Widget build(BuildContext context) {
+    // Stale locations are greyed out — the dot's position may no longer
+    // reflect where the driver actually is.
+    final color = isStale ? _secondary : _primary;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: _primary,
+            color: color,
             borderRadius: BorderRadius.circular(8),
             boxShadow: [
               BoxShadow(
-                color: _primary.withValues(alpha: 0.4),
+                color: color.withValues(alpha: 0.4),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -397,7 +419,7 @@ class _VehicleMarker extends StatelessWidget {
         ),
         CustomPaint(
           size: const Size(12, 6),
-          painter: _TrianglePainter(),
+          painter: _TrianglePainter(color: color),
         ),
       ],
     );
@@ -405,9 +427,12 @@ class _VehicleMarker extends StatelessWidget {
 }
 
 class _TrianglePainter extends CustomPainter {
+  final Color color;
+  const _TrianglePainter({this.color = _primary});
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = _primary;
+    final paint = Paint()..color = color;
     final path = ui.Path()
       ..moveTo(0, 0)
       ..lineTo(size.width, 0)
@@ -417,7 +442,7 @@ class _TrianglePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter _) => false;
+  bool shouldRepaint(covariant _TrianglePainter oldDelegate) => oldDelegate.color != color;
 }
 
 // ─── Map button ───────────────────────────────────────────────────────────────
@@ -462,11 +487,13 @@ class _BottomSheet extends StatelessWidget {
   final TripModel trip;
   final TripLocationModel? location;
   final bool hasGps;
+  final bool isStale;
 
   const _BottomSheet({
     required this.trip,
     required this.location,
     required this.hasGps,
+    required this.isStale,
   });
 
   @override
@@ -518,7 +545,7 @@ class _BottomSheet extends StatelessWidget {
                   ],
                 ),
               ),
-              _GpsStatusDot(hasGps: hasGps),
+              _GpsStatusDot(hasGps: hasGps, isStale: isStale),
             ],
           ),
           const SizedBox(height: 16),
@@ -558,8 +585,13 @@ class _BottomSheet extends StatelessWidget {
           if (location?.timestamp != null) ...[
             const SizedBox(height: 12),
             Text(
-              'Last updated: ${_formatTime(location!.timestamp!)}',
-              style: _inter(size: 11),
+              'Last updated: ${_relativeTime(location!.timestamp!)} '
+              '(${_formatTime(location!.timestamp!)})',
+              style: _inter(
+                size: 11,
+                weight: isStale ? FontWeight.w700 : FontWeight.w400,
+                color: isStale ? const Color(0xFFBA1A1A) : _secondary,
+              ),
             ),
           ],
 
@@ -600,37 +632,46 @@ class _BottomSheet extends StatelessWidget {
       return iso;
     }
   }
+
+  String _relativeTime(String iso) {
+    try {
+      final age = DateTime.now().toUtc().difference(DateTime.parse(iso).toUtc());
+      if (age.inSeconds < 60) return 'just now';
+      if (age.inMinutes < 60) return '${age.inMinutes}m ago';
+      if (age.inHours < 24) return '${age.inHours}h ago';
+      return '${age.inDays}d ago';
+    } catch (_) {
+      return iso;
+    }
+  }
 }
 
 class _GpsStatusDot extends StatelessWidget {
   final bool hasGps;
-  const _GpsStatusDot({required this.hasGps});
+  final bool isStale;
+  const _GpsStatusDot({required this.hasGps, this.isStale = false});
 
   @override
   Widget build(BuildContext context) {
+    final label = !hasGps ? 'No Signal' : (isStale ? 'Stale' : 'GPS Active');
+    final color = !hasGps
+        ? const Color(0xFFE53935)
+        : (isStale ? const Color(0xFF9E9E9E) : const Color(0xFF22C55E));
+    final textColor = !hasGps
+        ? const Color(0xFFBA1A1A)
+        : (isStale ? const Color(0xFF616161) : const Color(0xFF2E7D32));
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: hasGps
-                ? const Color(0xFF22C55E)
-                : const Color(0xFFE53935),
-          ),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
         ),
         const SizedBox(width: 5),
         Text(
-          hasGps ? 'GPS Active' : 'No Signal',
-          style: _inter(
-            size: 11,
-            weight: FontWeight.w600,
-            color: hasGps
-                ? const Color(0xFF2E7D32)
-                : const Color(0xFFBA1A1A),
-          ),
+          label,
+          style: _inter(size: 11, weight: FontWeight.w600, color: textColor),
         ),
       ],
     );
