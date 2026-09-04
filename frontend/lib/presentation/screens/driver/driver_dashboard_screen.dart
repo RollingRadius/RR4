@@ -153,6 +153,18 @@ class _DriverHomeDashboardScreenState extends ConsumerState<DriverHomeDashboardS
     //     tripState.trips.where((t) => t.isCompleted).length;
     // final totalToday = tripState.trips.length;
 
+    final permissionStatus =
+        ref.watch(locationTrackingProvider).permissionStatus;
+    final permissionGranted =
+        permissionStatus == LocationPermissionStatus.always ||
+            permissionStatus == LocationPermissionStatus.whileInUse;
+    // The driver's trip isn't done yet (Stage 5/POD not entered) but location
+    // is off — nudge them, since a silent/accidental disable mid-trip would
+    // otherwise go completely unnoticed by the driver themselves.
+    final showOngoingTripWarning = ongoingTrip != null &&
+        !ongoingTrip.isStage5Complete &&
+        !permissionGranted;
+
     return Scaffold(
       backgroundColor: _bg,
       body: Column(
@@ -163,6 +175,7 @@ class _DriverHomeDashboardScreenState extends ConsumerState<DriverHomeDashboardS
             greeting: _greeting(),
             name: firstName,
           ),
+          if (showOngoingTripWarning) const _OngoingTripLocationWarning(),
           // ── Scrollable body ───────────────────────────────────────────────
           Expanded(
             child: RefreshIndicator(
@@ -272,6 +285,40 @@ class _Header extends StatelessWidget {
           const SizedBox(width: 8),
           // Logout (driver dashboard is minimal — no notifications/settings for now)
           _LogoutButton(),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Ongoing-trip location warning ─────────────────────────────────────────────
+//
+// Persistent, docked below the header (not inside the scroll body) so it's
+// always visible without requiring a scroll — shown whenever the driver has
+// an unfinished trip (POD not yet entered) but location isn't currently on.
+class _OngoingTripLocationWarning extends StatelessWidget {
+  const _OngoingTripLocationWarning();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFFFEBEE),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              size: 18, color: Color(0xFFC62828)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Your trip is still ongoing — please keep location turned on.',
+              style: _inter(
+                  size: 12,
+                  weight: FontWeight.w600,
+                  color: const Color(0xFFC62828)),
+            ),
+          ),
         ],
       ),
     );
