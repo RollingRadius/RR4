@@ -21,6 +21,19 @@ from app.utils.phone import normalize_phone
 logger = logging.getLogger(__name__)
 
 
+def _driver_has_other_open_trip(db: Session, driver_id, exclude_trip_id) -> bool:
+    """True if `driver_id` already has another ongoing, not-yet-stage-5-complete
+    trip besides `exclude_trip_id`. Mirrors the same rule enforced in
+    app/api/v1/trips.py's create/update endpoints (duplicated in miniature here
+    rather than imported, to avoid a service→router dependency)."""
+    return db.query(Trip).filter(
+        Trip.driver_id == driver_id,
+        Trip.status == 'ongoing',
+        ~Trip.is_stage5_complete,
+        Trip.id != exclude_trip_id,
+    ).first() is not None
+
+
 def find_driver_by_phone(db: Session, phone: str) -> Driver | None:
     """Normalize `phone` and match against the expression index on
     drivers.phone (see alembic/versions/090_add_driver_phone_index.py —
@@ -74,6 +87,16 @@ async def link_driver_to_trip(trip: Trip, rr_driver_id: str, rr_token: str, db: 
 
     phone = (resp.json().get("phone") or {}).get("number")
     matched = find_driver_by_phone(db, phone) if phone else None
+
+    if matched and _driver_has_other_open_trip(db, matched.id, trip.id):
+        # Don't silently steal a driver from a trip they're still open on —
+        # treat this the same as "no local match" rather than raising, since
+        # this whole flow is best-effort by design (see docstring above).
+        logger.warning(
+            f"[Driver Link] Trip {trip.trip_number} — matched local driver "
+            f"{matched.id} already has another open trip, not linking"
+        )
+        matched = None
 
     trip.driver_id = matched.id if matched else None
     db.commit()

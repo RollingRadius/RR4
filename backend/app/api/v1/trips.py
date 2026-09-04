@@ -90,6 +90,24 @@ def _parse_uuid(value: Optional[str]):
         return None
 
 
+def _driver_has_open_trip(db: Session, driver_id, exclude_trip_id=None) -> bool:
+    """True if `driver_id` already has another trip that's ongoing and not yet
+    past Stage 5 (POD) — i.e. still needs tracking. Used to stop a driver being
+    double-booked onto two open trips at once."""
+    driver_uuid = _parse_uuid(driver_id) if isinstance(driver_id, str) else driver_id
+    if not driver_uuid:
+        return False
+    query = db.query(Trip).filter(
+        Trip.driver_id == driver_uuid,
+        Trip.status == 'ongoing',
+        ~Trip.is_stage5_complete,
+    )
+    if exclude_trip_id:
+        exclude_uuid = _parse_uuid(exclude_trip_id) if isinstance(exclude_trip_id, str) else exclude_trip_id
+        query = query.filter(Trip.id != exclude_uuid)
+    return query.first() is not None
+
+
 def _generate_trip_number(db: Session) -> str:
     """Generate a unique RR-XXXXX trip number."""
     for _ in range(10):
@@ -374,6 +392,9 @@ async def create_trip(
             detail="Only fleet managers can create trips"
         )
 
+    if body.driver_id and _driver_has_open_trip(db, body.driver_id):
+        raise HTTPException(status_code=400, detail="Driver already has an open trip")
+
     trip = Trip(
         trip_number=_generate_trip_number(db),
         bilty_number=body.bilty_number,
@@ -499,7 +520,13 @@ def update_trip(
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
 
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_fields = body.model_dump(exclude_unset=True)
+    new_driver_id = update_fields.get('driver_id')
+    if new_driver_id and str(new_driver_id) != str(trip.driver_id) and \
+            _driver_has_open_trip(db, new_driver_id, exclude_trip_id=trip.id):
+        raise HTTPException(status_code=400, detail="Driver already has an open trip")
+
+    for field, value in update_fields.items():
         if field == 'rr_ops_user_id':
             setattr(trip, field, _parse_uuid(value))
         else:
