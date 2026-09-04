@@ -50,16 +50,14 @@ def find_driver_by_phone(db: Session, phone: str) -> Driver | None:
     )
 
 
-async def link_driver_to_trip(trip: Trip, rr_driver_id: str, rr_token: str, db: Session) -> None:
-    """Best-effort: fetch the RR driver's phone, match to a local Driver,
-    and set trip.driver_id — but ONLY on a genuine, successful RR lookup
-    (200 + a resolvable phone). A transient RR failure (network error,
-    non-200 — e.g. a Stage-0 retry hitting a flaky response) must leave
-    any existing link untouched rather than wiping a previously-correct
-    match; only a real "looked it up, no local driver has this phone"
-    result clears trip.driver_id (the full-replace behavior a genuine
-    reassignment needs). Never raises — callers must not have trip
-    creation or reassignment fail because of this.
+async def resolve_local_driver(rr_driver_id: str, rr_token: str, db: Session) -> tuple[bool, Driver | None]:
+    """Pure lookup (no Trip mutation): fetch the RR driver's phone from RR and
+    match it to a local Driver by phone. Returns (lookup_succeeded, driver).
+
+    lookup_succeeded=False means the RR call itself failed/errored — a
+    transient condition callers must NOT treat as "no local account" (see
+    link_driver_to_trip). lookup_succeeded=True with driver=None means a
+    genuine, confirmed "no local RR4 account for this phone" result.
     """
     try:
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
@@ -76,17 +74,34 @@ async def link_driver_to_trip(trip: Trip, rr_driver_id: str, rr_token: str, db: 
             )
     except Exception:
         logger.warning(f"[Driver Link] Phone lookup failed for rr_driver_id={rr_driver_id}", exc_info=True)
-        return
+        return False, None
 
     if resp.status_code != 200:
         logger.warning(
             f"[Driver Link] get_user_record_by_id HTTP {resp.status_code} for "
-            f"rr_driver_id={rr_driver_id} — leaving trip.driver_id untouched"
+            f"rr_driver_id={rr_driver_id}"
         )
-        return
+        return False, None
 
     phone = (resp.json().get("phone") or {}).get("number")
-    matched = find_driver_by_phone(db, phone) if phone else None
+    return True, (find_driver_by_phone(db, phone) if phone else None)
+
+
+async def link_driver_to_trip(trip: Trip, rr_driver_id: str, rr_token: str, db: Session) -> None:
+    """Best-effort: resolve the RR driver to a local Driver (see
+    resolve_local_driver) and set trip.driver_id — but ONLY on a genuine,
+    successful RR lookup. A transient RR failure (network error, non-200 —
+    e.g. a Stage-0 retry hitting a flaky response) must leave any existing
+    link untouched rather than wiping a previously-correct match; only a
+    real "looked it up, no local driver has this phone" result clears
+    trip.driver_id (the full-replace behavior a genuine reassignment needs).
+    Never raises — callers must not have trip creation or reassignment fail
+    because of this.
+    """
+    lookup_ok, matched = await resolve_local_driver(rr_driver_id, rr_token, db)
+    if not lookup_ok:
+        logger.warning(f"[Driver Link] Trip {trip.trip_number} — leaving trip.driver_id untouched")
+        return
 
     if matched and _driver_has_other_open_trip(db, matched.id, trip.id):
         # Don't silently steal a driver from a trip they're still open on —

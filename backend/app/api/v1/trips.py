@@ -344,6 +344,37 @@ def get_transporter_trips_early(
     return {"success": True, "trips": _enrich_bulk(trips, db)}
 
 
+@router.get("/trips/driver-account-check")
+async def check_driver_account(
+    rr_driver_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Pure lookup, no trip touched: does this RR driver have a matching local
+    RR4 account (so GPS tracking will be possible once they're assigned), and
+    if so, are they already busy on another open trip (so tracking would still
+    fail to link even though the account exists)? Used by Create Trip to warn
+    the dispatcher inline, right after driver selection — non-blocking, trip
+    creation proceeds either way."""
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'super_admin', 'lp_rr_operations'):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    from app.services.rr_org_token_service import get_org_rr_token
+    rr_token = await get_org_rr_token(user_org.organization, db)
+    if not rr_token:
+        return {"has_local_account": None, "driver_busy_elsewhere": None}
+
+    from app.services.driver_link_service import resolve_local_driver
+    lookup_ok, matched = await resolve_local_driver(rr_driver_id, rr_token, db)
+    if not lookup_ok:
+        return {"has_local_account": None, "driver_busy_elsewhere": None}
+    if not matched:
+        return {"has_local_account": False, "driver_busy_elsewhere": None}
+    return {"has_local_account": True, "driver_busy_elsewhere": _driver_has_open_trip(db, matched.id)}
+
+
 @router.get("/trips/{trip_id}")
 def get_trip(
     trip_id: str,
