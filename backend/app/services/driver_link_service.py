@@ -16,9 +16,27 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.models.driver import Driver
 from app.models.trip import Trip
+from app.services import fcm_service
 from app.utils.phone import normalize_phone
 
 logger = logging.getLogger(__name__)
+
+
+def _notify_driver_assigned(driver: Driver, trip: Trip) -> None:
+    """Best-effort push to the driver's own device — never raises, a failure
+    here must not affect trip creation/reassignment."""
+    try:
+        token = driver.user.fcm_token if driver.user else None
+        if token:
+            fcm_service.send_to_token(
+                token,
+                "New trip assigned",
+                f"You've been assigned Trip {trip.trip_number} — open RR4 and "
+                f"enable location to be tracked.",
+                {"type": "trip_assigned", "trip_id": str(trip.id)},
+            )
+    except Exception:
+        logger.warning(f"[Driver Link] Failed to notify driver {driver.id} of assignment", exc_info=True)
 
 
 def _driver_has_other_open_trip(db: Session, driver_id, exclude_trip_id) -> bool:
@@ -113,9 +131,15 @@ async def link_driver_to_trip(trip: Trip, rr_driver_id: str, rr_token: str, db: 
         )
         matched = None
 
+    previous_driver_id = trip.driver_id
     trip.driver_id = matched.id if matched else None
     db.commit()
     if matched:
         logger.info(f"[Driver Link] Trip {trip.trip_number} linked to local driver {matched.id}")
+        # Only notify on a genuine new assignment — link_driver_to_trip also
+        # runs on idempotent Stage-0 retries, which must not re-spam a driver
+        # already correctly linked to this trip.
+        if matched.id != previous_driver_id:
+            _notify_driver_assigned(matched, trip)
     else:
         logger.info(f"[Driver Link] Trip {trip.trip_number} — no local driver matched rr_driver_id={rr_driver_id}")
