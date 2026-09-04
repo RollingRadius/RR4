@@ -244,6 +244,11 @@ Future<void> syncDriverTrackingToActiveTrip(WidgetRef ref) async {
       trips.any((t) => (t.isOngoing || t.isPending) && !t.isStage5Complete);
   final notifier = ref.read(locationTrackingProvider.notifier);
   await notifier.refreshMyTrackingEnabled();
+  // Also refresh the live OS permission status here (not just at initial
+  // load) — this is the only periodic recheck point, so it's what keeps the
+  // driver dashboard's permission toggle accurate if the driver grants/denies
+  // permission from the phone's own Settings app and comes back.
+  await notifier.checkPermission();
   final trackingEnabled = ref.read(locationTrackingProvider).trackingEnabled;
   // trackingEnabled can flip false mid-session (an admin disabling it via
   // PUT /drivers/{id}/tracking while this driver is already tracking) —

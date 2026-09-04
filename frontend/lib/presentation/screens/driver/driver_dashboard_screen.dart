@@ -8,6 +8,7 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/location_tracking_provider.dart';
 import 'package:fleet_management/data/services/location_service.dart' show LocationPermissionStatus;
+import 'package:geolocator/geolocator.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_detail_screen.dart';
 // NOTE: driver dashboard is intentionally minimal + read-only for now —
@@ -267,9 +268,70 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
+          _LocationPermissionToggle(),
+          const SizedBox(width: 8),
           // Logout (driver dashboard is minimal — no notifications/settings for now)
           _LogoutButton(),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Location permission toggle ────────────────────────────────────────────────
+//
+// A pure status readout, not an independent on/off switch — it never grants
+// or revokes permission itself. Tapping it either triggers the real OS
+// permission prompt (if not yet permanently denied) or deep-links straight to
+// the phone's settings screen (if it is) — Android itself won't show its own
+// dialog again once a driver has permanently denied, so that's the only
+// recovery path left. This also means a driver can't casually one-tap-disable
+// tracking mid-trip from inside the app.
+class _LocationPermissionToggle extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(locationTrackingProvider).permissionStatus;
+    final granted = status == LocationPermissionStatus.always ||
+        status == LocationPermissionStatus.whileInUse;
+
+    return GestureDetector(
+      onTap: granted
+          ? null
+          : () async {
+              if (status == LocationPermissionStatus.deniedForever) {
+                await Geolocator.openAppSettings();
+              } else if (status == LocationPermissionStatus.serviceDisabled) {
+                await Geolocator.openLocationSettings();
+              } else {
+                await ref.read(locationTrackingProvider.notifier).requestPermission();
+              }
+              await ref.read(locationTrackingProvider.notifier).checkPermission();
+            },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: granted ? const Color(0xFFDCFCE7) : const Color(0xFFFFEBEE),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              granted ? Icons.location_on_rounded : Icons.location_off_rounded,
+              size: 14,
+              color: granted ? const Color(0xFF15803D) : const Color(0xFFC62828),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              granted ? 'Tracking On' : 'Tap to Enable',
+              style: _inter(
+                size: 10,
+                weight: FontWeight.w700,
+                color: granted ? const Color(0xFF15803D) : const Color(0xFFC62828),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
