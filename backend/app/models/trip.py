@@ -6,6 +6,7 @@ Represents an active or completed cargo trip with full logistics details.
 from sqlalchemy import Column, String, Text, Date, TIMESTAMP, Numeric, ForeignKey, Integer, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
+from sqlalchemy.ext.hybrid import hybrid_property
 import uuid
 
 from app.database import Base
@@ -165,6 +166,18 @@ class Trip(Base):
     s5_vehicle_reach_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
     s5_unloading_start_datetime = Column(TIMESTAMP(timezone=True), nullable=True)
     s5_unloading_end_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    @hybrid_property
+    def is_stage5_complete(self):
+        # POD + unloading end time have been entered (submit_stage5 sets this
+        # regardless of trip.status, which only flips to 'completed' via the
+        # separate manual complete-trip action).
+        return self.s5_completed_at is not None
+
+    @is_stage5_complete.expression
+    def is_stage5_complete(cls):
+        # SQL-filterable form, used by the "driver already has an open trip" check.
+        return cls.s5_completed_at.isnot(None)
 
     # ── Transporter Assignment ────────────────────────────────────────────────────
     # User ID of the transporter assigned by LP to upload the loading slip

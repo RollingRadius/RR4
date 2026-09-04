@@ -372,6 +372,10 @@ class TripModel {
   bool get isCompleted => status == 'completed';
   bool get isCancelled => status == 'cancelled';
   bool get hasVehicle => vehicleId != null;
+  // POD + unloading end time entered (Stage 5 submitted) — independent of
+  // `status`, which only flips to 'completed' via the separate manual
+  // complete-trip action.
+  bool get isStage5Complete => s5CompletedAt != null;
 
   factory TripModel.fromJson(Map<String, dynamic> json) {
     return TripModel(

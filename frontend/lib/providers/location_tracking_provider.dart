@@ -240,7 +240,8 @@ class LocationTrackingNotifier extends StateNotifier<LocationTrackingState> {
 /// call for any role — no-ops harmlessly if there are simply no trips.
 Future<void> syncDriverTrackingToActiveTrip(WidgetRef ref) async {
   final trips = ref.read(tripProvider).trips;
-  final hasActiveTrip = trips.any((t) => t.isOngoing || t.isPending);
+  final hasActiveTrip =
+      trips.any((t) => (t.isOngoing || t.isPending) && !t.isStage5Complete);
   final notifier = ref.read(locationTrackingProvider.notifier);
   await notifier.refreshMyTrackingEnabled();
   final trackingEnabled = ref.read(locationTrackingProvider).trackingEnabled;

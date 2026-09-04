@@ -1459,7 +1459,13 @@ async def submit_stage5(
         trip.s5_vehicle_reach_datetime   = parsed_vehicle_reach_dt
         trip.s5_unloading_end_datetime   = parsed_unloading_end_dt
         trip.s5_submitted_by = current_user.id
-        trip.s5_completed_at = datetime.now(timezone.utc)
+        # Only stamp on the first submission — later edits (halting charge fix,
+        # corrected timestamp, etc.) must not push this forward, since it's the
+        # signal that stops the driver's GPS tracking for this trip (see
+        # Trip.is_stage5_complete) and any report relying on "when was the
+        # driver actually done" would otherwise be wrong.
+        if trip.s5_completed_at is None:
+            trip.s5_completed_at = datetime.now(timezone.utc)
         trip.draft_data      = None
         if trip.current_stage < 5:
             trip.current_stage = 5
