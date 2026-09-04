@@ -646,7 +646,9 @@ def get_trip_vehicle_location(
         "vehicle_id": str(trip.vehicle_id) if trip.vehicle_id else None,
         "driver_id": driver_id,
         "has_location": False,
-        "message": "No GPS location available yet for this trip",
+        "message": "Driver assigned — no location received yet. They may not have "
+                    "granted location permission, or the app hasn't been opened "
+                    "since being assigned or since it was last closed.",
     }
 
 
