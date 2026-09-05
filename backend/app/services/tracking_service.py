@@ -668,7 +668,7 @@ class TrackingService:
         query = select(Zone).where(
             and_(
                 Zone.organization_id == location.organization_id,
-                Zone.is_active == True
+                Zone.status == 'active'
             )
         )
         result = await self.db.execute(query)
