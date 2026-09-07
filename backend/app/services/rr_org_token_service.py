@@ -20,7 +20,7 @@ from app.models.company import Organization
 
 logger = logging.getLogger(__name__)
 
-_TOKEN_LIFETIME_BUFFER = timedelta(minutes=2)   # matches rr_token_service.py's 15-min-token/2-min-buffer pattern
+_TOKEN_LIFETIME_BUFFER = timedelta(minutes=2)   # RR access tokens last ~15 min — refresh 2 min early
 _TOKEN_ASSUMED_LIFETIME = timedelta(minutes=15)
 
 

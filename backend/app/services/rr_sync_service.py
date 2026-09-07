@@ -5,7 +5,6 @@ Syncs RR4 trips one-way to RollingRadius (RR).
 Single entry point: sync_all_to_rr(trip_id)
 Called as a BackgroundTask from:
   - POST /api/rr/sync/trip/{id}  (LP dashboard sync sheet or TripStagesScreen AppBar)
-  - POST /api/rr/sync/bulk       (bulk sync, uses global RR_REFRESH_TOKEN)
 
 Flow:
   1. Trip must already exist in RR (rr_parcel_id set via POST /api/rr/complete-trip/{id})
@@ -27,7 +26,6 @@ from pathlib import Path
 import httpx
 
 from app.config import settings
-from app.services import rr_token_service
 
 logger = logging.getLogger(__name__)
 
@@ -1603,8 +1601,9 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
     Background task: sync ALL available trip data to RR in one shot.
     Called by the manual sync button on the trip screen.
 
-    rr_token: LP's RR access token (from POST /auth/login). If None, falls back
-              to the global token service (used by bulk sync).
+    rr_token: LP/RR-ops's RR access token (from POST /auth/login, or the org's
+              auto-refreshing session via rr_org_token_service). Required —
+              the sync fails gracefully (rr_sync_status='failed') if omitted.
 
     Sequence: trip must already be in RR (via Complete Trip); then re-runs every
     stage's sync function (S1 docs, S2 loading slip, S3 docs+loading times,
@@ -1625,11 +1624,11 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
             logger.warning(f"[RR Sync All] Trip {trip_id} not found")
             return
 
-        token = rr_token or rr_token_service.get_access_token()
+        token = rr_token
         if not token:
             trip.rr_sync_status = "failed"
             trip.rr_sync_error = (
-                "RR access token not available — set RR_REFRESH_TOKEN and RR_SYNC_ENABLED=true"
+                "RR access token not available — an LP/RR-ops user with an active RR session must trigger this sync"
             )
             db.commit()
             logger.error(f"[RR Sync All] No RR token for trip {trip.trip_number}")

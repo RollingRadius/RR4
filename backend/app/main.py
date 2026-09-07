@@ -175,9 +175,6 @@ async def unhandled_exception_handler(request, exc):
 @app.on_event("startup")
 async def startup_event():
     """Initialize application on startup"""
-    from app.services import rr_token_service
-    rr_token_service.start_token_refresh()
-
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     logger.info(f"Debug mode: {settings.DEBUG}")
@@ -218,8 +215,6 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
-    from app.services import rr_token_service
-    rr_token_service.stop_token_refresh()
     logger.info(f"Shutting down {settings.APP_NAME}")
 
 
