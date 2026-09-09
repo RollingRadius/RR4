@@ -10,6 +10,7 @@ import 'package:fleet_management/data/models/user_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/providers/rr_session_provider.dart';
+import 'package:fleet_management/providers/location_tracking_provider.dart';
 
 final fcmServiceProvider = Provider<FcmService>((ref) => FcmService());
 
@@ -404,6 +405,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       _apiService.removeToken();
       _ref.read(rrSessionProvider.notifier).clear();
+      // A driver's GPS stream + batch upload timer live in a plain (non-
+      // autoDispose) provider — nothing stops them on their own. Without this,
+      // logging out of a driver account and into a different role on the same
+      // device leaves that stream running, still sending queued locations,
+      // now under the new account's token — the server correctly 403s those
+      // as "Only drivers can submit location data."
+      unawaited(_ref.read(locationTrackingProvider.notifier).stopTracking());
       // isInitialized: true — we've just definitively resolved "no session
       // exists," so the router's `if (!auth.isInitialized) return null;` guard
       // must not disable itself here. A bare AuthState() would reset

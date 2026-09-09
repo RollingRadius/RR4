@@ -67,8 +67,6 @@ import 'package:fleet_management/presentation/screens/transporter/transporter_da
 import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/lp_workers_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/my_trips_screen.dart';
-import 'package:fleet_management/presentation/screens/load_owner/load_owner_settings_screen.dart';
-import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_settings_screen.dart';
 import 'package:fleet_management/presentation/screens/driver/driver_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_work_orders_screen.dart';
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_inventory_screen.dart';
@@ -468,13 +466,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // Role-specific settings routes
+      // Role-specific settings routes — now use the shared ProfileScreen
+      // (was duplicated bespoke screens per role; consolidated so profile
+      // fixes only need to happen in one place).
       GoRoute(
         path: '/load-owner/settings',
         name: 'load-owner-settings',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: const LoadOwnerSettingsScreen(),
+          child: const ProfileScreen(),
         ),
       ),
       GoRoute(
@@ -482,7 +482,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'fleet-manager-settings',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: const LogisticPartnerSettingsScreen(),
+          child: const ProfileScreen(),
         ),
       ),
 

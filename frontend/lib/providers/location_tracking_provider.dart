@@ -239,6 +239,18 @@ class LocationTrackingNotifier extends StateNotifier<LocationTrackingState> {
 /// both entry points stay in sync without duplicating the logic. Safe to
 /// call for any role — no-ops harmlessly if there are simply no trips.
 Future<void> syncDriverTrackingToActiveTrip(WidgetRef ref) async {
+  // Belt-and-suspenders: every current call site already gates on
+  // user?.isDriver before calling this, but tripProvider's "ongoing trip"
+  // check below has no idea whose trips they are — a non-driver role with
+  // its own ongoing trips (e.g. logistic_partner) would otherwise pass this
+  // check too and start submitting location data the backend rejects as
+  // "Only drivers can submit location data."
+  final user = ref.read(authProvider).user;
+  if (user?.isDriver != true) {
+    await ref.read(locationTrackingProvider.notifier).stopTracking();
+    return;
+  }
+
   final trips = ref.read(tripProvider).trips;
   final hasActiveTrip =
       trips.any((t) => (t.isOngoing || t.isPending) && !t.isStage5Complete);

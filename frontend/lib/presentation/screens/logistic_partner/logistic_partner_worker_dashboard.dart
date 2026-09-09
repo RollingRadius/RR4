@@ -958,6 +958,15 @@ class _WorkerProfileTab extends ConsumerWidget {
           const Divider(),
           const SizedBox(height: 16),
           ListTile(
+            leading: const Icon(Icons.settings_outlined, color: _secondary),
+            title: Text('Settings',
+                style: _inter(
+                    size: 15,
+                    weight: FontWeight.w600,
+                    color: _onSurface)),
+            onTap: () => context.push('/profile'),
+          ),
+          ListTile(
             leading: const Icon(Icons.help_outline_rounded, color: _secondary),
             title: Text('Help & Support',
                 style: _inter(

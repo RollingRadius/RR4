@@ -16,6 +16,7 @@ import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:fleet_management/presentation/widgets/available_loads_browser.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
+import 'package:fleet_management/presentation/screens/profile/profile_screen.dart';
 import 'package:fleet_management/providers/trip_provider.dart' show completedTripsProvider;
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -523,6 +524,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
           ),
           const _RrOpsRecordsTab(),
           const AvailableLoadsBrowser(),
+          const ProfileScreen(),
         ],
       ),
     );
@@ -559,6 +561,10 @@ class _RrOpsBottomNav extends StatelessWidget {
         BottomNavigationBarItem(
           icon: Icon(Icons.search_rounded),
           label: 'Loads',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.person_outline_rounded),
+          label: 'Profile',
         ),
       ],
     );

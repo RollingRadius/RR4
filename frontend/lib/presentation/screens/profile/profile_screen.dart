@@ -17,29 +17,17 @@ class ProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends ConsumerState<ProfileScreen>
-    with SingleTickerProviderStateMixin {
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isEditMode = false;
   bool _isSaving = false;
   bool _isUploadingPicture = false;
   final ImagePicker _imagePicker = ImagePicker();
-
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
 
   final _fullNameController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-    _pulseAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
     Future.microtask(() {
       ref.read(profileProvider.notifier).getProfileStatus();
     });
@@ -47,7 +35,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   @override
   void dispose() {
-    _pulseController.dispose();
     _fullNameController.dispose();
     super.dispose();
   }
@@ -346,19 +333,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Pulse ring for active users
+                // Static ring for active users
                 if (isActive)
-                  AnimatedBuilder(
-                    animation: _pulseAnimation,
-                    builder: (_, __) => Container(
-                      width: 128 + (_pulseAnimation.value * 10),
-                      height: 128 + (_pulseAnimation.value * 10),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(
-                          0.18 - (_pulseAnimation.value * 0.14),
-                        ),
-                      ),
+                  Container(
+                    width: 128,
+                    height: 128,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.18),
                     ),
                   ),
 
