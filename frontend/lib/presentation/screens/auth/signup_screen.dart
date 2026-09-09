@@ -34,6 +34,37 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   String? _usernameTakenError;   // non-null = taken
   bool _checkingUsername = false;
 
+  // Phone availability check
+  Timer? _phoneDebounce;
+  String? _phoneTakenError;   // non-null = taken
+  bool _checkingPhone = false;
+
+  void _onPhoneChanged(String value) {
+    if (_phoneTakenError != null || _checkingPhone) {
+      setState(() { _phoneTakenError = null; _checkingPhone = false; });
+    }
+    _phoneDebounce?.cancel();
+    if (value.trim().length != 10) return;
+
+    _phoneDebounce = Timer(const Duration(milliseconds: 600), () async {
+      if (!mounted) return;
+      setState(() => _checkingPhone = true);
+      try {
+        final api = ref.read(apiServiceProvider);
+        final resp = await api.dio.get('/api/auth/check-phone/+91${value.trim()}');
+        final available = resp.data['available'] as bool? ?? true;
+        if (mounted) {
+          setState(() {
+            _checkingPhone = false;
+            _phoneTakenError = available ? null : 'This phone number is already registered';
+          });
+        }
+      } catch (_) {
+        if (mounted) setState(() => _checkingPhone = false);
+      }
+    });
+  }
+
   void _onUsernameChanged(String value) {
     // Clear previous result immediately
     if (_usernameTakenError != null || _checkingUsername) {
@@ -65,6 +96,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   void dispose() {
     _usernameDebounce?.cancel();
+    _phoneDebounce?.cancel();
     _fullNameController.dispose();
     _usernameController.dispose();
     _emailController.dispose();
@@ -81,6 +113,29 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       _showSnackBar('Please wait — checking username availability',
           AppTheme.statusWarning, Icons.hourglass_top_rounded);
       return;
+    }
+    if (_phoneTakenError != null) return;
+    if (_checkingPhone) {
+      _showSnackBar('Please wait — checking phone number availability',
+          AppTheme.statusWarning, Icons.hourglass_top_rounded);
+      return;
+    }
+
+    // Debounce may not have fired yet (e.g. autofill) — verify right before submit.
+    try {
+      final api = ref.read(apiServiceProvider);
+      final resp = await api.dio.get(
+          '/api/auth/check-phone/+91${_phoneController.text.trim()}');
+      final available = resp.data['available'] as bool? ?? true;
+      if (!available) {
+        if (mounted) {
+          setState(() => _phoneTakenError =
+              'This phone number is already registered');
+        }
+        return;
+      }
+    } catch (_) {
+      // If the check itself fails, fall through — signup will still catch it server-side.
     }
 
     if (!_termsAccepted) {
@@ -359,10 +414,29 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         prefixIcon: Icons.phone_outlined,
                         keyboardType: TextInputType.number,
                         fixedPrefix: '+91 ',
+                        onChanged: _onPhoneChanged,
                         inputFormatters: [
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(10),
                         ],
+                        suffixIcon: _checkingPhone
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppTheme.textSecondary),
+                                ),
+                              )
+                            : _phoneController.text.trim().length == 10
+                                ? _phoneTakenError != null
+                                    ? const Icon(Icons.cancel_rounded,
+                                        color: AppTheme.statusError, size: 22)
+                                    : const Icon(Icons.check_circle_rounded,
+                                        color: Color(0xFF006B5E), size: 22)
+                                : null,
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
                             return 'Phone number is required';
@@ -373,6 +447,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           return null;
                         },
                       ),
+                      if (_phoneTakenError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6, left: 4),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.cancel_rounded,
+                                  color: AppTheme.statusError, size: 14),
+                              const SizedBox(width: 6),
+                              Text(
+                                _phoneTakenError!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.statusError,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       const SizedBox(height: 16),
 
                       // Password
