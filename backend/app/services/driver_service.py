@@ -4,6 +4,8 @@ Business logic for driver management
 """
 
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from fastapi import HTTPException, status
 from typing import List, Optional, Dict, Any
 from datetime import date
@@ -17,6 +19,7 @@ from app.models.role import Role
 from app.models.user_organization import UserOrganization
 from app.models.audit_log import AuditLog
 from app.core.security import hash_password
+from app.utils.phone import normalize_phone
 from app.utils.constants import (
     AUDIT_ACTION_DRIVER_CREATED,
     AUDIT_ACTION_DRIVER_UPDATED,
@@ -107,6 +110,23 @@ class DriverService:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Email '{driver_data['email']}' is already registered"
+                )
+
+        # Check phone uniqueness globally on the user account (compare
+        # normalized so "+919876543210" and "9876543210" are treated as the
+        # same number — must stay in sync with the DB-level
+        # ux_users_phone_normalized index).
+        phone_normalized = normalize_phone(driver_data['phone'])
+        if phone_normalized:
+            existing_phone_user = self.db.query(User).filter(
+                func.right(func.regexp_replace(User.phone, '[^0-9]', '', 'g'), 10)
+                == phone_normalized
+            ).first()
+
+            if existing_phone_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Phone number '{driver_data['phone']}' is already registered to another account"
                 )
 
         # Check license_number uniqueness globally
@@ -238,7 +258,14 @@ class DriverService:
         self.db.add(driver_audit_log)
 
         # Commit transaction
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError as e:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number is already registered to another account"
+            ) from e
         self.db.refresh(driver)
         self.db.refresh(license)
         self.db.refresh(driver_user)

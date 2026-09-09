@@ -5,6 +5,7 @@ class UserModel {
   final String? email;
   final String fullName;
   final String phone;
+  final String? profilePictureUrl;
   final String authMethod;
   final String status;
   final bool profileCompleted;
@@ -20,6 +21,7 @@ class UserModel {
     this.email,
     required this.fullName,
     required this.phone,
+    this.profilePictureUrl,
     required this.authMethod,
     required this.status,
     required this.profileCompleted,
@@ -37,6 +39,7 @@ class UserModel {
       email: json['email'] as String?,
       fullName: json['full_name'] as String? ?? '',
       phone: json['phone'] as String? ?? '',
+      profilePictureUrl: json['profile_picture_url'] as String?,
       authMethod: json['auth_method'] as String? ?? 'email',
       status: json['status'] as String? ?? 'pending_verification',
       profileCompleted: json['profile_completed'] as bool? ?? false,
@@ -60,6 +63,7 @@ class UserModel {
       email: json['email'] as String? ?? email,
       fullName: json['full_name'] as String? ?? fullName,
       phone: json['phone'] as String? ?? phone,
+      profilePictureUrl: json['profile_picture_url'] as String? ?? profilePictureUrl,
       authMethod: json['auth_method'] as String? ?? authMethod,
       status: json['status'] as String? ?? status,
       profileCompleted: json['profile_completed'] as bool? ?? profileCompleted,
@@ -78,6 +82,7 @@ class UserModel {
       'email': email,
       'full_name': fullName,
       'phone': phone,
+      'profile_picture_url': profilePictureUrl,
       'auth_method': authMethod,
       'status': status,
       'profile_completed': profileCompleted,

@@ -13,6 +13,7 @@ from app.models.security_question import SecurityQuestion
 from app.models.user_security_answer import UserSecurityAnswer
 from app.models.verification_token import VerificationToken
 from app.models.recovery_attempt import RecoveryAttempt
+from app.models.refresh_token import RefreshToken
 from app.core.security import hash_password
 from app.core.encryption import decrypt_and_compare, re_encrypt_answers
 from app.services.email_service import EmailService
@@ -387,3 +388,108 @@ class RecoveryService:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect security answers"
             )
+
+    def change_password_with_security_answers(
+        self,
+        user: User,
+        answers: List[Dict],
+        new_password: str
+    ) -> Dict:
+        """
+        Change password for an already-authenticated user, re-verifying their
+        security question answers as the gate (no email link / reset token
+        involved). Only available for accounts registered with
+        auth_method == 'security_questions' — email-method accounts have no
+        security answers on file and must use the email-based reset instead.
+
+        On success, every existing session everywhere is instantly
+        invalidated: bumps user.token_version (see get_current_user, which
+        rejects any already-issued JWT whose token_version claim is stale)
+        and revokes every stored refresh token, so no device can silently
+        keep working or silently refresh past this point.
+        """
+        if user.auth_method != 'security_questions':
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password change via security questions is only available "
+                       "for accounts registered with security questions."
+            )
+
+        self._check_recovery_attempts(user.id, 'password_change_security')
+
+        user_answers = self.db.query(UserSecurityAnswer).filter(
+            UserSecurityAnswer.user_id == user.id
+        ).all()
+
+        if not user_answers:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No security questions are set up for this account."
+            )
+
+        if len(answers) != len(user_answers):
+            self._log_recovery_attempt(user.id, 'password_change_security', False)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Expected {len(user_answers)} answers"
+            )
+
+        correct_answers = 0
+        for answer_input in answers:
+            question_id = answer_input.get('question_id')
+            user_answer_text = answer_input.get('answer')
+
+            stored_answer = next(
+                (ua for ua in user_answers if str(ua.question_id) == question_id),
+                None
+            )
+
+            if not stored_answer:
+                continue
+
+            if decrypt_and_compare(
+                stored_answer.encrypted_answer,
+                user_answer_text,
+                user.password_hash,
+                stored_answer.encryption_salt
+            ):
+                correct_answers += 1
+
+        if correct_answers != len(user_answers):
+            self._log_recovery_attempt(user.id, 'password_change_security', False)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect security answers"
+            )
+
+        self._log_recovery_attempt(user.id, 'password_change_security', True)
+
+        # Re-encrypt security answers with the new password hash — answers are
+        # encrypted using the password_hash as key material (same as
+        # reset_password_with_token above).
+        old_hash = user.password_hash
+        new_hash = hash_password(new_password)
+
+        salt = user_answers[0].encryption_salt
+        old_encrypted = [ua.encrypted_answer for ua in user_answers]
+        new_encrypted = re_encrypt_answers(old_encrypted, old_hash, new_hash, salt)
+        if new_encrypted:
+            for i, ua in enumerate(user_answers):
+                ua.encrypted_answer = new_encrypted[i]
+
+        user.password_hash = new_hash
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        user.token_version += 1
+
+        self.db.query(RefreshToken).filter(
+            RefreshToken.user_id == user.id,
+            RefreshToken.revoked == False
+        ).update({"revoked": True})
+
+        self.db.commit()
+
+        return {
+            "success": True,
+            "message": "Password changed successfully. Please log in again."
+        }

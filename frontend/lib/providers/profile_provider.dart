@@ -158,6 +158,72 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
       return false;
     }
   }
+
+  /// Upload (or replace) the current user's profile picture
+  Future<bool> uploadProfilePicture(String filePath) async {
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final response = await _profileApi.uploadProfilePicture(filePath);
+
+      state = state.copyWith(
+        isLoading: false,
+        profileData: response,
+      );
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: _extractErrorMessage(e),
+      );
+      return false;
+    }
+  }
+
+  /// Remove the current user's profile picture
+  Future<bool> deleteProfilePicture() async {
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      final response = await _profileApi.deleteProfilePicture();
+
+      state = state.copyWith(
+        isLoading: false,
+        profileData: response,
+      );
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: _extractErrorMessage(e),
+      );
+      return false;
+    }
+  }
+
+  /// Change password via security questions. On success every session
+  /// everywhere is invalidated server-side — the caller is responsible for
+  /// clearing local auth state and navigating to the login screen.
+  Future<bool> changePassword({
+    required List<Map<String, String>> answers,
+    required String newPassword,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      await _profileApi.changePassword(answers: answers, newPassword: newPassword);
+      state = state.copyWith(isLoading: false);
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: _extractErrorMessage(e),
+      );
+      return false;
+    }
+  }
 }
 
 /// Profile Provider

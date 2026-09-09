@@ -330,6 +330,7 @@ COMPANY_SEARCH_MAX_RESULTS = 3
 # Error Messages
 ERROR_USERNAME_EXISTS = "Username already exists"
 ERROR_EMAIL_EXISTS = "Email already registered"
+ERROR_PHONE_EXISTS = "Phone number already registered"
 ERROR_INVALID_CREDENTIALS = "Invalid username or password"
 ERROR_ACCOUNT_LOCKED = "Account is locked due to multiple failed login attempts. Please try again after {minutes} minutes."
 ERROR_EMAIL_NOT_VERIFIED = "Please verify your email before logging in"

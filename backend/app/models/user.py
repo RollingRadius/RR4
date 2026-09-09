@@ -30,6 +30,7 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False, index=True)
     email = Column(String(255), unique=True, nullable=True, index=True)
     phone = Column(String(20), nullable=False)
+    profile_picture_url = Column(String(500), nullable=True)
 
     # Authentication
     password_hash = Column(String(255), nullable=False)
@@ -43,6 +44,10 @@ class User(Base):
     # Security
     failed_login_attempts = Column(Integer, nullable=False, default=0)
     locked_until = Column(DateTime, nullable=True)
+    # Bumped on password change to instantly invalidate every already-issued
+    # JWT everywhere (session-versioning pattern — see get_current_user, which
+    # rejects any token whose embedded token_version claim doesn't match this).
+    token_version = Column(Integer, nullable=False, default=1)
 
     # FCM token for push notifications
     fcm_token = Column(String(512), nullable=True)

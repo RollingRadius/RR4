@@ -43,6 +43,7 @@ import 'package:fleet_management/presentation/screens/roles/custom_roles_screen.
 import 'package:fleet_management/presentation/screens/roles/create_custom_role_screen.dart';
 import 'package:fleet_management/presentation/screens/roles/edit_custom_role_screen.dart';
 import 'package:fleet_management/presentation/screens/profile/profile_screen.dart';
+import 'package:fleet_management/presentation/screens/profile/change_password_screen.dart';
 import 'package:fleet_management/presentation/screens/settings/settings_screen.dart';
 import 'package:fleet_management/presentation/screens/settings/branding_settings_screen.dart';
 import 'package:fleet_management/presentation/screens/help/enhanced_help_screen.dart';
@@ -492,6 +493,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
           child: const ProfileScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/profile/change-password',
+        name: 'change-password',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const ChangePasswordScreen(),
         ),
       ),
       GoRoute(

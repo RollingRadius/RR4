@@ -4,7 +4,9 @@ Pydantic models for profile completion and management
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
+
+from app.schemas.auth import SecurityAnswerInput
 
 
 class ProfileCompletionRequest(BaseModel):
@@ -50,6 +52,18 @@ class ProfileUpdateRequest(BaseModel):
     phone: Optional[str] = Field(None, min_length=10, max_length=20)
 
 
+class ChangePasswordRequest(BaseModel):
+    """Request body for changing password via security questions (in-profile, already logged in)"""
+    answers: List[SecurityAnswerInput] = Field(..., min_length=3, max_length=3)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class ChangePasswordResponse(BaseModel):
+    """Response for a successful in-profile password change"""
+    success: bool
+    message: str
+
+
 class ProfileStatusResponse(BaseModel):
     """Profile status response"""
     success: bool
@@ -59,6 +73,7 @@ class ProfileStatusResponse(BaseModel):
     full_name: str
     email: Optional[str]
     phone: str
+    profile_picture_url: Optional[str] = None
     role: Optional[str] = None
     role_type: Optional[str] = None
     company_id: Optional[str] = None

@@ -6,6 +6,8 @@ Core business logic for user authentication and authorization
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from fastapi import HTTPException, status
 import uuid
 
@@ -28,6 +30,7 @@ from app.services.token_service import TokenService
 from app.services.email_service import EmailService
 from app.config import settings
 from app.utils.constants import *
+from app.utils.phone import normalize_phone
 
 
 class AuthService:
@@ -72,6 +75,22 @@ class AuthService:
                     detail=ERROR_EMAIL_EXISTS
                 )
 
+        # Check if phone already exists — compare normalized (digits-only,
+        # last 10) so "+919876543210" and "9876543210" are treated as the
+        # same number, matching the DB-level ux_users_phone_normalized index.
+        phone_normalized = normalize_phone(signup_data['phone'])
+        if phone_normalized:
+            existing_phone = self.db.query(User).filter(
+                func.right(func.regexp_replace(User.phone, '[^0-9]', '', 'g'), 10)
+                == phone_normalized
+            ).first()
+
+            if existing_phone:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=ERROR_PHONE_EXISTS
+                )
+
         # Hash password
         password_hash = hash_password(signup_data['password'])
 
@@ -95,7 +114,14 @@ class AuthService:
         )
 
         self.db.add(user)
-        self.db.flush()  # Get user.id without committing
+        try:
+            self.db.flush()  # Get user.id without committing
+        except IntegrityError as e:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=ERROR_PHONE_EXISTS
+            ) from e
 
         # Handle security questions if provided
         if signup_data['auth_method'] == AUTH_METHOD_SECURITY_QUESTIONS:
@@ -342,7 +368,8 @@ class AuthService:
             "sub": str(user.id),
             "username": user.username,
             "role": effective_role_key,
-            "company_id": str(company.id) if company else None
+            "company_id": str(company.id) if company else None,
+            "token_version": user.token_version
         }
 
         access_token = create_access_token(token_data)

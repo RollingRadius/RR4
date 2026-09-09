@@ -64,6 +64,19 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"}
         )
 
+    # Session versioning: a token minted before the user's last password
+    # change carries no token_version claim (or a stale one) — reject it so
+    # a password change instantly logs out every device, not just future
+    # token refreshes. Tokens predating this claim default to version 1,
+    # matching the column's default, so this doesn't retroactively log
+    # anyone out on deploy.
+    if payload.get("token_version", 1) != user.token_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired — please log in again",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
     # Check if user is active
     if not user.can_login():
         raise HTTPException(

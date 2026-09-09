@@ -161,7 +161,8 @@ def refresh_token(
         "sub": str(current_user.id),
         "username": current_user.username,
         "role": effective_role_key,
-        "company_id": str(user_org.organization_id) if user_org else None
+        "company_id": str(user_org.organization_id) if user_org else None,
+        "token_version": current_user.token_version
     }
 
     access_token = create_access_token(token_data)
@@ -264,7 +265,8 @@ def set_active_organization(
         "sub": str(current_user.id),
         "username": current_user.username,
         "role": user_org.role.role_key if user_org.role else None,
-        "company_id": str(organization_id)
+        "company_id": str(organization_id),
+        "token_version": current_user.token_version
     }
 
     access_token = create_access_token(token_data)

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/profile_provider.dart';
 import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/core/config/app_config.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -19,13 +21,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     with SingleTickerProviderStateMixin {
   bool _isEditMode = false;
   bool _isSaving = false;
+  bool _isUploadingPicture = false;
+  final ImagePicker _imagePicker = ImagePicker();
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
 
   final _fullNameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
 
   @override
   void initState() {
@@ -47,8 +49,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   void dispose() {
     _pulseController.dispose();
     _fullNameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
@@ -59,10 +59,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         final authState = ref.read(authProvider);
         _fullNameController.text =
             profileState.profileData?['full_name'] ?? authState.user?.fullName ?? '';
-        _emailController.text =
-            profileState.profileData?['email'] ?? authState.user?.email ?? '';
-        _phoneController.text =
-            profileState.profileData?['phone'] ?? authState.user?.phone ?? '';
       }
       _isEditMode = !_isEditMode;
     });
@@ -73,21 +69,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _showError('Full name is required');
       return;
     }
-    if (_emailController.text.trim().isEmpty) {
-      _showError('Email is required');
-      return;
-    }
-    if (_phoneController.text.trim().isEmpty) {
-      _showError('Phone is required');
-      return;
-    }
 
     setState(() => _isSaving = true);
 
     final updateData = {
       'full_name': _fullNameController.text.trim(),
-      'email': _emailController.text.trim(),
-      'phone': _phoneController.text.trim(),
     };
 
     final success = await ref.read(profileProvider.notifier).updateProfile(updateData);
@@ -113,6 +99,75 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       } else {
         final error = ref.read(profileProvider).error;
         _showError(error ?? 'Failed to update profile');
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadProfilePicture() async {
+    XFile? image;
+    try {
+      image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+    } catch (e) {
+      if (mounted) _showError('Error selecting image: $e');
+      return;
+    }
+
+    if (image == null) return;
+
+    setState(() => _isUploadingPicture = true);
+
+    final success =
+        await ref.read(profileProvider.notifier).uploadProfilePicture(image.path);
+
+    if (mounted) {
+      setState(() => _isUploadingPicture = false);
+      if (success) {
+        ref.read(authProvider.notifier).loadUserProfile();
+      } else {
+        final error = ref.read(profileProvider).error;
+        _showError(error ?? 'Failed to upload profile picture');
+      }
+    }
+  }
+
+  Future<void> _confirmRemoveProfilePicture() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Profile Picture'),
+        content: const Text('Are you sure you want to remove your profile picture?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isUploadingPicture = true);
+
+    final success = await ref.read(profileProvider.notifier).deleteProfilePicture();
+
+    if (mounted) {
+      setState(() => _isUploadingPicture = false);
+      if (success) {
+        ref.read(authProvider.notifier).loadUserProfile();
+      } else {
+        final error = ref.read(profileProvider).error;
+        _showError(error ?? 'Failed to remove profile picture');
       }
     }
   }
@@ -264,6 +319,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final isActive = user?.status == 'active';
     final _raw = (user?.username ?? 'U').toUpperCase();
     final initials = _raw.length >= 2 ? _raw.substring(0, 2) : _raw;
+    final rawPictureUrl =
+        profileState.profileData?['profile_picture_url'] ?? user?.profilePictureUrl;
+    final pictureUrl = (rawPictureUrl == null || rawPictureUrl.isEmpty)
+        ? null
+        : (rawPictureUrl.startsWith('http')
+            ? rawPictureUrl
+            : '${AppConfig.apiBaseUrl}$rawPictureUrl');
 
     return Container(
       width: double.infinity,
@@ -313,34 +375,57 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       ),
                     ],
                   ),
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 52,
-                        backgroundColor: AppTheme.primaryBlueDark,
-                        child: Text(
-                          initials,
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                  child: GestureDetector(
+                    onTap: _isEditMode && !_isUploadingPicture
+                        ? _pickAndUploadProfilePicture
+                        : null,
+                    onLongPress: _isEditMode && !_isUploadingPicture && pictureUrl != null
+                        ? _confirmRemoveProfilePicture
+                        : null,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 52,
+                          backgroundColor: AppTheme.primaryBlueDark,
+                          backgroundImage:
+                              pictureUrl != null ? NetworkImage(pictureUrl) : null,
+                          child: pictureUrl == null
+                              ? Text(
+                                  initials,
+                                  style: const TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : null,
                         ),
-                      ),
-                      if (_isEditMode)
-                        Positioned.fill(
-                          child: ClipOval(
-                            child: Container(
-                              color: Colors.black.withOpacity(0.4),
-                              child: const Icon(
-                                Icons.camera_alt_rounded,
-                                color: Colors.white,
-                                size: 28,
+                        if (_isEditMode)
+                          Positioned.fill(
+                            child: ClipOval(
+                              child: Container(
+                                color: Colors.black.withOpacity(0.4),
+                                child: _isUploadingPicture
+                                    ? const Center(
+                                        child: SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2.5,
+                                          ),
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.camera_alt_rounded,
+                                        color: Colors.white,
+                                        size: 28,
+                                      ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
@@ -374,6 +459,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               ],
             ),
           ),
+
+          if (_isEditMode)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                pictureUrl != null
+                    ? 'Tap to change photo · long-press to remove'
+                    : 'Tap to add a photo',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withOpacity(0.75),
+                ),
+              ),
+            ),
 
           const SizedBox(height: 16),
 
@@ -514,7 +613,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             child: child,
           ),
         ),
-        child: _isEditMode ? _buildEditFields() : _buildViewFields(user, profileState),
+        child: _isEditMode
+            ? _buildEditFields(user, profileState)
+            : _buildViewFields(user, profileState),
       ),
     );
   }
@@ -538,7 +639,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
-  Widget _buildEditFields() {
+  Widget _buildEditFields(user, profileState) {
     return Column(
       key: const ValueKey('edit-fields'),
       children: [
@@ -548,29 +649,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             labelText: 'Full Name',
             prefixIcon: Icon(Icons.badge_rounded),
           ),
-          textInputAction: TextInputAction.next,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _emailController,
-          decoration: const InputDecoration(
-            labelText: 'Email',
-            prefixIcon: Icon(Icons.email_rounded),
-          ),
-          keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.next,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _phoneController,
-          decoration: const InputDecoration(
-            labelText: 'Phone',
-            prefixIcon: Icon(Icons.phone_rounded),
-          ),
-          keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _saveProfile(),
         ),
+        const SizedBox(height: 12),
+        // Email and phone aren't user-editable right now — they double as
+        // account-recovery credentials, and changing them without
+        // re-verifying ownership (OTP / confirmation link) is a real
+        // account-takeover risk. Shown read-only for context while editing.
+        _buildInfoTile(Icons.email_rounded, 'Email',
+            profileState.profileData?['email'] ?? user?.email ?? 'N/A'),
+        _buildDivider(),
+        _buildInfoTile(Icons.phone_rounded, 'Phone',
+            profileState.profileData?['phone'] ?? user?.phone ?? 'N/A'),
       ],
     );
   }
@@ -693,6 +784,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 user?.status == 'active' ? AppTheme.statusActive : AppTheme.statusWarning,
             chip: true,
           ),
+          if (user?.isSecurityQuestionsUser == true) ...[
+            _buildDivider(),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.bgTertiary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.password_rounded,
+                    size: 16, color: AppTheme.textSecondary),
+              ),
+              title: const Text('Change Password'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.push('/profile/change-password'),
+            ),
+          ],
         ],
       ),
     );
