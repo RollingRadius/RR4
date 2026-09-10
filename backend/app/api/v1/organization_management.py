@@ -525,6 +525,71 @@ def accept_worker_request(
     }
 
 
+class UpdateRequestRoleBody(BaseModel):
+    role_key: str
+
+
+@router.patch("/worker-requests/{user_org_id}/role", response_model=dict)
+def update_worker_request_role(
+    user_org_id: str,
+    body: UpdateRequestRoleBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Override a still-pending worker request's requested role, before it's
+    accepted — lets the owner correct a role the worker picked by mistake
+    at signup without having to go through a confirmation dialog on Accept.
+    Takes effect immediately (the pending row is updated right away, not
+    just staged client-side), so a later plain Accept call just uses
+    whatever role_key was set here last.
+
+    Restricted to the same safe allowlist as accept_worker_request
+    (_ASSIGNABLE_WORKER_ROLES) — NOT the wider set PUT /employees/{id}/role
+    allows, since that endpoint's only guard is against assigning the owner
+    roles, not against arbitrary system roles.
+    """
+    owner_org = verify_owner(current_user, db)
+
+    emp_org = db.query(UserOrganization).filter(
+        UserOrganization.id == user_org_id,
+        UserOrganization.organization_id == owner_org.organization_id,
+        UserOrganization.status == 'pending'
+    ).first()
+
+    if not emp_org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pending request not found in your organization"
+        )
+
+    if body.role_key not in _ASSIGNABLE_WORKER_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid role_key '{body.role_key}'. Allowed: {sorted(_ASSIGNABLE_WORKER_ROLES)}"
+        )
+
+    new_role = db.query(Role).filter(Role.role_key == body.role_key).first()
+    if not new_role:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Worker role not found. Run database migrations 040 and 060."
+        )
+
+    emp_org.requested_role_id = new_role.id
+    db.commit()
+    db.refresh(emp_org)
+
+    return {
+        "success": True,
+        "requested_role": {
+            "id": str(new_role.id),
+            "name": new_role.role_name,
+            "key": new_role.role_key,
+        }
+    }
+
+
 @router.post("/worker-requests/{user_org_id}/reject", response_model=dict)
 def reject_worker_request(
     user_org_id: str,
