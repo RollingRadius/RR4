@@ -1145,7 +1145,7 @@ class _WorkerDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final name = user?.fullName ?? 'LP Worker';
+    final name = user?.fullName ?? 'Field Executive';
     final company = user?.companyName ?? '';
     final username = user?.username ?? '';
 
@@ -1208,7 +1208,7 @@ class _WorkerDrawer extends ConsumerWidget {
                         border: Border.all(
                             color: _tertiaryContainer.withValues(alpha: 0.6)),
                       ),
-                      child: Text('LP Worker',
+                      child: Text('Field Executive',
                           style: _inter(
                               size: 10,
                               weight: FontWeight.w700,

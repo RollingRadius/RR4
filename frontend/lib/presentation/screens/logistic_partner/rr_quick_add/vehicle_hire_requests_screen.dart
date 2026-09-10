@@ -15,7 +15,11 @@ String _errorMessage(Object e) {
   return 'Action failed. Please try again.';
 }
 
-const _primary = Color(0xFFFF6B00);
+// RR-blue for header/brand surfaces (matches the RR-ops dashboard this
+// screen is opened from) — no orange CTA needed here since the review
+// dialog's own actions are already color-coded green (Approve) / red
+// (Reject).
+const _rrBlue = Color(0xFF1B6CA8);
 const _secondary = Color(0xFF546067);
 const _onSurface = Color(0xFF191C1E);
 const _success = Color(0xFF2E7D32);
@@ -132,7 +136,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
     return Scaffold(
       appBar: AppBar(
         title: Text('Vehicle Hire Requests', style: _manrope(size: 17, color: Colors.white)),
-        backgroundColor: _primary,
+        backgroundColor: _rrBlue,
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -265,7 +269,7 @@ class _ReviewRequestDialogState extends State<_ReviewRequestDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Request Information', style: _manrope(size: 12, color: _primary)),
+            Text('Request Information', style: _manrope(size: 12, color: _rrBlue)),
             const SizedBox(height: 10),
             _InfoRow(label: 'Hire Person', value: (item['hirer_name'] as String?) ?? '—'),
             const SizedBox(height: 6),

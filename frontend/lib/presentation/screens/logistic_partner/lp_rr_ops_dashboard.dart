@@ -28,6 +28,20 @@ const _onSurface  = Color(0xFF191C1E);
 const _secondary  = Color(0xFF546067);
 const _doneGreen  = Color(0xFF2E7D32);
 const _warnOrange = Color(0xFFE65100);
+// App-wide brand orange (matches AppTheme.primaryBlue) — used sparingly on
+// key CTAs/accents (New Trip button, Profile nav tab, alternating drawer
+// icons) so it shows up together with RR blue without taking over the
+// header surfaces, which stay pure RR blue.
+const _rrOrange     = Color(0xFFEC5B13);
+const _rrOrangeDark = Color(0xFFD14A0A);
+
+/// Shared hero gradient for header surfaces (top AppBar, drawer header) —
+/// pure RR blue, deliberately not blended with orange.
+const _rrHeroGradient = LinearGradient(
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+  colors: [_rrBlueDark, _rrBlue, Color(0xFF2980B9)],
+);
 
 TextStyle _manrope({
   double size = 14,
@@ -63,7 +77,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
 
   void _switchNav(int i) {
     if (i == 0 && _navIndex != 0) _loadData();
-    if (i == 1 && _navIndex != 1) {
+    if (i == 2 && _navIndex != 2) {
       ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true);
     }
     setState(() => _navIndex = i);
@@ -327,11 +341,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                 collapseMode: CollapseMode.pin,
                 background: Container(
                   decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [_rrBlueDark, _rrBlue, Color(0xFF2980B9)],
-                    ),
+                    gradient: _rrHeroGradient,
                   ),
                   padding: const EdgeInsets.fromLTRB(20, 52, 20, 16),
                   child: Row(
@@ -447,17 +457,26 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                           );
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: _rrBlue.withValues(alpha: 0.08),
+                            gradient: const LinearGradient(
+                              colors: [_rrOrange, _rrOrangeDark],
+                            ),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: _rrBlue.withValues(alpha: 0.25)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: _rrOrange.withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
+                              ),
+                            ],
                           ),
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            Icon(Icons.add_rounded, size: 14, color: _rrBlue),
+                            const Icon(Icons.add_rounded, size: 14, color: Colors.white),
                             const SizedBox(width: 4),
                             Text('New Trip',
-                                style: _inter(size: 11, weight: FontWeight.w700, color: _rrBlue)),
+                                style: _inter(
+                                    size: 11, weight: FontWeight.w700, color: Colors.white)),
                           ]),
                         ),
                       )),
@@ -522,8 +541,8 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
           ],
         ),
           ),
-          const _RrOpsRecordsTab(),
           const AvailableLoadsBrowser(),
+          const _RrOpsRecordsTab(),
           const ProfileScreen(),
         ],
       ),
@@ -538,35 +557,100 @@ class _RrOpsBottomNav extends StatelessWidget {
   final ValueChanged<int> onTap;
   const _RrOpsBottomNav({required this.selectedIndex, required this.onTap});
 
+  // Profile gets the orange accent (it's an orange-branded screen
+  // app-wide) — the rest stay RR blue, so both brand colors show up
+  // together in the nav rather than one screen being all-orange and
+  // this bar being all-blue.
+  static const _items = [
+    (icon: Icons.dashboard_rounded, label: 'Dashboard', color: _rrBlue),
+    (icon: Icons.search_rounded, label: 'Loads', color: _rrBlue),
+    (icon: Icons.history_rounded, label: 'Records', color: _rrBlue),
+    (icon: Icons.person_outline_rounded, label: 'Profile', color: _rrOrange),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      currentIndex: selectedIndex,
-      onTap: onTap,
-      selectedItemColor: _rrBlue,
-      unselectedItemColor: _secondary,
-      backgroundColor: _surface,
-      type: BottomNavigationBarType.fixed,
-      selectedLabelStyle: _inter(size: 11, weight: FontWeight.w700, color: _rrBlue),
-      unselectedLabelStyle: _inter(size: 11, color: _secondary),
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.dashboard_rounded),
-          label: 'Dashboard',
+    return Container(
+      decoration: BoxDecoration(
+        color: _surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          child: Row(
+            children: [
+              for (int i = 0; i < _items.length; i++)
+                Expanded(
+                  child: _RrOpsNavItem(
+                    icon: _items[i].icon,
+                    label: _items[i].label,
+                    color: _items[i].color,
+                    selected: selectedIndex == i,
+                    onTap: () => onTap(i),
+                  ),
+                ),
+            ],
+          ),
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.history_rounded),
-          label: 'Records',
+      ),
+    );
+  }
+}
+
+class _RrOpsNavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+  const _RrOpsNavItem({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor = selected ? color : _secondary;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? color.withValues(alpha: 0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 22, color: activeColor),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: _inter(
+                    size: 10.5,
+                    weight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: activeColor),
+              ),
+            ],
+          ),
         ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.search_rounded),
-          label: 'Loads',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline_rounded),
-          label: 'Profile',
-        ),
-      ],
+      ),
     );
   }
 }
@@ -606,12 +690,13 @@ class _RrOpsRecordsTab extends ConsumerWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFD7F0D9),
+                      color: _doneGreen.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _doneGreen.withValues(alpha: 0.25)),
                     ),
                     child: Text(
                       '${trips.length} synced',
-                      style: _inter(size: 11, weight: FontWeight.w700, color: const Color(0xFF1B5E20)),
+                      style: _inter(size: 11, weight: FontWeight.w700, color: _doneGreen),
                     ),
                   ),
                 ],
@@ -829,70 +914,160 @@ class _NoSearchMatches extends StatelessWidget {
 
 // ─── RR quick-add sidebar ─────────────────────────────────────────────────────
 
-/// Minimal drawer with the RR quick-add shortcuts (Add Vehicle/Company/User) —
-/// this dashboard otherwise has no sidebar, only a bottom nav for trip tabs.
-class _RrOpsDrawer extends StatelessWidget {
+/// Drawer with a branded profile header and the RR quick-add shortcuts
+/// (Add Vehicle/Company/User/etc) — this dashboard otherwise has no
+/// sidebar, only a bottom nav for the trip tabs.
+class _RrOpsDrawer extends ConsumerWidget {
   const _RrOpsDrawer();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider).user;
+    final rawPicture = user?.profilePictureUrl;
+    final hasPicture = rawPicture != null && rawPicture.isNotEmpty;
+    final initials = (user?.fullName.isNotEmpty == true
+            ? user!.fullName
+            : (user?.username ?? 'U'))
+        .trim()
+        .split(RegExp(r'\s+'))
+        .take(2)
+        .map((s) => s.isNotEmpty ? s[0] : '')
+        .join()
+        .toUpperCase();
+
     return Drawer(
+      backgroundColor: _bg,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Profile header ──────────────────────────────────────────
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-              color: _rrBlueDark,
-              child: Text('RR Operations',
-                  style: GoogleFonts.manrope(
-                      fontSize: 17, fontWeight: FontWeight.w800, color: Colors.white)),
+              padding: const EdgeInsets.fromLTRB(20, 28, 20, 22),
+              decoration: const BoxDecoration(
+                gradient: _rrHeroGradient,
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.white.withValues(alpha: 0.2),
+                    backgroundImage: hasPicture ? NetworkImage(rawPicture) : null,
+                    child: hasPicture
+                        ? null
+                        : Text(initials.isEmpty ? 'U' : initials,
+                            style: GoogleFonts.manrope(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white)),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user?.fullName.isNotEmpty == true
+                              ? user!.fullName
+                              : 'RR Operations',
+                          style: GoogleFonts.manrope(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (user?.companyName?.isNotEmpty == true) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            user!.companyName!,
+                            style: _inter(
+                                size: 12, color: Colors.white.withValues(alpha: 0.85)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text('RR OPS',
+                              style: _inter(
+                                  size: 10, weight: FontWeight.w700, color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
+
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 16, 6),
+                    child: Text('RR QUICK ADD',
+                        style: _inter(
+                            size: 10.5, weight: FontWeight.w700, color: _secondary)
+                            .copyWith(letterSpacing: 0.6)),
+                  ),
+                  _RrOpsDrawerTile(
+                    icon: Icons.local_shipping_outlined,
+                    label: 'Add Vehicle',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/rr/add-vehicle');
+                    },
+                  ),
+                  _RrOpsDrawerTile(
+                    icon: Icons.apartment_outlined,
+                    label: 'Add Company',
+                    color: _rrOrange,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/rr/add-company');
+                    },
+                  ),
+                  _RrOpsDrawerTile(
+                    icon: Icons.person_add_alt_outlined,
+                    label: 'Add Driver',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/rr/add-user');
+                    },
+                  ),
+                  _RrOpsDrawerTile(
+                    icon: Icons.assignment_turned_in_outlined,
+                    label: 'Vehicle Hire Requests',
+                    color: _rrOrange,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/rr/vehicle-hire-requests');
+                    },
+                  ),
+                  _RrOpsDrawerTile(
+                    icon: Icons.storefront_outlined,
+                    label: 'Hire Truck',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/rr/add-market-vehicle');
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Footer ───────────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-              child: Text('RR QUICK ADD',
-                  style: _inter(size: 10, weight: FontWeight.w700, color: _secondary)),
-            ),
-            _RrOpsDrawerTile(
-              icon: Icons.local_shipping_outlined,
-              label: 'Add Vehicle',
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/rr/add-vehicle');
-              },
-            ),
-            _RrOpsDrawerTile(
-              icon: Icons.apartment_outlined,
-              label: 'Add Company',
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/rr/add-company');
-              },
-            ),
-            _RrOpsDrawerTile(
-              icon: Icons.person_add_alt_outlined,
-              label: 'Add Driver',
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/rr/add-user');
-              },
-            ),
-            _RrOpsDrawerTile(
-              icon: Icons.assignment_turned_in_outlined,
-              label: 'Vehicle Hire Requests',
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/rr/vehicle-hire-requests');
-              },
-            ),
-            _RrOpsDrawerTile(
-              icon: Icons.storefront_outlined,
-              label: 'Hire Truck',
-              onTap: () {
-                Navigator.pop(context);
-                context.push('/rr/add-market-vehicle');
-              },
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+              child: Text('RR4 · Fleet Management',
+                  style: _inter(size: 10.5, color: _secondary.withValues(alpha: 0.7))),
             ),
           ],
         ),
@@ -905,20 +1080,45 @@ class _RrOpsDrawerTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  const _RrOpsDrawerTile({required this.icon, required this.label, required this.onTap});
+  final Color color;
+  const _RrOpsDrawerTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color = _rrBlue,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: _rrBlue),
-            const SizedBox(width: 14),
-            Text(label, style: _manrope(size: 14, weight: FontWeight.w600)),
-          ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, size: 18, color: color),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(label, style: _manrope(size: 13.5, weight: FontWeight.w600)),
+                ),
+                Icon(Icons.chevron_right_rounded,
+                    size: 18, color: _secondary.withValues(alpha: 0.5)),
+              ],
+            ),
+          ),
         ),
       ),
     );

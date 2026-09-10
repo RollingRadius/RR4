@@ -122,12 +122,16 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
   }
 
   Future<void> _accept(String userOrgId, {String? requestedRoleKey, String? requestedRoleName}) async {
-    // Show confirmation dialog; LP can override the role if needed
+    // Show confirmation dialog; owner can override the role if needed —
+    // which choices are offered depends on the accepting owner's own org
+    // type (see _AcceptRoleDialog).
+    final isLoadOwnerOrg = ref.read(authProvider).user?.isLoadOwner == true;
     final chosenRole = await showDialog<String>(
       context: context,
       builder: (ctx) => _AcceptRoleDialog(
         requestedRoleKey: requestedRoleKey,
         requestedRoleName: requestedRoleName,
+        isLoadOwnerOrg: isLoadOwnerOrg,
       ),
     );
     if (chosenRole == null) return; // cancelled
@@ -878,8 +882,19 @@ class _ErrorView extends StatelessWidget {
 class _AcceptRoleDialog extends StatefulWidget {
   final String? requestedRoleKey;
   final String? requestedRoleName;
+  // Which role choices make sense depends on the accepting owner's own org
+  // type — an LP org only ever wants Field Executive/RR Operations for its
+  // team, a load_owner org only ever wants Load Owner Worker. Showing all
+  // three regardless of org type let an LP owner accidentally assign
+  // "Load Owner Worker" to their own team member, which isn't a valid role
+  // for a logistic_partner org.
+  final bool isLoadOwnerOrg;
 
-  const _AcceptRoleDialog({this.requestedRoleKey, this.requestedRoleName});
+  const _AcceptRoleDialog({
+    this.requestedRoleKey,
+    this.requestedRoleName,
+    required this.isLoadOwnerOrg,
+  });
 
   @override
   State<_AcceptRoleDialog> createState() => _AcceptRoleDialogState();
@@ -887,20 +902,25 @@ class _AcceptRoleDialog extends StatefulWidget {
 
 class _AcceptRoleDialogState extends State<_AcceptRoleDialog> {
   late String _selectedRole;
+  late final List<Map<String, String>> _roles;
 
-  static const _roles = [
-    {'key': 'logistic_partner_worker', 'label': 'LP Worker'},
+  static const _lpRoles = [
+    {'key': 'logistic_partner_worker', 'label': 'Field Executive'},
     {'key': 'lp_rr_operations',        'label': 'RR Operations'},
-    {'key': 'load_owner_worker',        'label': 'Load Owner Worker'},
+  ];
+  static const _loadOwnerRoles = [
+    {'key': 'load_owner_worker', 'label': 'Load Owner Worker'},
   ];
 
   @override
   void initState() {
     super.initState();
-    // Pre-select the requested role if valid, else default to LP worker
+    _roles = widget.isLoadOwnerOrg ? _loadOwnerRoles : _lpRoles;
+    // Pre-select the requested role if valid, else default to the first
+    // option for this org type.
     _selectedRole = _roles.any((r) => r['key'] == widget.requestedRoleKey)
         ? widget.requestedRoleKey!
-        : 'logistic_partner_worker';
+        : _roles.first['key']!;
   }
 
   @override

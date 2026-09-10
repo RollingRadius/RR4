@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/services/profile_api.dart';
@@ -159,46 +160,39 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
     }
   }
 
-  /// Upload (or replace) the current user's profile picture
-  Future<bool> uploadProfilePicture(String filePath) async {
-    state = state.copyWith(isLoading: true, error: null);
+  /// Upload (or replace) the current user's profile picture. Deliberately
+  /// does NOT touch isLoading — the screen already shows its own small
+  /// spinner overlay on just the avatar (_isUploadingPicture); isLoading
+  /// drives the full-page skeleton and would otherwise replace the whole
+  /// screen with it during what should be a quick, localized upload.
+  Future<bool> uploadProfilePicture(Uint8List bytes, String filename) async {
+    state = state.copyWith(error: null);
 
     try {
-      final response = await _profileApi.uploadProfilePicture(filePath);
+      final response = await _profileApi.uploadProfilePicture(bytes, filename);
 
-      state = state.copyWith(
-        isLoading: false,
-        profileData: response,
-      );
+      state = state.copyWith(profileData: response);
 
       return true;
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: _extractErrorMessage(e),
-      );
+      state = state.copyWith(error: _extractErrorMessage(e));
       return false;
     }
   }
 
-  /// Remove the current user's profile picture
+  /// Remove the current user's profile picture. Same isLoading exclusion
+  /// as uploadProfilePicture above, for the same reason.
   Future<bool> deleteProfilePicture() async {
-    state = state.copyWith(isLoading: true, error: null);
+    state = state.copyWith(error: null);
 
     try {
       final response = await _profileApi.deleteProfilePicture();
 
-      state = state.copyWith(
-        isLoading: false,
-        profileData: response,
-      );
+      state = state.copyWith(profileData: response);
 
       return true;
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        error: _extractErrorMessage(e),
-      );
+      state = state.copyWith(error: _extractErrorMessage(e));
       return false;
     }
   }

@@ -636,6 +636,10 @@ class _BottomSheet extends StatelessWidget {
   String _relativeTime(String iso) {
     try {
       final age = DateTime.now().toUtc().difference(DateTime.parse(iso).toUtc());
+      // A negative age (timestamp appears to be in the future) means the
+      // data is corrupted/mis-timezoned, not genuinely fresh — treating it
+      // as "just now" would mask exactly that kind of bug.
+      if (age.isNegative) return 'time mismatch';
       if (age.inSeconds < 60) return 'just now';
       if (age.inMinutes < 60) return '${age.inMinutes}m ago';
       if (age.inHours < 24) return '${age.inHours}h ago';

@@ -6,7 +6,7 @@ Endpoints for managing trips — accessible by both fleet_manager and load_owner
 import random
 import string
 from typing import Optional, List, Union
-from datetime import date
+from datetime import date, timezone
 from decimal import Decimal, InvalidOperation
 
 import json
@@ -624,6 +624,14 @@ def get_trip_vehicle_location(
         ).order_by(DriverLocation.timestamp.desc()).first()
 
         if loc:
+            # asyncpg returns TIMESTAMPTZ columns as a naive datetime that is
+            # already UTC, without attaching tzinfo — .isoformat() on that
+            # produces a string with no 'Z'/offset, which the Flutter client
+            # then misparses as local time instead of UTC. Attach it
+            # explicitly so the emitted ISO string is unambiguous.
+            ts = loc.timestamp
+            if ts and ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
             return {
                 "trip_id": trip_id,
                 "trip_number": trip.trip_number,
@@ -633,7 +641,7 @@ def get_trip_vehicle_location(
                 "longitude": float(loc.longitude),
                 "speed": float(loc.speed) if loc.speed else None,
                 "heading": float(loc.heading) if loc.heading else None,
-                "timestamp": loc.timestamp.isoformat() if loc.timestamp else None,
+                "timestamp": ts.isoformat() if ts else None,
                 "has_location": True,
             }
     except Exception:
