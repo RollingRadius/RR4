@@ -102,7 +102,8 @@ def complete_profile(
     // Join Company
     {
         "role_type": "join_company",
-        "company_id": "uuid-here"
+        "company_id": "uuid-here",
+        "requested_role_key": "logistic_partner_worker"
     }
 
     // Create Company
@@ -183,7 +184,8 @@ def change_user_role(
     // Join Company
     {
         "role_type": "join_company",
-        "company_id": "uuid-here"
+        "company_id": "uuid-here",
+        "requested_role_key": "logistic_partner_worker"
     }
 
     // Create Company

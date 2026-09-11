@@ -20,6 +20,15 @@ class ProfileCompletionRequest(BaseModel):
 
     # For joining existing company
     company_id: Optional[str] = None  # UUID
+    # Role the worker is requesting to be assigned once the org owner
+    # approves them (e.g. 'logistic_partner_worker', 'lp_rr_operations',
+    # 'load_owner_worker') — accepted as either a role_key string or a raw
+    # role UUID. Without this declared here, FastAPI/Pydantic silently
+    # drops it from the parsed request before it ever reaches
+    # ProfileService.complete_profile(), even though the client sends it —
+    # every "join company" signup ended up with no requested role at all.
+    requested_role_id: Optional[str] = None
+    requested_role_key: Optional[str] = None
 
     # For creating new company
     company_name: Optional[str] = Field(None, min_length=2, max_length=255)
