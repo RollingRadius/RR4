@@ -83,7 +83,7 @@ DEFAULT_ROLES = [
         "is_system_role": True
     },
     {
-        "role_name": "Logistic Partner Worker",
+        "role_name": "Field Executive",
         "role_key": "logistic_partner_worker",
         "description": "Worker at a logistic partner company. Can manage trip stages and view fleet status. Cannot search or fulfill loads independently.",
         "is_system_role": True

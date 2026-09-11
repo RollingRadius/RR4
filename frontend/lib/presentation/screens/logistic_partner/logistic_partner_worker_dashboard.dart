@@ -640,7 +640,7 @@ class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
               style: _manrope(size: 22, weight: FontWeight.w800),
             ),
             const SizedBox(height: 2),
-            Text('Logistic Partner Worker',
+            Text('Field Executive',
                 style: _inter(size: 13, color: _secondary)),
             const SizedBox(height: 24),
 
@@ -948,7 +948,7 @@ class _WorkerProfileTab extends ConsumerWidget {
               color: _tertiary.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text('Logistic Partner Worker',
+            child: Text('Field Executive',
                 style: _inter(
                     size: 12,
                     weight: FontWeight.w700,

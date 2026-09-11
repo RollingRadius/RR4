@@ -919,6 +919,21 @@ class _ErrorView extends StatelessWidget {
 
 // ─── Role Override Dialog ──────────────────────────────────────────────────────
 
+class _RoleOption {
+  final String key;
+  final String label;
+  final String description;
+  final IconData icon;
+  final Color color;
+  const _RoleOption({
+    required this.key,
+    required this.label,
+    required this.description,
+    required this.icon,
+    required this.color,
+  });
+}
+
 /// Opened by tapping the role badge on a pending request card — lets the
 /// owner correct a role the worker picked by mistake at signup. Selecting a
 /// role here is persisted immediately server-side (see _overrideRole in the
@@ -947,14 +962,32 @@ class _RoleOverrideDialog extends StatefulWidget {
 
 class _RoleOverrideDialogState extends State<_RoleOverrideDialog> {
   late String _selectedRole;
-  late final List<Map<String, String>> _roles;
+  late final List<_RoleOption> _roles;
 
   static const _lpRoles = [
-    {'key': 'logistic_partner_worker', 'label': 'Field Executive'},
-    {'key': 'lp_rr_operations', 'label': 'RR Operations'},
+    _RoleOption(
+      key: 'logistic_partner_worker',
+      label: 'Field Executive',
+      description: 'Manages trip stages and fleet status on the ground',
+      icon: Icons.badge_outlined,
+      color: Color(0xFFFF6B00),
+    ),
+    _RoleOption(
+      key: 'lp_rr_operations',
+      label: 'RR Operations',
+      description: 'Handles RR sync and trip data entry in the RR system',
+      icon: Icons.sync_alt_rounded,
+      color: Color(0xFF1B6CA8),
+    ),
   ];
   static const _loadOwnerRoles = [
-    {'key': 'load_owner_worker', 'label': 'Load Owner Worker'},
+    _RoleOption(
+      key: 'load_owner_worker',
+      label: 'Load Owner Worker',
+      description: 'Manages load postings and shipment tracking',
+      icon: Icons.inventory_2_outlined,
+      color: Color(0xFF6A4FB6),
+    ),
   ];
 
   @override
@@ -963,88 +996,175 @@ class _RoleOverrideDialogState extends State<_RoleOverrideDialog> {
     _roles = widget.isLoadOwnerOrg ? _loadOwnerRoles : _lpRoles;
     // Pre-select the requested role if valid, else default to the first
     // option for this org type.
-    _selectedRole = _roles.any((r) => r['key'] == widget.requestedRoleKey)
+    _selectedRole = _roles.any((r) => r.key == widget.requestedRoleKey)
         ? widget.requestedRoleKey!
-        : _roles.first['key']!;
+        : _roles.first.key;
   }
 
   @override
   Widget build(BuildContext context) {
     final roleUnknown = widget.requestedRoleKey == null;
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Change Role', style: _manrope(size: 16)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (roleUnknown)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: _error.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _error.withOpacity(0.3)),
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: _primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.manage_accounts_outlined,
+                      size: 20, color: _primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Assign Role', style: _manrope(size: 16)),
+                      const SizedBox(height: 2),
+                      Text(
+                        roleUnknown
+                            ? 'No role requested yet'
+                            : 'Currently: ${widget.requestedRoleName}',
+                        style: _inter(
+                            size: 12, color: roleUnknown ? _error : _secondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            if (roleUnknown)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: _error.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _error.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded,
+                        size: 14, color: _error),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'This worker didn\'t pick a role at signup — choose one below.',
+                        style: _inter(size: 12, color: _error),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 14, color: _error),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Worker did not request a specific role. Pick one below.',
-                      style: _inter(size: 12, color: _error),
+            ..._roles.map((r) {
+              final selected = _selectedRole == r.key;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => setState(() => _selectedRole = r.key),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? r.color.withOpacity(0.08)
+                          : Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: selected ? r.color : Colors.grey[300]!,
+                        width: selected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: r.color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Icon(r.icon, size: 18, color: r.color),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(r.label,
+                                  style: _inter(
+                                      size: 13.5,
+                                      weight: FontWeight.w700,
+                                      color: _onSurface)),
+                              const SizedBox(height: 2),
+                              Text(r.description,
+                                  style: _inter(size: 11.5, color: _secondary)),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          selected
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                          size: 20,
+                          color: selected ? r.color : Colors.grey[350],
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                'Currently: ${widget.requestedRoleName}',
-                style: _inter(size: 12, color: _secondary),
-              ),
+                ),
+              );
+            }),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text('Cancel',
+                        style: _inter(size: 13.5, color: _secondary)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _success,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => Navigator.pop(context, _selectedRole),
+                    icon: const Icon(Icons.check_rounded, size: 16),
+                    label: Text('Save',
+                        style: _inter(
+                            size: 13.5,
+                            weight: FontWeight.w700,
+                            color: Colors.white)),
+                  ),
+                ),
+              ],
             ),
-          Text('Change to:',
-              style:
-                  _inter(size: 13, weight: FontWeight.w600, color: _onSurface)),
-          const SizedBox(height: 8),
-          ..._roles.map((r) => RadioListTile<String>(
-                value: r['key']!,
-                groupValue: _selectedRole,
-                onChanged: (v) => setState(() => _selectedRole = v!),
-                title: Text(r['label']!,
-                    style: _inter(
-                        size: 13, weight: FontWeight.w600, color: _onSurface)),
-                subtitle: Text(r['key']!, style: _inter(size: 11)),
-                activeColor: _primary,
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-              )),
-        ],
+          ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: _inter(size: 13, color: _secondary)),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _success,
-            foregroundColor: Colors.white,
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          onPressed: () => Navigator.pop(context, _selectedRole),
-          child: Text('Confirm',
-              style: _inter(
-                  size: 13, weight: FontWeight.w700, color: Colors.white)),
-        ),
-      ],
     );
   }
 }
