@@ -15,6 +15,8 @@ from app.models.user import User
 from app.models.role import Role
 from app.models.user_organization import UserOrganization
 from app.models.company import Organization
+from app.models.driver import Driver
+from app.models.refresh_token import RefreshToken
 from app.dependencies import get_current_user
 
 router = APIRouter()
@@ -294,8 +296,13 @@ def remove_employee(
     - Cannot remove self (owner)
 
     **Actions:**
-    - Deletes UserOrganization record
-    - Employee loses access to organization
+    - Deletes the UserOrganization record (the users row itself is kept for
+      historical/data purposes)
+    - Resets profile_completed to False, so the employee's next login sends
+      them back through "Complete Your Profile" (the router's existing
+      profile-completion gate) instead of a dashboard with no role/org
+    - Bumps token_version and revokes refresh tokens so the employee is logged out immediately
+    - Unlinks any Driver profile from the removed user (driver record itself is kept)
     """
     owner_org = verify_owner(current_user, db)
 
@@ -320,8 +327,28 @@ def remove_employee(
 
     employee_name = emp_org.user.full_name
     employee_role = emp_org.role.role_name if emp_org.role else "No role"
+    removed_user = emp_org.user
 
-    # Delete the record
+    # Force-logout: any already-issued access token fails its next check
+    # (see get_current_user), and stored refresh tokens can no longer mint
+    # a new one.
+    removed_user.token_version = (removed_user.token_version or 1) + 1
+    db.query(RefreshToken).filter(
+        RefreshToken.user_id == removed_user.id,
+        RefreshToken.revoked == False
+    ).update({"revoked": True})
+
+    # Unlink (not delete) any driver profile so it stops showing as an
+    # active driver for this org.
+    db.query(Driver).filter(Driver.user_id == removed_user.id).update({"user_id": None})
+
+    # Send them back through "Complete Your Profile" on next login rather
+    # than a dashboard with no role/org context. complete_profile() (called
+    # from that screen) inserts a fresh UserOrganization row and requires
+    # profile_completed=False, so the old row must be gone, not just reset —
+    # reusing it here would risk a duplicate row when they complete the
+    # profile again.
+    removed_user.profile_completed = False
     db.delete(emp_org)
     db.commit()
 

@@ -23,13 +23,14 @@ const _bronze    = Color(0xFFCD7F32);
 // ─── Data models ──────────────────────────────────────────────────────────────
 
 class _WorkerInfo {
-  final String userId, fullName, username, phone, roleKey, roleLabel;
+  final String userId, userOrganizationId, fullName, username, phone, roleKey, roleLabel;
   const _WorkerInfo({
-    required this.userId, required this.fullName, required this.username,
-    required this.phone,  required this.roleKey,  required this.roleLabel,
+    required this.userId, required this.userOrganizationId, required this.fullName,
+    required this.username, required this.phone,  required this.roleKey,  required this.roleLabel,
   });
   factory _WorkerInfo.fromJson(Map<String, dynamic> j) => _WorkerInfo(
-    userId:    j['user_id']    as String,
+    userId:             j['user_id']              as String,
+    userOrganizationId: j['user_organization_id'] as String,
     fullName:  j['full_name']  as String,
     username:  j['username']   as String,
     phone:     j['phone']      as String? ?? '—',
@@ -174,6 +175,44 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
     }
   }
 
+  Future<void> _removeWorker(_WorkerInfo worker) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove From Organization'),
+        content: Text(
+            'Remove ${worker.fullName} from the organization? They will lose access immediately and can request to rejoin later.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final api = ref.read(apiServiceProvider);
+      await api.dio.delete('/api/organization/employees/${worker.userOrganizationId}');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${worker.fullName} removed from the organization')),
+      );
+      _fetchRecords();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to remove: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   Future<void> _fetchLeaderboard() async {
     if (!mounted) return;
     setState(() { _lbLoading = true; _lbError = null; });
@@ -233,6 +272,7 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
             error:     _recError,
             workers:   _workers,
             onRefresh: _fetchRecords,
+            onRemove:  _removeWorker,
           ),
           _LeaderboardTab(
             loading:      _lbLoading,
@@ -259,10 +299,12 @@ class _RecordTab extends StatelessWidget {
   final String? error;
   final List<_WorkerInfo> workers;
   final VoidCallback onRefresh;
+  final ValueChanged<_WorkerInfo> onRemove;
 
   const _RecordTab({
     required this.loading,   required this.error,
     required this.workers,   required this.onRefresh,
+    required this.onRemove,
   });
 
   @override
@@ -287,7 +329,10 @@ class _RecordTab extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         itemCount: workers.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, i) => _WorkerInfoCard(worker: workers[i]),
+        itemBuilder: (_, i) => _WorkerInfoCard(
+          worker: workers[i],
+          onRemove: () => onRemove(workers[i]),
+        ),
       ),
     );
   }
@@ -297,7 +342,8 @@ class _RecordTab extends StatelessWidget {
 
 class _WorkerInfoCard extends StatelessWidget {
   final _WorkerInfo worker;
-  const _WorkerInfoCard({required this.worker});
+  final VoidCallback onRemove;
+  const _WorkerInfoCard({required this.worker, required this.onRemove});
 
   @override
   Widget build(BuildContext context) {
@@ -368,6 +414,28 @@ class _WorkerInfoCard extends StatelessWidget {
             child: Text(worker.roleLabel,
                 style: _i(s: 11, w: FontWeight.w700, c: accent)),
           ),
+          // Remove action — owners can't remove themselves
+          if (!isOwner) ...[
+            const SizedBox(width: 4),
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, size: 18, color: _secondary),
+              onSelected: (v) {
+                if (v == 'remove') onRemove();
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'remove',
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_remove_outlined, size: 18, color: Colors.red),
+                      SizedBox(width: 10),
+                      Text('Remove From Organization', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
