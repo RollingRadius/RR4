@@ -1,0 +1,435 @@
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+
+import 'package:fleet_management/core/config/app_config.dart';
+import 'package:fleet_management/data/models/trip_model.dart';
+import 'package:fleet_management/data/models/receiving_document_model.dart';
+import 'package:fleet_management/presentation/widgets/trip_search_field.dart';
+import 'package:fleet_management/providers/receiving_document_provider.dart';
+import 'package:fleet_management/providers/trip_provider.dart';
+
+const _primary = Color(0xFFFF6B00);
+const _onSurface = Color(0xFF191C1E);
+const _secondary = Color(0xFF546067);
+const _bg = Color(0xFFF8F9FB);
+const _surface = Color(0xFFFFFFFF);
+const _border = Color(0xFFECEEF0);
+
+TextStyle _manrope({double size = 14, FontWeight weight = FontWeight.w600, Color color = _onSurface}) =>
+    GoogleFonts.manrope(fontSize: size, fontWeight: weight, color: color);
+TextStyle _inter({double size = 13, FontWeight weight = FontWeight.w400, Color color = _secondary}) =>
+    GoogleFonts.inter(fontSize: size, fontWeight: weight, color: color);
+
+/// "Receiving Docs" sidebar feature — LP/RR-ops upload one image (a
+/// physical receiving sheet that can cover several trips) and link it to
+/// every trip number it covers; looking up any one of those trips then
+/// surfaces the same shared document.
+class ReceivingDocumentsScreen extends ConsumerStatefulWidget {
+  const ReceivingDocumentsScreen({super.key});
+
+  @override
+  ConsumerState<ReceivingDocumentsScreen> createState() => _ReceivingDocumentsScreenState();
+}
+
+class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScreen> {
+  bool _loading = true;
+  String? _error;
+  List<ReceivingDocumentModel> _docs = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final data = await ref.read(receivingDocumentApiProvider).list();
+      final docs = (data['documents'] as List<dynamic>)
+          .map((e) => ReceivingDocumentModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+      if (mounted) setState(() { _docs = docs; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _openUpload() async {
+    final uploaded = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => const _UploadReceivingDocumentScreen()),
+    );
+    if (uploaded == true) _load();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: _surface,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _onSurface, size: 20),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text('Receiving Docs', style: _manrope(size: 17, weight: FontWeight.w800)),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openUpload,
+        backgroundColor: _primary,
+        icon: const Icon(Icons.upload_file_rounded),
+        label: const Text('Upload New'),
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (_loading) return const Center(child: CircularProgressIndicator(color: _primary));
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Failed to load: $_error', style: _inter(size: 13), textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              TextButton(onPressed: _load, child: const Text('Retry')),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_docs.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.receipt_long_rounded, size: 48, color: _secondary),
+              const SizedBox(height: 12),
+              Text('No receiving docs uploaded yet', style: _inter(size: 13), textAlign: TextAlign.center),
+            ],
+          ),
+        ),
+      );
+    }
+    return RefreshIndicator(
+      color: _primary,
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        itemCount: _docs.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 12),
+        itemBuilder: (_, i) => _ReceivingDocCard(doc: _docs[i]),
+      ),
+    );
+  }
+}
+
+class _ReceivingDocCard extends StatelessWidget {
+  final ReceivingDocumentModel doc;
+  const _ReceivingDocCard({required this.doc});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.network(
+              '${AppConfig.apiBaseUrl}${doc.fileUrl}',
+              width: 64, height: 64, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 64, height: 64, color: _bg,
+                child: const Icon(Icons.image_not_supported_outlined, color: _secondary),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${doc.tripNumbers.length} trip${doc.tripNumbers.length == 1 ? '' : 's'} linked',
+                    style: _manrope(size: 13, weight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 6, runSpacing: 4,
+                  children: doc.tripNumbers.map((t) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: _primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(t, style: _inter(size: 11, weight: FontWeight.w600, color: _primary)),
+                  )).toList(),
+                ),
+                if (doc.uploadedBy != null) ...[
+                  const SizedBox(height: 6),
+                  Text('By ${doc.uploadedBy}', style: _inter(size: 11)),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Upload flow ────────────────────────────────────────────────────────────
+
+class _UploadReceivingDocumentScreen extends ConsumerStatefulWidget {
+  const _UploadReceivingDocumentScreen();
+
+  @override
+  ConsumerState<_UploadReceivingDocumentScreen> createState() => _UploadReceivingDocumentScreenState();
+}
+
+class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceivingDocumentScreen> {
+  XFile? _image;
+  final _tripSearchCtrl = TextEditingController();
+  String _tripQuery = '';
+  final List<TripModel> _selectedTrips = [];
+  bool _uploading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (ref.read(tripProvider).trips.isEmpty) {
+      ref.read(tripProvider.notifier).loadTrips();
+    }
+  }
+
+  @override
+  void dispose() {
+    _tripSearchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picked = await ImagePicker().pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      setState(() => _image = picked);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = 'Could not pick image: $e');
+    }
+  }
+
+  void _showImageSourcePicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined, color: _primary),
+              title: const Text('Take Photo'),
+              onTap: () { Navigator.pop(context); _pickImage(ImageSource.camera); },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined, color: _primary),
+              title: const Text('Choose from Gallery'),
+              onTap: () { Navigator.pop(context); _pickImage(ImageSource.gallery); },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<TripModel> get _searchResults {
+    if (_tripQuery.isEmpty) return const [];
+    final selectedIds = _selectedTrips.map((t) => t.id).toSet();
+    return ref.read(tripProvider).trips
+        .where((t) => !selectedIds.contains(t.id) && matchesTripSearch(_tripQuery, t.tripNumber, t.rrTripNumber))
+        .take(20)
+        .toList();
+  }
+
+  void _addTrip(TripModel trip) {
+    setState(() {
+      _selectedTrips.add(trip);
+      _tripSearchCtrl.clear();
+      _tripQuery = '';
+    });
+  }
+
+  void _removeTrip(TripModel trip) {
+    setState(() => _selectedTrips.removeWhere((t) => t.id == trip.id));
+  }
+
+  Future<void> _upload() async {
+    if (_image == null) {
+      setState(() => _error = 'Please attach the receiving sheet image');
+      return;
+    }
+    if (_selectedTrips.isEmpty) {
+      setState(() => _error = 'Link at least one trip to this document');
+      return;
+    }
+    setState(() { _uploading = true; _error = null; });
+    try {
+      final bytes = await _image!.readAsBytes();
+      await ref.read(receivingDocumentApiProvider).upload(
+        fileBytes: bytes,
+        fileName: _image!.name,
+        tripIds: _selectedTrips.map((t) => t.id).toList(),
+      );
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _uploading = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: _surface,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded, color: _onSurface),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text('Upload Receiving Doc', style: _manrope(size: 16, weight: FontWeight.w800)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+        children: [
+          GestureDetector(
+            onTap: _showImageSourcePicker,
+            child: Container(
+              height: 180,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _border),
+              ),
+              child: _image == null
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.add_a_photo_outlined, size: 32, color: _secondary),
+                        const SizedBox(height: 8),
+                        Text('Attach receiving sheet photo', style: _inter(size: 13)),
+                      ],
+                    )
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: FutureBuilder<Uint8List>(
+                        future: _image!.readAsBytes(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData) {
+                            return const Center(child: CircularProgressIndicator(color: _primary));
+                          }
+                          return Image.memory(snapshot.data!, fit: BoxFit.cover, width: double.infinity);
+                        },
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text('Link trips this sheet covers', style: _manrope(size: 14, weight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text('Search by trip number — just the digits are enough', style: _inter(size: 12)),
+          const SizedBox(height: 10),
+          TripSearchField(
+            controller: _tripSearchCtrl,
+            onChanged: (q) => setState(() => _tripQuery = q),
+            hintText: 'Search trip number',
+          ),
+          if (_searchResults.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: _surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _border),
+              ),
+              constraints: const BoxConstraints(maxHeight: 220),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                itemCount: _searchResults.length,
+                separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
+                itemBuilder: (_, i) {
+                  final trip = _searchResults[i];
+                  return ListTile(
+                    dense: true,
+                    title: Text(trip.tripNumber, style: _inter(size: 13, weight: FontWeight.w600)),
+                    subtitle: Text('${trip.origin} → ${trip.destination}', style: _inter(size: 11)),
+                    trailing: const Icon(Icons.add_circle_outline_rounded, color: _primary, size: 20),
+                    onTap: () => _addTrip(trip),
+                  );
+                },
+              ),
+            ),
+          ],
+          if (_selectedTrips.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text('Linked (${_selectedTrips.length})', style: _manrope(size: 13, weight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8, runSpacing: 8,
+              children: _selectedTrips.map((t) => Chip(
+                label: Text(t.tripNumber, style: _inter(size: 12, weight: FontWeight.w600)),
+                backgroundColor: _primary.withValues(alpha: 0.08),
+                deleteIcon: const Icon(Icons.close_rounded, size: 16),
+                onDeleted: () => _removeTrip(t),
+              )).toList(),
+            ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 16),
+            Text(_error!, style: _inter(size: 12, color: Colors.red.shade700)),
+          ],
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _uploading ? null : _upload,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _uploading
+                  ? const SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Upload'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -19,6 +19,7 @@ import 'package:fleet_management/presentation/screens/vehicles/vehicles_list_scr
 import 'package:fleet_management/presentation/screens/vehicles/add_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/tracking/track_driver_search_screen.dart';
+import 'package:fleet_management/presentation/screens/receiving_documents/receiving_documents_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_company_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_user_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/vehicle_hire_requests_screen.dart';
@@ -346,6 +347,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
           child: const TrackDriverSearchScreen(),
+        ),
+      ),
+
+      // Receiving Docs — LP/RR-ops upload one image (a physical receiving
+      // sheet covering several trips) linked to every trip number it covers.
+      GoRoute(
+        path: '/receiving-documents',
+        name: 'receiving-documents',
+        redirect: (context, state) => lpOrRrOpsOnly(context, state),
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const ReceivingDocumentsScreen(),
         ),
       ),
 

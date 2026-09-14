@@ -1018,6 +1018,14 @@ class _RrOpsDrawer extends ConsumerWidget {
                       context.push('/track');
                     },
                   ),
+                  _RrOpsDrawerTile(
+                    icon: Icons.receipt_long_outlined,
+                    label: 'Receiving Docs',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/receiving-documents');
+                    },
+                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 16, 6),
                     child: Text('RR QUICK ADD',

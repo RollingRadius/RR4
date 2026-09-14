@@ -7,13 +7,17 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
+import 'package:fleet_management/data/models/receiving_document_model.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
+import 'package:fleet_management/providers/receiving_document_provider.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const _rrBlue    = Color(0xFF1B6CA8);
@@ -346,6 +350,67 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     }
   }
 
+  Future<void> _viewReceivingDocument() async {
+    ReceivingDocumentModel? doc;
+    try {
+      doc = await ref.read(receivingDocumentApiProvider).getByTrip(trip.id);
+    } catch (_) {
+      doc = null;
+    }
+    if (!mounted) return;
+    if (doc == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Could not load the receiving document', style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
+    if (!mounted) return;
+    final imageUrl = '${AppConfig.apiBaseUrl}${doc.fileUrl}';
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Receiving Document', style: _manrope(size: 15, weight: FontWeight.w800)),
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(imageUrl, fit: BoxFit.contain),
+              ),
+              const SizedBox(height: 10),
+              Text('Covers ${doc!.tripNumbers.length} trip${doc.tripNumbers.length == 1 ? '' : 's'}:',
+                  style: _inter(size: 12, weight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6, runSpacing: 4,
+                children: doc.tripNumbers.map((t) => Text(t, style: _inter(size: 12))).toList(),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => launchUrl(Uri.parse(imageUrl), mode: LaunchMode.externalApplication),
+                  icon: const Icon(Icons.download_rounded, size: 18),
+                  label: const Text('Open / Download'),
+                  style: OutlinedButton.styleFrom(foregroundColor: _rrBlue),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _showLongPressMenu(BuildContext context, Offset globalPosition) async {
     if (!_canManageRr) return; // FE never gets this menu
     final alreadyInRecords = trip.movedToRecordsAt != null;
@@ -516,6 +581,16 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
               overflow: TextOverflow.ellipsis,
             ),
           ],
+          if (trip.hasReceivingDocument) ...[
+            const SizedBox(width: 8),
+            Icon(Icons.fact_check_rounded, color: _white.withOpacity(0.8), size: 13),
+            const SizedBox(width: 4),
+            Text(
+              'Receiving Doc',
+              style: _inter(size: 12, color: _white.withOpacity(0.9), weight: FontWeight.w600),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ]),
       ]),
     );
@@ -643,6 +718,27 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
                 ),
               ),
             ),
+          _Divider(),
+        ],
+        if (trip.hasReceivingDocument) ...[
+          InkWell(
+            onTap: _viewReceivingDocument,
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.fact_check_rounded, size: 18, color: _rrBlue),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('View Receiving Document',
+                        style: _manrope(size: 13, weight: FontWeight.w700, color: _rrBlue)),
+                  ),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: _rrBlue.withOpacity(0.7)),
+                ],
+              ),
+            ),
+          ),
           _Divider(),
         ],
         _InfoRow(icon: Icons.schedule_outlined, label: 'Created At',

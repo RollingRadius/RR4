@@ -2335,12 +2335,14 @@ def _enrich_bulk(trips: list, db: Session) -> list:
     from app.models.company import Organization
     from app.models.vehicle import Vehicle
     from app.models.driver import Driver
+    from app.models.receiving_document import ReceivingDocumentTrip
 
     # Collect unique IDs
     vehicle_ids = {t.vehicle_id for t in trips if t.vehicle_id}
     driver_ids  = {t.driver_id  for t in trips if t.driver_id}
     org_ids     = {t.organization_id for t in trips if t.organization_id} | \
                   {t.load_owner_org_id for t in trips if t.load_owner_org_id}
+    trip_ids    = {t.id for t in trips}
 
     # Collect submitted_by user IDs for stage attribution
     submitter_ids = set()
@@ -2355,6 +2357,10 @@ def _enrich_bulk(trips: list, db: Session) -> list:
     drivers   = {d.id: d for d in db.query(Driver).filter(Driver.id.in_(driver_ids)).all()}   if driver_ids  else {}
     orgs      = {o.id: o for o in db.query(Organization).filter(Organization.id.in_(org_ids)).all()} if org_ids else {}
     submitters = {u.id: u for u in db.query(User).filter(User.id.in_(submitter_ids)).all()} if submitter_ids else {}
+    linked_trip_ids = {
+        l.trip_id for l in db.query(ReceivingDocumentTrip.trip_id)
+        .filter(ReceivingDocumentTrip.trip_id.in_(trip_ids)).all()
+    } if trip_ids else set()
 
     result = []
     for trip in trips:
@@ -2372,6 +2378,7 @@ def _enrich_bulk(trips: list, db: Session) -> list:
         data["lp_org_name"] = lp_org.company_name if lp_org else None
         lo_org = orgs.get(trip.load_owner_org_id)
         data["load_owner_org_name"] = lo_org.company_name if lo_org else None
+        data["has_receiving_document"] = trip.id in linked_trip_ids
         # Stage submitter usernames
         for i, attr in enumerate(['s1_submitted_by', 's2_submitted_by', 's3_submitted_by', 's4_submitted_by', 's5_submitted_by'], 1):
             uid = getattr(trip, attr, None)
@@ -2424,6 +2431,14 @@ def _enrich(trip: Trip, db: Session) -> dict:
             data["load_owner_org_name"] = None
     else:
         data["load_owner_org_name"] = None
+
+    try:
+        from app.models.receiving_document import ReceivingDocumentTrip
+        data["has_receiving_document"] = db.query(ReceivingDocumentTrip).filter(
+            ReceivingDocumentTrip.trip_id == trip.id
+        ).first() is not None
+    except Exception:
+        data["has_receiving_document"] = False
 
     # Transporter name
     if trip.transporter_user_id:

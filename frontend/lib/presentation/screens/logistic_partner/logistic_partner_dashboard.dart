@@ -4072,6 +4072,7 @@ class _AppDrawer extends ConsumerWidget {
                 _DrawerRequestsTile(ref: ref),
                 _DrawerWorkersTile(),
                 _DrawerTrackTile(),
+                _DrawerReceivingDocsTile(),
 
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -4493,6 +4494,38 @@ class _DrawerTrackTile extends StatelessWidget {
             Expanded(
               child: Text(
                 'Track',
+                style: _inter(size: 14, weight: FontWeight.w600, color: _onSurface),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 16, color: _secondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Receiving Docs Drawer Tile ────────────────────────────────────────────────
+
+class _DrawerReceivingDocsTile extends StatelessWidget {
+  const _DrawerReceivingDocsTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        context.push('/receiving-documents');
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+        child: Row(
+          children: [
+            Icon(Icons.receipt_long_rounded, size: 20, color: _secondary),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                'Receiving Docs',
                 style: _inter(size: 14, weight: FontWeight.w600, color: _onSurface),
               ),
             ),

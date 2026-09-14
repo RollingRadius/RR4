@@ -223,7 +223,7 @@ from app.api.v1 import (
     auth, company, driver, user, organization, reports, capabilities,
     custom_roles, templates, vehicles, profile, roles, organization_management,
     tracking, expenses, invoices, payments, budgets, branding, loads, trips,
-    notifications, workers, rr_sync,
+    notifications, workers, rr_sync, receiving_documents,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -251,6 +251,7 @@ app.include_router(loads.router, prefix="/api/loads", tags=["Loads"])
 app.include_router(trips.router, prefix="/api", tags=["Trips"])
 app.include_router(workers.router, prefix="/api", tags=["Workers"])
 app.include_router(rr_sync.router, prefix="/api/rr", tags=["RR Sync"])
+app.include_router(receiving_documents.router, prefix="/api", tags=["Receiving Documents"])
 # Notifications — prefix="" so the router's own full paths (/ws/notifications,
 # /api/notifications, etc.) are used unchanged.
 app.include_router(notifications.router, prefix="", tags=["Notifications"])
@@ -264,7 +265,7 @@ if settings.PROMETHEUS_ENABLED:
 # Mount static files for uploads (logos, vehicle photos, etc.)
 uploads_path = os.path.join(os.getcwd(), settings.UPLOAD_DIR)
 os.makedirs(uploads_path, exist_ok=True)
-for subdir in ("logos", "vehicles", "trips"):
+for subdir in ("logos", "vehicles", "trips", "receiving_documents"):
     try:
         os.makedirs(os.path.join(uploads_path, subdir), exist_ok=True)
     except PermissionError:
