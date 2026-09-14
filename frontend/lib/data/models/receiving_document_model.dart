@@ -12,6 +12,33 @@ class LinkedTripRef {
       );
 }
 
+/// One trip returned by the receiving-docs trip search — carries both
+/// RR4's own trip number and the RR-web-assigned number (null until synced)
+/// so the search can match either.
+class TripSearchResult {
+  final String id;
+  final String tripNumber;
+  final String? rrTripNumber;
+  final String origin;
+  final String destination;
+
+  const TripSearchResult({
+    required this.id,
+    required this.tripNumber,
+    this.rrTripNumber,
+    required this.origin,
+    required this.destination,
+  });
+
+  factory TripSearchResult.fromJson(Map<String, dynamic> json) => TripSearchResult(
+        id: json['id'] as String,
+        tripNumber: json['trip_number'] as String,
+        rrTripNumber: json['rr_trip_number'] as String?,
+        origin: json['origin'] as String? ?? '',
+        destination: json['destination'] as String? ?? '',
+      );
+}
+
 /// One uploaded "receiving sheet" image, possibly linked to several trips.
 /// See backend/app/models/receiving_document.py for the data model this
 /// mirrors — trips are one-receiving-document-at-a-time (DB-enforced).

@@ -39,6 +39,26 @@ class ReceivingDocumentApi {
     }
   }
 
+  /// Search trips by either RR4's own trip number OR the RR-web-assigned
+  /// number (once synced) — server-side, so it isn't limited to whatever
+  /// page of trips the dashboard happens to have already loaded.
+  Future<List<TripSearchResult>> searchTrips(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return const [];
+    try {
+      final response = await _apiService.dio.get(
+        '/api/receiving-documents/search-trips',
+        queryParameters: {'q': q},
+      );
+      final data = response.data as Map<String, dynamic>;
+      return (data['trips'] as List<dynamic>? ?? [])
+          .map((e) => TripSearchResult.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
   /// Link additional trips to an already-uploaded document.
   Future<ReceivingDocumentModel> addTrips({
     required String documentId,

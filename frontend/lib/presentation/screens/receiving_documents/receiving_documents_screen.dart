@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,11 +7,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:fleet_management/core/config/app_config.dart';
-import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/data/models/receiving_document_model.dart';
 import 'package:fleet_management/presentation/widgets/trip_search_field.dart';
 import 'package:fleet_management/providers/receiving_document_provider.dart';
-import 'package:fleet_management/providers/trip_provider.dart';
 
 const _primary = Color(0xFFFF6B00);
 const _onSurface = Color(0xFF191C1E);
@@ -221,21 +220,17 @@ class _UploadReceivingDocumentScreen extends ConsumerStatefulWidget {
 class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceivingDocumentScreen> {
   XFile? _image;
   final _tripSearchCtrl = TextEditingController();
-  String _tripQuery = '';
-  final List<TripModel> _selectedTrips = [];
+  final List<TripSearchResult> _selectedTrips = [];
+  List<TripSearchResult> _searchResults = [];
+  bool _searching = false;
+  Timer? _debounce;
+  int _searchSeq = 0;
   bool _uploading = false;
   String? _error;
 
   @override
-  void initState() {
-    super.initState();
-    if (ref.read(tripProvider).trips.isEmpty) {
-      ref.read(tripProvider.notifier).loadTrips();
-    }
-  }
-
-  @override
   void dispose() {
+    _debounce?.cancel();
     _tripSearchCtrl.dispose();
     super.dispose();
   }
@@ -276,24 +271,44 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
     );
   }
 
-  List<TripModel> get _searchResults {
-    if (_tripQuery.isEmpty) return const [];
-    final selectedIds = _selectedTrips.map((t) => t.id).toSet();
-    return ref.read(tripProvider).trips
-        .where((t) => !selectedIds.contains(t.id) && matchesTripSearch(_tripQuery, t.tripNumber, t.rrTripNumber))
-        .take(20)
-        .toList();
+  void _onSearchChanged(String query) {
+    _debounce?.cancel();
+    if (query.trim().isEmpty) {
+      _searchSeq++; // invalidate any in-flight request for the cleared query
+      setState(() { _searchResults = []; _searching = false; });
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 350), () => _runSearch(query));
   }
 
-  void _addTrip(TripModel trip) {
+  Future<void> _runSearch(String query) async {
+    final seq = ++_searchSeq;
+    setState(() => _searching = true);
+    try {
+      final results = await ref.read(receivingDocumentApiProvider).searchTrips(query);
+      if (!mounted || seq != _searchSeq) return; // a newer search superseded this one
+      final selectedIds = _selectedTrips.map((t) => t.id).toSet();
+      setState(() {
+        _searchResults = results.where((t) => !selectedIds.contains(t.id)).take(20).toList();
+        _searching = false;
+      });
+    } catch (e) {
+      if (!mounted || seq != _searchSeq) return;
+      setState(() { _searching = false; _error = e.toString(); });
+    }
+  }
+
+  void _addTrip(TripSearchResult trip) {
+    _debounce?.cancel();
+    _searchSeq++; // discard any in-flight search for the query we're clearing
     setState(() {
       _selectedTrips.add(trip);
+      _searchResults = [];
       _tripSearchCtrl.clear();
-      _tripQuery = '';
     });
   }
 
-  void _removeTrip(TripModel trip) {
+  void _removeTrip(TripSearchResult trip) {
     setState(() => _selectedTrips.removeWhere((t) => t.id == trip.id));
   }
 
@@ -372,13 +387,18 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
           const SizedBox(height: 20),
           Text('Link trips this sheet covers', style: _manrope(size: 14, weight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text('Search by trip number — just the digits are enough', style: _inter(size: 12)),
+          Text('Search by RR4 or RR web trip number — just the digits are enough', style: _inter(size: 12)),
           const SizedBox(height: 10),
           TripSearchField(
             controller: _tripSearchCtrl,
-            onChanged: (q) => setState(() => _tripQuery = q),
+            onChanged: _onSearchChanged,
             hintText: 'Search trip number',
           ),
+          if (_searching) ...[
+            const SizedBox(height: 8),
+            const Center(child: SizedBox(width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: _primary))),
+          ],
           if (_searchResults.isNotEmpty) ...[
             const SizedBox(height: 8),
             Container(
@@ -395,10 +415,13 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
                 separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
                 itemBuilder: (_, i) {
                   final trip = _searchResults[i];
+                  final sub = trip.rrTripNumber != null
+                      ? '${trip.origin} → ${trip.destination} · RR: ${trip.rrTripNumber}'
+                      : '${trip.origin} → ${trip.destination}';
                   return ListTile(
                     dense: true,
                     title: Text(trip.tripNumber, style: _inter(size: 13, weight: FontWeight.w600)),
-                    subtitle: Text('${trip.origin} → ${trip.destination}', style: _inter(size: 11)),
+                    subtitle: Text(sub, style: _inter(size: 11)),
                     trailing: const Icon(Icons.add_circle_outline_rounded, color: _primary, size: 20),
                     onTap: () => _addTrip(trip),
                   );
@@ -460,7 +483,10 @@ class _EditReceivingDocumentScreen extends ConsumerStatefulWidget {
 class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocumentScreen> {
   late ReceivingDocumentModel _doc;
   final _tripSearchCtrl = TextEditingController();
-  String _tripQuery = '';
+  List<TripSearchResult> _searchResults = [];
+  bool _searching = false;
+  Timer? _debounce;
+  int _searchSeq = 0;
   bool _busy = false;
   String? _error;
   bool _changed = false;
@@ -469,27 +495,45 @@ class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocu
   void initState() {
     super.initState();
     _doc = widget.doc;
-    if (ref.read(tripProvider).trips.isEmpty) {
-      ref.read(tripProvider.notifier).loadTrips();
-    }
   }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _tripSearchCtrl.dispose();
     super.dispose();
   }
 
-  List<TripModel> get _searchResults {
-    if (_tripQuery.isEmpty) return const [];
-    final linkedIds = _doc.trips.map((t) => t.id).toSet();
-    return ref.read(tripProvider).trips
-        .where((t) => !linkedIds.contains(t.id) && matchesTripSearch(_tripQuery, t.tripNumber, t.rrTripNumber))
-        .take(20)
-        .toList();
+  void _onSearchChanged(String query) {
+    _debounce?.cancel();
+    if (query.trim().isEmpty) {
+      _searchSeq++; // invalidate any in-flight request for the cleared query
+      setState(() { _searchResults = []; _searching = false; });
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 350), () => _runSearch(query));
   }
 
-  Future<void> _addTrip(TripModel trip) async {
+  Future<void> _runSearch(String query) async {
+    final seq = ++_searchSeq;
+    setState(() => _searching = true);
+    try {
+      final results = await ref.read(receivingDocumentApiProvider).searchTrips(query);
+      if (!mounted || seq != _searchSeq) return; // a newer search superseded this one
+      final linkedIds = _doc.trips.map((t) => t.id).toSet();
+      setState(() {
+        _searchResults = results.where((t) => !linkedIds.contains(t.id)).take(20).toList();
+        _searching = false;
+      });
+    } catch (e) {
+      if (!mounted || seq != _searchSeq) return;
+      setState(() { _searching = false; _error = e.toString(); });
+    }
+  }
+
+  Future<void> _addTrip(TripSearchResult trip) async {
+    _debounce?.cancel();
+    _searchSeq++; // discard any in-flight search for the query we're clearing
     setState(() { _busy = true; _error = null; });
     try {
       final updated = await ref.read(receivingDocumentApiProvider).addTrips(
@@ -501,8 +545,8 @@ class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocu
         _doc = updated;
         _changed = true;
         _busy = false;
+        _searchResults = [];
         _tripSearchCtrl.clear();
-        _tripQuery = '';
       });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _busy = false; });
@@ -599,13 +643,18 @@ class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocu
             const SizedBox(height: 12),
             Text('Link more trips', style: _manrope(size: 14, weight: FontWeight.w700)),
             const SizedBox(height: 4),
-            Text('Search by trip number — just the digits are enough', style: _inter(size: 12)),
+            Text('Search by RR4 or RR web trip number — just the digits are enough', style: _inter(size: 12)),
             const SizedBox(height: 10),
             TripSearchField(
               controller: _tripSearchCtrl,
-              onChanged: (q) => setState(() => _tripQuery = q),
+              onChanged: _onSearchChanged,
               hintText: 'Search trip number',
             ),
+            if (_searching) ...[
+              const SizedBox(height: 8),
+              const Center(child: SizedBox(width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: _primary))),
+            ],
             if (_searchResults.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
@@ -622,10 +671,13 @@ class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocu
                   separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
                   itemBuilder: (_, i) {
                     final trip = _searchResults[i];
+                    final sub = trip.rrTripNumber != null
+                        ? '${trip.origin} → ${trip.destination} · RR: ${trip.rrTripNumber}'
+                        : '${trip.origin} → ${trip.destination}';
                     return ListTile(
                       dense: true,
                       title: Text(trip.tripNumber, style: _inter(size: 13, weight: FontWeight.w600)),
-                      subtitle: Text('${trip.origin} → ${trip.destination}', style: _inter(size: 11)),
+                      subtitle: Text(sub, style: _inter(size: 11)),
                       trailing: const Icon(Icons.add_circle_outline_rounded, color: _primary, size: 20),
                       onTap: _busy ? null : () => _addTrip(trip),
                     );

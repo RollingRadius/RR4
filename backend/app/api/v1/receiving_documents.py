@@ -11,8 +11,9 @@ document per trip" constraint.
 import uuid as uuid_module
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -99,6 +100,45 @@ def _validate_linkable(ids: list[str], org_id, db: Session) -> list:
             detail=f"Trip(s) already have a receiving document linked: {', '.join(linked_numbers)}"
         )
     return trips
+
+
+@router.get("/search-trips")
+def search_trips_for_linking(
+    q: str = Query(..., min_length=1),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Trip search for the link/unlink UI — searches both RR4's own
+    trip_number AND the RR-web-assigned rr_trip_number (set once a trip is
+    synced, e.g. 'RR-03625'), unlike the client-side substring filter over
+    whatever page of trips happens to be already loaded, which only ever
+    saw trip_number and could miss older/synced trips entirely once they
+    fell off the default 50-trip page."""
+    user_org = _verify_owner_org(current_user, db)
+    query = q.strip()
+    if not query:
+        return {"trips": []}
+
+    trips = db.query(Trip).filter(
+        Trip.organization_id == user_org.organization_id,
+        or_(
+            Trip.trip_number.ilike(f"%{query}%"),
+            Trip.rr_trip_number.ilike(f"%{query}%"),
+        ),
+    ).order_by(Trip.created_at.desc()).limit(30).all()
+
+    return {
+        "trips": [
+            {
+                "id": str(t.id),
+                "trip_number": t.trip_number,
+                "rr_trip_number": t.rr_trip_number,
+                "origin": t.origin,
+                "destination": t.destination,
+            }
+            for t in trips
+        ]
+    }
 
 
 @router.post("", status_code=201)
