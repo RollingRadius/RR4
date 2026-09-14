@@ -18,6 +18,7 @@ from app.models.zone import Zone
 from app.models.tracking import RouteOptimization
 from app.models.user_organization import UserOrganization
 from app.models.role import Role
+from app.models.trip import Trip
 from app.services.tracking_service import TrackingService
 from app.schemas.tracking import (
     LocationCreate,
@@ -358,7 +359,24 @@ def get_driver_track_status(
     if not role or role.role_key not in ('logistic_partner', 'lp_rr_operations'):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="LP / RR-ops only")
 
-    driver = get_driver_and_check_org(driver_id, current_user, db)
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Driver not found")
+
+    # Same org check as get_driver_and_check_org, but also allows a
+    # self-registered driver (organization_id is nullable) who's actively
+    # hauling a trip for this org — matches the same broadening already
+    # applied to the Track sidebar's search, see
+    # DriverService.get_drivers_by_organization. Without this, a driver
+    # found via search would then 403 the moment you tap them.
+    org_id = _get_user_org_id(current_user, db)
+    is_own_org_driver = driver.organization_id == org_id
+    is_linked_to_org_trip = db.query(Trip).filter(
+        Trip.organization_id == org_id, Trip.driver_id == driver.id
+    ).first() is not None
+    if not is_own_org_driver and not is_linked_to_org_trip:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to driver from different organization")
+
     return _driver_location_status(driver, db)
 
 
