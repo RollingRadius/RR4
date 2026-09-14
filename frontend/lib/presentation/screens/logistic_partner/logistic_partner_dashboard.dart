@@ -4071,6 +4071,7 @@ class _AppDrawer extends ConsumerWidget {
                 }),
                 _DrawerRequestsTile(ref: ref),
                 _DrawerWorkersTile(),
+                _DrawerTrackTile(),
 
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -4460,6 +4461,38 @@ class _DrawerWorkersTile extends StatelessWidget {
             Expanded(
               child: Text(
                 'Employees',
+                style: _inter(size: 14, weight: FontWeight.w600, color: _onSurface),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, size: 16, color: _secondary),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Track Drawer Tile ────────────────────────────────────────────────────────
+
+class _DrawerTrackTile extends StatelessWidget {
+  const _DrawerTrackTile();
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () {
+        Navigator.pop(context);
+        context.push('/track');
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+        child: Row(
+          children: [
+            Icon(Icons.person_pin_circle_rounded, size: 20, color: _secondary),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                'Track',
                 style: _inter(size: 14, weight: FontWeight.w600, color: _onSurface),
               ),
             ),

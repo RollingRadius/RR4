@@ -75,6 +75,22 @@ class TrackingApi {
     }
   }
 
+  /// Get a driver's current location status — unlike getDriverLocation(),
+  /// this never throws on "no location": it always returns a map with
+  /// has_location + a specific, user-friendly reason (no app account /
+  /// tracking disabled / never shared / has a location), backing the Track
+  /// sidebar search and the per-trip Track view.
+  Future<Map<String, dynamic>> getDriverTrackStatus(String driverId) async {
+    try {
+      final response = await _apiService.dio.get(
+        '/api/v1/tracking/drivers/$driverId/track-status',
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
   /// Get location history for a driver
   Future<LocationListResponse> getDriverHistory({
     required String driverId,
@@ -245,6 +261,21 @@ class TrackingApi {
     try {
       final response = await _apiService.dio.get('/api/v1/tracking/my-status');
       return response.data;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
+  /// Self-report the driver's current OS location-permission state — the
+  /// backend otherwise has zero visibility into this, and uses it to decide
+  /// whether to send a "turn on location" reminder push. [status] should be
+  /// the raw LocationPermissionStatus enum name (e.g. "always", "denied").
+  Future<void> reportMyPermissionStatus(String status) async {
+    try {
+      await _apiService.dio.put(
+        '/api/v1/tracking/my-permission-status',
+        data: {'permission_status': status},
+      );
     } catch (e) {
       throw _apiService.handleError(e);
     }

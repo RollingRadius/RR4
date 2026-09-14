@@ -39,6 +39,45 @@ def _notify_driver_assigned(driver: Driver, trip: Trip) -> None:
         logger.warning(f"[Driver Link] Failed to notify driver {driver.id} of assignment", exc_info=True)
 
 
+_LOCATION_REMINDER_MIN_INTERVAL_MINUTES = 15
+_LOCATION_PERMISSION_SUFFICIENT = {'always', 'whileInUse'}
+
+
+def maybe_send_location_reminder(driver: Driver, trip: Trip, db: Session) -> None:
+    """Send a specific "turn on location" push — distinct from the generic
+    trip_assigned push — if the driver's last self-reported OS permission
+    isn't sufficient for tracking. Rate-limited to at most once every
+    _LOCATION_REMINDER_MIN_INTERVAL_MINUTES per driver, so this is safe to
+    call both once on assignment and repeatedly from the driver dashboard's
+    30s poll (there's no scheduler in this codebase to do it any other way).
+    Best-effort — never raises.
+    """
+    try:
+        if driver.last_permission_status in _LOCATION_PERMISSION_SUFFICIENT:
+            return
+
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        last_sent = driver.last_location_reminder_sent_at
+        if last_sent and now - last_sent < timedelta(minutes=_LOCATION_REMINDER_MIN_INTERVAL_MINUTES):
+            return
+
+        token = driver.user.fcm_token if driver.user else None
+        if not token:
+            return
+
+        fcm_service.send_to_token(
+            token,
+            "Turn On Location",
+            f"Trip {trip.trip_number} needs your location on to be tracked. Open RR4 and enable it.",
+            {"type": "location_reminder", "trip_id": str(trip.id)},
+        )
+        driver.last_location_reminder_sent_at = now
+        db.commit()
+    except Exception:
+        logger.warning(f"[Driver Link] Failed to send location reminder to driver {driver.id}", exc_info=True)
+
+
 def _nudge_driver_refresh(driver: Driver, trip: Trip) -> None:
     """Silent, data-only push (no visible banner) telling the driver's app to
     immediately re-check its trip list/tracking assignment instead of waiting
@@ -159,6 +198,7 @@ async def link_driver_to_trip(trip: Trip, rr_driver_id: str, rr_token: str, db: 
         if driver_changed:
             _notify_driver_assigned(matched, trip)
             _nudge_driver_refresh(matched, trip)
+            maybe_send_location_reminder(matched, trip, db)
     else:
         logger.info(f"[Driver Link] Trip {trip.trip_number} — no local driver matched rr_driver_id={rr_driver_id}")
 

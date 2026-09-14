@@ -18,6 +18,7 @@ import 'package:fleet_management/providers/theme_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/location_tracking_provider.dart';
+import 'package:fleet_management/data/services/background_tracking_service.dart';
 
 /// App-wide ScaffoldMessenger — outlives any single screen's own Scaffold.
 /// A SnackBar shown via a screen-local `ScaffoldMessenger.of(context)`
@@ -65,6 +66,12 @@ void main() async {
 
     // Analytics — ready for use via AnalyticsService()
     AnalyticsService();
+
+    // Register (not start) the durable background tracking service — lets
+    // drivers with "Always Allow" location keep being tracked even after
+    // the app is force-killed or they log out. Actually starting it is
+    // decided per-driver by syncDriverTrackingToActiveTrip.
+    await BackgroundTrackingService.initialize();
   }
 
   // Initialize app configuration

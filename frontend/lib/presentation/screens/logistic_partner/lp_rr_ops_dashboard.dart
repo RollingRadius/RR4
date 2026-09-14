@@ -1010,6 +1010,14 @@ class _RrOpsDrawer extends ConsumerWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
+                  _RrOpsDrawerTile(
+                    icon: Icons.person_pin_circle_outlined,
+                    label: 'Track',
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/track');
+                    },
+                  ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 16, 6),
                     child: Text('RR QUICK ADD',

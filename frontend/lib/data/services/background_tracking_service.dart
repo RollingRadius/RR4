@@ -1,46 +1,57 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
-import 'package:flutter_background_service_android/flutter_background_service_android.dart';
-// import 'package:flutter_local_notifications/flutter_local_notifications.dart'; // Temporarily disabled
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:fleet_management/core/config/app_config.dart';
 
 /// Background Tracking Service
-/// Handles persistent location tracking when app is in background
+///
+/// Durable GPS tracking for drivers who've granted "Always Allow" location
+/// permission — survives the app being force-killed (swiped from Recents,
+/// see android:stopWithTask="false" on this service in AndroidManifest.xml)
+/// and survives the driver explicitly logging out of the app.
+///
+/// This runs in its own OS-level isolate with no access to the main app's
+/// Riverpod providers, in-memory auth state, or ApiService/Dio singleton —
+/// it holds its own persisted, auth-session-independent credential
+/// (`trackingRefreshTokenKey`/`trackingDriverIdKey`, deliberately separate
+/// from the main session's AppConfig.tokenKey/refreshTokenKey so a normal
+/// logout doesn't touch them) and its own lightweight Dio client.
+///
+/// Per an explicit product decision: this is NOT covert. The persistent
+/// foreground-service notification stays visible on the driver's phone the
+/// whole time, even after they've logged out of the app itself.
 class BackgroundTrackingService {
-  static const String _serviceKey = 'background_tracking_service';
   static const String _notificationChannelId = 'fleet_tracking';
-  static const String _notificationChannelName = 'Fleet Tracking';
 
-  /// Initialize background service
+  /// Secure-storage keys for the durable tracking credential — deliberately
+  /// separate from AppConfig.tokenKey/refreshTokenKey (the main session),
+  /// so AuthNotifier.logout() can clear the main session without touching
+  /// these, and this service keeps running regardless of app login state.
+  static const String trackingRefreshTokenKey = 'tracking_refresh_token';
+  static const String trackingDriverIdKey = 'tracking_driver_id';
+
+  static const _storage = FlutterSecureStorage();
+
+  /// Initialize background service (register with the OS; does not start it)
   static Future<void> initialize() async {
     final service = FlutterBackgroundService();
 
-    // Create notification channel for Android
-    // Temporarily disabled - flutter_local_notifications causing build issues
-    /*
-    const androidChannel = AndroidNotificationChannel(
-      _notificationChannelId,
-      _notificationChannelName,
-      description: 'Active GPS tracking for fleet management',
-      importance: Importance.low,
-    );
-
-    final flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-    await flutterLocalNotificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(androidChannel);
-    */
-
-    // Configure background service
     await service.configure(
       androidConfiguration: AndroidConfiguration(
         onStart: onStart,
         autoStart: false,
+        // Explicit, not relying on the package default: the plugin's own
+        // bundled BootReceiver (merged into our manifest automatically)
+        // restarts this service after a device reboot when this is true —
+        // re-entering onStart, which reads the persisted tracking
+        // credential from secure storage independently of any Dart/app
+        // state, so tracking resumes correctly with zero app interaction.
+        autoStartOnBoot: true,
         isForegroundMode: true,
         notificationChannelId: _notificationChannelId,
         initialNotificationTitle: 'Fleet Tracking Active',
@@ -55,13 +66,41 @@ class BackgroundTrackingService {
     );
   }
 
-  /// Start background tracking
-  static Future<bool> start() async {
+  /// Persist the durable tracking credential for a driver and start the
+  /// service. Call whenever a driver with "Always Allow" permission logs in
+  /// or refreshes their session — safe to call repeatedly (idempotent).
+  static Future<bool> startForDriver({
+    required String driverId,
+    required String refreshToken,
+  }) async {
+    await _storage.write(key: trackingDriverIdKey, value: driverId);
+    await _storage.write(key: trackingRefreshTokenKey, value: refreshToken);
     final service = FlutterBackgroundService();
-    return await service.startService();
+    if (await service.isRunning()) return true;
+    return service.startService();
   }
 
-  /// Stop background tracking
+  /// Stop background tracking and forget the persisted credential —
+  /// call when a DIFFERENT driver logs in on this device (foreign-driver
+  /// safety), not on a normal same-driver logout.
+  static Future<void> stopAndClearCredential() async {
+    await stop();
+    await _storage.delete(key: trackingDriverIdKey);
+    await _storage.delete(key: trackingRefreshTokenKey);
+  }
+
+  /// Start the service using whatever credential is already persisted —
+  /// use this once startForDriver() has already been called for the current
+  /// driver; a no-op if already running.
+  static Future<bool> start() async {
+    final service = FlutterBackgroundService();
+    if (await service.isRunning()) return true;
+    return service.startService();
+  }
+
+  /// Stop background tracking, keeping the persisted credential intact —
+  /// this is what a normal in-app "stop tracking" toggle should call, since
+  /// the credential is what lets tracking resume for the same driver.
   static Future<bool> stop() async {
     final service = FlutterBackgroundService();
     final isRunning = await service.isRunning();
@@ -79,16 +118,10 @@ class BackgroundTrackingService {
     return await service.isRunning();
   }
 
-  /// Update notification
-  static void updateNotification({
-    required String title,
-    required String content,
-  }) {
-    final service = FlutterBackgroundService();
-    service.invoke('updateNotification', {
-      'title': title,
-      'content': content,
-    });
+  /// The driver id currently associated with the persisted tracking
+  /// credential, if any — used for the foreign-driver-on-this-device check.
+  static Future<String?> currentDriverId() async {
+    return _storage.read(key: trackingDriverIdKey);
   }
 
   // ========================================================================
@@ -110,12 +143,10 @@ class BackgroundTrackingService {
       });
     }
 
-    // Handle stop command
     service.on('stop').listen((event) {
       service.stopSelf();
     });
 
-    // Handle notification update
     service.on('updateNotification').listen((event) {
       if (service is AndroidServiceInstance) {
         service.setForegroundNotificationInfo(
@@ -125,7 +156,6 @@ class BackgroundTrackingService {
       }
     });
 
-    // Start location tracking loop
     _startLocationTracking(service);
   }
 
@@ -137,54 +167,140 @@ class BackgroundTrackingService {
     return true;
   }
 
+  /// Exchange the persisted tracking refresh token for a fresh access
+  /// token, persisting whatever new refresh token comes back (the endpoint
+  /// rotates it) so the credential chain stays alive indefinitely — well
+  /// under the server's 7-day refresh-token expiry, since this isolate
+  /// calls this at least once per upload cycle (~60s). Returns null (and
+  /// leaves the stored credential untouched) on a transient failure (e.g.
+  /// no network) — that shouldn't wipe out a still-valid refresh token.
+  /// Throws [_RefreshTokenRevoked] on a definitive 401 — e.g. the driver
+  /// was removed from their org (which revokes all their refresh tokens,
+  /// see organization_management.py's remove_employee) or their password
+  /// changed — retrying that forever would just drain battery with a
+  /// permanently-stuck "Tracking Active" notification.
+  static Future<String?> _refreshAccessToken(Dio dio) async {
+    final refreshToken = await _storage.read(key: trackingRefreshTokenKey);
+    if (refreshToken == null || refreshToken.isEmpty) return null;
+    try {
+      final resp = await dio.post('/api/auth/refresh', data: {'refresh_token': refreshToken});
+      final data = resp.data as Map<String, dynamic>;
+      final newRefresh = data['refresh_token'] as String?;
+      if (newRefresh != null && newRefresh.isNotEmpty) {
+        await _storage.write(key: trackingRefreshTokenKey, value: newRefresh);
+      }
+      return data['access_token'] as String?;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        debugPrint('❌ Background tracking: refresh token revoked, cannot recover');
+        throw _RefreshTokenRevoked();
+      }
+      debugPrint('❌ Background tracking: refresh failed (transient): $e');
+      return null;
+    } catch (e) {
+      debugPrint('❌ Background tracking: refresh failed: $e');
+      return null;
+    }
+  }
+
   /// Main location tracking loop
   static void _startLocationTracking(ServiceInstance service) async {
-    // Load configuration from SharedPreferences
-    final prefs = await SharedPreferences.getInstance();
-    final apiUrl = prefs.getString('api_url') ?? '';
-    final authToken = prefs.getString('auth_token') ?? '';
-
-    if (apiUrl.isEmpty || authToken.isEmpty) {
-      debugPrint('❌ Background tracking: Missing API credentials');
+    final driverId = await _storage.read(key: trackingDriverIdKey);
+    if (driverId == null || driverId.isEmpty) {
+      debugPrint('❌ Background tracking: no driver credential persisted');
       service.stopSelf();
       return;
     }
 
-    // Location queue for batch uploads
+    final dio = Dio(BaseOptions(
+      baseUrl: AppConfig.apiBaseUrl,
+      connectTimeout: const Duration(seconds: 15),
+      receiveTimeout: const Duration(seconds: 15),
+    ));
+
+    // Refreshed lazily by sendQueuedLocations() — cached in-memory for this
+    // isolate's lifetime rather than refreshed on every single upload.
+    String? accessToken;
+
     final List<Map<String, dynamic>> locationQueue = [];
     const maxQueueSize = 10;
-    const uploadInterval = Duration(minutes: 5);
+    const uploadInterval = Duration(seconds: 60);
 
     Timer? uploadTimer;
 
-    // Function to send queued locations
+    Future<bool> uploadBatch(String token) async {
+      await dio.post(
+        '/api/v1/tracking/locations/batch',
+        data: {'locations': List<Map<String, dynamic>>.from(locationQueue)},
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return true;
+    }
+
+    // On a definitive "this credential is dead" signal, stop retrying
+    // forever (which would just drain battery with a permanently-stuck
+    // notification) — forget the credential and shut the service down.
+    Future<void> handleRevoked() async {
+      uploadTimer?.cancel();
+      await _storage.delete(key: trackingDriverIdKey);
+      await _storage.delete(key: trackingRefreshTokenKey);
+      service.stopSelf();
+    }
+
     Future<void> sendQueuedLocations() async {
       if (locationQueue.isEmpty) return;
 
       try {
-        // TODO: Implement actual API call
-        // For now, just clear queue
-        debugPrint('📤 Sending ${locationQueue.length} locations from background');
-        locationQueue.clear();
+        accessToken ??= await _refreshAccessToken(dio);
+      } on _RefreshTokenRevoked {
+        await handleRevoked();
+        return;
+      }
+      if (accessToken == null) {
+        // No valid credential right now (transient — e.g. network down) —
+        // leave the queue for the next cycle.
+        debugPrint('⚠️ Background tracking: no access token, will retry next cycle');
+        return;
+      }
 
-        // Update notification
+      try {
+        await uploadBatch(accessToken!);
+        locationQueue.clear();
         if (service is AndroidServiceInstance) {
           service.setForegroundNotificationInfo(
             title: 'Fleet Tracking Active',
             content: 'Last sync: ${DateTime.now().toLocal().toString().substring(11, 16)}',
           );
         }
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401) {
+          // Access token expired mid-cycle — force a fresh one and retry once.
+          try {
+            accessToken = await _refreshAccessToken(dio);
+          } on _RefreshTokenRevoked {
+            await handleRevoked();
+            return;
+          }
+          if (accessToken != null) {
+            try {
+              await uploadBatch(accessToken!);
+              locationQueue.clear();
+            } catch (e2) {
+              debugPrint('❌ Background tracking: retry upload failed: $e2');
+            }
+          }
+        } else {
+          debugPrint('❌ Background tracking: upload failed: $e');
+        }
       } catch (e) {
-        debugPrint('❌ Failed to send locations: $e');
+        debugPrint('❌ Background tracking: upload failed: $e');
       }
     }
 
-    // Start periodic upload timer
     uploadTimer = Timer.periodic(uploadInterval, (_) {
       sendQueuedLocations();
     });
 
-    // Location stream
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
       distanceFilter: 10,
@@ -194,16 +310,7 @@ class BackgroundTrackingService {
     await for (final position in Geolocator.getPositionStream(
       locationSettings: locationSettings,
     )) {
-      // Check if service should stop
-      if (service is AndroidServiceInstance) {
-        final running = await (service as AndroidServiceInstance).isForegroundService();
-        if (!running) {
-          uploadTimer?.cancel();
-          break;
-        }
-      }
-
-      // Add location to queue
+      final ts = position.timestamp;
       locationQueue.add({
         'latitude': position.latitude,
         'longitude': position.longitude,
@@ -211,18 +318,16 @@ class BackgroundTrackingService {
         'altitude': position.altitude,
         'speed': position.speed,
         'heading': position.heading,
-        'timestamp': position.timestamp?.toIso8601String() ?? DateTime.now().toIso8601String(),
+        'timestamp': ts.toUtc().toIso8601String(),
         'is_mock_location': position.isMocked,
       });
 
       debugPrint('📍 Background location: ${position.latitude}, ${position.longitude}');
 
-      // Send if queue is full
       if (locationQueue.length >= maxQueueSize) {
         await sendQueuedLocations();
       }
 
-      // Update notification with last location time
       if (service is AndroidServiceInstance) {
         final now = DateTime.now();
         service.setForegroundNotificationInfo(
@@ -232,53 +337,15 @@ class BackgroundTrackingService {
       }
     }
 
-    // Clean up
-    uploadTimer?.cancel();
+    uploadTimer.cancel();
     await sendQueuedLocations();
   }
 }
 
-/// Background Tracking Configuration
-class BackgroundTrackingConfig {
-  final Duration updateInterval;
-  final double distanceFilter;
-  final LocationAccuracy accuracy;
-
-  const BackgroundTrackingConfig({
-    this.updateInterval = const Duration(seconds: 30),
-    this.distanceFilter = 10.0,
-    this.accuracy = LocationAccuracy.high,
-  });
-
-  /// Save config to preferences
-  Future<void> save() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('bg_tracking_interval', updateInterval.inSeconds);
-    await prefs.setDouble('bg_tracking_distance', distanceFilter);
-    await prefs.setString('bg_tracking_accuracy', accuracy.toString());
-  }
-
-  /// Load config from preferences
-  static Future<BackgroundTrackingConfig> load() async {
-    final prefs = await SharedPreferences.getInstance();
-
-    final interval = prefs.getInt('bg_tracking_interval') ?? 30;
-    final distance = prefs.getDouble('bg_tracking_distance') ?? 10.0;
-    final accuracyStr = prefs.getString('bg_tracking_accuracy') ?? 'LocationAccuracy.high';
-
-    LocationAccuracy accuracy = LocationAccuracy.high;
-    if (accuracyStr.contains('best')) {
-      accuracy = LocationAccuracy.best;
-    } else if (accuracyStr.contains('medium')) {
-      accuracy = LocationAccuracy.medium;
-    } else if (accuracyStr.contains('low')) {
-      accuracy = LocationAccuracy.low;
-    }
-
-    return BackgroundTrackingConfig(
-      updateInterval: Duration(seconds: interval),
-      distanceFilter: distance,
-      accuracy: accuracy,
-    );
-  }
-}
+/// Thrown by [BackgroundTrackingService._refreshAccessToken] when the
+/// persisted refresh token is definitively rejected (401) rather than
+/// failing transiently — e.g. the driver was removed from their org, or
+/// their password changed. Signals the isolate to give up and shut down
+/// instead of retrying forever against a credential that will never work
+/// again.
+class _RefreshTokenRevoked implements Exception {}

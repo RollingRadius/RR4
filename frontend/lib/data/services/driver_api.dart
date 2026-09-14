@@ -33,6 +33,7 @@ class DriverApi {
     int skip = 0,
     int limit = 50,
     String? status,
+    String? phoneSearch,
   }) async {
     try {
       final response = await _apiService.dio.get(
@@ -41,6 +42,7 @@ class DriverApi {
           'skip': skip,
           'limit': limit,
           if (status != null) 'status': status,
+          if (phoneSearch != null && phoneSearch.isNotEmpty) 'phone_search': phoneSearch,
         },
       );
 

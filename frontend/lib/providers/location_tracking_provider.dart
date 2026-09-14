@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/data/services/tracking_api.dart';
 import 'package:fleet_management/data/services/location_service.dart';
+import 'package:fleet_management/data/services/background_tracking_service.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 
@@ -252,8 +255,8 @@ Future<void> syncDriverTrackingToActiveTrip(WidgetRef ref) async {
   }
 
   final trips = ref.read(tripProvider).trips;
-  final hasActiveTrip =
-      trips.any((t) => (t.isOngoing || t.isPending) && !t.isStage5Complete);
+  final hasActiveTrip = trips.any((t) =>
+      (t.isOngoing || t.isPending) && !t.isStage5Complete && !t.driverTrackingStopped);
   final notifier = ref.read(locationTrackingProvider.notifier);
   await notifier.refreshMyTrackingEnabled();
   // Also refresh the live OS permission status here (not just at initial
@@ -261,16 +264,63 @@ Future<void> syncDriverTrackingToActiveTrip(WidgetRef ref) async {
   // driver dashboard's permission toggle accurate if the driver grants/denies
   // permission from the phone's own Settings app and comes back.
   await notifier.checkPermission();
+  final permissionStatus = ref.read(locationTrackingProvider).permissionStatus;
+  // Best-effort self-report to the backend — it otherwise has zero
+  // visibility into OS permission state, and uses this to decide whether to
+  // send a "turn on location" reminder push. Never blocks the tracking
+  // start/stop decision below on failure.
+  if (permissionStatus != null) {
+    try {
+      await ref.read(trackingApiProvider).reportMyPermissionStatus(permissionStatus.name);
+    } catch (_) {}
+  }
   final trackingEnabled = ref.read(locationTrackingProvider).trackingEnabled;
+  // A driver who has granted "Always Allow" (background) location keeps
+  // being tracked continuously, trip or no trip, so LP/RR-ops can locate
+  // them anytime via the Track sidebar search. Drivers on "While Using the
+  // App" keep the original trip-scoped behavior — the OS itself blocks
+  // background GPS for that tier regardless of what this code does.
+  final alwaysAllowed = permissionStatus == LocationPermissionStatus.always;
   // trackingEnabled can flip false mid-session (an admin disabling it via
   // PUT /drivers/{id}/tracking while this driver is already tracking) —
   // startTracking()'s own trackingEnabled guard only runs on a fresh start,
   // it never re-checks once isTracking is already true, so this explicit
   // stop is what actually honors an admin's disable while a trip is active.
-  if (hasActiveTrip && trackingEnabled) {
+  if (trackingEnabled && alwaysAllowed) {
+    // Always-tier drivers get the durable background service instead of the
+    // UI-isolate LocationService, so tracking survives the app being closed
+    // and the driver logging out — stop the UI-isolate path to avoid
+    // double-tracking/duplicate uploads for the same driver.
+    await notifier.stopTracking();
+    await _ensureBackgroundTrackingStarted(user!.userId);
+  } else if (trackingEnabled && hasActiveTrip) {
+    // Defensive: in case permission was ever downgraded from "always" while
+    // the background service was running for this driver.
+    await BackgroundTrackingService.stop();
     await notifier.startTracking();
   } else {
     await notifier.stopTracking();
+    await BackgroundTrackingService.stop();
+  }
+}
+
+/// Starts the durable background tracking service for [userId] if it isn't
+/// already running for them — persisting a fresh copy of the current
+/// refresh token as the service's own auth-session-independent credential
+/// on first use. Safe to call repeatedly (idempotent).
+Future<void> _ensureBackgroundTrackingStarted(String userId) async {
+  final persistedDriverId = await BackgroundTrackingService.currentDriverId();
+  if (persistedDriverId == userId) {
+    await BackgroundTrackingService.start();
+    return;
+  }
+  const storage = FlutterSecureStorage();
+  final refreshToken = await storage.read(key: AppConfig.refreshTokenKey);
+  if (refreshToken != null && refreshToken.isNotEmpty) {
+    await BackgroundTrackingService.startForDriver(
+      driverId: userId,
+      refreshToken: refreshToken,
+    );
   }
 }
 

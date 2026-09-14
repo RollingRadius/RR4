@@ -66,6 +66,15 @@ class Trip(Base):
     # only gates FE's access to Stage 1, never LP/RR-ops'.
     s1_required = Column(Boolean, nullable=False, default=True)
 
+    # LP/RR-ops early-release: frees the driver from this specific trip's
+    # assignment-lock + map-tracking before POD, without touching status/
+    # current_stage/s5_* — see _driver_has_open_trip() and
+    # get_trip_vehicle_location() in app/api/v1/trips.py. One-directional.
+    driver_tracking_stopped = Column(Boolean, nullable=False, default=False)
+    driver_tracking_stopped_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    driver_tracking_stopped_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"),
+                                         nullable=True)
+
     # Stage 1 — Truck Detail Registration
     s1_driver_name          = Column(String(100), nullable=True)
     s1_driver_phone         = Column(String(20),  nullable=True)
@@ -367,6 +376,9 @@ class Trip(Base):
             "load_requirement_id": str(self.load_requirement_id) if self.load_requirement_id else None,
             "current_stage": self.current_stage,
             "s1_required": self.s1_required,
+            "driver_tracking_stopped": self.driver_tracking_stopped,
+            "driver_tracking_stopped_at": self.driver_tracking_stopped_at.isoformat() if self.driver_tracking_stopped_at else None,
+            "driver_tracking_stopped_by": str(self.driver_tracking_stopped_by) if self.driver_tracking_stopped_by else None,
             "transporter_user_id": str(self.transporter_user_id) if self.transporter_user_id else None,
             # Stage 1
             "s1_driver_name": self.s1_driver_name,

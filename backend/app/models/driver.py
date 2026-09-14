@@ -94,6 +94,16 @@ class Driver(Base):
     # GPS Tracking
     tracking_enabled = Column(Boolean, nullable=False, default=False, server_default='false')
 
+    # Last-known OS location-permission state self-reported by the driver's
+    # app (see PUT /api/v1/tracking/my-permission-status) — one of the
+    # Dart LocationPermissionStatus enum values verbatim: always /
+    # whileInUse / denied / deniedForever / serviceDisabled. Backs the
+    # "turn on location" reminder push in driver_link_service.py.
+    last_permission_status = Column(String(20), nullable=True)
+    last_permission_checked_at = Column(DateTime, nullable=True)
+    # Rate-limits the reminder push so it doesn't fire on every poll.
+    last_location_reminder_sent_at = Column(DateTime, nullable=True)
+
     # Audit Fields
     created_by = Column(
         UUID(as_uuid=True),

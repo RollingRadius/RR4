@@ -299,6 +299,53 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     }
   }
 
+  // Manual early release: frees the driver from this trip's assignment-lock
+  // (can be booked onto a new trip immediately) and blanks this trip's own
+  // live-location map — before POD, without touching status/stage data.
+  // One-directional, so a confirm dialog guards the irreversible-feeling step.
+  Future<void> _stopDriverTracking() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Stop Driver Tracking'),
+        content: Text(
+          'This will release ${trip.driverName ?? 'the driver'} from this trip so they '
+          'can be assigned to a new trip. Tracking for this trip cannot be resumed. Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Stop Tracking'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post('/api/trips/${trip.id}/stop-tracking');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Driver tracking stopped for this trip', style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: _done,
+        behavior: SnackBarBehavior.floating,
+      ));
+      widget.onRefresh?.call();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Could not stop driver tracking', style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ));
+    }
+  }
+
   Future<void> _showLongPressMenu(BuildContext context, Offset globalPosition) async {
     if (!_canManageRr) return; // FE never gets this menu
     final alreadyInRecords = trip.movedToRecordsAt != null;
@@ -565,6 +612,37 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
               ),
             ),
           ),
+          _Divider(),
+          if (trip.driverTrackingStopped)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.location_off_outlined, size: 18, color: _secondary),
+                  const SizedBox(width: 10),
+                  Text('Tracking stopped for this trip',
+                      style: _inter(size: 12.5, weight: FontWeight.w600, color: _secondary)),
+                ],
+              ),
+            )
+          else
+            InkWell(
+              onTap: _stopDriverTracking,
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    const Icon(Icons.location_off_outlined, size: 18, color: Colors.red),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text('Stop Driver Tracking for this Trip',
+                          style: _manrope(size: 13, weight: FontWeight.w700, color: Colors.red)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           _Divider(),
         ],
         _InfoRow(icon: Icons.schedule_outlined, label: 'Created At',

@@ -18,6 +18,7 @@ import 'package:fleet_management/presentation/screens/fleet/fleet_hub_screen.dar
 import 'package:fleet_management/presentation/screens/vehicles/vehicles_list_screen.dart';
 import 'package:fleet_management/presentation/screens/vehicles/add_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_vehicle_screen.dart';
+import 'package:fleet_management/presentation/screens/tracking/track_driver_search_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_company_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_user_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/vehicle_hire_requests_screen.dart';
@@ -333,6 +334,18 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'lp-rr-ops-home',
         pageBuilder: (context, state) => const NoTransitionPage(
           child: LpRrOpsDashboard(),
+        ),
+      ),
+
+      // Track — LP/RR-ops search a driver by phone and open a live,
+      // driver-centric map, independent of any specific trip.
+      GoRoute(
+        path: '/track',
+        name: 'track',
+        redirect: (context, state) => lpOrRrOpsOnly(context, state),
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const TrackDriverSearchScreen(),
         ),
       ),
 

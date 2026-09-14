@@ -30,6 +30,9 @@ class TripModel {
   /// Whether Field Executives must fill Stage 1 for this trip — a live
   /// LP/RR-ops-controlled switch, defaults to true.
   final bool s1Required;
+  /// True once LP/RR-ops has manually released the driver from this trip
+  /// early via "Stop Driver Tracking for this Trip" — one-directional.
+  final bool driverTrackingStopped;
 
   // ── Stage 1 fields ───────────────────────────────────────────────────────────
   final String? s1DriverName;
@@ -230,6 +233,7 @@ class TripModel {
     this.updatedAt,
     this.currentStage = 0,
     this.s1Required = true,
+    this.driverTrackingStopped = false,
     this.s1DriverName,
     this.s1DriverPhone,
     this.s1DrivingLicense,
@@ -406,6 +410,7 @@ class TripModel {
       updatedAt: json['updated_at'] as String?,
       currentStage: json['current_stage'] as int? ?? 0,
       s1Required: json['s1_required'] as bool? ?? true,
+      driverTrackingStopped: json['driver_tracking_stopped'] as bool? ?? false,
       s1DriverName: json['s1_driver_name'] as String?,
       s1DriverPhone: json['s1_driver_phone'] as String?,
       s1DrivingLicense: json['s1_driving_license'] as String?,

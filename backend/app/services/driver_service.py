@@ -323,7 +323,8 @@ class DriverService:
         org_id: str,
         skip: int = 0,
         limit: int = 50,
-        status_filter: Optional[str] = None
+        status_filter: Optional[str] = None,
+        phone_search: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Get paginated list of drivers for an organization.
@@ -333,6 +334,8 @@ class DriverService:
             skip: Number of records to skip
             limit: Maximum records to return
             status_filter: Optional status filter (active/inactive/on_leave/terminated)
+            phone_search: Optional partial-phone-number filter, for the Track
+                sidebar's driver search
 
         Returns:
             Dictionary with drivers list and pagination info
@@ -347,6 +350,10 @@ class DriverService:
         # Apply status filter if provided
         if status_filter:
             query = query.filter(Driver.status == status_filter)
+
+        # Apply phone search filter if provided
+        if phone_search:
+            query = query.filter(Driver.phone.ilike(f"%{phone_search}%"))
 
         # Get total count
         total = query.count()

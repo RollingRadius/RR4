@@ -11,6 +11,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/providers/location_tracking_provider.dart';
+import 'package:fleet_management/data/services/background_tracking_service.dart';
 
 final fcmServiceProvider = Provider<FcmService>((ref) => FcmService());
 
@@ -332,6 +333,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
         _sendFcmTokenToBackend();
       }
 
+      // Foreign-driver safety: if a DIFFERENT driver was previously tracked
+      // on this device (durable background tracking persists across logout,
+      // deliberately — see BackgroundTrackingService), stop and forget that
+      // credential now that someone else is signed in. Does not touch this
+      // driver's own tracking — syncDriverTrackingToActiveTrip decides that
+      // based on their current permission tier, same as always.
+      if (user.isDriver) {
+        final persistedDriverId = await BackgroundTrackingService.currentDriverId();
+        if (persistedDriverId != null && persistedDriverId != user.userId) {
+          await BackgroundTrackingService.stopAndClearCredential();
+        }
+      }
+
       // When Firebase rotates the token, send the new one to backend
       _fcmService.onTokenRefresh((newToken) {
         _apiService.dio.post('/api/user/fcm-token', data: {'fcm_token': newToken});
@@ -411,7 +425,20 @@ class AuthNotifier extends StateNotifier<AuthState> {
       // device leaves that stream running, still sending queued locations,
       // now under the new account's token — the server correctly 403s those
       // as "Only drivers can submit location data."
-      unawaited(_ref.read(locationTrackingProvider.notifier).stopTracking());
+      //
+      // Deliberately awaited, not fire-and-forget: both LocationTrackingNotifier
+      // and the underlying LocationService gate startTracking() on an
+      // isTracking/_isTracking flag that only flips false once this stop
+      // chain (stream cancel + final batch flush) truly finishes. A
+      // fire-and-forget stop left a real race — a fast logout-then-login
+      // could have the new session's startTracking() silently no-op against
+      // a still-true flag, leaving GPS off for up to 30s until the next poll.
+      await _ref.read(locationTrackingProvider.notifier).stopTracking();
+      // BackgroundTrackingService (the durable "Always Allow" tracker) is
+      // deliberately NOT stopped here, and its tracking_refresh_token/
+      // tracking_driver_id are deliberately NOT cleared — an explicit
+      // product decision so tracking survives logout for drivers on that
+      // permission tier. See BackgroundTrackingService's class doc.
       // isInitialized: true — we've just definitively resolved "no session
       // exists," so the router's `if (!auth.isInitialized) return null;` guard
       // must not disable itself here. A bare AuthState() would reset
