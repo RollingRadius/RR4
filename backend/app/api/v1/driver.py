@@ -153,7 +153,7 @@ def get_drivers(
     for driver in result['drivers']:
         driver_response = DriverResponse(
             driver_id=str(driver.id),
-            organization_id=str(driver.organization_id),
+            organization_id=str(driver.organization_id) if driver.organization_id else None,
             employee_id=driver.employee_id,
             join_date=driver.join_date,
             status=driver.status,
@@ -218,7 +218,7 @@ def get_driver_details(
 
     response = DriverResponse(
         driver_id=str(driver.id),
-        organization_id=str(driver.organization_id),
+        organization_id=str(driver.organization_id) if driver.organization_id else None,
         employee_id=driver.employee_id,
         join_date=driver.join_date,
         status=driver.status,

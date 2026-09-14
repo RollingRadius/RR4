@@ -4,9 +4,30 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:fleet_management/data/models/driver_model.dart';
 import 'package:fleet_management/providers/driver_provider.dart';
 import 'package:fleet_management/presentation/screens/tracking/driver_locate_screen.dart';
+
+/// Deliberately not the shared DriverModel: this search also surfaces
+/// self-registered, orgless drivers (Driver.organization_id/employee_id/
+/// join_date can all be null for them — see DriverService's Track-search
+/// broadening), which DriverModel's other ~6 call sites all assume are
+/// always present. A tiny purpose-built model avoids widening that shared
+/// type just for this one screen's needs.
+class _TrackSearchResult {
+  final String driverId;
+  final String fullName;
+  final String phone;
+
+  const _TrackSearchResult({required this.driverId, required this.fullName, required this.phone});
+
+  factory _TrackSearchResult.fromJson(Map<String, dynamic> json) => _TrackSearchResult(
+        driverId: json['driver_id'] as String,
+        fullName: (json['full_name'] as String?)?.trim().isNotEmpty == true
+            ? json['full_name'] as String
+            : 'Unnamed driver',
+        phone: json['phone'] as String? ?? '—',
+      );
+}
 
 const _primary = Color(0xFFFF6B00);
 const _onSurface = Color(0xFF191C1E);
@@ -35,7 +56,7 @@ class _TrackDriverSearchScreenState extends ConsumerState<TrackDriverSearchScree
   Timer? _debounce;
   bool _loading = false;
   String? _error;
-  List<DriverModel> _results = [];
+  List<_TrackSearchResult> _results = [];
   bool _searched = false;
 
   @override
@@ -67,7 +88,7 @@ class _TrackDriverSearchScreenState extends ConsumerState<TrackDriverSearchScree
     try {
       final data = await ref.read(driverApiProvider).getDrivers(phoneSearch: phone, limit: 20);
       final drivers = (data['drivers'] as List<dynamic>)
-          .map((e) => DriverModel.fromJson(e as Map<String, dynamic>))
+          .map((e) => _TrackSearchResult.fromJson(e as Map<String, dynamic>))
           .toList();
       if (mounted) {
         setState(() {
@@ -194,7 +215,7 @@ class _TrackDriverSearchScreenState extends ConsumerState<TrackDriverSearchScree
 }
 
 class _DriverResultCard extends StatelessWidget {
-  final DriverModel driver;
+  final _TrackSearchResult driver;
   final VoidCallback onTap;
   const _DriverResultCard({required this.driver, required this.onTap});
 

@@ -245,9 +245,13 @@ class DriverLicenseResponse(BaseModel):
 class DriverResponse(BaseModel):
     """Driver details response"""
     driver_id: str
-    organization_id: str
-    employee_id: str
-    join_date: date
+    # Nullable: a self-registered driver (no LP org, no employee_id/join_date
+    # set) can legitimately appear here via the Track sidebar's search, which
+    # also surfaces orgless drivers actively hauling a trip for the
+    # searching LP's org — see DriverService.get_drivers_by_organization.
+    organization_id: Optional[str] = None
+    employee_id: Optional[str] = None
+    join_date: Optional[date] = None
     status: str
 
     # Basic Information

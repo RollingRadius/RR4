@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -39,6 +40,11 @@ class BackgroundTrackingService {
 
   /// Initialize background service (register with the OS; does not start it)
   static Future<void> initialize() async {
+    // flutter_background_service only supports Android/iOS — every method
+    // on its platform instance throws on web (and this app's driver
+    // dashboard can be opened in a browser for testing/admin use), so every
+    // public entry point below no-ops there instead of crashing.
+    if (kIsWeb) return;
     final service = FlutterBackgroundService();
 
     await service.configure(
@@ -73,8 +79,12 @@ class BackgroundTrackingService {
     required String driverId,
     required String refreshToken,
   }) async {
+    // Credential is still worth persisting on web (harmless, and keeps
+    // currentDriverId()'s foreign-driver check meaningful), but there's no
+    // actual background service to start there.
     await _storage.write(key: trackingDriverIdKey, value: driverId);
     await _storage.write(key: trackingRefreshTokenKey, value: refreshToken);
+    if (kIsWeb) return false;
     final service = FlutterBackgroundService();
     if (await service.isRunning()) return true;
     return service.startService();
@@ -93,6 +103,7 @@ class BackgroundTrackingService {
   /// use this once startForDriver() has already been called for the current
   /// driver; a no-op if already running.
   static Future<bool> start() async {
+    if (kIsWeb) return false;
     final service = FlutterBackgroundService();
     if (await service.isRunning()) return true;
     return service.startService();
@@ -102,6 +113,7 @@ class BackgroundTrackingService {
   /// this is what a normal in-app "stop tracking" toggle should call, since
   /// the credential is what lets tracking resume for the same driver.
   static Future<bool> stop() async {
+    if (kIsWeb) return false;
     final service = FlutterBackgroundService();
     final isRunning = await service.isRunning();
 
@@ -114,12 +126,14 @@ class BackgroundTrackingService {
 
   /// Check if service is running
   static Future<bool> isRunning() async {
+    if (kIsWeb) return false;
     final service = FlutterBackgroundService();
     return await service.isRunning();
   }
 
   /// The driver id currently associated with the persisted tracking
   /// credential, if any — used for the foreign-driver-on-this-device check.
+  /// Safe on web (just secure-storage, no platform-service call involved).
   static Future<String?> currentDriverId() async {
     return _storage.read(key: trackingDriverIdKey);
   }

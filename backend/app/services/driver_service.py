@@ -343,17 +343,30 @@ class DriverService:
         # Build query
         query = self.db.query(Driver).options(
             joinedload(Driver.license)
-        ).filter(
-            Driver.organization_id == org_id
         )
+
+        if phone_search:
+            # Track sidebar search: also surface self-registered drivers
+            # (Driver.organization_id is nullable — set only for drivers an
+            # LP added directly) who are nonetheless actively hauling a trip
+            # for this org, matched via Trip.driver_id. Without this, an LP
+            # can never find/track a self-registered driver working their
+            # trips just because that driver's own profile has no org set.
+            from app.models.trip import Trip
+            org_trip_driver_ids = self.db.query(Trip.driver_id).filter(
+                Trip.organization_id == org_id,
+                Trip.driver_id.isnot(None)
+            ).distinct().subquery()
+            query = query.filter(
+                (Driver.organization_id == org_id) | (Driver.id.in_(org_trip_driver_ids))
+            )
+            query = query.filter(Driver.phone.ilike(f"%{phone_search}%"))
+        else:
+            query = query.filter(Driver.organization_id == org_id)
 
         # Apply status filter if provided
         if status_filter:
             query = query.filter(Driver.status == status_filter)
-
-        # Apply phone search filter if provided
-        if phone_search:
-            query = query.filter(Driver.phone.ilike(f"%{phone_search}%"))
 
         # Get total count
         total = query.count()
