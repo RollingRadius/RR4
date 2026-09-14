@@ -387,12 +387,12 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
                 child: Image.network(imageUrl, fit: BoxFit.contain),
               ),
               const SizedBox(height: 10),
-              Text('Covers ${doc!.tripNumbers.length} trip${doc.tripNumbers.length == 1 ? '' : 's'}:',
+              Text('Covers ${doc!.trips.length} trip${doc.trips.length == 1 ? '' : 's'}:',
                   style: _inter(size: 12, weight: FontWeight.w600)),
               const SizedBox(height: 4),
               Wrap(
                 spacing: 6, runSpacing: 4,
-                children: doc.tripNumbers.map((t) => Text(t, style: _inter(size: 12))).toList(),
+                children: doc.trips.map((t) => Text(t.tripNumber, style: _inter(size: 12))).toList(),
               ),
               const SizedBox(height: 14),
               SizedBox(

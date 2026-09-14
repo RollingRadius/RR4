@@ -39,6 +39,38 @@ class ReceivingDocumentApi {
     }
   }
 
+  /// Link additional trips to an already-uploaded document.
+  Future<ReceivingDocumentModel> addTrips({
+    required String documentId,
+    required List<String> tripIds,
+  }) async {
+    try {
+      final response = await _apiService.dio.post(
+        '/api/receiving-documents/$documentId/trips',
+        data: {'trip_ids': tripIds},
+      );
+      return ReceivingDocumentModel.fromJson(
+          (response.data as Map<String, dynamic>)['document'] as Map<String, dynamic>);
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
+  /// Unlink one trip from a document — the document itself is kept even if
+  /// this was its last linked trip.
+  Future<ReceivingDocumentModel> removeTrip({
+    required String documentId,
+    required String tripId,
+  }) async {
+    try {
+      final response = await _apiService.dio.delete('/api/receiving-documents/$documentId/trips/$tripId');
+      return ReceivingDocumentModel.fromJson(
+          (response.data as Map<String, dynamic>)['document'] as Map<String, dynamic>);
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
   /// Paginated list of past uploads for the current org, newest first.
   Future<Map<String, dynamic>> list({int skip = 0, int limit = 50}) async {
     try {

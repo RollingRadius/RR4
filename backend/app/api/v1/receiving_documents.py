@@ -12,6 +12,7 @@ import uuid as uuid_module
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -44,19 +45,60 @@ def _verify_owner_org(current_user: User, db: Session) -> UserOrganization:
 
 
 def _doc_to_dict(doc: ReceivingDocument, db: Session) -> dict:
-    trip_numbers = [
-        t.trip_number for t in
-        db.query(Trip).join(ReceivingDocumentTrip, Trip.id == ReceivingDocumentTrip.trip_id)
-        .filter(ReceivingDocumentTrip.receiving_document_id == doc.id).all()
-    ]
+    linked_trips = db.query(Trip).join(
+        ReceivingDocumentTrip, Trip.id == ReceivingDocumentTrip.trip_id
+    ).filter(ReceivingDocumentTrip.receiving_document_id == doc.id).all()
     uploader = db.query(User).filter(User.id == doc.uploaded_by).first() if doc.uploaded_by else None
     return {
         "id": str(doc.id),
         "file_url": doc.file_url,
         "uploaded_by": uploader.full_name if uploader else None,
         "created_at": doc.created_at.isoformat() if doc.created_at else None,
-        "trip_numbers": trip_numbers,
+        # id included (not just trip_number) so the edit UI can call the
+        # unlink endpoint, which needs a trip id, not its display number.
+        "trips": [{"id": str(t.id), "trip_number": t.trip_number} for t in linked_trips],
     }
+
+
+def _validate_linkable(ids: list[str], org_id, db: Session) -> list:
+    """Shared by upload and the 'link more trips' edit endpoint: every id
+    must be a real UUID, belong to the caller's org, and not already be
+    linked to ANY receiving document (including the one being edited —
+    callers that want to re-link an already-linked-to-THIS-doc trip should
+    just leave it alone, not resubmit it). Returns the matching Trip rows.
+    """
+    if not ids:
+        raise HTTPException(status_code=400, detail="At least one trip must be linked")
+
+    try:
+        trip_uuids = [uuid_module.UUID(i) for i in ids]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid trip id in trip_ids")
+
+    trips = db.query(Trip).filter(Trip.id.in_(trip_uuids)).all()
+    found_ids = {str(t.id) for t in trips}
+    missing = [i for i in ids if i not in found_ids]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Trip(s) not found: {', '.join(missing)}")
+
+    foreign_org_trips = [t.trip_number for t in trips if str(t.organization_id) != str(org_id)]
+    if foreign_org_trips:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Trip(s) not in your organization: {', '.join(foreign_org_trips)}"
+        )
+
+    already_linked = db.query(ReceivingDocumentTrip).filter(
+        ReceivingDocumentTrip.trip_id.in_(trip_uuids)
+    ).all()
+    if already_linked:
+        linked_trip_ids = {str(l.trip_id) for l in already_linked}
+        linked_numbers = [t.trip_number for t in trips if str(t.id) in linked_trip_ids]
+        raise HTTPException(
+            status_code=400,
+            detail=f"Trip(s) already have a receiving document linked: {', '.join(linked_numbers)}"
+        )
+    return trips
 
 
 @router.post("", status_code=201)
@@ -69,43 +111,14 @@ async def upload_receiving_document(
     trip_ids. Fails cleanly (400) if any listed trip already has a
     receiving document linked, or doesn't belong to the caller's org."""
     ids = [t.strip() for t in trip_ids.split(',') if t.strip()]
-    if not ids:
-        raise HTTPException(status_code=400, detail="At least one trip must be linked")
 
     # Phase 1 — validate on a short-lived session, closed before file I/O
     db = SessionLocal()
     try:
         user_org = _verify_owner_org(current_user, db)
         org_id = user_org.organization_id
-
-        try:
-            trip_uuids = [uuid_module.UUID(i) for i in ids]
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid trip id in trip_ids")
-
-        trips = db.query(Trip).filter(Trip.id.in_(trip_uuids)).all()
-        found_ids = {str(t.id) for t in trips}
-        missing = [i for i in ids if i not in found_ids]
-        if missing:
-            raise HTTPException(status_code=404, detail=f"Trip(s) not found: {', '.join(missing)}")
-
-        foreign_org_trips = [t.trip_number for t in trips if str(t.organization_id) != str(org_id)]
-        if foreign_org_trips:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Trip(s) not in your organization: {', '.join(foreign_org_trips)}"
-            )
-
-        already_linked = db.query(ReceivingDocumentTrip).filter(
-            ReceivingDocumentTrip.trip_id.in_(trip_uuids)
-        ).all()
-        if already_linked:
-            linked_trip_ids = {str(l.trip_id) for l in already_linked}
-            linked_numbers = [t.trip_number for t in trips if str(t.id) in linked_trip_ids]
-            raise HTTPException(
-                status_code=400,
-                detail=f"Trip(s) already have a receiving document linked: {', '.join(linked_numbers)}"
-            )
+        _validate_linkable(ids, org_id, db)
+        trip_uuids = [uuid_module.UUID(i) for i in ids]
     finally:
         db.close()
 
@@ -146,6 +159,83 @@ async def upload_receiving_document(
         )
     finally:
         db.close()
+
+
+class LinkTripsRequest(BaseModel):
+    trip_ids: list[str]
+
+
+def _get_owned_document(document_id: str, user_org: UserOrganization, db: Session) -> ReceivingDocument:
+    try:
+        doc_uuid = uuid_module.UUID(document_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Receiving document not found")
+    doc = db.query(ReceivingDocument).filter(ReceivingDocument.id == doc_uuid).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Receiving document not found")
+    if str(doc.organization_id) != str(user_org.organization_id):
+        raise HTTPException(status_code=403, detail="Access denied to document from different organization")
+    return doc
+
+
+@router.post("/{document_id}/trips")
+def link_more_trips(
+    document_id: str,
+    body: LinkTripsRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Edit: link additional trips to an already-uploaded document."""
+    user_org = _verify_owner_org(current_user, db)
+    doc = _get_owned_document(document_id, user_org, db)
+
+    ids = [t.strip() for t in body.trip_ids if t.strip()]
+    _validate_linkable(ids, user_org.organization_id, db)
+
+    try:
+        for i in ids:
+            db.add(ReceivingDocumentTrip(receiving_document_id=doc.id, trip_id=uuid_module.UUID(i)))
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="One of these trips was just linked to another receiving document. Please retry."
+        )
+
+    db.refresh(doc)
+    return {"success": True, "document": _doc_to_dict(doc, db)}
+
+
+@router.delete("/{document_id}/trips/{trip_id}")
+def unlink_trip(
+    document_id: str,
+    trip_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Edit: unlink one trip from a document — the document and its file
+    are kept even if this empties out its last linked trip, so it can be
+    re-linked to new trips later rather than being silently lost."""
+    user_org = _verify_owner_org(current_user, db)
+    doc = _get_owned_document(document_id, user_org, db)
+
+    try:
+        trip_uuid = uuid_module.UUID(trip_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="This trip isn't linked to this document")
+
+    link = db.query(ReceivingDocumentTrip).filter(
+        ReceivingDocumentTrip.receiving_document_id == doc.id,
+        ReceivingDocumentTrip.trip_id == trip_uuid,
+    ).first()
+    if not link:
+        raise HTTPException(status_code=404, detail="This trip isn't linked to this document")
+
+    db.delete(link)
+    db.commit()
+    db.refresh(doc)
+    return {"success": True, "document": _doc_to_dict(doc, db)}
 
 
 @router.get("/by-trip/{trip_id}")

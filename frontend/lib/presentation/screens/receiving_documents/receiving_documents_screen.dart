@@ -69,6 +69,13 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
     if (uploaded == true) _load();
   }
 
+  Future<void> _openEdit(ReceivingDocumentModel doc) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => _EditReceivingDocumentScreen(doc: doc)),
+    );
+    if (changed == true) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -131,7 +138,7 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
         itemCount: _docs.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (_, i) => _ReceivingDocCard(doc: _docs[i]),
+        itemBuilder: (_, i) => _ReceivingDocCard(doc: _docs[i], onTap: () => _openEdit(_docs[i])),
       ),
     );
   }
@@ -139,11 +146,15 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
 
 class _ReceivingDocCard extends StatelessWidget {
   final ReceivingDocumentModel doc;
-  const _ReceivingDocCard({required this.doc});
+  final VoidCallback onTap;
+  const _ReceivingDocCard({required this.doc, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _surface,
@@ -169,18 +180,18 @@ class _ReceivingDocCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('${doc.tripNumbers.length} trip${doc.tripNumbers.length == 1 ? '' : 's'} linked',
+                Text('${doc.trips.length} trip${doc.trips.length == 1 ? '' : 's'} linked',
                     style: _manrope(size: 13, weight: FontWeight.w700)),
                 const SizedBox(height: 4),
                 Wrap(
                   spacing: 6, runSpacing: 4,
-                  children: doc.tripNumbers.map((t) => Container(
+                  children: doc.trips.map((t) => Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: _primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(t, style: _inter(size: 11, weight: FontWeight.w600, color: _primary)),
+                    child: Text(t.tripNumber, style: _inter(size: 11, weight: FontWeight.w600, color: _primary)),
                   )).toList(),
                 ),
                 if (doc.uploadedBy != null) ...[
@@ -190,7 +201,9 @@ class _ReceivingDocCard extends StatelessWidget {
               ],
             ),
           ),
+          const Icon(Icons.chevron_right_rounded, color: _secondary),
         ],
+      ),
       ),
     );
   }
@@ -429,6 +442,207 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Edit flow — unlink existing trips / link more trips ──────────────────
+
+class _EditReceivingDocumentScreen extends ConsumerStatefulWidget {
+  final ReceivingDocumentModel doc;
+  const _EditReceivingDocumentScreen({required this.doc});
+
+  @override
+  ConsumerState<_EditReceivingDocumentScreen> createState() => _EditReceivingDocumentScreenState();
+}
+
+class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocumentScreen> {
+  late ReceivingDocumentModel _doc;
+  final _tripSearchCtrl = TextEditingController();
+  String _tripQuery = '';
+  bool _busy = false;
+  String? _error;
+  bool _changed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _doc = widget.doc;
+    if (ref.read(tripProvider).trips.isEmpty) {
+      ref.read(tripProvider.notifier).loadTrips();
+    }
+  }
+
+  @override
+  void dispose() {
+    _tripSearchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<TripModel> get _searchResults {
+    if (_tripQuery.isEmpty) return const [];
+    final linkedIds = _doc.trips.map((t) => t.id).toSet();
+    return ref.read(tripProvider).trips
+        .where((t) => !linkedIds.contains(t.id) && matchesTripSearch(_tripQuery, t.tripNumber, t.rrTripNumber))
+        .take(20)
+        .toList();
+  }
+
+  Future<void> _addTrip(TripModel trip) async {
+    setState(() { _busy = true; _error = null; });
+    try {
+      final updated = await ref.read(receivingDocumentApiProvider).addTrips(
+        documentId: _doc.id,
+        tripIds: [trip.id],
+      );
+      if (!mounted) return;
+      setState(() {
+        _doc = updated;
+        _changed = true;
+        _busy = false;
+        _tripSearchCtrl.clear();
+        _tripQuery = '';
+      });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _busy = false; });
+    }
+  }
+
+  Future<void> _removeTrip(LinkedTripRef trip) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Unlink trip?'),
+        content: Text('Remove ${trip.tripNumber} from this receiving document?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Unlink', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    setState(() { _busy = true; _error = null; });
+    try {
+      final updated = await ref.read(receivingDocumentApiProvider).removeTrip(
+        documentId: _doc.id,
+        tripId: trip.id,
+      );
+      if (!mounted) return;
+      setState(() { _doc = updated; _changed = true; _busy = false; });
+    } catch (e) {
+      if (mounted) setState(() { _error = e.toString(); _busy = false; });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.of(context).pop(_changed);
+      },
+      child: Scaffold(
+        backgroundColor: _bg,
+        appBar: AppBar(
+          backgroundColor: _surface,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _onSurface, size: 20),
+            onPressed: () => Navigator.of(context).pop(_changed),
+          ),
+          title: Text('Edit Receiving Doc', style: _manrope(size: 16, weight: FontWeight.w800)),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.network(
+                '${AppConfig.apiBaseUrl}${_doc.fileUrl}',
+                height: 180, width: double.infinity, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  height: 180, color: _surface,
+                  child: const Icon(Icons.image_not_supported_outlined, color: _secondary),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text('Linked trips (${_doc.trips.length})', style: _manrope(size: 14, weight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            if (_doc.trips.isEmpty)
+              Text('No trips linked. Search below to link some.', style: _inter(size: 12))
+            else
+              ..._doc.trips.map((t) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(t.tripNumber, style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface))),
+                    IconButton(
+                      icon: const Icon(Icons.link_off_rounded, size: 18, color: Colors.red),
+                      onPressed: _busy ? null : () => _removeTrip(t),
+                      tooltip: 'Unlink',
+                    ),
+                  ],
+                ),
+              )),
+            const SizedBox(height: 12),
+            Text('Link more trips', style: _manrope(size: 14, weight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            Text('Search by trip number — just the digits are enough', style: _inter(size: 12)),
+            const SizedBox(height: 10),
+            TripSearchField(
+              controller: _tripSearchCtrl,
+              onChanged: (q) => setState(() => _tripQuery = q),
+              hintText: 'Search trip number',
+            ),
+            if (_searchResults.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: _surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _border),
+                ),
+                constraints: const BoxConstraints(maxHeight: 220),
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  itemCount: _searchResults.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
+                  itemBuilder: (_, i) {
+                    final trip = _searchResults[i];
+                    return ListTile(
+                      dense: true,
+                      title: Text(trip.tripNumber, style: _inter(size: 13, weight: FontWeight.w600)),
+                      subtitle: Text('${trip.origin} → ${trip.destination}', style: _inter(size: 11)),
+                      trailing: const Icon(Icons.add_circle_outline_rounded, color: _primary, size: 20),
+                      onTap: _busy ? null : () => _addTrip(trip),
+                    );
+                  },
+                ),
+              ),
+            ],
+            if (_busy) ...[
+              const SizedBox(height: 16),
+              const Center(child: CircularProgressIndicator(color: _primary)),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 16),
+              Text(_error!, style: _inter(size: 12, color: Colors.red.shade700)),
+            ],
+          ],
+        ),
       ),
     );
   }
