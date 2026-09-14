@@ -302,12 +302,19 @@ class DriverService:
         Raises:
             HTTPException: If driver not found or not in organization
         """
+        # Hybrid, same as get_driver_and_check_org (app/api/v1/tracking.py):
+        # a self-registered driver's organization_id is NULL even while
+        # actively hauling trips for this org, matched via Trip.driver_id.
+        from app.models.trip import Trip
+        org_trip_driver_ids = self.db.query(Trip.driver_id).filter(
+            Trip.organization_id == org_id, Trip.driver_id.isnot(None)
+        ).distinct().subquery()
         driver = self.db.query(Driver).options(
             joinedload(Driver.license),
             joinedload(Driver.assigned_vehicles).joinedload(Vehicle.assigned_by)
         ).filter(
             Driver.id == driver_id,
-            Driver.organization_id == org_id
+            (Driver.organization_id == org_id) | (Driver.id.in_(org_trip_driver_ids))
         ).first()
 
         if not driver:

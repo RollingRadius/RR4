@@ -118,7 +118,19 @@ def get_driver_and_check_org(
     current_user: User,
     db: Session
 ) -> Driver:
-    """Get driver and verify organization access (sync)."""
+    """Get driver and verify organization access (sync).
+
+    Hybrid check — most drivers are LP-added and carry a real
+    organization_id, but a self-registered/independent driver's Driver row
+    has organization_id=NULL even while actively hauling trips for a
+    specific org. Access is granted if EITHER the driver's own
+    organization_id matches, OR they're linked via Trip.driver_id to a trip
+    belonging to this org. Without the second branch, every orgless driver
+    404/403s out of every one of this function's callers (live location,
+    history, admin tracking toggle/status, analytics) the moment an LP
+    tries to look them up — even after finding them via a search that
+    already accounts for this same duality.
+    """
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(
@@ -127,7 +139,11 @@ def get_driver_and_check_org(
         )
 
     org_id = _get_user_org_id(current_user, db)
-    if driver.organization_id != org_id:
+    is_own_org_driver = driver.organization_id == org_id
+    is_linked_to_org_trip = db.query(Trip).filter(
+        Trip.organization_id == org_id, Trip.driver_id == driver.id
+    ).first() is not None
+    if not is_own_org_driver and not is_linked_to_org_trip:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to driver from different organization"
@@ -359,24 +375,9 @@ def get_driver_track_status(
     if not role or role.role_key not in ('logistic_partner', 'lp_rr_operations'):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="LP / RR-ops only")
 
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Driver not found")
-
-    # Same org check as get_driver_and_check_org, but also allows a
-    # self-registered driver (organization_id is nullable) who's actively
-    # hauling a trip for this org — matches the same broadening already
-    # applied to the Track sidebar's search, see
-    # DriverService.get_drivers_by_organization. Without this, a driver
-    # found via search would then 403 the moment you tap them.
-    org_id = _get_user_org_id(current_user, db)
-    is_own_org_driver = driver.organization_id == org_id
-    is_linked_to_org_trip = db.query(Trip).filter(
-        Trip.organization_id == org_id, Trip.driver_id == driver.id
-    ).first() is not None
-    if not is_own_org_driver and not is_linked_to_org_trip:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied to driver from different organization")
-
+    # get_driver_and_check_org's hybrid check already covers self-registered
+    # orgless drivers linked via a trip to this org — see its docstring.
+    driver = get_driver_and_check_org(driver_id, current_user, db)
     return _driver_location_status(driver, db)
 
 
