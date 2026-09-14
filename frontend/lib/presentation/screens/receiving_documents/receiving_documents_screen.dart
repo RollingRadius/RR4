@@ -190,7 +190,7 @@ class _ReceivingDocCard extends StatelessWidget {
                       color: _primary.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(t.tripNumber, style: _inter(size: 11, weight: FontWeight.w600, color: _primary)),
+                    child: Text(t.displayLabel, style: _inter(size: 11, weight: FontWeight.w600, color: _primary)),
                   )).toList(),
                 ),
                 if (doc.uploadedBy != null) ...[
@@ -415,13 +415,10 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
                 separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
                 itemBuilder: (_, i) {
                   final trip = _searchResults[i];
-                  final sub = trip.rrTripNumber != null
-                      ? '${trip.origin} → ${trip.destination} · RR: ${trip.rrTripNumber}'
-                      : '${trip.origin} → ${trip.destination}';
                   return ListTile(
                     dense: true,
-                    title: Text(trip.tripNumber, style: _inter(size: 13, weight: FontWeight.w600)),
-                    subtitle: Text(sub, style: _inter(size: 11)),
+                    title: Text(trip.displayLabel, style: _inter(size: 13, weight: FontWeight.w600)),
+                    subtitle: Text('${trip.origin} → ${trip.destination}', style: _inter(size: 11)),
                     trailing: const Icon(Icons.add_circle_outline_rounded, color: _primary, size: 20),
                     onTap: () => _addTrip(trip),
                   );
@@ -436,7 +433,7 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
             Wrap(
               spacing: 8, runSpacing: 8,
               children: _selectedTrips.map((t) => Chip(
-                label: Text(t.tripNumber, style: _inter(size: 12, weight: FontWeight.w600)),
+                label: Text(t.displayLabel, style: _inter(size: 12, weight: FontWeight.w600)),
                 backgroundColor: _primary.withValues(alpha: 0.08),
                 deleteIcon: const Icon(Icons.close_rounded, size: 16),
                 onDeleted: () => _removeTrip(t),
@@ -631,7 +628,7 @@ class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocu
                 ),
                 child: Row(
                   children: [
-                    Expanded(child: Text(t.tripNumber, style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface))),
+                    Expanded(child: Text(t.displayLabel, style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface))),
                     IconButton(
                       icon: const Icon(Icons.link_off_rounded, size: 18, color: Colors.red),
                       onPressed: _busy ? null : () => _removeTrip(t),
@@ -671,13 +668,10 @@ class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocu
                   separatorBuilder: (_, __) => const Divider(height: 1, color: _border),
                   itemBuilder: (_, i) {
                     final trip = _searchResults[i];
-                    final sub = trip.rrTripNumber != null
-                        ? '${trip.origin} → ${trip.destination} · RR: ${trip.rrTripNumber}'
-                        : '${trip.origin} → ${trip.destination}';
                     return ListTile(
                       dense: true,
-                      title: Text(trip.tripNumber, style: _inter(size: 13, weight: FontWeight.w600)),
-                      subtitle: Text(sub, style: _inter(size: 11)),
+                      title: Text(trip.displayLabel, style: _inter(size: 13, weight: FontWeight.w600)),
+                      subtitle: Text('${trip.origin} → ${trip.destination}', style: _inter(size: 11)),
                       trailing: const Icon(Icons.add_circle_outline_rounded, color: _primary, size: 20),
                       onTap: _busy ? null : () => _addTrip(trip),
                     );

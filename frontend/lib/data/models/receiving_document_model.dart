@@ -1,15 +1,23 @@
-/// A trip linked to a ReceivingDocumentModel — carries both the trip's id
-/// (needed to call the unlink endpoint) and its display number.
+/// A trip linked to a ReceivingDocumentModel — carries the trip's id
+/// (needed to call the unlink endpoint), its own display number, and the
+/// RR-web-assigned number (null until synced).
 class LinkedTripRef {
   final String id;
   final String tripNumber;
+  final String? rrTripNumber;
 
-  const LinkedTripRef({required this.id, required this.tripNumber});
+  const LinkedTripRef({required this.id, required this.tripNumber, this.rrTripNumber});
 
   factory LinkedTripRef.fromJson(Map<String, dynamic> json) => LinkedTripRef(
         id: json['id'] as String,
         tripNumber: json['trip_number'] as String,
+        rrTripNumber: json['rr_trip_number'] as String?,
       );
+
+  /// "rlplwmz4090 · RR-03625" when synced, else just the RR4 number.
+  String get displayLabel => rrTripNumber != null && rrTripNumber!.isNotEmpty
+      ? '$tripNumber · $rrTripNumber'
+      : tripNumber;
 }
 
 /// One trip returned by the receiving-docs trip search — carries both
@@ -37,6 +45,11 @@ class TripSearchResult {
         origin: json['origin'] as String? ?? '',
         destination: json['destination'] as String? ?? '',
       );
+
+  /// "rlplwmz4090 · RR-03625" when synced, else just the RR4 number.
+  String get displayLabel => rrTripNumber != null && rrTripNumber!.isNotEmpty
+      ? '$tripNumber · $rrTripNumber'
+      : tripNumber;
 }
 
 /// One uploaded "receiving sheet" image, possibly linked to several trips.

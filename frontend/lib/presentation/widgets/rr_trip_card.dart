@@ -392,7 +392,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
               const SizedBox(height: 4),
               Wrap(
                 spacing: 6, runSpacing: 4,
-                children: doc.trips.map((t) => Text(t.tripNumber, style: _inter(size: 12))).toList(),
+                children: doc.trips.map((t) => Text(t.displayLabel, style: _inter(size: 12))).toList(),
               ),
               const SizedBox(height: 14),
               SizedBox(

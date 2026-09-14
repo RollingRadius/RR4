@@ -57,7 +57,12 @@ def _doc_to_dict(doc: ReceivingDocument, db: Session) -> dict:
         "created_at": doc.created_at.isoformat() if doc.created_at else None,
         # id included (not just trip_number) so the edit UI can call the
         # unlink endpoint, which needs a trip id, not its display number.
-        "trips": [{"id": str(t.id), "trip_number": t.trip_number} for t in linked_trips],
+        # rr_trip_number included so the UI can show the RR-web number
+        # alongside RR4's own, when the trip has been synced.
+        "trips": [
+            {"id": str(t.id), "trip_number": t.trip_number, "rr_trip_number": t.rr_trip_number}
+            for t in linked_trips
+        ],
     }
 
 
