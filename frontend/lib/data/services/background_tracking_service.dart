@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -26,6 +27,12 @@ import 'package:fleet_management/core/config/app_config.dart';
 /// Per an explicit product decision: this is NOT covert. The persistent
 /// foreground-service notification stays visible on the driver's phone the
 /// whole time, even after they've logged out of the app itself.
+// Required alongside the @pragma on onStart below — the plugin spawns
+// onStart in a fresh engine via a native callback-handle lookup (not normal
+// Dart code reachability), which needs the enclosing class annotated too,
+// not just the static method, or native code can't resolve it at all
+// (see incident this fixes: "must be annotated" DartVM error, 2026-09-15).
+@pragma('vm:entry-point')
 class BackgroundTrackingService {
   static const String _notificationChannelId = 'fleet_tracking';
 
@@ -45,6 +52,25 @@ class BackgroundTrackingService {
     // dashboard can be opened in a browser for testing/admin use), so every
     // public entry point below no-ops there instead of crashing.
     if (kIsWeb) return;
+
+    // Android 8.0+ (API 26+) requires this channel to exist before
+    // startForeground() is ever called for it — AndroidConfiguration's
+    // notificationChannelId below is a reference, not a creation call.
+    // Skipping this crashes the whole process (not just the service) with
+    // "RemoteServiceException: Bad notification for startForeground" the
+    // moment a driver grants "Always Allow" and tracking actually tries to
+    // start (incident: 2026-09-15, crashed on-device for a whileInUse→always
+    // permission upgrade).
+    const channel = AndroidNotificationChannel(
+      _notificationChannelId,
+      'Fleet Tracking',
+      description: 'Shows while your location is being tracked in the background',
+      importance: Importance.low,
+    );
+    await FlutterLocalNotificationsPlugin()
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
+
     final service = FlutterBackgroundService();
 
     await service.configure(
