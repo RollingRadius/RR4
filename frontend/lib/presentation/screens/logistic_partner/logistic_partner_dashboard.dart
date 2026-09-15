@@ -3953,9 +3953,6 @@ class _AppDrawer extends ConsumerWidget {
 
   static const _navItems = [
     (Icons.dashboard_rounded,      'Dashboard',       0),
-    (Icons.inventory_2_outlined,   'Available Loads', 1),
-    (Icons.folder_copy_outlined,   'Records',         3),
-    (Icons.person_outline_rounded, 'Profile',         2),
   ];
 
   @override
