@@ -5917,6 +5917,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   DateTime? _biltyDate;
   String? _biltyNumberError;
 
+  // ── Material Verification Sheet (under Bilty) — RR4-only for now, not
+  // synced to RR yet.
+  ({Uint8List bytes, String name})? _materialVerificationFile;
+
   // ── Per-field attribution ─────────────────────────────────────────────────
   final Map<String, String> _fieldAttributions = {};
   final Set<String> _touchedByMe = {};
@@ -5986,6 +5990,11 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     }
     final biltyDtStr = d['bilty_date'] as String?;
     if (biltyDtStr != null) _biltyDate = DateTime.tryParse(biltyDtStr)?.toLocal();
+    final mvB64  = d['material_verification_bytes'] as String?;
+    final mvName = d['material_verification_name']  as String? ?? 'material_verification.jpg';
+    if (mvB64 != null && mvB64.isNotEmpty) {
+      try { _materialVerificationFile = (bytes: base64Decode(mvB64), name: mvName); } catch (_) {}
+    }
     // Draft attributions override persistent ones
     final attrs = draft['attributions'] as Map<String, dynamic>?;
     if (attrs != null) {
@@ -6019,6 +6028,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           if (_biltyDocFile != null) 'bilty_bytes': base64Encode(_biltyDocFile!.bytes),
           if (_biltyDocFile != null) 'bilty_name':  _biltyDocFile!.name,
           if (_biltyDate != null) 'bilty_date': _biltyDate!.toUtc().toIso8601String(),
+          if (_materialVerificationFile != null)
+            'material_verification_bytes': base64Encode(_materialVerificationFile!.bytes),
+          if (_materialVerificationFile != null)
+            'material_verification_name': _materialVerificationFile!.name,
         },
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
@@ -6103,6 +6116,26 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     }
   }
 
+  // ── Material Verification Sheet pick (under Bilty) ───────────────────────
+  Future<void> _pickMaterialVerificationDoc(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      setState(() => _materialVerificationFile = (bytes: bytes, name: picked.name));
+      _touchField('material_verification_sheet');
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_pickErrorMessage(e, source)),
+        backgroundColor: _error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    }
+  }
+
   // ── Phase 2: diesel receipt pick + upload ────────────────────────────────
   Future<void> _pickDiesel(ImageSource source) async {
     try {
@@ -6173,6 +6206,9 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           'bilty_doc': MultipartFile.fromBytes(_biltyDocFile!.bytes, filename: _biltyDocFile!.name),
         if (_biltyDate != null)
           'bilty_date': _biltyDate!.toUtc().toIso8601String(),
+        if (_materialVerificationFile != null)
+          'material_verification_sheet': MultipartFile.fromBytes(
+              _materialVerificationFile!.bytes, filename: _materialVerificationFile!.name),
       });
       final resp = await dio.post(
         '/api/trips/${widget.trip.id}/stage/4/diesel',
@@ -6637,6 +6673,18 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                 _saveDraft();
               },
             ),
+            const SizedBox(height: 14),
+            _DocUploadTile(
+              label: 'Material Verification Sheet',
+              subtitle: 'Upload the material verification sheet',
+              bytes: _materialVerificationFile?.bytes,
+              fileName: _materialVerificationFile?.name,
+              existingUrl: widget.trip.s4MaterialVerificationUrl,
+              onPickSource: _pickMaterialVerificationDoc,
+              onRemove: () { setState(() => _materialVerificationFile = null); _saveDraft(); },
+              readOnly: widget.readOnly,
+            ),
+            _FieldAttribution(username: _attrOf('material_verification_sheet')),
             const SizedBox(height: 20),
 
             if (_lastSaved != null)

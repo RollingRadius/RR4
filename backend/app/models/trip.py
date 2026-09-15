@@ -165,6 +165,8 @@ class Trip(Base):
     # True once sync first succeeds, so the frontend locks the Bilty Number/Date
     # fields instead of letting the user re-edit values RR will never accept again.
     s4_bilty_synced = Column(Boolean, nullable=True, default=False)
+    # RR4-only for now — not synced to RR yet (planned as a follow-up)
+    s4_material_verification_url = Column(String(500), nullable=True)
 
     # Stage 5 — Unloading (Proof of Delivery + Halting Charge)
     s5_pod_url        = Column(Text,                    nullable=True)
@@ -451,6 +453,7 @@ class Trip(Base):
             "s4_bilty_url": self.s4_bilty_url,
             "s4_bilty_date": self.s4_bilty_date.isoformat() if self.s4_bilty_date else None,
             "s4_bilty_synced": self.s4_bilty_synced,
+            "s4_material_verification_url": self.s4_material_verification_url,
             # Stage 5 — Unloading
             "s5_pod_url": self.s5_pod_url,
             "s5_halting_charge": float(self.s5_halting_charge) if self.s5_halting_charge is not None else None,

@@ -1446,11 +1446,13 @@ async def submit_stage4_diesel(
     bilty_number: Optional[str] = Form(None),
     bilty_doc: Optional[UploadFile] = File(None),
     bilty_date: Optional[str] = Form(None),
+    material_verification_sheet: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
 ):
     """Stage 4 Diesel — Upload diesel receipt after truck exits factory, plus optional
     Bilty Number + manual Bilty upload (synced to RR's parcels.documents.bilty /
-    documents.manual_bilty). Does not advance currentStage."""
+    documents.manual_bilty), and an optional Material Verification Sheet upload
+    (RR4-only for now — not synced to RR yet). Does not advance currentStage."""
     import re
     from datetime import datetime
     from app.config import settings
@@ -1502,6 +1504,14 @@ async def submit_stage4_diesel(
         (trip_dir / bilty_filename).write_bytes(bilty_content)
         bilty_url = f"/uploads/trips/{trip_id}/{bilty_filename}"
 
+    material_verification_url = None
+    if material_verification_sheet and material_verification_sheet.filename:
+        ext = Path(material_verification_sheet.filename).suffix or '.jpg'
+        mv_filename = f"material_verification_{_uuid_module.uuid4().hex}{ext}"
+        mv_content = await material_verification_sheet.read()
+        (trip_dir / mv_filename).write_bytes(mv_content)
+        material_verification_url = f"/uploads/trips/{trip_id}/{mv_filename}"
+
     # Phase 3 — quick write on a fresh session, opened only now
     db = SessionLocal()
     try:
@@ -1514,7 +1524,9 @@ async def submit_stage4_diesel(
             trip.s4_bilty_url = bilty_url
         if parsed_bilty_date:
             trip.s4_bilty_date = parsed_bilty_date
-        _apply_attributions(trip, ['diesel_receipt', 'bilty_number', 'bilty_doc'], current_user, role_key)
+        if material_verification_url:
+            trip.s4_material_verification_url = material_verification_url
+        _apply_attributions(trip, ['diesel_receipt', 'bilty_number', 'bilty_doc', 'material_verification_sheet'], current_user, role_key)
         db.commit()
         db.refresh(trip)
         return {"success": True, "message": "Diesel receipt uploaded.", "trip": _enrich(trip, db)}

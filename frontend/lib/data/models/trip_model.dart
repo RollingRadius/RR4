@@ -102,6 +102,7 @@ class TripModel {
   final String? s4BiltyUrl;      // RR parcels.documents.manual_bilty.photos[].manual_photo
   final String? s4BiltyDate;     // optional backdating, matches RR web's own field
   final bool? s4BiltySynced;     // true once RR's one-time bilty-number assignment succeeds — locks the field
+  final String? s4MaterialVerificationUrl;   // RR4-only for now — not synced to RR yet
 
   // ── Stage 5 fields — Unloading ────────────────────────────────────────────────
   final String?  s5PodUrl;
@@ -296,6 +297,7 @@ class TripModel {
     this.s4BiltyUrl,
     this.s4BiltyDate,
     this.s4BiltySynced,
+    this.s4MaterialVerificationUrl,
     this.s5PodUrl,
     this.s5HaltingCharge,
     this.s5SubmittedBy,
@@ -474,6 +476,7 @@ class TripModel {
       s4BiltyUrl:         json['s4_bilty_url']           as String?,
       s4BiltyDate:        json['s4_bilty_date']          as String?,
       s4BiltySynced:      json['s4_bilty_synced']        as bool?,
+      s4MaterialVerificationUrl: json['s4_material_verification_url'] as String?,
       s5PodUrl:           json['s5_pod_url']             as String?,
       s5HaltingCharge:    (json['s5_halting_charge'] as num?)?.toDouble(),
       s5SubmittedBy:      json['s5_submitted_by']        as String?,
