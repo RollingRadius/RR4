@@ -31,11 +31,9 @@ class TripModel {
   /// LP/RR-ops-controlled switch, defaults to true.
   final bool s1Required;
   /// True once LP/RR-ops has manually released the driver from this trip
-  /// early via "Stop Driver Tracking for this Trip" — one-directional.
+  /// early via "Stop Driver Tracking for this Trip" — reversible via
+  /// "Resume Driver Tracking for this Trip".
   final bool driverTrackingStopped;
-  /// True if a Receiving Doc (one uploaded sheet, possibly covering
-  /// several trips) is linked to this trip — see receiving_documents_screen.
-  final bool hasReceivingDocument;
 
   // ── Stage 1 fields ───────────────────────────────────────────────────────────
   final String? s1DriverName;
@@ -238,7 +236,6 @@ class TripModel {
     this.currentStage = 0,
     this.s1Required = true,
     this.driverTrackingStopped = false,
-    this.hasReceivingDocument = false,
     this.s1DriverName,
     this.s1DriverPhone,
     this.s1DrivingLicense,
@@ -417,7 +414,6 @@ class TripModel {
       currentStage: json['current_stage'] as int? ?? 0,
       s1Required: json['s1_required'] as bool? ?? true,
       driverTrackingStopped: json['driver_tracking_stopped'] as bool? ?? false,
-      hasReceivingDocument: json['has_receiving_document'] as bool? ?? false,
       s1DriverName: json['s1_driver_name'] as String?,
       s1DriverPhone: json['s1_driver_phone'] as String?,
       s1DrivingLicense: json['s1_driving_license'] as String?,
