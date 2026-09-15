@@ -358,29 +358,3 @@ def validate_gstin_pan_linkage(gstin: str, pan: str) -> Tuple[bool, Optional[str
         return False, "PAN does not match the PAN embedded in GSTIN"
 
     return True, None
-
-
-# Test function for development
-if __name__ == "__main__":
-    # Test GSTIN
-    print("Testing GSTIN validation:")
-    valid_gstin = "29ABCDE1234F1Z5"
-    invalid_gstin = "29ABCDE1234"
-    print(f"  Valid GSTIN: {validate_gstin(valid_gstin)}")
-    print(f"  Invalid GSTIN: {validate_gstin(invalid_gstin)}")
-
-    # Test PAN
-    print("\nTesting PAN validation:")
-    valid_pan = "ABCDE1234F"
-    invalid_pan = "ABCDE1234"
-    print(f"  Valid PAN: {validate_pan(valid_pan)}")
-    print(f"  Invalid PAN: {validate_pan(invalid_pan)}")
-
-    # Test PAN extraction from GSTIN
-    print("\nTesting PAN extraction:")
-    print(f"  Extracted PAN: {extract_pan_from_gstin(valid_gstin)}")
-
-    # Test linkage
-    print("\nTesting GSTIN-PAN linkage:")
-    print(f"  Matching PAN: {validate_gstin_pan_linkage(valid_gstin, 'ABCDE1234F')}")
-    print(f"  Non-matching PAN: {validate_gstin_pan_linkage(valid_gstin, 'ZZZZZ9999Z')}")

@@ -100,7 +100,11 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
         final allActive =
             List<Map<String, dynamic>>.from(acceptedData['employees'] ?? []);
         // Filter to only worker roles
-        const workerRoles = ['logistic_partner_worker', 'lp_rr_operations', 'load_owner_worker'];
+        const workerRoles = [
+          'logistic_partner_worker',
+          'lp_rr_operations',
+          'load_owner_worker'
+        ];
         setState(() {
           _pending =
               List<Map<String, dynamic>>.from(pendingData['requests'] ?? []);
@@ -121,22 +125,18 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
     }
   }
 
-  Future<void> _accept(String userOrgId, {String? requestedRoleKey, String? requestedRoleName}) async {
-    // Show confirmation dialog; LP can override the role if needed
-    final chosenRole = await showDialog<String>(
-      context: context,
-      builder: (ctx) => _AcceptRoleDialog(
-        requestedRoleKey: requestedRoleKey,
-        requestedRoleName: requestedRoleName,
-      ),
-    );
-    if (chosenRole == null) return; // cancelled
-
+  Future<void> _accept(String userOrgId,
+      {String? requestedRoleKey, String? requestedRoleName}) async {
+    // Accept immediately grants the role the worker requested (or the
+    // owner's override picked directly on the card's role badge, if any) —
+    // no confirmation dialog in the way. The org is already fixed: this
+    // pending row was created against this owner's organization the moment
+    // the worker applied to join it, Accept doesn't "assign" that part.
     try {
       final dio = ref.read(dioProvider);
       await dio.post(
         '/api/organization/worker-requests/$userOrgId/accept',
-        data: {'role_key': chosenRole},
+        data: {if (requestedRoleKey != null) 'role_key': requestedRoleKey},
       );
       ref.invalidate(pendingWorkerCountProvider);
       _fetchAll();
@@ -153,8 +153,33 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e',
-              style: _inter(size: 13, color: Colors.white)),
+          content:
+              Text('Error: $e', style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    }
+  }
+
+  /// Overrides a pending request's role right away — persisted server-side
+  /// immediately (not just staged locally), so it survives a refresh and a
+  /// later plain Accept just uses whatever this last set.
+  Future<void> _overrideRole(String userOrgId, String roleKey) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch(
+        '/api/organization/worker-requests/$userOrgId/role',
+        data: {'role_key': roleKey},
+      );
+      await _fetchAll();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content:
+              Text('Error: $e', style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -168,8 +193,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text('Reject Request', style: _manrope(size: 16)),
         content: Text('Are you sure you want to reject this worker request?',
             style: _inter(size: 14)),
@@ -211,8 +235,8 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Error: $e',
-              style: _inter(size: 13, color: Colors.white)),
+          content:
+              Text('Error: $e', style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -246,8 +270,8 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
               unselectedLabelColor: _secondary,
               indicatorColor: _primary,
               indicatorWeight: 3,
-              labelStyle: _manrope(
-                  size: 13, weight: FontWeight.w700, color: _primary),
+              labelStyle:
+                  _manrope(size: 13, weight: FontWeight.w700, color: _primary),
               unselectedLabelStyle: _inter(size: 13),
               tabs: [
                 Tab(
@@ -310,8 +334,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
         ],
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: _primary))
+          ? const Center(child: CircularProgressIndicator(color: _primary))
           : _errorMsg != null
               ? _ErrorView(error: _errorMsg!, onRetry: _fetchAll)
               : TabBarView(
@@ -321,6 +344,9 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
                       requests: _pending,
                       onAccept: _accept,
                       onReject: _reject,
+                      onOverrideRole: _overrideRole,
+                      isLoadOwnerOrg:
+                          ref.watch(authProvider).user?.isLoadOwner == true,
                     ),
                     _AcceptedTab(workers: _accepted),
                   ],
@@ -333,13 +359,18 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
 
 class _PendingTab extends StatelessWidget {
   final List<Map<String, dynamic>> requests;
-  final Future<void> Function(String, {String? requestedRoleKey, String? requestedRoleName}) onAccept;
+  final Future<void> Function(String,
+      {String? requestedRoleKey, String? requestedRoleName}) onAccept;
   final Future<void> Function(String) onReject;
+  final Future<void> Function(String userOrgId, String roleKey) onOverrideRole;
+  final bool isLoadOwnerOrg;
 
   const _PendingTab({
     required this.requests,
     required this.onAccept,
     required this.onReject,
+    required this.onOverrideRole,
+    required this.isLoadOwnerOrg,
   });
 
   @override
@@ -356,15 +387,13 @@ class _PendingTab extends StatelessWidget {
                 color: _primary.withOpacity(0.08),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.inbox_rounded,
-                  color: _primary, size: 40),
+              child: const Icon(Icons.inbox_rounded, color: _primary, size: 40),
             ),
             const SizedBox(height: 16),
             Text('No pending requests',
                 style: _manrope(size: 16, weight: FontWeight.w700)),
             const SizedBox(height: 8),
-            Text('Worker requests will appear here.',
-                style: _inter(size: 13)),
+            Text('Worker requests will appear here.', style: _inter(size: 13)),
           ],
         ),
       );
@@ -380,6 +409,8 @@ class _PendingTab extends StatelessWidget {
           request: requests[i],
           onAccept: onAccept,
           onReject: onReject,
+          onOverrideRole: onOverrideRole,
+          isLoadOwnerOrg: isLoadOwnerOrg,
         ),
       ),
     );
@@ -388,13 +419,18 @@ class _PendingTab extends StatelessWidget {
 
 class _PendingCard extends StatelessWidget {
   final Map<String, dynamic> request;
-  final Future<void> Function(String, {String? requestedRoleKey, String? requestedRoleName}) onAccept;
+  final Future<void> Function(String,
+      {String? requestedRoleKey, String? requestedRoleName}) onAccept;
   final Future<void> Function(String) onReject;
+  final Future<void> Function(String userOrgId, String roleKey) onOverrideRole;
+  final bool isLoadOwnerOrg;
 
   const _PendingCard({
     required this.request,
     required this.onAccept,
     required this.onReject,
+    required this.onOverrideRole,
+    required this.isLoadOwnerOrg,
   });
 
   @override
@@ -470,8 +506,7 @@ class _PendingCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(name,
-                          style: _manrope(
-                              size: 15, weight: FontWeight.w700)),
+                          style: _manrope(size: 15, weight: FontWeight.w700)),
                       const SizedBox(height: 4),
                       Row(
                         children: [
@@ -503,39 +538,62 @@ class _PendingCard extends StatelessWidget {
                         ),
                       ],
                       const SizedBox(height: 8),
-                      // Role badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: roleUnknown
-                              ? _error.withOpacity(0.08)
-                              : _primary.withOpacity(0.09),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                              color: roleUnknown
-                                  ? _error.withOpacity(0.4)
-                                  : _primary.withOpacity(0.25),
-                              width: 1),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (roleUnknown) ...[
-                              const Icon(Icons.warning_amber_rounded,
-                                  size: 12, color: _error),
-                              const SizedBox(width: 4),
-                            ],
-                            Text(
-                              roleUnknown ? 'Role not set — tap Accept to assign' : roleName!,
-                              style: _inter(
-                                  size: 12,
-                                  weight: FontWeight.w700,
-                                  color: roleUnknown ? _error : _primary),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                      // Role badge — tap to override (persists immediately,
+                      // see onOverrideRole)
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () async {
+                          final chosen = await showDialog<String>(
+                            context: context,
+                            builder: (ctx) => _RoleOverrideDialog(
+                              requestedRoleKey: roleKey,
+                              requestedRoleName: roleName,
+                              isLoadOwnerOrg: isLoadOwnerOrg,
                             ),
-                          ],
+                          );
+                          if (chosen != null) {
+                            await onOverrideRole(userOrgId, chosen);
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: roleUnknown
+                                ? _error.withOpacity(0.08)
+                                : _primary.withOpacity(0.09),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                                color: roleUnknown
+                                    ? _error.withOpacity(0.4)
+                                    : _primary.withOpacity(0.25),
+                                width: 1),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (roleUnknown) ...[
+                                const Icon(Icons.warning_amber_rounded,
+                                    size: 12, color: _error),
+                                const SizedBox(width: 4),
+                              ],
+                              Text(
+                                roleUnknown
+                                    ? 'Role not set — tap to assign'
+                                    : roleName!,
+                                style: _inter(
+                                    size: 12,
+                                    weight: FontWeight.w700,
+                                    color: roleUnknown ? _error : _primary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(width: 4),
+                              Icon(Icons.edit_outlined,
+                                  size: 12,
+                                  color: roleUnknown ? _error : _primary),
+                            ],
+                          ),
                         ),
                       ),
                       if (dateStr.isNotEmpty) ...[
@@ -565,15 +623,13 @@ class _PendingCard extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFFF8F9FB),
-              borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(16)),
+              borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(16)),
               border: Border(
-                top: BorderSide(
-                    color: _primary.withOpacity(0.12), width: 1),
+                top: BorderSide(color: _primary.withOpacity(0.12), width: 1),
               ),
             ),
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
                 Expanded(
@@ -588,16 +644,15 @@ class _PendingCard extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10)),
                       textStyle: _inter(
-                          size: 13,
-                          weight: FontWeight.w700,
-                          color: _error),
+                          size: 13, weight: FontWeight.w700, color: _error),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => onAccept(userOrgId, requestedRoleKey: roleKey, requestedRoleName: roleName),
+                    onPressed: () => onAccept(userOrgId,
+                        requestedRoleKey: roleKey, requestedRoleName: roleName),
                     icon: const Icon(Icons.check_rounded, size: 16),
                     label: const Text('Accept'),
                     style: ElevatedButton.styleFrom(
@@ -643,8 +698,7 @@ class _AcceptedTab extends StatelessWidget {
                 color: _success.withOpacity(0.09),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.group_rounded,
-                  color: _success, size: 40),
+              child: const Icon(Icons.group_rounded, color: _success, size: 40),
             ),
             const SizedBox(height: 16),
             Text('No accepted employees yet',
@@ -691,8 +745,7 @@ class _AcceptedCard extends StatelessWidget {
     if (approvedAt != null) {
       try {
         final dt = DateTime.parse(approvedAt).toLocal();
-        approvedDateStr =
-            '${dt.day}/${dt.month}/${dt.year}';
+        approvedDateStr = '${dt.day}/${dt.month}/${dt.year}';
       } catch (_) {}
     }
 
@@ -702,8 +755,7 @@ class _AcceptedCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: _surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-            color: _success.withOpacity(0.25), width: 1),
+        border: Border.all(color: _success.withOpacity(0.25), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.03),
@@ -724,9 +776,7 @@ class _AcceptedCard extends StatelessWidget {
             child: Center(
               child: Text(initials,
                   style: _manrope(
-                      size: 16,
-                      weight: FontWeight.w800,
-                      color: _success)),
+                      size: 16, weight: FontWeight.w800, color: _success)),
             ),
           ),
           const SizedBox(width: 14),
@@ -734,9 +784,7 @@ class _AcceptedCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name,
-                    style: _manrope(
-                        size: 14, weight: FontWeight.w700)),
+                Text(name, style: _manrope(size: 14, weight: FontWeight.w700)),
                 const SizedBox(height: 3),
                 Row(children: [
                   const Icon(Icons.alternate_email_rounded,
@@ -768,20 +816,21 @@ class _AcceptedCard extends StatelessWidget {
                   children: [
                     Flexible(
                       child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _successBg,
-                        borderRadius: BorderRadius.circular(6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: _successBg,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(roleName,
+                            style: _inter(
+                                size: 11,
+                                weight: FontWeight.w700,
+                                color: _success),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
                       ),
-                      child: Text(roleName,
-                          style: _inter(
-                              size: 11,
-                              weight: FontWeight.w700,
-                              color: _success),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ),),
+                    ),
                     if (approvedDateStr.isNotEmpty) ...[
                       const SizedBox(width: 8),
                       Flexible(
@@ -801,8 +850,7 @@ class _AcceptedCard extends StatelessWidget {
           ),
           // Active badge
           Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: _successBg,
               borderRadius: BorderRadius.circular(8),
@@ -819,9 +867,7 @@ class _AcceptedCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text('Active',
                     style: _inter(
-                        size: 10,
-                        weight: FontWeight.w700,
-                        color: _success)),
+                        size: 10, weight: FontWeight.w700, color: _success)),
               ],
             ),
           ),
@@ -851,9 +897,7 @@ class _ErrorView extends StatelessWidget {
             Text('Failed to load requests',
                 style: _manrope(size: 16, weight: FontWeight.w700)),
             const SizedBox(height: 8),
-            Text(error,
-                style: _inter(size: 12),
-                textAlign: TextAlign.center),
+            Text(error, style: _inter(size: 12), textAlign: TextAlign.center),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: onRetry,
@@ -873,105 +917,254 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-// ─── Accept Role Dialog ────────────────────────────────────────────────────────
+// ─── Role Override Dialog ──────────────────────────────────────────────────────
 
-class _AcceptRoleDialog extends StatefulWidget {
-  final String? requestedRoleKey;
-  final String? requestedRoleName;
-
-  const _AcceptRoleDialog({this.requestedRoleKey, this.requestedRoleName});
-
-  @override
-  State<_AcceptRoleDialog> createState() => _AcceptRoleDialogState();
+class _RoleOption {
+  final String key;
+  final String label;
+  final String description;
+  final IconData icon;
+  final Color color;
+  const _RoleOption({
+    required this.key,
+    required this.label,
+    required this.description,
+    required this.icon,
+    required this.color,
+  });
 }
 
-class _AcceptRoleDialogState extends State<_AcceptRoleDialog> {
-  late String _selectedRole;
+/// Opened by tapping the role badge on a pending request card — lets the
+/// owner correct a role the worker picked by mistake at signup. Selecting a
+/// role here is persisted immediately server-side (see _overrideRole in the
+/// parent screen), it doesn't just stage a local choice for Accept to send
+/// later.
+class _RoleOverrideDialog extends StatefulWidget {
+  final String? requestedRoleKey;
+  final String? requestedRoleName;
+  // Which role choices make sense depends on the accepting owner's own org
+  // type — an LP org only ever wants Field Executive/RR Operations for its
+  // team, a load_owner org only ever wants Load Owner Worker. Showing all
+  // three regardless of org type let an LP owner accidentally assign
+  // "Load Owner Worker" to their own team member, which isn't a valid role
+  // for a logistic_partner org.
+  final bool isLoadOwnerOrg;
 
-  static const _roles = [
-    {'key': 'logistic_partner_worker', 'label': 'LP Worker'},
-    {'key': 'lp_rr_operations',        'label': 'RR Operations'},
-    {'key': 'load_owner_worker',        'label': 'Load Owner Worker'},
+  const _RoleOverrideDialog({
+    this.requestedRoleKey,
+    this.requestedRoleName,
+    required this.isLoadOwnerOrg,
+  });
+
+  @override
+  State<_RoleOverrideDialog> createState() => _RoleOverrideDialogState();
+}
+
+class _RoleOverrideDialogState extends State<_RoleOverrideDialog> {
+  late String _selectedRole;
+  late final List<_RoleOption> _roles;
+
+  static const _lpRoles = [
+    _RoleOption(
+      key: 'logistic_partner_worker',
+      label: 'Field Executive',
+      description: 'Manages trip stages and fleet status on the ground',
+      icon: Icons.badge_outlined,
+      color: Color(0xFFFF6B00),
+    ),
+    _RoleOption(
+      key: 'lp_rr_operations',
+      label: 'RR Operations',
+      description: 'Handles RR sync and trip data entry in the RR system',
+      icon: Icons.sync_alt_rounded,
+      color: Color(0xFF1B6CA8),
+    ),
+  ];
+  static const _loadOwnerRoles = [
+    _RoleOption(
+      key: 'load_owner_worker',
+      label: 'Load Owner Worker',
+      description: 'Manages load postings and shipment tracking',
+      icon: Icons.inventory_2_outlined,
+      color: Color(0xFF6A4FB6),
+    ),
   ];
 
   @override
   void initState() {
     super.initState();
-    // Pre-select the requested role if valid, else default to LP worker
-    _selectedRole = _roles.any((r) => r['key'] == widget.requestedRoleKey)
+    _roles = widget.isLoadOwnerOrg ? _loadOwnerRoles : _lpRoles;
+    // Pre-select the requested role if valid, else default to the first
+    // option for this org type.
+    _selectedRole = _roles.any((r) => r.key == widget.requestedRoleKey)
         ? widget.requestedRoleKey!
-        : 'logistic_partner_worker';
+        : _roles.first.key;
   }
 
   @override
   Widget build(BuildContext context) {
     final roleUnknown = widget.requestedRoleKey == null;
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Assign Role', style: _manrope(size: 16)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (roleUnknown)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: _error.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: _error.withOpacity(0.3)),
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: _primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.manage_accounts_outlined,
+                      size: 20, color: _primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Assign Role', style: _manrope(size: 16)),
+                      const SizedBox(height: 2),
+                      Text(
+                        roleUnknown
+                            ? 'No role requested yet'
+                            : 'Currently: ${widget.requestedRoleName}',
+                        style: _inter(
+                            size: 12, color: roleUnknown ? _error : _secondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+            if (roleUnknown)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: _error.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _error.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded,
+                        size: 14, color: _error),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'This worker didn\'t pick a role at signup — choose one below.',
+                        style: _inter(size: 12, color: _error),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded, size: 14, color: _error),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Worker did not request a specific role. Please assign one.',
-                      style: _inter(size: 12, color: _error),
+            ..._roles.map((r) {
+              final selected = _selectedRole == r.key;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => setState(() => _selectedRole = r.key),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? r.color.withOpacity(0.08)
+                          : Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: selected ? r.color : Colors.grey[300]!,
+                        width: selected ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: r.color.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: Icon(r.icon, size: 18, color: r.color),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(r.label,
+                                  style: _inter(
+                                      size: 13.5,
+                                      weight: FontWeight.w700,
+                                      color: _onSurface)),
+                              const SizedBox(height: 2),
+                              Text(r.description,
+                                  style: _inter(size: 11.5, color: _secondary)),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          selected
+                              ? Icons.check_circle_rounded
+                              : Icons.radio_button_unchecked_rounded,
+                          size: 20,
+                          color: selected ? r.color : Colors.grey[350],
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            )
-          else
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                'Requested: ${widget.requestedRoleName}',
-                style: _inter(size: 12, color: _secondary),
-              ),
+                ),
+              );
+            }),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: Text('Cancel',
+                        style: _inter(size: 13.5, color: _secondary)),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _success,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => Navigator.pop(context, _selectedRole),
+                    icon: const Icon(Icons.check_rounded, size: 16),
+                    label: Text('Save',
+                        style: _inter(
+                            size: 13.5,
+                            weight: FontWeight.w700,
+                            color: Colors.white)),
+                  ),
+                ),
+              ],
             ),
-          Text('Assign as:', style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface)),
-          const SizedBox(height: 8),
-          ..._roles.map((r) => RadioListTile<String>(
-            value: r['key']!,
-            groupValue: _selectedRole,
-            onChanged: (v) => setState(() => _selectedRole = v!),
-            title: Text(r['label']!, style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface)),
-            subtitle: Text(r['key']!, style: _inter(size: 11)),
-            activeColor: _primary,
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-          )),
-        ],
+          ],
+        ),
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Cancel', style: _inter(size: 13, color: _secondary)),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _success,
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-          onPressed: () => Navigator.pop(context, _selectedRole),
-          child: Text('Confirm', style: _inter(size: 13, weight: FontWeight.w700, color: Colors.white)),
-        ),
-      ],
     );
   }
 }

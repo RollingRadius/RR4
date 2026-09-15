@@ -35,6 +35,11 @@ def _get_user_from_token(token: str, db: Session):
     user = db.query(User).filter(User.id == user_id).first()
     if not user or not user.can_login():
         return None, None
+    # Session versioning — see dependencies.get_current_user for the same
+    # check on the REST side. Without this, a WebSocket client holding a
+    # pre-password-change token would keep receiving notifications forever.
+    if payload.get("token_version", 1) != user.token_version:
+        return None, None
     user_org = db.query(UserOrganization).filter(
         UserOrganization.user_id == user.id,
         UserOrganization.status == "active",

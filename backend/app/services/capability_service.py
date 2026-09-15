@@ -3,12 +3,15 @@ Capability Service
 Business logic for capability management
 """
 from typing import List, Dict, Optional
+import logging
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
 from app.models import Capability, RoleCapability, User, Role
 from app.models.capability import FeatureCategory, AccessLevel
 from app.core.capabilities import ALL_CAPABILITIES, CAPABILITIES_DICT, get_capabilities_by_category
+
+logger = logging.getLogger(__name__)
 
 
 class CapabilityService:
@@ -293,6 +296,6 @@ class CapabilityService:
                 count += 1
             except Exception as e:
                 # Log error but continue
-                print(f"Error assigning capability {cap.get('capability_key')}: {e}")
+                logger.error(f"Error assigning capability {cap.get('capability_key')}: {e}")
 
         return count

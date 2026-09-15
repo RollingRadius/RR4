@@ -640,7 +640,7 @@ class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
               style: _manrope(size: 22, weight: FontWeight.w800),
             ),
             const SizedBox(height: 2),
-            Text('Logistic Partner Worker',
+            Text('Field Executive',
                 style: _inter(size: 13, color: _secondary)),
             const SizedBox(height: 24),
 
@@ -948,7 +948,7 @@ class _WorkerProfileTab extends ConsumerWidget {
               color: _tertiary.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text('Logistic Partner Worker',
+            child: Text('Field Executive',
                 style: _inter(
                     size: 12,
                     weight: FontWeight.w700,
@@ -957,6 +957,15 @@ class _WorkerProfileTab extends ConsumerWidget {
           const SizedBox(height: 32),
           const Divider(),
           const SizedBox(height: 16),
+          ListTile(
+            leading: const Icon(Icons.settings_outlined, color: _secondary),
+            title: Text('Settings',
+                style: _inter(
+                    size: 15,
+                    weight: FontWeight.w600,
+                    color: _onSurface)),
+            onTap: () => context.push('/profile'),
+          ),
           ListTile(
             leading: const Icon(Icons.help_outline_rounded, color: _secondary),
             title: Text('Help & Support',
@@ -1136,7 +1145,7 @@ class _WorkerDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final name = user?.fullName ?? 'LP Worker';
+    final name = user?.fullName ?? 'Field Executive';
     final company = user?.companyName ?? '';
     final username = user?.username ?? '';
 
@@ -1199,7 +1208,7 @@ class _WorkerDrawer extends ConsumerWidget {
                         border: Border.all(
                             color: _tertiaryContainer.withValues(alpha: 0.6)),
                       ),
-                      child: Text('LP Worker',
+                      child: Text('Field Executive',
                           style: _inter(
                               size: 10,
                               weight: FontWeight.w700,

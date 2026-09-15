@@ -209,7 +209,13 @@ class LocationService {
       heading: position.heading,
       batteryLevel: batteryLevel,
       isMockLocation: position.isMocked,
-      timestamp: position.timestamp ?? DateTime.now(),
+      // .toUtc() is essential here, not cosmetic — position.timestamp is
+      // already UTC, but the DateTime.now() fallback is local. Without
+      // this, a naive local-time string reaches the backend with no
+      // offset marker, and asyncpg silently assumes naive datetimes are
+      // already UTC — corrupting every staleness/age calculation by the
+      // device's UTC offset.
+      timestamp: (position.timestamp ?? DateTime.now()).toUtc(),
     );
 
     // Add to batch queue

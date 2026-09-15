@@ -39,6 +39,14 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // Windows Gradle bug: extractReleaseNativeSymbolTables intermittently
+            // fails with "Failed to create MD5 hash for file ...sym.temp-stream-..."
+            // (AGP temp-file race on Windows). Skipping native debug symbol
+            // extraction avoids the broken task; Dart-level crash symbolication
+            // via Crashlytics is unaffected.
+            ndk {
+                debugSymbolLevel = "NONE"
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/services/profile_api.dart';
@@ -149,6 +150,65 @@ class ProfileNotifier extends StateNotifier<ProfileState> {
         profileData: response,
       );
 
+      return true;
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: _extractErrorMessage(e),
+      );
+      return false;
+    }
+  }
+
+  /// Upload (or replace) the current user's profile picture. Deliberately
+  /// does NOT touch isLoading — the screen already shows its own small
+  /// spinner overlay on just the avatar (_isUploadingPicture); isLoading
+  /// drives the full-page skeleton and would otherwise replace the whole
+  /// screen with it during what should be a quick, localized upload.
+  Future<bool> uploadProfilePicture(Uint8List bytes, String filename) async {
+    state = state.copyWith(error: null);
+
+    try {
+      final response = await _profileApi.uploadProfilePicture(bytes, filename);
+
+      state = state.copyWith(profileData: response);
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: _extractErrorMessage(e));
+      return false;
+    }
+  }
+
+  /// Remove the current user's profile picture. Same isLoading exclusion
+  /// as uploadProfilePicture above, for the same reason.
+  Future<bool> deleteProfilePicture() async {
+    state = state.copyWith(error: null);
+
+    try {
+      final response = await _profileApi.deleteProfilePicture();
+
+      state = state.copyWith(profileData: response);
+
+      return true;
+    } catch (e) {
+      state = state.copyWith(error: _extractErrorMessage(e));
+      return false;
+    }
+  }
+
+  /// Change password via security questions. On success every session
+  /// everywhere is invalidated server-side — the caller is responsible for
+  /// clearing local auth state and navigating to the login screen.
+  Future<bool> changePassword({
+    required List<Map<String, String>> answers,
+    required String newPassword,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+
+    try {
+      await _profileApi.changePassword(answers: answers, newPassword: newPassword);
+      state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
       state = state.copyWith(

@@ -3,22 +3,31 @@ Profile API Endpoints
 User profile completion and management
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import uuid as _uuid_module
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
-from app.database import get_db
+from app.config import settings
+from app.database import get_db, SessionLocal
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.schemas.profile import (
     ProfileStatusResponse,
     ProfileCompletionRequest,
     ProfileCompletionResponse,
-    ProfileUpdateRequest
+    ProfileUpdateRequest,
+    ChangePasswordRequest,
+    ChangePasswordResponse
 )
 from app.services.profile_service import ProfileService
+from app.services.recovery_service import RecoveryService
 
 router = APIRouter()
+
+_ALLOWED_PICTURE_MIME_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
 
 
 @router.get("/status", response_model=ProfileStatusResponse)
@@ -93,7 +102,8 @@ def complete_profile(
     // Join Company
     {
         "role_type": "join_company",
-        "company_id": "uuid-here"
+        "company_id": "uuid-here",
+        "requested_role_key": "logistic_partner_worker"
     }
 
     // Create Company
@@ -174,7 +184,8 @@ def change_user_role(
     // Join Company
     {
         "role_type": "join_company",
-        "company_id": "uuid-here"
+        "company_id": "uuid-here",
+        "requested_role_key": "logistic_partner_worker"
     }
 
     // Create Company
@@ -250,3 +261,73 @@ def update_profile(
     )
 
     return ProfileStatusResponse(**result)
+
+
+@router.post("/picture", response_model=ProfileStatusResponse, status_code=status.HTTP_201_CREATED)
+async def upload_profile_picture(
+    picture: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Upload (or replace) the current user's profile picture.
+
+    **Accepts:** JPEG, PNG, or WebP.
+    """
+    if picture.content_type not in _ALLOWED_PICTURE_MIME_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Profile picture must be JPEG, PNG, or WebP."
+        )
+
+    # No DB session held during the slow file I/O — see db-pool-session-pattern.
+    ext = Path(picture.filename or "").suffix or ".jpg"
+    pictures_dir = Path(settings.UPLOAD_DIR) / "profile_pictures"
+    pictures_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{current_user.id}_{_uuid_module.uuid4().hex}{ext}"
+    with open(pictures_dir / filename, "wb") as f:
+        f.write(await picture.read())
+    picture_url = f"/uploads/profile_pictures/{filename}"
+
+    db = SessionLocal()
+    try:
+        profile_service = ProfileService(db)
+        result = profile_service.set_profile_picture(current_user.id, picture_url)
+    finally:
+        db.close()
+
+    return ProfileStatusResponse(**result)
+
+
+@router.delete("/picture", response_model=ProfileStatusResponse)
+def remove_profile_picture(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Remove the current user's profile picture (reverts to initials/default)."""
+    profile_service = ProfileService(db)
+    result = profile_service.set_profile_picture(current_user.id, None)
+    return ProfileStatusResponse(**result)
+
+
+@router.post("/change-password", response_model=ChangePasswordResponse)
+def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Change the current user's password by re-verifying their security
+    question answers (only available for accounts registered with
+    security questions — not email-authenticated accounts).
+
+    On success, every existing session on every device is instantly
+    invalidated, and the app should discard its local session and send
+    the user back to the login screen.
+    """
+    recovery_service = RecoveryService(db)
+    result = recovery_service.change_password_with_security_answers(
+        user=current_user,
+        answers=[a.model_dump() for a in body.answers],
+        new_password=body.new_password
+    )
+    return ChangePasswordResponse(**result)

@@ -17,7 +17,8 @@ engine = create_engine(
     pool_pre_ping=True,  # Verify connections before using
     pool_size=20,  # Maximum number of connections
     max_overflow=30,  # Maximum overflow connections
-    echo=settings.DEBUG  # Log SQL queries in debug mode
+    echo=settings.SQL_ECHO,  # Log SQL queries — controlled independently of DEBUG
+    hide_parameters=True,  # Never print real bind values (PII, tokens) even when echo is on
 )
 
 # Session factory (sync)
@@ -29,7 +30,12 @@ _async_database_url = settings.DATABASE_URL.replace(
 ).replace(
     "postgresql+psycopg2://", "postgresql+asyncpg://", 1
 )
-async_engine = create_async_engine(_async_database_url, pool_pre_ping=True)
+async_engine = create_async_engine(
+    _async_database_url,
+    pool_pre_ping=True,
+    echo=settings.SQL_ECHO,
+    hide_parameters=True,
+)
 AsyncSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)
 
 # Base class for SQLAlchemy models

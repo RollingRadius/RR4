@@ -6,7 +6,12 @@ import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 
-const _primary = Color(0xFFFF6B00);
+// RR-blue for header/brand/section-label surfaces (matches the RR-ops
+// dashboard this screen is opened from), orange reserved for the primary
+// Submit CTA — same blue+orange split used across the rest of the RR-ops
+// UI, instead of this screen being all-orange on its own.
+const _rrBlue = Color(0xFF1B6CA8);
+const _accent = Color(0xFFFF6B00);
 const _secondary = Color(0xFF546067);
 const _onSurface = Color(0xFF191C1E);
 const _success = Color(0xFF2E7D32);
@@ -37,7 +42,7 @@ Color _historyStatusColor(String status) {
     case 'Approved': return _success;
     case 'Rejected':
     case 'Terminated': return _error;
-    default: return _primary; // Requested
+    default: return _rrBlue; // Requested
   }
 }
 
@@ -322,7 +327,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Add Market Vehicle', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _primary),
+      appBar: AppBar(title: Text('Add Market Vehicle', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _rrBlue),
       body: SingleChildScrollView(
               controller: _scrollCtrl,
               padding: const EdgeInsets.all(16),
@@ -344,7 +349,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                   const SizedBox(height: 8),
 
                   // ── Lender Detail ────────────────────────────────────────
-                  Text('Lender Detail', style: _manrope(size: 13, color: _primary)),
+                  Text('Lender Detail', style: _manrope(size: 13, color: _rrBlue)),
                   const SizedBox(height: 10),
                   _dualSearchField(
                     label: 'Vehicle Owner *',
@@ -388,7 +393,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                   const SizedBox(height: 20),
 
                   // ── Hiring Request Date ─────────────────────────────────
-                  Text('Hiring Request Date', style: _manrope(size: 13, color: _primary)),
+                  Text('Hiring Request Date', style: _manrope(size: 13, color: _rrBlue)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -413,7 +418,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                     child: ElevatedButton(
                       onPressed: _submitting ? null : _submit,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: _primary,
+                        backgroundColor: _accent,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                       ),
@@ -489,7 +494,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                             onPressed: (_historyVehicleId == null || _loadingHistory) ? null : _findVehicleHistory,
                             child: _loadingHistory
                                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                : Text('Find', style: _manrope(size: 13, color: _primary)),
+                                : Text('Find', style: _manrope(size: 13, color: _rrBlue)),
                           ),
                         ),
                         if (_historyError != null) ...[

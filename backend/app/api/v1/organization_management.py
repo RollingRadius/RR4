@@ -15,6 +15,8 @@ from app.models.user import User
 from app.models.role import Role
 from app.models.user_organization import UserOrganization
 from app.models.company import Organization
+from app.models.driver import Driver
+from app.models.refresh_token import RefreshToken
 from app.dependencies import get_current_user
 
 router = APIRouter()
@@ -294,8 +296,13 @@ def remove_employee(
     - Cannot remove self (owner)
 
     **Actions:**
-    - Deletes UserOrganization record
-    - Employee loses access to organization
+    - Deletes the UserOrganization record (the users row itself is kept for
+      historical/data purposes)
+    - Resets profile_completed to False, so the employee's next login sends
+      them back through "Complete Your Profile" (the router's existing
+      profile-completion gate) instead of a dashboard with no role/org
+    - Bumps token_version and revokes refresh tokens so the employee is logged out immediately
+    - Unlinks any Driver profile from the removed user (driver record itself is kept)
     """
     owner_org = verify_owner(current_user, db)
 
@@ -320,8 +327,28 @@ def remove_employee(
 
     employee_name = emp_org.user.full_name
     employee_role = emp_org.role.role_name if emp_org.role else "No role"
+    removed_user = emp_org.user
 
-    # Delete the record
+    # Force-logout: any already-issued access token fails its next check
+    # (see get_current_user), and stored refresh tokens can no longer mint
+    # a new one.
+    removed_user.token_version = (removed_user.token_version or 1) + 1
+    db.query(RefreshToken).filter(
+        RefreshToken.user_id == removed_user.id,
+        RefreshToken.revoked == False
+    ).update({"revoked": True})
+
+    # Unlink (not delete) any driver profile so it stops showing as an
+    # active driver for this org.
+    db.query(Driver).filter(Driver.user_id == removed_user.id).update({"user_id": None})
+
+    # Send them back through "Complete Your Profile" on next login rather
+    # than a dashboard with no role/org context. complete_profile() (called
+    # from that screen) inserts a fresh UserOrganization row and requires
+    # profile_completed=False, so the old row must be gone, not just reset —
+    # reusing it here would risk a duplicate row when they complete the
+    # profile again.
+    removed_user.profile_completed = False
     db.delete(emp_org)
     db.commit()
 
@@ -522,6 +549,71 @@ def accept_worker_request(
         "message": f"{emp_org.user.full_name} has been accepted as {new_role.role_name}",
         "user_id": str(emp_org.user_id),
         "role_assigned": new_role.role_key,
+    }
+
+
+class UpdateRequestRoleBody(BaseModel):
+    role_key: str
+
+
+@router.patch("/worker-requests/{user_org_id}/role", response_model=dict)
+def update_worker_request_role(
+    user_org_id: str,
+    body: UpdateRequestRoleBody,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Override a still-pending worker request's requested role, before it's
+    accepted — lets the owner correct a role the worker picked by mistake
+    at signup without having to go through a confirmation dialog on Accept.
+    Takes effect immediately (the pending row is updated right away, not
+    just staged client-side), so a later plain Accept call just uses
+    whatever role_key was set here last.
+
+    Restricted to the same safe allowlist as accept_worker_request
+    (_ASSIGNABLE_WORKER_ROLES) — NOT the wider set PUT /employees/{id}/role
+    allows, since that endpoint's only guard is against assigning the owner
+    roles, not against arbitrary system roles.
+    """
+    owner_org = verify_owner(current_user, db)
+
+    emp_org = db.query(UserOrganization).filter(
+        UserOrganization.id == user_org_id,
+        UserOrganization.organization_id == owner_org.organization_id,
+        UserOrganization.status == 'pending'
+    ).first()
+
+    if not emp_org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pending request not found in your organization"
+        )
+
+    if body.role_key not in _ASSIGNABLE_WORKER_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid role_key '{body.role_key}'. Allowed: {sorted(_ASSIGNABLE_WORKER_ROLES)}"
+        )
+
+    new_role = db.query(Role).filter(Role.role_key == body.role_key).first()
+    if not new_role:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Worker role not found. Run database migrations 040 and 060."
+        )
+
+    emp_org.requested_role_id = new_role.id
+    db.commit()
+    db.refresh(emp_org)
+
+    return {
+        "success": True,
+        "requested_role": {
+            "id": str(new_role.id),
+            "name": new_role.role_name,
+            "key": new_role.role_key,
+        }
     }
 
 

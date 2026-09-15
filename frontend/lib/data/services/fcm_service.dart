@@ -49,6 +49,13 @@ class FcmService {
   static const String topicLpWorkers    = 'lp_workers';
   static const String topicLoWorkers    = 'lo_workers';
 
+  /// Set once from the widget tree (where a Ref is available — FcmService
+  /// itself has none) to react to a silent, data-only "trip_reassigned" push
+  /// (see backend's driver_link_service.py:_nudge_driver_refresh). This is a
+  /// best-effort latency nudge only — the existing periodic poll remains the
+  /// source of truth whether or not this ever fires.
+  static void Function()? onTripReassignedNudge;
+
   Future<void> initialize() async {
     if (kIsWeb) return;
 
@@ -72,6 +79,13 @@ class FcmService {
 
     // Show a local notification for foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      // Silent data-only nudge — no visible banner, just an instant refresh
+      // trigger. Handled before the notification-payload early-return below,
+      // since this message type intentionally carries no `notification` block.
+      if (message.data['type'] == 'trip_reassigned') {
+        onTripReassignedNudge?.call();
+      }
+
       final notification = message.notification;
       if (notification == null) return;
 

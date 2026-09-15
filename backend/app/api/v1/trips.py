@@ -6,7 +6,7 @@ Endpoints for managing trips — accessible by both fleet_manager and load_owner
 import random
 import string
 from typing import Optional, List, Union
-from datetime import date
+from datetime import date, timezone
 from decimal import Decimal, InvalidOperation
 
 import json
@@ -88,6 +88,25 @@ def _parse_uuid(value: Optional[str]):
         return _uuid_module.UUID(value)
     except (ValueError, AttributeError):
         return None
+
+
+def _driver_has_open_trip(db: Session, driver_id, exclude_trip_id=None) -> bool:
+    """True if `driver_id` already has another trip that's ongoing and not yet
+    past Stage 5 (POD) — i.e. still needs tracking. Used to stop a driver being
+    double-booked onto two open trips at once."""
+    driver_uuid = _parse_uuid(driver_id) if isinstance(driver_id, str) else driver_id
+    if not driver_uuid:
+        return False
+    query = db.query(Trip).filter(
+        Trip.driver_id == driver_uuid,
+        Trip.status == 'ongoing',
+        ~Trip.is_stage5_complete,
+        ~Trip.driver_tracking_stopped,
+    )
+    if exclude_trip_id:
+        exclude_uuid = _parse_uuid(exclude_trip_id) if isinstance(exclude_trip_id, str) else exclude_trip_id
+        query = query.filter(Trip.id != exclude_uuid)
+    return query.first() is not None
 
 
 def _generate_trip_number(db: Session) -> str:
@@ -241,6 +260,7 @@ def list_trips(
     role_key = _get_role_key(user_org, db)
 
     query = db.query(Trip)
+    driver = None
 
     if role_key in ('logistic_partner', 'super_admin', 'logistic_partner_worker', 'lp_rr_operations'):
         query = query.filter(Trip.organization_id == user_org.organization_id)
@@ -301,6 +321,21 @@ def list_trips(
     total = query.count()
     trips = query.order_by(Trip.created_at.desc()).offset(offset).limit(limit).all()
 
+    # Piggyback the "turn on location" follow-up reminder on this endpoint —
+    # it's the same 30s poll syncDriverTrackingToActiveTrip already rides
+    # (driver_dashboard_screen.dart), and there's no scheduler in this
+    # codebase to do it any other way. maybe_send_location_reminder
+    # rate-limits itself, so this is safe to check on every call.
+    if driver:
+        active_trip = next(
+            (t for t in trips
+             if t.status == 'ongoing' and not t.is_stage5_complete and not t.driver_tracking_stopped),
+            None
+        )
+        if active_trip:
+            from app.services.driver_link_service import maybe_send_location_reminder
+            maybe_send_location_reminder(driver, active_trip, db)
+
     return {
         "total": total,
         "trips": _enrich_bulk(trips, db),
@@ -324,6 +359,37 @@ def get_transporter_trips_early(
     ).order_by(Trip.created_at.desc()).all()
 
     return {"success": True, "trips": _enrich_bulk(trips, db)}
+
+
+@router.get("/trips/driver-account-check")
+async def check_driver_account(
+    rr_driver_id: str = Query(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Pure lookup, no trip touched: does this RR driver have a matching local
+    RR4 account (so GPS tracking will be possible once they're assigned), and
+    if so, are they already busy on another open trip (so tracking would still
+    fail to link even though the account exists)? Used by Create Trip to warn
+    the dispatcher inline, right after driver selection — non-blocking, trip
+    creation proceeds either way."""
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'super_admin', 'lp_rr_operations'):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    from app.services.rr_org_token_service import get_org_rr_token
+    rr_token = await get_org_rr_token(user_org.organization, db)
+    if not rr_token:
+        return {"has_local_account": None, "driver_busy_elsewhere": None}
+
+    from app.services.driver_link_service import resolve_local_driver
+    lookup_ok, matched = await resolve_local_driver(rr_driver_id, rr_token, db)
+    if not lookup_ok:
+        return {"has_local_account": None, "driver_busy_elsewhere": None}
+    if not matched:
+        return {"has_local_account": False, "driver_busy_elsewhere": None}
+    return {"has_local_account": True, "driver_busy_elsewhere": _driver_has_open_trip(db, matched.id)}
 
 
 @router.get("/trips/{trip_id}")
@@ -373,6 +439,9 @@ async def create_trip(
             status_code=403,
             detail="Only fleet managers can create trips"
         )
+
+    if body.driver_id and _driver_has_open_trip(db, body.driver_id):
+        raise HTTPException(status_code=400, detail="Driver already has an open trip")
 
     trip = Trip(
         trip_number=_generate_trip_number(db),
@@ -430,6 +499,20 @@ async def create_trip(
     db.add(trip)
     db.commit()
     db.refresh(trip)
+
+    # Direct LP-picked driver assignment (as opposed to the RR-auto-link flow
+    # in driver_link_service.link_driver_to_trip, used for RR-sourced trips)
+    # was previously completely silent — no "new trip assigned" push, no
+    # location-reminder check. Reuse the same notification helpers here so
+    # both assignment paths behave identically.
+    if trip.driver_id:
+        assigned_driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
+        if assigned_driver:
+            from app.services.driver_link_service import (
+                _notify_driver_assigned, maybe_send_location_reminder,
+            )
+            _notify_driver_assigned(assigned_driver, trip)
+            maybe_send_location_reminder(assigned_driver, trip, db)
 
     # RR token: use the caller's if supplied, else fall back to the org's own
     # auto-refreshing RR session — so creating a trip never needs a fresh
@@ -499,7 +582,15 @@ def update_trip(
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
 
-    for field, value in body.model_dump(exclude_unset=True).items():
+    update_fields = body.model_dump(exclude_unset=True)
+    new_driver_id = update_fields.get('driver_id')
+    if new_driver_id and str(new_driver_id) != str(trip.driver_id) and \
+            _driver_has_open_trip(db, new_driver_id, exclude_trip_id=trip.id):
+        raise HTTPException(status_code=400, detail="Driver already has an open trip")
+
+    old_driver_id = trip.driver_id
+
+    for field, value in update_fields.items():
         if field == 'rr_ops_user_id':
             setattr(trip, field, _parse_uuid(value))
         else:
@@ -507,6 +598,19 @@ def update_trip(
 
     db.commit()
     db.refresh(trip)
+
+    # Same as create_trip: a direct LP driver reassignment was previously
+    # silent — no push, no location-reminder check. Only fire on a genuine
+    # change, not every unrelated PATCH to this trip.
+    if 'driver_id' in update_fields and trip.driver_id and str(trip.driver_id) != str(old_driver_id):
+        assigned_driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
+        if assigned_driver:
+            from app.services.driver_link_service import (
+                _notify_driver_assigned, maybe_send_location_reminder,
+            )
+            _notify_driver_assigned(assigned_driver, trip)
+            maybe_send_location_reminder(assigned_driver, trip, db)
+
     return _enrich(trip, db)
 
 
@@ -558,37 +662,49 @@ def get_trip_vehicle_location(
             "message": "No driver linked to this trip yet",
         }
 
-    # Try to get latest GPS location for the driver assigned to the trip
-    try:
-        from app.models.tracking import DriverLocation
-        loc = db.query(DriverLocation).filter(
-            DriverLocation.driver_id == trip.driver_id
-        ).order_by(DriverLocation.timestamp.desc()).first()
+    # LP/RR-ops manually released this driver from this specific trip early
+    # (see POST /trips/{trip_id}/stop-tracking) — blank this trip's own map,
+    # even though the driver may still be actively tracked on whatever new
+    # trip they've since been assigned to (a different Trip row).
+    if trip.driver_tracking_stopped:
+        return {
+            "trip_id": trip_id,
+            "trip_number": trip.trip_number,
+            "vehicle_id": str(trip.vehicle_id) if trip.vehicle_id else None,
+            "driver_id": driver_id,
+            "has_location": False,
+            "message": "Tracking stopped for this trip",
+        }
 
-        if loc:
-            return {
-                "trip_id": trip_id,
-                "trip_number": trip.trip_number,
-                "vehicle_id": str(trip.vehicle_id) if trip.vehicle_id else None,
-                "driver_id": driver_id,
-                "latitude": float(loc.latitude),
-                "longitude": float(loc.longitude),
-                "speed": float(loc.speed) if loc.speed else None,
-                "heading": float(loc.heading) if loc.heading else None,
-                "timestamp": loc.timestamp.isoformat() if loc.timestamp else None,
-                "has_location": True,
-            }
-    except Exception:
-        pass
+    # Get the driver's location status — distinguishes *why* a driver isn't
+    # trackable (no app account / tracking disabled / never shared) instead
+    # of one generic "no location" message. Shared with the standalone Track
+    # sidebar search (see app/api/v1/tracking.py's _driver_location_status).
+    from app.api.v1.tracking import _driver_location_status
+    driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
+    if not driver:
+        return {
+            "trip_id": trip_id,
+            "trip_number": trip.trip_number,
+            "vehicle_id": str(trip.vehicle_id) if trip.vehicle_id else None,
+            "driver_id": driver_id,
+            "has_location": False,
+            "message": "No driver linked to this trip yet",
+        }
 
-    # No location data available yet
+    loc_status = _driver_location_status(driver, db)
     return {
         "trip_id": trip_id,
         "trip_number": trip.trip_number,
         "vehicle_id": str(trip.vehicle_id) if trip.vehicle_id else None,
         "driver_id": driver_id,
-        "has_location": False,
-        "message": "No GPS location available yet for this trip",
+        "has_location": loc_status["has_location"],
+        "latitude": loc_status["latitude"],
+        "longitude": loc_status["longitude"],
+        "speed": loc_status["speed"],
+        "heading": loc_status["heading"],
+        "timestamp": loc_status["timestamp"],
+        "message": loc_status["message"],
     }
 
 
@@ -643,6 +759,60 @@ def set_s1_required(
 
     trip = _get_fleet_trip(trip_id, user_org, db)
     trip.s1_required = body.required
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "trip": _enrich(trip, db)}
+
+
+@router.post("/trips/{trip_id}/stop-tracking", status_code=200)
+def stop_driver_tracking(
+    trip_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """LP/RR-ops manually release the assigned driver from this specific
+    trip early (before POD) — frees them for a new trip assignment
+    (_driver_has_open_trip) and blanks this trip's own live-location map
+    (get_trip_vehicle_location), without touching the trip's own status/
+    stage data. See POST .../resume-tracking to undo this on a trip that
+    turned out to still be active."""
+    from datetime import datetime, timezone
+
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'lp_rr_operations', 'super_admin'):
+        raise HTTPException(status_code=403, detail="LP / RR-ops only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    trip.driver_tracking_stopped = True
+    trip.driver_tracking_stopped_at = datetime.now(timezone.utc)
+    trip.driver_tracking_stopped_by = current_user.id
+    db.commit()
+    db.refresh(trip)
+    return {"success": True, "trip": _enrich(trip, db)}
+
+
+@router.post("/trips/{trip_id}/resume-tracking", status_code=200)
+def resume_driver_tracking(
+    trip_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Undo an earlier POST .../stop-tracking on this trip — e.g. it was hit
+    by mistake, or on a trip that turned out to still be ongoing (incident:
+    RR-93487, stopped 2026-09-14 while still at Stage 4, permanently
+    blacking out the driver's live location with no way back). Clears the
+    stop flag so the driver's app will resume posting locations for this
+    trip next time it re-syncs (see syncDriverTrackingToActiveTrip)."""
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+    if role_key not in ('logistic_partner', 'lp_rr_operations', 'super_admin'):
+        raise HTTPException(status_code=403, detail="LP / RR-ops only")
+
+    trip = _get_fleet_trip(trip_id, user_org, db)
+    trip.driver_tracking_stopped = False
+    trip.driver_tracking_stopped_at = None
+    trip.driver_tracking_stopped_by = None
     db.commit()
     db.refresh(trip)
     return {"success": True, "trip": _enrich(trip, db)}
@@ -1303,11 +1473,13 @@ async def submit_stage4_diesel(
     bilty_number: Optional[str] = Form(None),
     bilty_doc: Optional[UploadFile] = File(None),
     bilty_date: Optional[str] = Form(None),
+    material_verification_sheet: Optional[UploadFile] = File(None),
     current_user: User = Depends(get_current_user),
 ):
     """Stage 4 Diesel — Upload diesel receipt after truck exits factory, plus optional
     Bilty Number + manual Bilty upload (synced to RR's parcels.documents.bilty /
-    documents.manual_bilty). Does not advance currentStage."""
+    documents.manual_bilty), and an optional Material Verification Sheet upload
+    (RR4-only for now — not synced to RR yet). Does not advance currentStage."""
     import re
     from datetime import datetime
     from app.config import settings
@@ -1359,6 +1531,14 @@ async def submit_stage4_diesel(
         (trip_dir / bilty_filename).write_bytes(bilty_content)
         bilty_url = f"/uploads/trips/{trip_id}/{bilty_filename}"
 
+    material_verification_url = None
+    if material_verification_sheet and material_verification_sheet.filename:
+        ext = Path(material_verification_sheet.filename).suffix or '.jpg'
+        mv_filename = f"material_verification_{_uuid_module.uuid4().hex}{ext}"
+        mv_content = await material_verification_sheet.read()
+        (trip_dir / mv_filename).write_bytes(mv_content)
+        material_verification_url = f"/uploads/trips/{trip_id}/{mv_filename}"
+
     # Phase 3 — quick write on a fresh session, opened only now
     db = SessionLocal()
     try:
@@ -1371,7 +1551,9 @@ async def submit_stage4_diesel(
             trip.s4_bilty_url = bilty_url
         if parsed_bilty_date:
             trip.s4_bilty_date = parsed_bilty_date
-        _apply_attributions(trip, ['diesel_receipt', 'bilty_number', 'bilty_doc'], current_user, role_key)
+        if material_verification_url:
+            trip.s4_material_verification_url = material_verification_url
+        _apply_attributions(trip, ['diesel_receipt', 'bilty_number', 'bilty_doc', 'material_verification_sheet'], current_user, role_key)
         db.commit()
         db.refresh(trip)
         return {"success": True, "message": "Diesel receipt uploaded.", "trip": _enrich(trip, db)}
@@ -1459,7 +1641,13 @@ async def submit_stage5(
         trip.s5_vehicle_reach_datetime   = parsed_vehicle_reach_dt
         trip.s5_unloading_end_datetime   = parsed_unloading_end_dt
         trip.s5_submitted_by = current_user.id
-        trip.s5_completed_at = datetime.now(timezone.utc)
+        # Only stamp on the first submission — later edits (halting charge fix,
+        # corrected timestamp, etc.) must not push this forward, since it's the
+        # signal that stops the driver's GPS tracking for this trip (see
+        # Trip.is_stage5_complete) and any report relying on "when was the
+        # driver actually done" would otherwise be wrong.
+        if trip.s5_completed_at is None:
+            trip.s5_completed_at = datetime.now(timezone.utc)
         trip.draft_data      = None
         if trip.current_stage < 5:
             trip.current_stage = 5

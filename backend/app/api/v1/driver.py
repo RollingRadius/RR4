@@ -99,6 +99,7 @@ def get_drivers(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=100, description="Maximum records to return"),
     status: Optional[str] = Query(None, description="Filter by status (active/inactive/on_leave/terminated)"),
+    phone_search: Optional[str] = Query(None, description="Filter by partial phone number match (for the Track sidebar driver search)"),
     org_id: str = Depends(get_current_organization),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -143,7 +144,8 @@ def get_drivers(
         org_id=org_id,
         skip=skip,
         limit=limit,
-        status_filter=status
+        status_filter=status,
+        phone_search=phone_search
     )
 
     # Convert Driver models to response schemas
@@ -151,7 +153,7 @@ def get_drivers(
     for driver in result['drivers']:
         driver_response = DriverResponse(
             driver_id=str(driver.id),
-            organization_id=str(driver.organization_id),
+            organization_id=str(driver.organization_id) if driver.organization_id else None,
             employee_id=driver.employee_id,
             join_date=driver.join_date,
             status=driver.status,
@@ -216,7 +218,7 @@ def get_driver_details(
 
     response = DriverResponse(
         driver_id=str(driver.id),
-        organization_id=str(driver.organization_id),
+        organization_id=str(driver.organization_id) if driver.organization_id else None,
         employee_id=driver.employee_id,
         join_date=driver.join_date,
         status=driver.status,

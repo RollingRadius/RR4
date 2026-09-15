@@ -1,12 +1,15 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/profile_provider.dart';
 import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/core/config/app_config.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -15,29 +18,27 @@ class ProfileScreen extends ConsumerStatefulWidget {
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends ConsumerState<ProfileScreen>
-    with SingleTickerProviderStateMixin {
+/// RR-web's brand blue (matches `_rrBlue` in lp_rr_ops_dashboard.dart) —
+/// used on the Save action so it reads as "confirm/sync" against the
+/// orange app-wide brand color used for Cancel/Edit.
+const _rrWebBlue = Color(0xFF1B6CA8);
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isEditMode = false;
   bool _isSaving = false;
+  bool _isUploadingPicture = false;
+  final ImagePicker _imagePicker = ImagePicker();
 
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
+  // Staged picture change — not sent to the server until Save is tapped,
+  // so picking a photo behaves the same as editing the name field.
+  Uint8List? _pendingPictureBytes;
+  String? _pendingPictureFilename;
 
   final _fullNameController = TextEditingController();
-  final _emailController = TextEditingController();
-  final _phoneController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-    _pulseAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-
     Future.microtask(() {
       ref.read(profileProvider.notifier).getProfileStatus();
     });
@@ -45,10 +46,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   @override
   void dispose() {
-    _pulseController.dispose();
     _fullNameController.dispose();
-    _emailController.dispose();
-    _phoneController.dispose();
     super.dispose();
   }
 
@@ -59,10 +57,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         final authState = ref.read(authProvider);
         _fullNameController.text =
             profileState.profileData?['full_name'] ?? authState.user?.fullName ?? '';
-        _emailController.text =
-            profileState.profileData?['email'] ?? authState.user?.email ?? '';
-        _phoneController.text =
-            profileState.profileData?['phone'] ?? authState.user?.phone ?? '';
+      } else {
+        // Leaving edit mode (Cancel, or after a successful Save) — discard
+        // any picked-but-unsaved picture so it doesn't linger into the next
+        // edit session.
+        _pendingPictureBytes = null;
+        _pendingPictureFilename = null;
       }
       _isEditMode = !_isEditMode;
     });
@@ -73,21 +73,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
       _showError('Full name is required');
       return;
     }
-    if (_emailController.text.trim().isEmpty) {
-      _showError('Email is required');
-      return;
-    }
-    if (_phoneController.text.trim().isEmpty) {
-      _showError('Phone is required');
-      return;
-    }
 
     setState(() => _isSaving = true);
 
+    if (_pendingPictureBytes != null) {
+      final uploaded = await ref.read(profileProvider.notifier).uploadProfilePicture(
+            _pendingPictureBytes!,
+            _pendingPictureFilename!,
+          );
+      if (!uploaded) {
+        if (mounted) {
+          setState(() => _isSaving = false);
+          final error = ref.read(profileProvider).error;
+          _showError(error ?? 'Failed to upload profile picture');
+        }
+        return;
+      }
+    }
+
     final updateData = {
       'full_name': _fullNameController.text.trim(),
-      'email': _emailController.text.trim(),
-      'phone': _phoneController.text.trim(),
     };
 
     final success = await ref.read(profileProvider.notifier).updateProfile(updateData);
@@ -109,10 +114,84 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         );
         ref.read(profileProvider.notifier).getProfileStatus();
         ref.read(authProvider.notifier).loadUserProfile();
-        setState(() => _isEditMode = false);
+        _toggleEditMode();
       } else {
         final error = ref.read(profileProvider).error;
         _showError(error ?? 'Failed to update profile');
+      }
+    }
+  }
+
+  /// Picks a picture and stages it locally — it is only actually uploaded
+  /// when the user taps Save (see _saveProfile), same as editing the name.
+  Future<void> _pickProfilePicture() async {
+    XFile? image;
+    try {
+      image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+    } catch (e) {
+      if (mounted) _showError('Error selecting image: $e');
+      return;
+    }
+
+    if (image == null) return;
+
+    setState(() => _isUploadingPicture = true);
+
+    try {
+      final bytes = await image.readAsBytes();
+      if (mounted) {
+        setState(() {
+          _pendingPictureBytes = bytes;
+          _pendingPictureFilename = image!.name;
+          _isUploadingPicture = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploadingPicture = false);
+        _showError('Error reading image: $e');
+      }
+    }
+  }
+
+  Future<void> _confirmRemoveProfilePicture() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove Profile Picture'),
+        content: const Text('Are you sure you want to remove your profile picture?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isUploadingPicture = true);
+
+    final success = await ref.read(profileProvider.notifier).deleteProfilePicture();
+
+    if (mounted) {
+      setState(() => _isUploadingPicture = false);
+      if (success) {
+        ref.read(authProvider.notifier).loadUserProfile();
+      } else {
+        final error = ref.read(profileProvider).error;
+        _showError(error ?? 'Failed to remove profile picture');
       }
     }
   }
@@ -152,32 +231,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                     key: const ValueKey('edit-actions'),
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded),
+                      _ProfileAppBarPillButton(
+                        icon: Icons.close_rounded,
                         tooltip: 'Cancel',
+                        color: AppTheme.primaryBlue,
                         onPressed: _isSaving ? null : _toggleEditMode,
                       ),
-                      _isSaving
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 14),
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            )
-                          : IconButton(
-                              icon: const Icon(Icons.check_rounded),
-                              tooltip: 'Save',
-                              onPressed: _saveProfile,
-                            ),
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 16),
+                        child: _ProfileAppBarPillButton(
+                          icon: Icons.check_rounded,
+                          label: 'Save',
+                          filled: true,
+                          isLoading: _isSaving,
+                          color: _rrWebBlue,
+                          onPressed: _isSaving ? null : _saveProfile,
+                        ),
+                      ),
                     ],
                   )
-                : IconButton(
-                    key: const ValueKey('view-action'),
-                    icon: const Icon(Icons.edit_outlined),
-                    tooltip: 'Edit Profile',
-                    onPressed: _toggleEditMode,
+                : Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: _ProfileAppBarPillButton(
+                      key: const ValueKey('view-action'),
+                      icon: Icons.edit_outlined,
+                      tooltip: 'Edit Profile',
+                      onPressed: _toggleEditMode,
+                    ),
                   ),
           ),
         ],
@@ -264,6 +345,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     final isActive = user?.status == 'active';
     final _raw = (user?.username ?? 'U').toUpperCase();
     final initials = _raw.length >= 2 ? _raw.substring(0, 2) : _raw;
+    final rawPictureUrl =
+        profileState.profileData?['profile_picture_url'] ?? user?.profilePictureUrl;
+    final pictureUrl = (rawPictureUrl == null || rawPictureUrl.isEmpty)
+        ? null
+        : (rawPictureUrl.startsWith('http')
+            ? rawPictureUrl
+            : '${AppConfig.apiBaseUrl}$rawPictureUrl');
+    ImageProvider? avatarImage;
+    if (_pendingPictureBytes != null) {
+      avatarImage = MemoryImage(_pendingPictureBytes!);
+    } else if (pictureUrl != null) {
+      avatarImage = NetworkImage(pictureUrl);
+    }
 
     return Container(
       width: double.infinity,
@@ -284,19 +378,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             child: Stack(
               alignment: Alignment.center,
               children: [
-                // Pulse ring for active users
+                // Static ring for active users
                 if (isActive)
-                  AnimatedBuilder(
-                    animation: _pulseAnimation,
-                    builder: (_, __) => Container(
-                      width: 128 + (_pulseAnimation.value * 10),
-                      height: 128 + (_pulseAnimation.value * 10),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(
-                          0.18 - (_pulseAnimation.value * 0.14),
-                        ),
-                      ),
+                  Container(
+                    width: 128,
+                    height: 128,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.18),
                     ),
                   ),
 
@@ -313,34 +402,59 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                       ),
                     ],
                   ),
-                  child: Stack(
-                    children: [
-                      CircleAvatar(
-                        radius: 52,
-                        backgroundColor: AppTheme.primaryBlueDark,
-                        child: Text(
-                          initials,
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                  child: GestureDetector(
+                    onTap: _isEditMode && !_isUploadingPicture
+                        ? _pickProfilePicture
+                        : null,
+                    onLongPress: _isEditMode &&
+                            !_isUploadingPicture &&
+                            _pendingPictureBytes == null &&
+                            pictureUrl != null
+                        ? _confirmRemoveProfilePicture
+                        : null,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 52,
+                          backgroundColor: AppTheme.primaryBlueDark,
+                          backgroundImage: avatarImage,
+                          child: _pendingPictureBytes == null && pictureUrl == null
+                              ? Text(
+                                  initials,
+                                  style: const TextStyle(
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : null,
                         ),
-                      ),
-                      if (_isEditMode)
-                        Positioned.fill(
-                          child: ClipOval(
-                            child: Container(
-                              color: Colors.black.withOpacity(0.4),
-                              child: const Icon(
-                                Icons.camera_alt_rounded,
-                                color: Colors.white,
-                                size: 28,
+                        if (_isEditMode)
+                          Positioned.fill(
+                            child: ClipOval(
+                              child: Container(
+                                color: Colors.black.withOpacity(0.4),
+                                child: _isUploadingPicture
+                                    ? const Center(
+                                        child: SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            color: Colors.white,
+                                            strokeWidth: 2.5,
+                                          ),
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.camera_alt_rounded,
+                                        color: Colors.white,
+                                        size: 28,
+                                      ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
@@ -374,6 +488,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
               ],
             ),
           ),
+
+          if (_isEditMode)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _pendingPictureBytes != null
+                    ? 'New photo selected · tap Save to apply'
+                    : pictureUrl != null
+                        ? 'Tap to change photo · long-press to remove'
+                        : 'Tap to add a photo',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withOpacity(0.75),
+                ),
+              ),
+            ),
 
           const SizedBox(height: 16),
 
@@ -514,7 +644,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             child: child,
           ),
         ),
-        child: _isEditMode ? _buildEditFields() : _buildViewFields(user, profileState),
+        child: _isEditMode
+            ? _buildEditFields(user, profileState)
+            : _buildViewFields(user, profileState),
       ),
     );
   }
@@ -538,7 +670,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     );
   }
 
-  Widget _buildEditFields() {
+  Widget _buildEditFields(user, profileState) {
     return Column(
       key: const ValueKey('edit-fields'),
       children: [
@@ -548,29 +680,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
             labelText: 'Full Name',
             prefixIcon: Icon(Icons.badge_rounded),
           ),
-          textInputAction: TextInputAction.next,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _emailController,
-          decoration: const InputDecoration(
-            labelText: 'Email',
-            prefixIcon: Icon(Icons.email_rounded),
-          ),
-          keyboardType: TextInputType.emailAddress,
-          textInputAction: TextInputAction.next,
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _phoneController,
-          decoration: const InputDecoration(
-            labelText: 'Phone',
-            prefixIcon: Icon(Icons.phone_rounded),
-          ),
-          keyboardType: TextInputType.phone,
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _saveProfile(),
         ),
+        const SizedBox(height: 12),
+        // Email and phone aren't user-editable right now — they double as
+        // account-recovery credentials, and changing them without
+        // re-verifying ownership (OTP / confirmation link) is a real
+        // account-takeover risk. Shown read-only for context while editing.
+        _buildInfoTile(Icons.email_rounded, 'Email',
+            profileState.profileData?['email'] ?? user?.email ?? 'N/A'),
+        _buildDivider(),
+        _buildInfoTile(Icons.phone_rounded, 'Phone',
+            profileState.profileData?['phone'] ?? user?.phone ?? 'N/A'),
       ],
     );
   }
@@ -693,6 +815,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
                 user?.status == 'active' ? AppTheme.statusActive : AppTheme.statusWarning,
             chip: true,
           ),
+          if (user?.isSecurityQuestionsUser == true) ...[
+            _buildDivider(),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.bgTertiary,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.password_rounded,
+                    size: 16, color: AppTheme.textSecondary),
+              ),
+              title: const Text('Change Password'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => context.push('/profile/change-password'),
+            ),
+          ],
         ],
       ),
     );
@@ -1413,5 +1553,85 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         ],
       ),
     );
+  }
+}
+
+/// Small brand-tinted pill used for the AppBar's edit/save/cancel actions —
+/// keeps the AppBar visually consistent with the orange `AppTheme` used
+/// throughout the app (rounded, tinted "chip" buttons) instead of bare
+/// Material `IconButton`s that read as generic/basic against the gradient
+/// hero right below the AppBar.
+class _ProfileAppBarPillButton extends StatelessWidget {
+  final IconData icon;
+  final String? label;
+  final String? tooltip;
+  final bool filled;
+  final bool isLoading;
+  final Color color;
+  final VoidCallback? onPressed;
+
+  const _ProfileAppBarPillButton({
+    super.key,
+    required this.icon,
+    this.label,
+    this.tooltip,
+    this.filled = false,
+    this.isLoading = false,
+    this.color = AppTheme.primaryBlue,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final disabled = onPressed == null;
+    final fg = filled
+        ? Colors.white
+        : color.withOpacity(disabled ? 0.4 : 1);
+    final bg = filled
+        ? color.withOpacity(disabled ? 0.5 : 1)
+        : color.withOpacity(0.08);
+
+    final child = AnimatedContainer(
+      duration: const Duration(milliseconds: 150),
+      padding: EdgeInsets.symmetric(
+        horizontal: label != null ? 16 : 10,
+        vertical: 8,
+      ),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        border: filled ? null : Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isLoading)
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: fg),
+            )
+          else
+            Icon(icon, size: 18, color: fg),
+          if (label != null) ...[
+            const SizedBox(width: 6),
+            Text(label!,
+                style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700, color: fg)),
+          ],
+        ],
+      ),
+    );
+
+    final button = Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: isLoading ? null : onPressed,
+        child: child,
+      ),
+    );
+
+    return tooltip != null ? Tooltip(message: tooltip!, child: button) : button;
   }
 }

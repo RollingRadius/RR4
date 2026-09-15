@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     ENVIRONMENT: str = "development"
 
+    # SQL query logging — independent of DEBUG so it can be enabled on test
+    # without also exposing tracebacks to API callers. Bind-parameter values
+    # are still hidden regardless (see database.py's hide_parameters=True).
+    SQL_ECHO: bool = False
+
     # Server
     HOST: str = "0.0.0.0"
     PORT: int = 8000
@@ -83,8 +88,7 @@ class Settings(BaseSettings):
 
     # RR Sync — integration with RollingRadius main platform
     RR_API_BASE: str = "https://35.244.19.78:8042"   # test; change to https://rollingradius.com:8042 for prod
-    RR_REFRESH_TOKEN: str = ""                         # obtained via one-time OTP login on RR
-    RR_SYNC_ENABLED: bool = True                       # set True once token is configured
+    RR_SYNC_ENABLED: bool = True                       # master kill-switch for all RR sync
     RR_SSL_VERIFY: bool = False                        # test server uses self-signed cert
 
     # Truck-photo forwarding — Stage 3 truck exterior photos are forwarded to

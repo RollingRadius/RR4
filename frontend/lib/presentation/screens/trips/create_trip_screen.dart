@@ -156,6 +156,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   String? _selectedDriverName;
   bool _vehicleHasNoDriver = false;
   bool _assigningDriverToVehicle = false;
+  // null = not checked yet / check inconclusive / all clear (no warning to
+  // show); otherwise the reason tracking won't work for this driver, from
+  // _checkDriverAccount. Non-blocking: trip creation proceeds regardless.
+  String? _driverTrackingWarning;
   // True when the selected vehicle came from the caller's OWN fleet
   // (_extract_vehicle_entry's "vehicles" source), false for a market-hired
   // vehicle ("market_vehicles" source) owned by a different company. Gates
@@ -746,6 +750,35 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         ),
         backgroundColor: _errorClr,
       ));
+    }
+  }
+
+  // Fire-and-forget: warns the dispatcher inline if the selected driver has
+  // no matching RR4 app account (so GPS tracking won't be available for this
+  // trip). Non-blocking — never affects trip creation either way.
+  Future<void> _checkDriverAccount(String rrDriverId) async {
+    final targetDriverId = rrDriverId;
+    try {
+      final resp = await ref.read(apiServiceProvider).dio.get(
+            '/api/trips/driver-account-check',
+            queryParameters: {'rr_driver_id': targetDriverId},
+          );
+      if (!mounted || _selectedDriverRrId != targetDriverId) return;
+      final hasAccount = resp.data['has_local_account'] as bool?;
+      final busyElsewhere = resp.data['driver_busy_elsewhere'] as bool?;
+      setState(() {
+        if (hasAccount == false) {
+          _driverTrackingWarning = "This driver hasn't set up the RR4 app yet — "
+              "tracking won't be available for this trip until they do.";
+        } else if (busyElsewhere == true) {
+          _driverTrackingWarning = "This driver is already on another open trip — "
+              "tracking won't link to this trip until that one is finished.";
+        } else {
+          _driverTrackingWarning = null;
+        }
+      });
+    } catch (_) {
+      // Best-effort only — leave _driverTrackingWarning as-is (null = no warning).
     }
   }
 
@@ -1688,6 +1721,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                         onChanged: (id) {
                           if (id == null) return;
                           final picked = all.firstWhere((v) => v['rr_vehicle_id'] == id);
+                          // Auto-fill the driver from the vehicle's own RR crew
+                          // record when it has one — the old flow's behaviour,
+                          // still overridable below. Vehicles with no driver on
+                          // file (e.g. freshly quick-added) fall through to the
+                          // warning + mandatory manual search/add.
+                          final vDriverId   = picked['driver_id'] as String? ?? '';
+                          final vDriverName = picked['driver_name'] as String? ?? '';
                           setState(() {
                             _vpSelectedVehicleRrId   = id;
                             _vpSelectedVehicleNumber = picked['number'] as String?;
@@ -1695,18 +1735,12 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                             _fieldErr.remove('vehicle');
                             _fieldErrMsg.remove('vehicle');
 
-                            // Auto-fill the driver from the vehicle's own RR crew
-                            // record when it has one — the old flow's behaviour,
-                            // still overridable below. Vehicles with no driver on
-                            // file (e.g. freshly quick-added) fall through to the
-                            // warning + mandatory manual search/add.
-                            final vDriverId   = picked['driver_id'] as String? ?? '';
-                            final vDriverName = picked['driver_name'] as String? ?? '';
                             if (vDriverId.isNotEmpty) {
                               _selectedDriverRrId = vDriverId;
                               _selectedDriverName = vDriverName;
                               _driverPhoneCtrl.text = vDriverName;
                               _vehicleHasNoDriver = false;
+                              _driverTrackingWarning = null;
                               _fieldErr.remove('driver');
                               _fieldErrMsg.remove('driver');
                             } else {
@@ -1714,8 +1748,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                               _selectedDriverName = null;
                               _driverPhoneCtrl.clear();
                               _vehicleHasNoDriver = true;
+                              _driverTrackingWarning = null;
                             }
                           });
+                          if (vDriverId.isNotEmpty) _checkDriverAccount(vDriverId);
                         },
                       );
                     }(),
@@ -1763,6 +1799,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                   _selectedDriverRrId = driverId;
                   _selectedDriverName = u['name'] as String?;
                   _driverPhoneCtrl.text = '${u['name']} (${u['phone']})';
+                  _driverTrackingWarning = null;
                   _fieldErr.remove('driver');
                   _fieldErrMsg.remove('driver');
                   // NOT clearing _vehicleHasNoDriver here — it must stay an
@@ -1778,11 +1815,39 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 // Always attempt now (gated internally on
                 // _vpSelectedVehicleOwned, not on whether the vehicle
                 // already had a driver) — see _assignDriverToVehicle.
-                if (driverId != null) _assignDriverToVehicle(driverId);
+                if (driverId != null) {
+                  _assignDriverToVehicle(driverId);
+                  _checkDriverAccount(driverId);
+                }
               },
-              onCleared: () => setState(() { _selectedDriverRrId = null; _selectedDriverName = null; }),
+              onCleared: () => setState(() {
+                _selectedDriverRrId = null;
+                _selectedDriverName = null;
+                _driverTrackingWarning = null;
+              }),
             ),
             _inlineErr('driver'),
+            if (_driverTrackingWarning != null) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3E0),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFFA726)),
+                ),
+                child: Row(children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFE65100), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _driverTrackingWarning!,
+                      style: _inter(size: 12, color: const Color(0xFFE65100)),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
             if (_assigningDriverToVehicle) ...[
               const SizedBox(height: 8),
               const _LoadingChip(label: 'Attaching driver to vehicle on RR…'),
@@ -1799,13 +1864,17 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                     _selectedDriverRrId = driverId;
                     _selectedDriverName = result['name'] as String?;
                     _driverPhoneCtrl.text = '${result['name']} (${result['phone']})';
+                    _driverTrackingWarning = null;
                     _fieldErr.remove('driver');
                     _fieldErrMsg.remove('driver');
                     // Not cleared here — see the identical note on the
                     // other onSelected handler above; only a genuine RR
                     // success in _assignDriverToVehicle clears this.
                   });
-                  if (driverId != null) _assignDriverToVehicle(driverId);
+                  if (driverId != null) {
+                    _assignDriverToVehicle(driverId);
+                    _checkDriverAccount(driverId);
+                  }
                 }
               },
               icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),

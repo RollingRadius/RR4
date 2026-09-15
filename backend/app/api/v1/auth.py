@@ -36,6 +36,13 @@ def check_username(username: str, db: Session = Depends(get_db)):
     return {"username": username, "available": not exists}
 
 
+@router.get("/check-phone/{phone}")
+def check_phone(phone: str, db: Session = Depends(get_db)):
+    """Check if a phone number is already registered. Returns available: true/false."""
+    exists = db.query(User).filter(User.phone == phone).first() is not None
+    return {"phone": phone, "available": not exists}
+
+
 @router.post("/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED)
 def signup(
     signup_data: SignupRequest,

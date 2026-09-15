@@ -30,6 +30,10 @@ class TripModel {
   /// Whether Field Executives must fill Stage 1 for this trip — a live
   /// LP/RR-ops-controlled switch, defaults to true.
   final bool s1Required;
+  /// True once LP/RR-ops has manually released the driver from this trip
+  /// early via "Stop Driver Tracking for this Trip" — reversible via
+  /// "Resume Driver Tracking for this Trip".
+  final bool driverTrackingStopped;
 
   // ── Stage 1 fields ───────────────────────────────────────────────────────────
   final String? s1DriverName;
@@ -96,6 +100,7 @@ class TripModel {
   final String? s4BiltyUrl;      // RR parcels.documents.manual_bilty.photos[].manual_photo
   final String? s4BiltyDate;     // optional backdating, matches RR web's own field
   final bool? s4BiltySynced;     // true once RR's one-time bilty-number assignment succeeds — locks the field
+  final String? s4MaterialVerificationUrl;   // RR4-only for now — not synced to RR yet
 
   // ── Stage 5 fields — Unloading ────────────────────────────────────────────────
   final String?  s5PodUrl;
@@ -230,6 +235,7 @@ class TripModel {
     this.updatedAt,
     this.currentStage = 0,
     this.s1Required = true,
+    this.driverTrackingStopped = false,
     this.s1DriverName,
     this.s1DriverPhone,
     this.s1DrivingLicense,
@@ -288,6 +294,7 @@ class TripModel {
     this.s4BiltyUrl,
     this.s4BiltyDate,
     this.s4BiltySynced,
+    this.s4MaterialVerificationUrl,
     this.s5PodUrl,
     this.s5HaltingCharge,
     this.s5SubmittedBy,
@@ -372,6 +379,10 @@ class TripModel {
   bool get isCompleted => status == 'completed';
   bool get isCancelled => status == 'cancelled';
   bool get hasVehicle => vehicleId != null;
+  // POD + unloading end time entered (Stage 5 submitted) — independent of
+  // `status`, which only flips to 'completed' via the separate manual
+  // complete-trip action.
+  bool get isStage5Complete => s5CompletedAt != null;
 
   factory TripModel.fromJson(Map<String, dynamic> json) {
     return TripModel(
@@ -402,6 +413,7 @@ class TripModel {
       updatedAt: json['updated_at'] as String?,
       currentStage: json['current_stage'] as int? ?? 0,
       s1Required: json['s1_required'] as bool? ?? true,
+      driverTrackingStopped: json['driver_tracking_stopped'] as bool? ?? false,
       s1DriverName: json['s1_driver_name'] as String?,
       s1DriverPhone: json['s1_driver_phone'] as String?,
       s1DrivingLicense: json['s1_driving_license'] as String?,
@@ -460,6 +472,7 @@ class TripModel {
       s4BiltyUrl:         json['s4_bilty_url']           as String?,
       s4BiltyDate:        json['s4_bilty_date']          as String?,
       s4BiltySynced:      json['s4_bilty_synced']        as bool?,
+      s4MaterialVerificationUrl: json['s4_material_verification_url'] as String?,
       s5PodUrl:           json['s5_pod_url']             as String?,
       s5HaltingCharge:    (json['s5_halting_charge'] as num?)?.toDouble(),
       s5SubmittedBy:      json['s5_submitted_by']        as String?,

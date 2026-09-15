@@ -6,6 +6,7 @@ Represents an active or completed cargo trip with full logistics details.
 from sqlalchemy import Column, String, Text, Date, TIMESTAMP, Numeric, ForeignKey, Integer, Boolean
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
+from sqlalchemy.ext.hybrid import hybrid_property
 import uuid
 
 from app.database import Base
@@ -64,6 +65,15 @@ class Trip(Base):
     # selected driver/vehicle already has KYC docs on file on RR web) — it
     # only gates FE's access to Stage 1, never LP/RR-ops'.
     s1_required = Column(Boolean, nullable=False, default=True)
+
+    # LP/RR-ops early-release: frees the driver from this specific trip's
+    # assignment-lock + map-tracking before POD, without touching status/
+    # current_stage/s5_* — see _driver_has_open_trip() and
+    # get_trip_vehicle_location() in app/api/v1/trips.py. One-directional.
+    driver_tracking_stopped = Column(Boolean, nullable=False, default=False)
+    driver_tracking_stopped_at = Column(TIMESTAMP(timezone=True), nullable=True)
+    driver_tracking_stopped_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"),
+                                         nullable=True)
 
     # Stage 1 — Truck Detail Registration
     s1_driver_name          = Column(String(100), nullable=True)
@@ -156,6 +166,8 @@ class Trip(Base):
     # True once sync first succeeds, so the frontend locks the Bilty Number/Date
     # fields instead of letting the user re-edit values RR will never accept again.
     s4_bilty_synced = Column(Boolean, nullable=True, default=False)
+    # RR4-only for now — not synced to RR yet (planned as a follow-up)
+    s4_material_verification_url = Column(String(500), nullable=True)
 
     # Stage 5 — Unloading (Proof of Delivery + Halting Charge)
     s5_pod_url        = Column(Text,                    nullable=True)
@@ -166,6 +178,18 @@ class Trip(Base):
     s5_vehicle_reach_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
     s5_unloading_start_datetime = Column(TIMESTAMP(timezone=True), nullable=True)
     s5_unloading_end_datetime   = Column(TIMESTAMP(timezone=True), nullable=True)
+
+    @hybrid_property
+    def is_stage5_complete(self):
+        # POD + unloading end time have been entered (submit_stage5 sets this
+        # regardless of trip.status, which only flips to 'completed' via the
+        # separate manual complete-trip action).
+        return self.s5_completed_at is not None
+
+    @is_stage5_complete.expression
+    def is_stage5_complete(cls):
+        # SQL-filterable form, used by the "driver already has an open trip" check.
+        return cls.s5_completed_at.isnot(None)
 
     # ── Transporter Assignment ────────────────────────────────────────────────────
     # User ID of the transporter assigned by LP to upload the loading slip
@@ -355,6 +379,9 @@ class Trip(Base):
             "load_requirement_id": str(self.load_requirement_id) if self.load_requirement_id else None,
             "current_stage": self.current_stage,
             "s1_required": self.s1_required,
+            "driver_tracking_stopped": self.driver_tracking_stopped,
+            "driver_tracking_stopped_at": self.driver_tracking_stopped_at.isoformat() if self.driver_tracking_stopped_at else None,
+            "driver_tracking_stopped_by": str(self.driver_tracking_stopped_by) if self.driver_tracking_stopped_by else None,
             "transporter_user_id": str(self.transporter_user_id) if self.transporter_user_id else None,
             # Stage 1
             "s1_driver_name": self.s1_driver_name,
@@ -428,6 +455,7 @@ class Trip(Base):
             "s4_bilty_url": self.s4_bilty_url,
             "s4_bilty_date": self.s4_bilty_date.isoformat() if self.s4_bilty_date else None,
             "s4_bilty_synced": self.s4_bilty_synced,
+            "s4_material_verification_url": self.s4_material_verification_url,
             # Stage 5 — Unloading
             "s5_pod_url": self.s5_pod_url,
             "s5_halting_charge": float(self.s5_halting_charge) if self.s5_halting_charge is not None else None,

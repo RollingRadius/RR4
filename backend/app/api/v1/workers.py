@@ -331,7 +331,7 @@ def list_workers(
     org_id = owner_org.organization_id
 
     members = (
-        db.query(User, Role)
+        db.query(User, Role, UserOrganization)
         .join(UserOrganization, User.id == UserOrganization.user_id)
         .join(Role, UserOrganization.role_id == Role.id)
         .filter(
@@ -348,13 +348,14 @@ def list_workers(
         "count":   len(members),
         "workers": [
             {
-                "user_id":    str(u.id),
+                "user_id":              str(u.id),
+                "user_organization_id": str(uo.id),
                 "full_name":  u.full_name,
                 "username":   u.username,
                 "phone":      u.phone,
                 "role_key":   r.role_key,
                 "role_label": "Owner" if r.role_key == 'logistic_partner' else ("RR Ops" if r.role_key == 'lp_rr_operations' else "Worker"),
             }
-            for u, r in members
+            for u, r, uo in members
         ],
     }

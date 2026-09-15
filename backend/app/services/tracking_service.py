@@ -3,7 +3,7 @@ GPS Tracking Service
 Business logic for location tracking, geofencing, and route optimization
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any, Tuple
 from uuid import UUID
 import json
@@ -34,6 +34,19 @@ from app.schemas.tracking import (
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """Normalize a timestamp to UTC-aware before it reaches a
+    DateTime(timezone=True) column. asyncpg assumes a naive datetime is
+    already UTC — a client sending a naive *local* wall-clock timestamp
+    (e.g. no 'Z'/offset in the JSON) would otherwise get silently stored as
+    if it were that same UTC instant, shifting it by the client's real UTC
+    offset and corrupting every "how old is this" calculation downstream.
+    """
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 class TrackingService:
@@ -92,7 +105,7 @@ class TrackingService:
             heading=location_data.heading,
             battery_level=location_data.battery_level,
             is_mock_location=location_data.is_mock_location,
-            timestamp=location_data.timestamp
+            timestamp=_as_utc(location_data.timestamp)
         )
 
         self.db.add(location)
@@ -150,7 +163,7 @@ class TrackingService:
                 heading=loc_data.heading,
                 battery_level=loc_data.battery_level,
                 is_mock_location=loc_data.is_mock_location,
-                timestamp=loc_data.timestamp
+                timestamp=_as_utc(loc_data.timestamp)
             )
             location_records.append(location)
 
@@ -668,7 +681,7 @@ class TrackingService:
         query = select(Zone).where(
             and_(
                 Zone.organization_id == location.organization_id,
-                Zone.is_active == True
+                Zone.status == 'active'
             )
         )
         result = await self.db.execute(query)

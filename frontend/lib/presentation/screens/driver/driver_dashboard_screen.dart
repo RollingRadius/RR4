@@ -8,6 +8,7 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/location_tracking_provider.dart';
 import 'package:fleet_management/data/services/location_service.dart' show LocationPermissionStatus;
+import 'package:geolocator/geolocator.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_detail_screen.dart';
 // NOTE: driver dashboard is intentionally minimal + read-only for now —
@@ -152,6 +153,18 @@ class _DriverHomeDashboardScreenState extends ConsumerState<DriverHomeDashboardS
     //     tripState.trips.where((t) => t.isCompleted).length;
     // final totalToday = tripState.trips.length;
 
+    final permissionStatus =
+        ref.watch(locationTrackingProvider).permissionStatus;
+    final permissionGranted =
+        permissionStatus == LocationPermissionStatus.always ||
+            permissionStatus == LocationPermissionStatus.whileInUse;
+    // The driver's trip isn't done yet (Stage 5/POD not entered) but location
+    // is off — nudge them, since a silent/accidental disable mid-trip would
+    // otherwise go completely unnoticed by the driver themselves.
+    final showOngoingTripWarning = ongoingTrip != null &&
+        !ongoingTrip.isStage5Complete &&
+        !permissionGranted;
+
     return Scaffold(
       backgroundColor: _bg,
       body: Column(
@@ -162,6 +175,7 @@ class _DriverHomeDashboardScreenState extends ConsumerState<DriverHomeDashboardS
             greeting: _greeting(),
             name: firstName,
           ),
+          if (showOngoingTripWarning) const _OngoingTripLocationWarning(),
           // ── Scrollable body ───────────────────────────────────────────────
           Expanded(
             child: RefreshIndicator(
@@ -267,9 +281,104 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
+          _LocationPermissionToggle(),
+          const SizedBox(width: 8),
           // Logout (driver dashboard is minimal — no notifications/settings for now)
           _LogoutButton(),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Ongoing-trip location warning ─────────────────────────────────────────────
+//
+// Persistent, docked below the header (not inside the scroll body) so it's
+// always visible without requiring a scroll — shown whenever the driver has
+// an unfinished trip (POD not yet entered) but location isn't currently on.
+class _OngoingTripLocationWarning extends StatelessWidget {
+  const _OngoingTripLocationWarning();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      color: const Color(0xFFFFEBEE),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              size: 18, color: Color(0xFFC62828)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Your trip is still ongoing — please keep location turned on.',
+              style: _inter(
+                  size: 12,
+                  weight: FontWeight.w600,
+                  color: const Color(0xFFC62828)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Location permission toggle ────────────────────────────────────────────────
+//
+// A pure status readout, not an independent on/off switch — it never grants
+// or revokes permission itself. Tapping it either triggers the real OS
+// permission prompt (if not yet permanently denied) or deep-links straight to
+// the phone's settings screen (if it is) — Android itself won't show its own
+// dialog again once a driver has permanently denied, so that's the only
+// recovery path left. This also means a driver can't casually one-tap-disable
+// tracking mid-trip from inside the app.
+class _LocationPermissionToggle extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(locationTrackingProvider).permissionStatus;
+    final granted = status == LocationPermissionStatus.always ||
+        status == LocationPermissionStatus.whileInUse;
+
+    return GestureDetector(
+      onTap: granted
+          ? null
+          : () async {
+              if (status == LocationPermissionStatus.deniedForever) {
+                await Geolocator.openAppSettings();
+              } else if (status == LocationPermissionStatus.serviceDisabled) {
+                await Geolocator.openLocationSettings();
+              } else {
+                await ref.read(locationTrackingProvider.notifier).requestPermission();
+              }
+              await ref.read(locationTrackingProvider.notifier).checkPermission();
+            },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: granted ? const Color(0xFFDCFCE7) : const Color(0xFFFFEBEE),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              granted ? Icons.location_on_rounded : Icons.location_off_rounded,
+              size: 14,
+              color: granted ? const Color(0xFF15803D) : const Color(0xFFC62828),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              granted ? 'Tracking On' : 'Tap to Enable',
+              style: _inter(
+                size: 10,
+                weight: FontWeight.w700,
+                color: granted ? const Color(0xFF15803D) : const Color(0xFFC62828),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -401,7 +510,7 @@ class _ActiveTripCardState extends ConsumerState<_ActiveTripCard> {
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(3),
                                   child: LinearProgressIndicator(
-                                    value: 0.65,
+                                    value: (trip.currentStage / 5.0).clamp(0.0, 1.0),
                                     backgroundColor: Colors.white
                                         .withValues(alpha: 0.25),
                                     valueColor:

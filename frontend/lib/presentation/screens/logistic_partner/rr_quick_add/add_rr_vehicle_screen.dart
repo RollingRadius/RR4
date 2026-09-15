@@ -7,7 +7,12 @@ import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 
-const _primary = Color(0xFFFF6B00);
+// RR-blue for header/brand surfaces (matches the RR-ops dashboard these
+// quick-add screens are opened from), orange reserved for the primary CTA —
+// same blue+orange split used across the rest of the RR-ops UI, instead of
+// this screen being all-orange on its own.
+const _rrBlue = Color(0xFF1B6CA8);
+const _accent = Color(0xFFFF6B00);
 const _secondary = Color(0xFF546067);
 const _success = Color(0xFF2E7D32);
 const _error = Color(0xFFBA1A1A);
@@ -115,7 +120,7 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Add New Vehicle', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _primary),
+      appBar: AppBar(title: Text('Add New Vehicle', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _rrBlue),
       body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Form(
@@ -180,7 +185,7 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
                       child: ElevatedButton(
                         onPressed: _submitting ? null : _submit,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: _primary,
+                          backgroundColor: _accent,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),

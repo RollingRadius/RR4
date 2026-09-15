@@ -7,7 +7,6 @@ All endpoints require authentication — RR details are never exposed to the cli
 import json
 import logging
 from datetime import datetime
-from typing import List
 
 import httpx
 import mimetypes
@@ -2161,74 +2160,6 @@ async def sync_loading_slip_from_local(
     )
 
     return {"success": True, "rr_file_id": rr_file_id, "status": "loading_slip_synced", "trip": trip.to_dict()}
-
-
-# ── Bulk sync trigger ─────────────────────────────────────────────────────────
-
-class BulkSyncRequest(BaseModel):
-    trip_ids: List[str]
-
-
-@router.post("/sync/bulk", summary="Trigger RR sync for multiple trips")
-async def trigger_bulk_sync(
-    body: BulkSyncRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Trigger sync for a list of trip IDs. Each trip runs as an independent
-    background task. Returns immediately — check /sync/status/{trip_id} for results.
-    """
-    from app.services import rr_sync_service
-    from app.models import UserOrganization
-
-    user_org = db.query(UserOrganization).filter(
-        UserOrganization.user_id == current_user.id,
-        UserOrganization.status == "active",
-    ).first()
-    if not user_org:
-        raise HTTPException(status_code=403, detail="User must be in an active organization")
-
-    if not body.trip_ids:
-        raise HTTPException(status_code=400, detail="Provide at least one trip_id")
-
-    if len(body.trip_ids) > 50:
-        raise HTTPException(status_code=400, detail="Maximum 50 trips per bulk sync request")
-
-    queued = []
-    skipped = []
-
-    for trip_id in body.trip_ids:
-        trip = db.query(Trip).filter(
-            Trip.id == trip_id,
-            Trip.organization_id == user_org.organization_id,
-        ).first()
-
-        if not trip:
-            skipped.append({"trip_id": trip_id, "reason": "not found"})
-            continue
-
-        if trip.rr_sync_status in ("pod_synced",):
-            skipped.append({"trip_id": trip_id, "trip_number": trip.trip_number,
-                            "reason": f"already synced ({trip.rr_sync_status})"})
-            continue
-
-        # Reset failed so sync retries
-        if trip.rr_sync_status == "failed":
-            trip.rr_sync_status = "not_synced"
-            trip.rr_sync_error = None
-
-        background_tasks.add_task(rr_sync_service.sync_all_to_rr, trip_id)
-        queued.append({"trip_id": trip_id, "trip_number": trip.trip_number})
-
-    db.commit()
-
-    return {
-        "message": f"{len(queued)} trip(s) queued for sync",
-        "queued":  queued,
-        "skipped": skipped,
-    }
 
 
 # ── Quick-add: Vehicle / Company / User directly on RR ───────────────────────

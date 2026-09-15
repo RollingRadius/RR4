@@ -4,6 +4,8 @@ Business logic for driver management
 """
 
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from fastapi import HTTPException, status
 from typing import List, Optional, Dict, Any
 from datetime import date
@@ -17,6 +19,7 @@ from app.models.role import Role
 from app.models.user_organization import UserOrganization
 from app.models.audit_log import AuditLog
 from app.core.security import hash_password
+from app.utils.phone import normalize_phone
 from app.utils.constants import (
     AUDIT_ACTION_DRIVER_CREATED,
     AUDIT_ACTION_DRIVER_UPDATED,
@@ -107,6 +110,23 @@ class DriverService:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Email '{driver_data['email']}' is already registered"
+                )
+
+        # Check phone uniqueness globally on the user account (compare
+        # normalized so "+919876543210" and "9876543210" are treated as the
+        # same number — must stay in sync with the DB-level
+        # ux_users_phone_normalized index).
+        phone_normalized = normalize_phone(driver_data['phone'])
+        if phone_normalized:
+            existing_phone_user = self.db.query(User).filter(
+                func.right(func.regexp_replace(User.phone, '[^0-9]', '', 'g'), 10)
+                == phone_normalized
+            ).first()
+
+            if existing_phone_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Phone number '{driver_data['phone']}' is already registered to another account"
                 )
 
         # Check license_number uniqueness globally
@@ -238,7 +258,14 @@ class DriverService:
         self.db.add(driver_audit_log)
 
         # Commit transaction
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError as e:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number is already registered to another account"
+            ) from e
         self.db.refresh(driver)
         self.db.refresh(license)
         self.db.refresh(driver_user)
@@ -275,12 +302,19 @@ class DriverService:
         Raises:
             HTTPException: If driver not found or not in organization
         """
+        # Hybrid, same as get_driver_and_check_org (app/api/v1/tracking.py):
+        # a self-registered driver's organization_id is NULL even while
+        # actively hauling trips for this org, matched via Trip.driver_id.
+        from app.models.trip import Trip
+        org_trip_driver_ids = self.db.query(Trip.driver_id).filter(
+            Trip.organization_id == org_id, Trip.driver_id.isnot(None)
+        ).distinct().subquery()
         driver = self.db.query(Driver).options(
             joinedload(Driver.license),
             joinedload(Driver.assigned_vehicles).joinedload(Vehicle.assigned_by)
         ).filter(
             Driver.id == driver_id,
-            Driver.organization_id == org_id
+            (Driver.organization_id == org_id) | (Driver.id.in_(org_trip_driver_ids))
         ).first()
 
         if not driver:
@@ -296,7 +330,8 @@ class DriverService:
         org_id: str,
         skip: int = 0,
         limit: int = 50,
-        status_filter: Optional[str] = None
+        status_filter: Optional[str] = None,
+        phone_search: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Get paginated list of drivers for an organization.
@@ -306,6 +341,8 @@ class DriverService:
             skip: Number of records to skip
             limit: Maximum records to return
             status_filter: Optional status filter (active/inactive/on_leave/terminated)
+            phone_search: Optional partial-phone-number filter, for the Track
+                sidebar's driver search
 
         Returns:
             Dictionary with drivers list and pagination info
@@ -313,9 +350,26 @@ class DriverService:
         # Build query
         query = self.db.query(Driver).options(
             joinedload(Driver.license)
-        ).filter(
-            Driver.organization_id == org_id
         )
+
+        if phone_search:
+            # Track sidebar search: also surface self-registered drivers
+            # (Driver.organization_id is nullable — set only for drivers an
+            # LP added directly) who are nonetheless actively hauling a trip
+            # for this org, matched via Trip.driver_id. Without this, an LP
+            # can never find/track a self-registered driver working their
+            # trips just because that driver's own profile has no org set.
+            from app.models.trip import Trip
+            org_trip_driver_ids = self.db.query(Trip.driver_id).filter(
+                Trip.organization_id == org_id,
+                Trip.driver_id.isnot(None)
+            ).distinct().subquery()
+            query = query.filter(
+                (Driver.organization_id == org_id) | (Driver.id.in_(org_trip_driver_ids))
+            )
+            query = query.filter(Driver.phone.ilike(f"%{phone_search}%"))
+        else:
+            query = query.filter(Driver.organization_id == org_id)
 
         # Apply status filter if provided
         if status_filter:

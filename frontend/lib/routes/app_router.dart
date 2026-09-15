@@ -18,6 +18,8 @@ import 'package:fleet_management/presentation/screens/fleet/fleet_hub_screen.dar
 import 'package:fleet_management/presentation/screens/vehicles/vehicles_list_screen.dart';
 import 'package:fleet_management/presentation/screens/vehicles/add_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_vehicle_screen.dart';
+import 'package:fleet_management/presentation/screens/tracking/track_driver_search_screen.dart';
+import 'package:fleet_management/presentation/screens/receiving_documents/receiving_documents_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_company_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_user_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/vehicle_hire_requests_screen.dart';
@@ -43,6 +45,7 @@ import 'package:fleet_management/presentation/screens/roles/custom_roles_screen.
 import 'package:fleet_management/presentation/screens/roles/create_custom_role_screen.dart';
 import 'package:fleet_management/presentation/screens/roles/edit_custom_role_screen.dart';
 import 'package:fleet_management/presentation/screens/profile/profile_screen.dart';
+import 'package:fleet_management/presentation/screens/profile/change_password_screen.dart';
 import 'package:fleet_management/presentation/screens/settings/settings_screen.dart';
 import 'package:fleet_management/presentation/screens/settings/branding_settings_screen.dart';
 import 'package:fleet_management/presentation/screens/help/enhanced_help_screen.dart';
@@ -66,8 +69,6 @@ import 'package:fleet_management/presentation/screens/transporter/transporter_da
 import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/lp_workers_screen.dart';
 import 'package:fleet_management/presentation/screens/load_owner/my_trips_screen.dart';
-import 'package:fleet_management/presentation/screens/load_owner/load_owner_settings_screen.dart';
-import 'package:fleet_management/presentation/screens/logistic_partner/logistic_partner_settings_screen.dart';
 import 'package:fleet_management/presentation/screens/driver/driver_vehicle_screen.dart';
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_work_orders_screen.dart';
 import 'package:fleet_management/presentation/screens/maintenance_supervisor/ms_inventory_screen.dart';
@@ -337,6 +338,30 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
+      // Track — LP/RR-ops search a driver by phone and open a live,
+      // driver-centric map, independent of any specific trip.
+      GoRoute(
+        path: '/track',
+        name: 'track',
+        redirect: (context, state) => lpOrRrOpsOnly(context, state),
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const TrackDriverSearchScreen(),
+        ),
+      ),
+
+      // Receiving Docs — LP/RR-ops upload one image (a physical receiving
+      // sheet covering several trips) linked to every trip number it covers.
+      GoRoute(
+        path: '/receiving-documents',
+        name: 'receiving-documents',
+        redirect: (context, state) => lpOrRrOpsOnly(context, state),
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const ReceivingDocumentsScreen(),
+        ),
+      ),
+
       // RR quick-add sidebar shortcuts (LP + RR-ops) — write straight to RR,
       // no local RR4 database row, mirroring rr_kanpur's Add Vehicle/Company/User.
       GoRoute(
@@ -467,13 +492,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
 
-      // Role-specific settings routes
+      // Role-specific settings routes — now use the shared ProfileScreen
+      // (was duplicated bespoke screens per role; consolidated so profile
+      // fixes only need to happen in one place).
       GoRoute(
         path: '/load-owner/settings',
         name: 'load-owner-settings',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: const LoadOwnerSettingsScreen(),
+          child: const ProfileScreen(),
         ),
       ),
       GoRoute(
@@ -481,7 +508,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         name: 'fleet-manager-settings',
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
-          child: const LogisticPartnerSettingsScreen(),
+          child: const ProfileScreen(),
         ),
       ),
 
@@ -492,6 +519,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => MaterialPage(
           key: state.pageKey,
           child: const ProfileScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/profile/change-password',
+        name: 'change-password',
+        pageBuilder: (context, state) => MaterialPage(
+          key: state.pageKey,
+          child: const ChangePasswordScreen(),
         ),
       ),
       GoRoute(

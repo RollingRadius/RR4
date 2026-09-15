@@ -17,6 +17,8 @@ from app.models.driver import Driver
 from app.models.zone import Zone
 from app.models.tracking import RouteOptimization
 from app.models.user_organization import UserOrganization
+from app.models.role import Role
+from app.models.trip import Trip
 from app.services.tracking_service import TrackingService
 from app.schemas.tracking import (
     LocationCreate,
@@ -80,7 +82,14 @@ def _get_user_org_id_optional(current_user: User, db: Session) -> UUID | None:
 
 
 def check_capability(capability: str, db: Session, current_user: User) -> None:
-    """Check if user has required capability (sync)."""
+    """Check if user has required capability (sync).
+
+    LP/RR-ops bypass the capability table entirely — lp_rr_operations has no
+    role_capabilities rows seeded (see alembic/versions/060_add_lp_rr_operations.py),
+    and logistic_partner already auto-passes every capability via
+    app/core/permissions.py's _role_auto_passes. Everyone else still goes
+    through the normal capability check.
+    """
     user_org = db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id,
         UserOrganization.status == 'active'
@@ -90,6 +99,9 @@ def check_capability(capability: str, db: Session, current_user: User) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Missing required capability: {capability}"
         )
+    role = db.query(Role).filter(Role.id == user_org.role_id).first()
+    if role and role.role_key in ('logistic_partner', 'lp_rr_operations'):
+        return
     cap_service = CapabilityService(db)
     has_cap = cap_service.check_user_capability(
         str(current_user.id), str(user_org.organization_id), capability
@@ -106,7 +118,19 @@ def get_driver_and_check_org(
     current_user: User,
     db: Session
 ) -> Driver:
-    """Get driver and verify organization access (sync)."""
+    """Get driver and verify organization access (sync).
+
+    Hybrid check — most drivers are LP-added and carry a real
+    organization_id, but a self-registered/independent driver's Driver row
+    has organization_id=NULL even while actively hauling trips for a
+    specific org. Access is granted if EITHER the driver's own
+    organization_id matches, OR they're linked via Trip.driver_id to a trip
+    belonging to this org. Without the second branch, every orgless driver
+    404/403s out of every one of this function's callers (live location,
+    history, admin tracking toggle/status, analytics) the moment an LP
+    tries to look them up — even after finding them via a search that
+    already accounts for this same duality.
+    """
     driver = db.query(Driver).filter(Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(
@@ -115,7 +139,11 @@ def get_driver_and_check_org(
         )
 
     org_id = _get_user_org_id(current_user, db)
-    if driver.organization_id != org_id:
+    is_own_org_driver = driver.organization_id == org_id
+    is_linked_to_org_trip = db.query(Trip).filter(
+        Trip.organization_id == org_id, Trip.driver_id == driver.id
+    ).first() is not None
+    if not is_own_org_driver and not is_linked_to_org_trip:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Access denied to driver from different organization"
@@ -272,6 +300,85 @@ async def get_driver_location(
         )
 
     return locations[0]
+
+
+def _driver_location_status(driver: Driver, db: Session) -> dict:
+    """Explain *why* a driver isn't currently trackable, distinguishing the
+    real underlying reasons instead of one generic "no location" message —
+    used by both the per-trip Track view and the standalone Track sidebar
+    search. Checks in priority order: no app account -> tracking disabled ->
+    never shared a location -> has a (possibly stale) last-known location."""
+    base = {
+        "driver_id": str(driver.id),
+        "driver_name": driver.full_name,
+        "has_location": False,
+        "latitude": None,
+        "longitude": None,
+        "speed": None,
+        "heading": None,
+        "battery_level": None,
+        "timestamp": None,
+    }
+
+    if not driver.user_id:
+        return {**base, "message": "This driver hasn't set up the mobile app yet — location tracking isn't available."}
+
+    if not driver.tracking_enabled:
+        return {**base, "message": "Location tracking is turned off for this driver."}
+
+    from app.models.tracking import DriverLocation
+    loc = db.query(DriverLocation).filter(
+        DriverLocation.driver_id == driver.id
+    ).order_by(DriverLocation.timestamp.desc()).first()
+
+    if not loc:
+        return {**base, "message": "This driver hasn't shared a location yet. Ask them to open the app."}
+
+    # asyncpg/some drivers return TIMESTAMPTZ columns as a naive datetime
+    # that is already UTC, without attaching tzinfo — .isoformat() on that
+    # produces a string with no 'Z'/offset, which the Flutter client then
+    # misparses as local time instead of UTC. Attach it explicitly.
+    ts = loc.timestamp
+    if ts and ts.tzinfo is None:
+        from datetime import timezone as _tz
+        ts = ts.replace(tzinfo=_tz.utc)
+
+    return {
+        **base,
+        "has_location": True,
+        "latitude": float(loc.latitude),
+        "longitude": float(loc.longitude),
+        "speed": loc.speed,
+        "heading": loc.heading,
+        "battery_level": loc.battery_level,
+        "timestamp": ts.isoformat() if ts else None,
+        "message": None,
+    }
+
+
+@router.get("/drivers/{driver_id}/track-status")
+def get_driver_track_status(
+    driver_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Backs the Track sidebar's driver search — LP/RR-ops only. Unlike
+    GET /drivers/{driver_id}/location, this never 404s on "no location":
+    it always returns 200 with has_location + a specific, user-friendly
+    reason so the app can show why (no app account / tracking off / never
+    shared / stale) instead of a one-size-fits-all message."""
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id,
+        UserOrganization.status == 'active'
+    ).first()
+    role = db.query(Role).filter(Role.id == user_org.role_id).first() if user_org else None
+    if not role or role.role_key not in ('logistic_partner', 'lp_rr_operations'):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="LP / RR-ops only")
+
+    # get_driver_and_check_org's hybrid check already covers self-registered
+    # orgless drivers linked via a trip to this org — see its docstring.
+    driver = get_driver_and_check_org(driver_id, current_user, db)
+    return _driver_location_status(driver, db)
 
 
 @router.get(
@@ -656,6 +763,37 @@ async def get_my_tracking_status(
         tracking_enabled=driver.tracking_enabled,
         updated_at=driver.updated_at
     )
+
+
+@router.put(
+    "/my-permission-status",
+    summary="Self-report the driver's current OS location-permission state",
+    description="Called by the driver's app after every checkPermission() "
+                 "recheck (its 30s dashboard poll + app-resume) — the "
+                 "backend otherwise has zero visibility into this, since "
+                 "OS permission state only exists client-side. Backs the "
+                 "'turn on location' reminder push in driver_link_service.py."
+)
+async def update_my_permission_status(
+    body: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from datetime import datetime
+
+    permission_status = body.get('permission_status')
+    valid = {'always', 'whileInUse', 'denied', 'deniedForever', 'serviceDisabled'}
+    if permission_status not in valid:
+        raise HTTPException(status_code=400, detail=f"permission_status must be one of {sorted(valid)}")
+
+    driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="No driver profile found for this account")
+
+    driver.last_permission_status = permission_status
+    driver.last_permission_checked_at = datetime.utcnow()
+    db.commit()
+    return {"success": True}
 
 
 @router.put(

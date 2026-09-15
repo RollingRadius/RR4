@@ -48,6 +48,27 @@ def send_to_token(
         return False
 
 
+def send_data_only(token: str, data: dict) -> bool:
+    """Send a silent, data-only push — no visible notification banner. Used to
+    nudge an already-installed app to immediately re-check state (e.g. its
+    trip list) instead of waiting for its next periodic poll. A `notification`
+    block would show a banner and isn't wanted here."""
+    if not _fcm_available:
+        logger.warning('FCM not available — skipping data-only notification')
+        return False
+    try:
+        message = messaging.Message(
+            data={k: str(v) for k, v in (data or {}).items()},
+            token=token,
+        )
+        messaging.send(message)
+        logger.info(f'FCM data-only sent to token ...{token[-10:]}')
+        return True
+    except Exception as e:
+        logger.error(f'FCM send_data_only failed: {e}')
+        return False
+
+
 def send_to_org_users(
     org_id,
     title: str,

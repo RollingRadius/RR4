@@ -4,11 +4,14 @@ Send verification and notification emails
 """
 
 from typing import Optional
+import logging
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class EmailService:
@@ -58,7 +61,7 @@ class EmailService:
             return True
 
         except Exception as e:
-            print(f"Error sending email: {e}")
+            logger.error(f"Error sending email: {e}")
             return False
 
     @staticmethod

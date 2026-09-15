@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from fastapi import HTTPException, status
 import uuid
 
@@ -18,6 +19,7 @@ from app.models.driver import Driver
 from app.models.audit_log import AuditLog
 from app.models.notification import Notification
 from app.utils.constants import *
+from app.utils.phone import normalize_phone
 
 
 class ProfileService:
@@ -77,6 +79,7 @@ class ProfileService:
             "full_name": user.full_name,
             "email": user.email,
             "phone": user.phone,
+            "profile_picture_url": user.profile_picture_url,
             "role": role.role_name if role else None,
             "role_type": role_type,
             "company_id": str(company.id) if company else None,
@@ -704,11 +707,21 @@ class ProfileService:
             user.email = update_data['email']
 
         if 'phone' in update_data:
-            # Check if phone is already in use by another user
-            existing_user = self.db.query(User).filter(
-                User.phone == update_data['phone'],
-                User.id != user_id
-            ).first()
+            # Compare normalized (digits-only, last 10) so "+919876543210" and
+            # "9876543210" are correctly treated as the same number — must stay
+            # in sync with the DB-level ux_users_phone_normalized index.
+            new_phone_normalized = normalize_phone(update_data['phone'])
+            existing_user = (
+                self.db.query(User)
+                .filter(
+                    func.right(func.regexp_replace(User.phone, '[^0-9]', '', 'g'), 10)
+                    == new_phone_normalized,
+                    User.id != user_id,
+                )
+                .first()
+                if new_phone_normalized
+                else None
+            )
 
             if existing_user:
                 raise HTTPException(
@@ -719,7 +732,14 @@ class ProfileService:
             user.phone = update_data['phone']
 
         # Commit changes
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError as e:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email or phone number is already in use"
+            ) from e
         self.db.refresh(user)
 
         # Log profile update
@@ -734,4 +754,20 @@ class ProfileService:
         )
 
         # Return updated profile status
+        return self.get_profile_status(user_id)
+
+    def set_profile_picture(self, user_id: uuid.UUID, picture_url: Optional[str]) -> dict:
+        """Set (or clear, if picture_url is None) the user's profile picture URL."""
+        user = self.db.query(User).filter(User.id == user_id).first()
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+
+        user.profile_picture_url = picture_url
+        self.db.commit()
+        self.db.refresh(user)
+
         return self.get_profile_status(user_id)

@@ -159,13 +159,17 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
     super.dispose();
   }
 
-  Future<void> _fetchFreshTrip() async {
-    if (!mounted) return;
+  /// Returns true on a genuinely successful fetch, false otherwise — callers
+  /// that need to distinguish "confirmed unchanged" from "couldn't check"
+  /// (e.g. the AppBar sync poll's stabilization check) rely on this; the
+  /// original fire-and-forget call sites simply ignore the return value.
+  Future<bool> _fetchFreshTrip() async {
+    if (!mounted) return false;
     setState(() => _fetchingFresh = true);
     try {
       final dio = ref.read(dioProvider);
       final resp = await dio.get('/api/trips/${widget.trip.id}');
-      if (!mounted) return;
+      if (!mounted) return false;
       final fresh = TripModel.fromJson(resp.data as Map<String, dynamic>);
       setState(() {
         _trip = fresh;
@@ -185,8 +189,9 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
       });
       // Keep the main trips list in sync
       ref.read(tripProvider.notifier).patchTrip(fresh);
+      return true;
     } on DioException catch (e) {
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _fetchingFresh = false);
       final msg = _dioErrorDetail(e, 'Failed to load trip details. Please try again.');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -199,8 +204,10 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
           margin: const EdgeInsets.all(16),
         ),
       );
+      return false;
     } catch (_) {
       if (mounted) setState(() => _fetchingFresh = false);
+      return false;
     }
   }
 
@@ -248,10 +255,39 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
       final dio = ref.read(dioProvider);
       await runRrAction(context, ref, () => dio.post('/api/rr/sync/retry/${_trip.id}', data: {}));
       if (!mounted) return;
+      // sync/retry only queues a BackgroundTask — this response returns
+      // before the sync actually runs against RR. Keep the AppBar spinner up
+      // (the user can still freely use the rest of the screen meanwhile —
+      // this isn't a blocking dialog) until the sync has actually settled,
+      // instead of reverting to the idle icon the instant the request is
+      // merely accepted, which is what invited repeated taps before.
+      //
+      // There's no single "still syncing" flag for a mid-trip retry (it
+      // covers whichever stages are submitted so far, and
+      // rr_s*_sync_status='pending_trip_creation' means "blocked, no RR
+      // trip yet" — NOT "in progress", so it can't be used as a completion
+      // signal). Instead, fingerprint the sync-status fields on each fetch
+      // and stop once two consecutive fetches agree — i.e. nothing is
+      // changing anymore. A fixed ceiling is only a safety net in case RR
+      // is genuinely slow/unreachable, not the primary way this ends.
+      String? lastSignature;
+      for (var i = 0; i < 15 && mounted; i++) {
+        await Future.delayed(const Duration(seconds: 2));
+        if (!mounted) break;
+        final fetched = await _fetchFreshTrip();
+        if (!mounted) break;
+        // A failed fetch must NOT count as "nothing changed" — that would
+        // falsely look stable and end the poll early. Just retry next tick.
+        if (!fetched) continue;
+        final signature = '${_trip.rrSyncStatus}|${_trip.rrS1SyncStatus}|${_trip.rrS2SyncStatus}|'
+            '${_trip.rrS3SyncStatus}|${_trip.rrS4SyncStatus}|${_trip.rrS5SyncStatus}';
+        if (signature == lastSignature) break;
+        lastSignature = signature;
+      }
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sync started — check back shortly',
-              style: _inter(size: 13, color: Colors.white)),
+          content: Text('Sync complete', style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _success,
           duration: const Duration(seconds: 3),
         ),
@@ -5881,6 +5917,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   DateTime? _biltyDate;
   String? _biltyNumberError;
 
+  // ── Material Verification Sheet (under Bilty) — RR4-only for now, not
+  // synced to RR yet.
+  ({Uint8List bytes, String name})? _materialVerificationFile;
+
   // ── Per-field attribution ─────────────────────────────────────────────────
   final Map<String, String> _fieldAttributions = {};
   final Set<String> _touchedByMe = {};
@@ -5950,6 +5990,11 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     }
     final biltyDtStr = d['bilty_date'] as String?;
     if (biltyDtStr != null) _biltyDate = DateTime.tryParse(biltyDtStr)?.toLocal();
+    final mvB64  = d['material_verification_bytes'] as String?;
+    final mvName = d['material_verification_name']  as String? ?? 'material_verification.jpg';
+    if (mvB64 != null && mvB64.isNotEmpty) {
+      try { _materialVerificationFile = (bytes: base64Decode(mvB64), name: mvName); } catch (_) {}
+    }
     // Draft attributions override persistent ones
     final attrs = draft['attributions'] as Map<String, dynamic>?;
     if (attrs != null) {
@@ -5983,6 +6028,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           if (_biltyDocFile != null) 'bilty_bytes': base64Encode(_biltyDocFile!.bytes),
           if (_biltyDocFile != null) 'bilty_name':  _biltyDocFile!.name,
           if (_biltyDate != null) 'bilty_date': _biltyDate!.toUtc().toIso8601String(),
+          if (_materialVerificationFile != null)
+            'material_verification_bytes': base64Encode(_materialVerificationFile!.bytes),
+          if (_materialVerificationFile != null)
+            'material_verification_name': _materialVerificationFile!.name,
         },
         if (_touchedByMe.isNotEmpty)
           'attributions': {for (final k in _touchedByMe) k: true},
@@ -6067,6 +6116,26 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     }
   }
 
+  // ── Material Verification Sheet pick (under Bilty) ───────────────────────
+  Future<void> _pickMaterialVerificationDoc(ImageSource source) async {
+    try {
+      final picked = await _picker.pickImage(source: source, imageQuality: 85);
+      if (picked == null || !mounted) return;
+      final bytes = await picked.readAsBytes();
+      setState(() => _materialVerificationFile = (bytes: bytes, name: picked.name));
+      _touchField('material_verification_sheet');
+      _saveDraft();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_pickErrorMessage(e, source)),
+        backgroundColor: _error,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ));
+    }
+  }
+
   // ── Phase 2: diesel receipt pick + upload ────────────────────────────────
   Future<void> _pickDiesel(ImageSource source) async {
     try {
@@ -6137,6 +6206,9 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           'bilty_doc': MultipartFile.fromBytes(_biltyDocFile!.bytes, filename: _biltyDocFile!.name),
         if (_biltyDate != null)
           'bilty_date': _biltyDate!.toUtc().toIso8601String(),
+        if (_materialVerificationFile != null)
+          'material_verification_sheet': MultipartFile.fromBytes(
+              _materialVerificationFile!.bytes, filename: _materialVerificationFile!.name),
       });
       final resp = await dio.post(
         '/api/trips/${widget.trip.id}/stage/4/diesel',
@@ -6601,6 +6673,18 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                 _saveDraft();
               },
             ),
+            const SizedBox(height: 14),
+            _DocUploadTile(
+              label: 'Material Verification Sheet',
+              subtitle: 'Upload the material verification sheet',
+              bytes: _materialVerificationFile?.bytes,
+              fileName: _materialVerificationFile?.name,
+              existingUrl: widget.trip.s4MaterialVerificationUrl,
+              onPickSource: _pickMaterialVerificationDoc,
+              onRemove: () { setState(() => _materialVerificationFile = null); _saveDraft(); },
+              readOnly: widget.readOnly,
+            ),
+            _FieldAttribution(username: _attrOf('material_verification_sheet')),
             const SizedBox(height: 20),
 
             if (_lastSaved != null)
@@ -7321,17 +7405,24 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
   }
 
   // sync/retry only queues a BackgroundTask — the response returns before the
-  // sync actually runs. Poll a few times (rather than waiting up to 30s for
-  // the dashboard's ambient timer) so a manual "Sync Now" tap gets a timely
-  // close once genuinely synced. Fetching feeds tripProvider → this screen's
-  // ref.listen/didUpdateWidget, which does the actual close — nothing here
-  // assumes success itself.
+  // sync actually runs. Poll — checking the real completion signal
+  // (rrSyncStatus == 'pod_synced') after each fetch, not just a fixed number
+  // of attempts — so the caller's "Syncing…" state lasts exactly as long as
+  // the real background sync does. 15 * 2s = 30s is only a safety-net
+  // ceiling for a genuinely slow/unreachable RR, not the normal exit path —
+  // real syncs settle within the first couple of fetches per production
+  // timing. Fetching feeds tripProvider → this screen's
+  // ref.listen/didUpdateWidget, which does the actual auto-close.
   Future<void> _pollForSyncCompletion() async {
-    for (var i = 0; i < 6 && mounted && !_disposed; i++) {
+    for (var i = 0; i < 15 && mounted && !_disposed; i++) {
       await Future.delayed(const Duration(seconds: 2));
       if (!mounted || _disposed) return;
       try {
-        await ref.read(tripProvider.notifier).fetchSingleTrip(widget.trip.id);
+        final dio = ref.read(dioProvider);
+        final resp = await dio.get('/api/trips/${widget.trip.id}');
+        final fresh = TripModel.fromJson(resp.data as Map<String, dynamic>);
+        ref.read(tripProvider.notifier).patchTrip(fresh);
+        if (fresh.rrSyncStatus == 'pod_synced') return;
       } catch (_) {
         // Widget may have been deactivated (e.g. popped by _autoCloseOnSync)
         // between the mounted check above and this call — mounted alone
@@ -7376,13 +7467,18 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
       final dio = ref.read(dioProvider);
       // sync/retry only queues a BackgroundTask and returns immediately — the
       // actual sync (and rrSyncStatus flipping to pod_synced) happens after
-      // this response, so don't treat a 200 here as "done". Poll a few times
-      // for the real completion signal, which feeds the same ref.listen/
-      // didUpdateWidget path that closes the screen once it's genuinely synced.
+      // this response, so don't treat a 200 here as "done". Keep the button
+      // in its "Syncing…" state through the poll for the real completion
+      // signal instead of reverting right after the request is accepted —
+      // that's what invited repeated taps before. The user can still freely
+      // work elsewhere on screen meanwhile; this only holds this one button.
+      // If it completes for real, didUpdateWidget's rrSyncStatus comparison
+      // fires _autoCloseOnSync and this whole screen navigates away anyway.
       await runRrAction(context, ref, () => dio.post('/api/rr/sync/retry/${widget.trip.id}', data: {}));
       if (!mounted) return;
+      await _pollForSyncCompletion();
+      if (!mounted || _disposed) return;
       setState(() { _syncingToRr = false; });
-      unawaited(_pollForSyncCompletion());
     } catch (e) {
       if (!mounted) return;
       final msg = e is DioException
