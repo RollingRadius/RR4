@@ -127,14 +127,25 @@ def search_trips_for_linking(
     same as the dashboard's matchesTripSearch + matchesBiltySearch pair.
     Server-side, unlike the client-side substring filter over whatever page
     of trips happens to be already loaded, which could miss older/synced
-    trips entirely once they fell off the default 50-trip page."""
+    trips entirely once they fell off the default 50-trip page.
+
+    Trips already linked to ANY receiving document (this one included) are
+    excluded — once a trip is linked, its RR4 number, RR web number, and
+    bilty number are all "spoken for" and shouldn't be offered as linkable
+    again; the one-doc-per-trip DB constraint already rejects re-linking it,
+    this just keeps it from ever being a selectable search result in the
+    first place instead of failing only after you tap it."""
     user_org = _verify_owner_org(current_user, db)
     trip_query = q.strip() if q else None
     bilty_query = bilty.strip() if bilty else None
     if not trip_query and not bilty_query:
         return {"trips": []}
 
-    filters = [Trip.organization_id == user_org.organization_id]
+    already_linked_ids = db.query(ReceivingDocumentTrip.trip_id).subquery()
+    filters = [
+        Trip.organization_id == user_org.organization_id,
+        Trip.id.notin_(already_linked_ids),
+    ]
     if trip_query:
         filters.append(or_(
             Trip.trip_number.ilike(f"%{trip_query}%"),

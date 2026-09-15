@@ -717,31 +717,6 @@ class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocu
               ),
             ),
             const SizedBox(height: 20),
-            Text('Linked trips (${_doc.trips.length})', style: _manrope(size: 14, weight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            if (_doc.trips.isEmpty)
-              Text('No trips linked. Search below to link some.', style: _inter(size: 12))
-            else
-              ..._doc.trips.map((t) => Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _surface,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _border),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(child: Text(t.displayLabel, style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface))),
-                    IconButton(
-                      icon: const Icon(Icons.link_off_rounded, size: 18, color: Colors.red),
-                      onPressed: _busy ? null : () => _removeTrip(t),
-                      tooltip: 'Unlink',
-                    ),
-                  ],
-                ),
-              )),
-            const SizedBox(height: 12),
             Text('Link more trips', style: _manrope(size: 14, weight: FontWeight.w700)),
             const SizedBox(height: 4),
             Text('Search by trip number (RR4 or RR web) and/or bilty number', style: _inter(size: 12)),
@@ -803,6 +778,31 @@ class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocu
               const SizedBox(height: 16),
               Text(_error!, style: _inter(size: 12, color: Colors.red.shade700)),
             ],
+            const SizedBox(height: 20),
+            Text('Linked trips (${_doc.trips.length})', style: _manrope(size: 14, weight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            if (_doc.trips.isEmpty)
+              Text('No trips linked. Search above to link some.', style: _inter(size: 12))
+            else
+              ..._doc.trips.map((t) => Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _surface,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _border),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(t.displayLabel, style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface))),
+                    IconButton(
+                      icon: const Icon(Icons.link_off_rounded, size: 18, color: Colors.red),
+                      onPressed: _busy ? null : () => _removeTrip(t),
+                      tooltip: 'Unlink',
+                    ),
+                  ],
+                ),
+              )),
           ],
         ),
       ),
