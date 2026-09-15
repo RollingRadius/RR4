@@ -10,6 +10,7 @@ document per trip" constraint.
 
 import uuid as uuid_module
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from pydantic import BaseModel
@@ -57,10 +58,15 @@ def _doc_to_dict(doc: ReceivingDocument, db: Session) -> dict:
         "created_at": doc.created_at.isoformat() if doc.created_at else None,
         # id included (not just trip_number) so the edit UI can call the
         # unlink endpoint, which needs a trip id, not its display number.
-        # rr_trip_number included so the UI can show the RR-web number
-        # alongside RR4's own, when the trip has been synced.
+        # rr_trip_number/s4_bilty_number included so the UI can show the
+        # RR-web number and bilty number alongside RR4's own, when set.
         "trips": [
-            {"id": str(t.id), "trip_number": t.trip_number, "rr_trip_number": t.rr_trip_number}
+            {
+                "id": str(t.id),
+                "trip_number": t.trip_number,
+                "rr_trip_number": t.rr_trip_number,
+                "s4_bilty_number": t.s4_bilty_number,
+            }
             for t in linked_trips
         ],
     }
@@ -109,28 +115,35 @@ def _validate_linkable(ids: list[str], org_id, db: Session) -> list:
 
 @router.get("/search-trips")
 def search_trips_for_linking(
-    q: str = Query(..., min_length=1),
+    q: Optional[str] = Query(None, min_length=1),
+    bilty: Optional[str] = Query(None, min_length=1),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Trip search for the link/unlink UI — searches both RR4's own
-    trip_number AND the RR-web-assigned rr_trip_number (set once a trip is
-    synced, e.g. 'RR-03625'), unlike the client-side substring filter over
-    whatever page of trips happens to be already loaded, which only ever
-    saw trip_number and could miss older/synced trips entirely once they
-    fell off the default 50-trip page."""
+    """Trip search for the link/unlink UI — mirrors the main dashboard's two
+    independent search boxes: q matches RR4's own trip_number OR the
+    RR-web-assigned rr_trip_number (set once synced, e.g. 'RR-03625'); bilty
+    matches only the Stage-4 bilty number. Both may be given together (AND),
+    same as the dashboard's matchesTripSearch + matchesBiltySearch pair.
+    Server-side, unlike the client-side substring filter over whatever page
+    of trips happens to be already loaded, which could miss older/synced
+    trips entirely once they fell off the default 50-trip page."""
     user_org = _verify_owner_org(current_user, db)
-    query = q.strip()
-    if not query:
+    trip_query = q.strip() if q else None
+    bilty_query = bilty.strip() if bilty else None
+    if not trip_query and not bilty_query:
         return {"trips": []}
 
-    trips = db.query(Trip).filter(
-        Trip.organization_id == user_org.organization_id,
-        or_(
-            Trip.trip_number.ilike(f"%{query}%"),
-            Trip.rr_trip_number.ilike(f"%{query}%"),
-        ),
-    ).order_by(Trip.created_at.desc()).limit(30).all()
+    filters = [Trip.organization_id == user_org.organization_id]
+    if trip_query:
+        filters.append(or_(
+            Trip.trip_number.ilike(f"%{trip_query}%"),
+            Trip.rr_trip_number.ilike(f"%{trip_query}%"),
+        ))
+    if bilty_query:
+        filters.append(Trip.s4_bilty_number.ilike(f"%{bilty_query}%"))
+
+    trips = db.query(Trip).filter(*filters).order_by(Trip.created_at.desc()).limit(30).all()
 
     return {
         "trips": [
@@ -138,6 +151,7 @@ def search_trips_for_linking(
                 "id": str(t.id),
                 "trip_number": t.trip_number,
                 "rr_trip_number": t.rr_trip_number,
+                "s4_bilty_number": t.s4_bilty_number,
                 "origin": t.origin,
                 "destination": t.destination,
             }
@@ -313,16 +327,46 @@ def get_receiving_document_for_trip(
 def list_receiving_documents(
     skip: int = 0,
     limit: int = 50,
+    q: Optional[str] = Query(None, min_length=1),
+    bilty: Optional[str] = Query(None, min_length=1),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Backs the standalone Receiving Docs browsing screen — newest first,
-    scoped to the caller's org."""
+    scoped to the caller's org. Mirrors the main dashboard's two independent
+    search boxes: q matches a linked trip's trip_number OR rr_trip_number;
+    bilty matches only a linked trip's s4_bilty_number. Both may be given
+    together (AND) — lets you find "the doc I linked trip X to" without
+    remembering which upload it was."""
     user_org = _verify_owner_org(current_user, db)
 
     query = db.query(ReceivingDocument).filter(
         ReceivingDocument.organization_id == user_org.organization_id
-    ).order_by(ReceivingDocument.created_at.desc())
+    )
+
+    trip_query = q.strip() if q else None
+    bilty_query = bilty.strip() if bilty else None
+
+    if trip_query or bilty_query:
+        # Both conditions (when given) must match the SAME linked trip, not
+        # just "some trip matches q and some other trip matches bilty" — a
+        # doc linked to trip A (matching q) and unrelated trip B (matching
+        # bilty) should not show up as if one trip matched both.
+        trip_filters = []
+        if trip_query:
+            trip_filters.append(or_(
+                Trip.trip_number.ilike(f"%{trip_query}%"),
+                Trip.rr_trip_number.ilike(f"%{trip_query}%"),
+            ))
+        if bilty_query:
+            trip_filters.append(Trip.s4_bilty_number.ilike(f"%{bilty_query}%"))
+
+        matching_ids = db.query(ReceivingDocumentTrip.receiving_document_id).join(
+            Trip, Trip.id == ReceivingDocumentTrip.trip_id
+        ).filter(*trip_filters).subquery()
+        query = query.filter(ReceivingDocument.id.in_(matching_ids))
+
+    query = query.order_by(ReceivingDocument.created_at.desc())
 
     total = query.count()
     docs = query.offset(skip).limit(limit).all()

@@ -39,16 +39,23 @@ class ReceivingDocumentApi {
     }
   }
 
-  /// Search trips by either RR4's own trip number OR the RR-web-assigned
-  /// number (once synced) — server-side, so it isn't limited to whatever
-  /// page of trips the dashboard happens to have already loaded.
-  Future<List<TripSearchResult>> searchTrips(String query) async {
-    final q = query.trim();
-    if (q.isEmpty) return const [];
+  /// Search trips by RR4's own trip number OR the RR-web-assigned number
+  /// (once synced), AND/OR by Stage-4 bilty number — server-side, so it
+  /// isn't limited to whatever page of trips the dashboard happens to have
+  /// already loaded. Mirrors the main dashboard's two independent search
+  /// boxes: pass [query] and/or [biltyQuery]; when both are given they're
+  /// ANDed together, same as matchesTripSearch + matchesBiltySearch there.
+  Future<List<TripSearchResult>> searchTrips({String? query, String? biltyQuery}) async {
+    final q = query?.trim() ?? '';
+    final bilty = biltyQuery?.trim() ?? '';
+    if (q.isEmpty && bilty.isEmpty) return const [];
     try {
       final response = await _apiService.dio.get(
         '/api/receiving-documents/search-trips',
-        queryParameters: {'q': q},
+        queryParameters: {
+          if (q.isNotEmpty) 'q': q,
+          if (bilty.isNotEmpty) 'bilty': bilty,
+        },
       );
       final data = response.data as Map<String, dynamic>;
       return (data['trips'] as List<dynamic>? ?? [])
@@ -92,11 +99,19 @@ class ReceivingDocumentApi {
   }
 
   /// Paginated list of past uploads for the current org, newest first.
-  Future<Map<String, dynamic>> list({int skip = 0, int limit = 50}) async {
+  /// [q] matches a linked trip's RR4/RR-web trip number; [bilty] matches
+  /// only its bilty number — both may be given together (AND), mirroring
+  /// the two independent search boxes elsewhere in the app.
+  Future<Map<String, dynamic>> list({int skip = 0, int limit = 50, String? q, String? bilty}) async {
     try {
       final response = await _apiService.dio.get(
         '/api/receiving-documents',
-        queryParameters: {'skip': skip, 'limit': limit},
+        queryParameters: {
+          'skip': skip,
+          'limit': limit,
+          if (q != null && q.trim().isNotEmpty) 'q': q.trim(),
+          if (bilty != null && bilty.trim().isNotEmpty) 'bilty': bilty.trim(),
+        },
       );
       return response.data as Map<String, dynamic>;
     } catch (e) {

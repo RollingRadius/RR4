@@ -38,6 +38,12 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
   bool _loading = true;
   String? _error;
   List<ReceivingDocumentModel> _docs = [];
+  final _searchCtrl = TextEditingController();
+  final _biltySearchCtrl = TextEditingController();
+  String _query = '';
+  String _biltyQuery = '';
+  Timer? _debounce;
+  int _loadSeq = 0;
 
   @override
   void initState() {
@@ -45,18 +51,48 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
     _load();
   }
 
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchCtrl.dispose();
+    _biltySearchCtrl.dispose();
+    super.dispose();
+  }
+
+  /// Fires on either search box's onChanged — mirrors the main dashboard's
+  /// independent trip-number + bilty-number boxes, ANDed together server-side.
+  void _onSearchChanged(String _) {
+    _debounce?.cancel();
+    final trip = _searchCtrl.text.trim();
+    final bilty = _biltySearchCtrl.text.trim();
+    if (trip.isEmpty && bilty.isEmpty) {
+      // Clearing should feel instant, same as everywhere else in this feature.
+      if (_query.isEmpty && _biltyQuery.isEmpty) return; // already unfiltered
+      setState(() { _query = ''; _biltyQuery = ''; });
+      _load();
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      setState(() { _query = trip; _biltyQuery = bilty; });
+      _load();
+    });
+  }
+
   Future<void> _load() async {
+    final seq = ++_loadSeq;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final data = await ref.read(receivingDocumentApiProvider).list();
+      final data = await ref.read(receivingDocumentApiProvider).list(q: _query, bilty: _biltyQuery);
+      if (seq != _loadSeq) return; // a newer load superseded this one
       final docs = (data['documents'] as List<dynamic>)
           .map((e) => ReceivingDocumentModel.fromJson(e as Map<String, dynamic>))
           .toList();
       if (mounted) setState(() { _docs = docs; _loading = false; });
     } catch (e) {
+      if (seq != _loadSeq) return;
       if (mounted) setState(() { _error = e.toString(); _loading = false; });
     }
   }
@@ -94,7 +130,31 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
         icon: const Icon(Icons.upload_file_rounded),
         label: const Text('Upload New'),
       ),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+            child: Row(children: [
+              Expanded(
+                child: TripSearchField(
+                  controller: _searchCtrl,
+                  onChanged: _onSearchChanged,
+                  hintText: 'Search trip number',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TripSearchField(
+                  controller: _biltySearchCtrl,
+                  onChanged: _onSearchChanged,
+                  hintText: 'Search bilty number',
+                ),
+              ),
+            ]),
+          ),
+          Expanded(child: _buildBody()),
+        ],
+      ),
     );
   }
 
@@ -124,7 +184,13 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
             children: [
               const Icon(Icons.receipt_long_rounded, size: 48, color: _secondary),
               const SizedBox(height: 12),
-              Text('No receiving docs uploaded yet', style: _inter(size: 13), textAlign: TextAlign.center),
+              Text(
+                (_query.isEmpty && _biltyQuery.isEmpty)
+                    ? 'No receiving docs uploaded yet'
+                    : 'No receiving docs found for that search',
+                style: _inter(size: 13),
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -220,6 +286,7 @@ class _UploadReceivingDocumentScreen extends ConsumerStatefulWidget {
 class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceivingDocumentScreen> {
   XFile? _image;
   final _tripSearchCtrl = TextEditingController();
+  final _biltySearchCtrl = TextEditingController();
   final List<TripSearchResult> _selectedTrips = [];
   List<TripSearchResult> _searchResults = [];
   bool _searching = false;
@@ -232,6 +299,7 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
   void dispose() {
     _debounce?.cancel();
     _tripSearchCtrl.dispose();
+    _biltySearchCtrl.dispose();
     super.dispose();
   }
 
@@ -271,21 +339,31 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
     );
   }
 
-  void _onSearchChanged(String query) {
+  /// Fires on either search box's onChanged — reads both boxes' current
+  /// text and searches with whatever is non-empty, ANDed together, mirroring
+  /// the main dashboard's independent trip-number + bilty-number boxes.
+  void _onSearchChanged(String _) {
     _debounce?.cancel();
-    if (query.trim().isEmpty) {
+    final tripQ = _tripSearchCtrl.text.trim();
+    final biltyQ = _biltySearchCtrl.text.trim();
+    if (tripQ.isEmpty && biltyQ.isEmpty) {
       _searchSeq++; // invalidate any in-flight request for the cleared query
       setState(() { _searchResults = []; _searching = false; });
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 350), () => _runSearch(query));
+    _debounce = Timer(const Duration(milliseconds: 350), _runSearch);
   }
 
-  Future<void> _runSearch(String query) async {
+  Future<void> _runSearch() async {
     final seq = ++_searchSeq;
+    final tripQ = _tripSearchCtrl.text.trim();
+    final biltyQ = _biltySearchCtrl.text.trim();
     setState(() => _searching = true);
     try {
-      final results = await ref.read(receivingDocumentApiProvider).searchTrips(query);
+      final results = await ref.read(receivingDocumentApiProvider).searchTrips(
+        query: tripQ.isEmpty ? null : tripQ,
+        biltyQuery: biltyQ.isEmpty ? null : biltyQ,
+      );
       if (!mounted || seq != _searchSeq) return; // a newer search superseded this one
       final selectedIds = _selectedTrips.map((t) => t.id).toSet();
       setState(() {
@@ -305,6 +383,7 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
       _selectedTrips.add(trip);
       _searchResults = [];
       _tripSearchCtrl.clear();
+      _biltySearchCtrl.clear();
     });
   }
 
@@ -387,13 +466,25 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
           const SizedBox(height: 20),
           Text('Link trips this sheet covers', style: _manrope(size: 14, weight: FontWeight.w700)),
           const SizedBox(height: 4),
-          Text('Search by RR4 or RR web trip number — just the digits are enough', style: _inter(size: 12)),
+          Text('Search by trip number (RR4 or RR web) and/or bilty number', style: _inter(size: 12)),
           const SizedBox(height: 10),
-          TripSearchField(
-            controller: _tripSearchCtrl,
-            onChanged: _onSearchChanged,
-            hintText: 'Search trip number',
-          ),
+          Row(children: [
+            Expanded(
+              child: TripSearchField(
+                controller: _tripSearchCtrl,
+                onChanged: _onSearchChanged,
+                hintText: 'Search trip number',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TripSearchField(
+                controller: _biltySearchCtrl,
+                onChanged: _onSearchChanged,
+                hintText: 'Search bilty number',
+              ),
+            ),
+          ]),
           if (_searching) ...[
             const SizedBox(height: 8),
             const Center(child: SizedBox(width: 18, height: 18,
@@ -480,6 +571,7 @@ class _EditReceivingDocumentScreen extends ConsumerStatefulWidget {
 class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocumentScreen> {
   late ReceivingDocumentModel _doc;
   final _tripSearchCtrl = TextEditingController();
+  final _biltySearchCtrl = TextEditingController();
   List<TripSearchResult> _searchResults = [];
   bool _searching = false;
   Timer? _debounce;
@@ -498,24 +590,35 @@ class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocu
   void dispose() {
     _debounce?.cancel();
     _tripSearchCtrl.dispose();
+    _biltySearchCtrl.dispose();
     super.dispose();
   }
 
-  void _onSearchChanged(String query) {
+  /// Fires on either search box's onChanged — reads both boxes' current
+  /// text and searches with whatever is non-empty, ANDed together, mirroring
+  /// the main dashboard's independent trip-number + bilty-number boxes.
+  void _onSearchChanged(String _) {
     _debounce?.cancel();
-    if (query.trim().isEmpty) {
+    final tripQ = _tripSearchCtrl.text.trim();
+    final biltyQ = _biltySearchCtrl.text.trim();
+    if (tripQ.isEmpty && biltyQ.isEmpty) {
       _searchSeq++; // invalidate any in-flight request for the cleared query
       setState(() { _searchResults = []; _searching = false; });
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 350), () => _runSearch(query));
+    _debounce = Timer(const Duration(milliseconds: 350), _runSearch);
   }
 
-  Future<void> _runSearch(String query) async {
+  Future<void> _runSearch() async {
     final seq = ++_searchSeq;
+    final tripQ = _tripSearchCtrl.text.trim();
+    final biltyQ = _biltySearchCtrl.text.trim();
     setState(() => _searching = true);
     try {
-      final results = await ref.read(receivingDocumentApiProvider).searchTrips(query);
+      final results = await ref.read(receivingDocumentApiProvider).searchTrips(
+        query: tripQ.isEmpty ? null : tripQ,
+        biltyQuery: biltyQ.isEmpty ? null : biltyQ,
+      );
       if (!mounted || seq != _searchSeq) return; // a newer search superseded this one
       final linkedIds = _doc.trips.map((t) => t.id).toSet();
       setState(() {
@@ -544,6 +647,7 @@ class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocu
         _busy = false;
         _searchResults = [];
         _tripSearchCtrl.clear();
+        _biltySearchCtrl.clear();
       });
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _busy = false; });
@@ -640,13 +744,25 @@ class _EditReceivingDocumentScreenState extends ConsumerState<_EditReceivingDocu
             const SizedBox(height: 12),
             Text('Link more trips', style: _manrope(size: 14, weight: FontWeight.w700)),
             const SizedBox(height: 4),
-            Text('Search by RR4 or RR web trip number — just the digits are enough', style: _inter(size: 12)),
+            Text('Search by trip number (RR4 or RR web) and/or bilty number', style: _inter(size: 12)),
             const SizedBox(height: 10),
-            TripSearchField(
-              controller: _tripSearchCtrl,
-              onChanged: _onSearchChanged,
-              hintText: 'Search trip number',
-            ),
+            Row(children: [
+              Expanded(
+                child: TripSearchField(
+                  controller: _tripSearchCtrl,
+                  onChanged: _onSearchChanged,
+                  hintText: 'Search trip number',
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TripSearchField(
+                  controller: _biltySearchCtrl,
+                  onChanged: _onSearchChanged,
+                  hintText: 'Search bilty number',
+                ),
+              ),
+            ]),
             if (_searching) ...[
               const SizedBox(height: 8),
               const Center(child: SizedBox(width: 18, height: 18,
