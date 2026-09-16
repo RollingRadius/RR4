@@ -23,6 +23,7 @@ from app.models.trip import Trip
 from app.models.user import User
 from app.services.rr_sync_service import _json_header
 from app.services.driver_link_service import link_driver_to_trip
+from app.utils.phone import normalize_phone
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -1590,9 +1591,8 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
             if driver:
                 rr_driver_id = driver.rr_user_id
                 if not rr_driver_id and driver.phone:
-                    raw = driver.phone.strip().lstrip("+")
-                    phone_10 = raw[-10:] if len(raw) >= 10 else raw
-                    if phone_10.isdigit():
+                    phone_10 = normalize_phone(driver.phone)
+                    if phone_10:
                         try:
                             resp = await client.get(
                                 f"{settings.RR_API_BASE}/users",
@@ -1615,9 +1615,8 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
         if not vehicle_provider_id and trip.transporter_user_id:
             transporter = db.query(UserModel).filter(UserModel.id == trip.transporter_user_id).first()
             if transporter and transporter.phone:
-                raw = transporter.phone.strip().lstrip("+")
-                phone_10 = raw[-10:] if len(raw) >= 10 else raw
-                if phone_10.isdigit():
+                phone_10 = normalize_phone(transporter.phone)
+                if phone_10:
                     try:
                         # Step 1: get RR user_id by phone (response: {"_items": [{_id, name, ...}]})
                         r1 = await client.get(
