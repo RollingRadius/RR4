@@ -602,15 +602,25 @@ def update_trip(
 
     # Same as create_trip: a direct LP driver reassignment was previously
     # silent — no push, no location-reminder check. Only fire on a genuine
-    # change, not every unrelated PATCH to this trip.
-    if 'driver_id' in update_fields and trip.driver_id and str(trip.driver_id) != str(old_driver_id):
-        assigned_driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
-        if assigned_driver:
-            from app.services.driver_link_service import (
-                _notify_driver_assigned, maybe_send_location_reminder,
-            )
-            _notify_driver_assigned(assigned_driver, trip)
-            maybe_send_location_reminder(assigned_driver, trip, db)
+    # change, not every unrelated PATCH to this trip. Also fires the same
+    # silent instant-refresh nudge link_driver_to_trip's auto-link path
+    # already sends (driver_link_service.py) — the two paths must behave
+    # identically, since a driver shouldn't wait ~30s to see a manually
+    # assigned trip just because it wasn't RR-web's auto-link that did it.
+    if 'driver_id' in update_fields and str(trip.driver_id) != str(old_driver_id):
+        from app.services.driver_link_service import (
+            _notify_driver_assigned, _nudge_driver_refresh, maybe_send_location_reminder,
+        )
+        if trip.driver_id:
+            assigned_driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
+            if assigned_driver:
+                _notify_driver_assigned(assigned_driver, trip)
+                _nudge_driver_refresh(assigned_driver, trip)
+                maybe_send_location_reminder(assigned_driver, trip, db)
+        if old_driver_id:
+            old_driver = db.query(Driver).filter(Driver.id == old_driver_id).first()
+            if old_driver:
+                _nudge_driver_refresh(old_driver, trip)
 
     return _enrich(trip, db)
 
