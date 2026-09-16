@@ -810,6 +810,8 @@ def resume_driver_tracking(
         raise HTTPException(status_code=403, detail="LP / RR-ops only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.driver_id and _driver_has_open_trip(db, trip.driver_id, exclude_trip_id=trip.id):
+        raise HTTPException(status_code=400, detail="Driver already has an open trip")
     trip.driver_tracking_stopped = False
     trip.driver_tracking_stopped_at = None
     trip.driver_tracking_stopped_by = None

@@ -311,7 +311,8 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
         title: const Text('Stop Driver Tracking'),
         content: Text(
           'This will release ${trip.driverName ?? 'the driver'} from this trip so they '
-          'can be assigned to a new trip. You can resume tracking for this trip later if needed. Continue?',
+          'can be assigned to a new trip. You can resume tracking for this trip later, but '
+          'only if this driver has not already been assigned to a new trip by then. Continue?',
         ),
         actions: [
           TextButton(
@@ -361,10 +362,18 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
         behavior: SnackBarBehavior.floating,
       ));
       widget.onRefresh?.call();
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
+      final isConflict = e is DioException &&
+          e.response?.statusCode == 400 &&
+          (e.response?.data?['detail']?.toString().contains('already has an open trip') ?? false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Could not resume driver tracking', style: _inter(size: 13, color: Colors.white)),
+        content: Text(
+          isConflict
+              ? 'Can\'t resume — ${trip.driverName ?? 'this driver'} has already been assigned to a new trip'
+              : 'Could not resume driver tracking',
+          style: _inter(size: 13, color: Colors.white),
+        ),
         backgroundColor: Colors.red.shade700,
         behavior: SnackBarBehavior.floating,
       ));
