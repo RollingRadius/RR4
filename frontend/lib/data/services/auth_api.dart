@@ -56,6 +56,22 @@ class AuthApi {
     }
   }
 
+  /// Mint a separate, independent access+refresh pair for the durable
+  /// background tracking service — never reuse the caller's own current
+  /// refresh token for this (see BackgroundTrackingService's docstring and
+  /// AuthService.issue_tracking_session on the backend: refresh tokens are
+  /// single-use/rotated, so sharing one between the main app session and
+  /// the background isolate makes them race and randomly kill each other's
+  /// credential). Requires a currently-valid access token.
+  Future<Map<String, dynamic>> getTrackingSession() async {
+    try {
+      final response = await _apiService.dio.post('/api/auth/tracking-session');
+      return response.data;
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
   /// Best-effort: revokes the refresh token server-side so an explicit
   /// logout actually ends the session, not just on this device.
   Future<void> logout(String? refreshToken) async {

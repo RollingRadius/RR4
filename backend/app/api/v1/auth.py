@@ -146,6 +146,25 @@ def refresh_session(
     return LoginResponse(**result)
 
 
+@router.post("/tracking-session", response_model=LoginResponse)
+def issue_tracking_session(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Mint a separate, independent access+refresh pair for the driver app's
+    durable background tracking service — never share/copy the caller's own
+    session refresh token with it (see AuthService.issue_tracking_session's
+    docstring for the exact bug this fixes: two consumers rotating the same
+    single-use refresh token race each other and randomly kill tracking).
+    Requires a currently-valid access token (this is a normal authenticated
+    call, not a session-restore like /refresh).
+    """
+    auth_service = AuthService(db)
+    result = auth_service.issue_tracking_session(current_user)
+    return LoginResponse(**result)
+
+
 @router.post("/verify-email", response_model=EmailVerificationResponse)
 def verify_email(
     verification_data: EmailVerificationRequest,

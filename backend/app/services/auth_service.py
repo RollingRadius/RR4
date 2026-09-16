@@ -449,6 +449,25 @@ class AuthService:
             record.revoked = True
             self.db.commit()
 
+    def issue_tracking_session(self, user: User) -> dict:
+        """Mint a brand-new, independent access+refresh pair for the
+        durable background tracking service (see BackgroundTrackingService
+        in the Flutter app) — a genuinely separate RefreshToken row, not a
+        copy of the caller's own current one.
+
+        Root cause this fixes: refresh tokens are single-use/rotated
+        (see refresh_session's docstring). The background service used to be
+        seeded with a COPY of the main app session's live refresh token
+        value, so whichever of the two (main app or background isolate)
+        happened to refresh first would rotate it out from under the other,
+        which then got a hard 401 "revoked" on its own next refresh attempt
+        and silently gave up (incident: driver tracking dying every ~30 min,
+        2026-09-16). _issue_session already creates a fresh row without
+        touching/revoking any of the user's other existing tokens, so this
+        new token rotates entirely on its own from here on — no more race.
+        """
+        return self._issue_session(user, audit_action=AUDIT_ACTION_TRACKING_SESSION_ISSUED)
+
     def verify_email(self, token: str) -> dict:
         """Verify user's email using verification token"""
         is_valid, user_id, error = TokenService.verify_token(
