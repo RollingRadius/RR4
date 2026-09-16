@@ -25,6 +25,7 @@ from app.models import User, UserOrganization
 from app.models.trip import Trip
 from app.models.role import Role
 from app.models.driver import Driver
+from app.models.tracking import DriverLocation
 from app.services import fcm_service
 
 router = APIRouter()
@@ -705,6 +706,59 @@ def get_trip_vehicle_location(
         "heading": loc_status["heading"],
         "timestamp": loc_status["timestamp"],
         "message": loc_status["message"],
+    }
+
+
+@router.get("/trips/{trip_id}/driver-trail")
+def get_trip_driver_trail(
+    trip_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get the driver's actual travelled path for this trip — every GPS ping
+    tagged with this trip's ID (see tracking_service.py's
+    _resolve_active_trip_id), oldest to newest. Naturally starts at trip
+    assignment and stops accumulating once the driver is no longer linked
+    to this trip (stage 5 complete, or driver_tracking_stopped) — see
+    POST .../stop-tracking / .../resume-tracking.
+    """
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    # Same access check as vehicle-location.
+    org_id_str = str(user_org.organization_id)
+    if role_key == 'load_owner':
+        if str(trip.load_owner_org_id) != org_id_str:
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif role_key in ('driver', 'independent_user'):
+        driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+        if not driver or trip.driver_id != driver.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        if str(trip.organization_id) != org_id_str:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    points = (
+        db.query(DriverLocation)
+        .filter(DriverLocation.trip_id == trip.id)
+        .order_by(DriverLocation.timestamp.asc())
+        .all()
+    )
+    return {
+        "trip_id": trip_id,
+        "points": [
+            {
+                "latitude": float(p.latitude),
+                "longitude": float(p.longitude),
+                "timestamp": p.timestamp,
+            }
+            for p in points
+        ],
     }
 
 

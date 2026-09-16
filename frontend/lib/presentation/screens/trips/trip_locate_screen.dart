@@ -49,6 +49,7 @@ class TripLocateScreen extends ConsumerStatefulWidget {
 class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
   final _mapController = MapController();
   TripLocationModel? _currentLocation;
+  List<LatLng> _trail = [];
   bool _isRefreshing = false;
   Timer? _autoRefreshTimer;
 
@@ -59,11 +60,13 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
   void initState() {
     super.initState();
     _currentLocation = widget.location;
-    if (_currentLocation?.hasLocation == true) {
-      // Auto-refresh every 30 s
-      _autoRefreshTimer =
-          Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
-    }
+    // Refresh cadence intentionally sits a little behind the driver's ~20s
+    // base ping interval, so it's always working with data that has already
+    // safely arrived rather than racing the upload — see
+    // docs/tracking/live_tracking_research.md.
+    _autoRefreshTimer =
+        Timer.periodic(const Duration(seconds: 12), (_) => _refresh());
+    _loadTrail();
   }
 
   @override
@@ -72,11 +75,20 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
     super.dispose();
   }
 
+  Future<void> _loadTrail() async {
+    final trail =
+        await ref.read(tripProvider.notifier).fetchDriverTrail(widget.trip.id);
+    if (mounted) {
+      setState(() => _trail = trail);
+    }
+  }
+
   Future<void> _refresh() async {
     setState(() => _isRefreshing = true);
     final loc = await ref
         .read(tripProvider.notifier)
         .fetchTripLocation(widget.trip.id);
+    await _loadTrail();
     if (mounted) {
       setState(() {
         _currentLocation = loc;
@@ -135,6 +147,16 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.fleet.management',
               ),
+              if (_trail.length > 1)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: _trail,
+                      strokeWidth: 4,
+                      color: _primary.withValues(alpha: 0.85),
+                    ),
+                  ],
+                ),
               if (hasGps)
                 MarkerLayer(
                   markers: [

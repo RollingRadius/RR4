@@ -19,6 +19,7 @@ import redis.asyncio as redis
 
 from app.models.tracking import DriverLocation, GeofenceEvent, RouteOptimization
 from app.models.driver import Driver
+from app.models.trip import Trip
 from app.models.zone import Zone
 from app.schemas.tracking import (
     LocationCreate,
@@ -61,6 +62,22 @@ class TrackingService:
     # Location Management
     # ========================================================================
 
+    async def _resolve_active_trip_id(self, driver_id: UUID) -> Optional[UUID]:
+        """Same "is this driver actively linked to a trip" definition as
+        trips.py's _driver_has_open_trip — status ongoing, not stage-5-complete,
+        not manually tracking-stopped. Used to tag incoming pings with the trip
+        they were recorded during, so a trip's travelled path can be queried on
+        its own (see GET /trips/{id}/driver-trail)."""
+        result = await self.db.execute(
+            select(Trip.id).where(
+                Trip.driver_id == driver_id,
+                Trip.status == 'ongoing',
+                ~Trip.is_stage5_complete,
+                ~Trip.driver_tracking_stopped,
+            ).limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def create_location(
         self,
         driver_id: UUID,
@@ -94,9 +111,11 @@ class TrackingService:
             raise ValueError("Location accuracy too low (>100m)")
 
         # Create location record
+        trip_id = await self._resolve_active_trip_id(driver_id)
         location = DriverLocation(
             driver_id=driver_id,
             organization_id=organization_id,
+            trip_id=trip_id,
             latitude=location_data.latitude,
             longitude=location_data.longitude,
             accuracy=location_data.accuracy,
@@ -145,6 +164,7 @@ class TrackingService:
             raise ValueError(f"Tracking not enabled for driver {driver_id}")
 
         # Create location records
+        trip_id = await self._resolve_active_trip_id(driver_id)
         location_records = []
         for loc_data in locations:
             # Skip locations with poor accuracy
@@ -155,6 +175,7 @@ class TrackingService:
             location = DriverLocation(
                 driver_id=driver_id,
                 organization_id=organization_id,
+                trip_id=trip_id,
                 latitude=loc_data.latitude,
                 longitude=loc_data.longitude,
                 accuracy=loc_data.accuracy,
