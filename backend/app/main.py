@@ -210,12 +210,24 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"Could not initialize seeding: {e}")
 
+    # Trail-gone-stale watchdog for LP/RR-ops — see tracking_watchdog.py.
+    # Best-effort, same single-worker-process assumption already documented
+    # for ws_manager (rr_org_token_service.py) — running this across
+    # multiple uvicorn/gunicorn workers would duplicate-alert.
+    import asyncio
+    from app.services import tracking_watchdog
+    app.state.tracking_watchdog_task = asyncio.create_task(tracking_watchdog.run_forever())
+
 
 # Application shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
     logger.info(f"Shutting down {settings.APP_NAME}")
+
+    task = getattr(app.state, "tracking_watchdog_task", None)
+    if task is not None:
+        task.cancel()
 
 
 # Import and include API routers

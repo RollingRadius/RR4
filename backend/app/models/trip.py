@@ -74,6 +74,10 @@ class Trip(Base):
     driver_tracking_stopped_at = Column(TIMESTAMP(timezone=True), nullable=True)
     driver_tracking_stopped_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"),
                                          nullable=True)
+    # Throttle for the "trail gone stale" alert (see services/tracking_watchdog.py)
+    # — set when LP/RR-ops are notified the trail stopped updating, cleared once a
+    # fresh location lands again so a later stale period gets its own alert.
+    driver_tracking_stale_alert_sent_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # Stage 1 — Truck Detail Registration
     s1_driver_name          = Column(String(100), nullable=True)
