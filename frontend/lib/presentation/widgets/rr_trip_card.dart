@@ -3,6 +3,8 @@
 /// the full S1-S5 process (checkboxes, uploads, per-stage RR doc sync).
 library;
 
+import 'dart:ui' show ImageFilter;
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
+import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
@@ -264,6 +267,66 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     ).then((_) => widget.onRefresh?.call());
   }
 
+  /// LP/RR-ops only (gated at the call site) — opens the swipeable edit dialog
+  /// for this trip's parcel details; refreshes the card when a save went through.
+  Future<void> _openEdit() async {
+    // A floating card over the trip list — margin on all four sides so every
+    // corner is visibly rounded (not a sheet flush against one screen edge,
+    // which only ever shows two rounded corners). Tap-outside still dismisses;
+    // CreateTripScreen's own PopScope (canPop: false) intercepts that pop the
+    // same as the system back button and routes it through the same
+    // discard-changes confirmation, so an edit can never be lost by a stray tap.
+    final size = MediaQuery.sizeOf(context);
+    final dialogHeight = size.height * 0.86;
+    // showGeneralDialog instead of showDialog — showDialog's barrier is a flat
+    // colour with no way to blur what's behind it. barrierColor is left fully
+    // transparent here; the frosted look is painted ourselves below.
+    final saved = await showGeneralDialog<bool>(
+      context: context,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.transparent,
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (dialogContext, animation, secondaryAnimation) => Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              // Tap the blurred trip list behind the card to dismiss — routed
+              // through maybePop so CreateTripScreen's PopScope still gets the
+              // chance to show its discard-changes confirmation first.
+              onTap: () => Navigator.of(dialogContext).maybePop(),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                child: Container(color: Colors.black.withValues(alpha: 0.30)),
+              ),
+            ),
+          ),
+          Center(
+            child: Dialog(
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: (size.height - dialogHeight) / 2,
+              ),
+              backgroundColor: const Color(0xFFF8F9FB), // matches CreateTripScreen's own _bg
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(24)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(dialogContext).bottom),
+                child: SizedBox(
+                  height: dialogHeight,
+                  width: double.infinity,
+                  child: CreateTripScreen(editTrip: trip),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (saved == true) widget.onRefresh?.call();
+  }
+
   /// LP/RR-ops only (gated at the call site via _canManageRr) — opens the
   /// same live-location map Load Owner already has for their own trips, so
   /// LP/RR-ops can track whichever driver is currently linked to this trip.
@@ -510,6 +573,20 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
             const SizedBox(width: 8),
             Text(trip.vehicleNumber!,
                 style: _manrope(size: 13, weight: FontWeight.w700, color: _white)),
+          ],
+          if (_canManageRr && !_isRecordsTrip) ...[
+            const SizedBox(width: 6),
+            Tooltip(
+              message: 'Edit trip',
+              child: InkWell(
+                onTap: _openEdit,
+                borderRadius: BorderRadius.circular(16),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.edit_outlined, color: _white, size: 18),
+                ),
+              ),
+            ),
           ],
         ]),
         const SizedBox(height: 8),

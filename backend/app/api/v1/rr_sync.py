@@ -6,21 +6,25 @@ All endpoints require authentication — RR details are never exposed to the cli
 
 import json
 import logging
+import re
+import uuid
 from datetime import datetime
 
 import httpx
 import mimetypes
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Query, Response, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.dependencies import get_current_user
+from app.models import UserOrganization
 from app.models.company import Organization
 from app.models.trip import Trip
 from app.models.user import User
+from app.services.rr_org_token_service import get_org_rr_token
 from app.services.rr_sync_service import _json_header
 from app.services.driver_link_service import link_driver_to_trip
 from app.utils.phone import normalize_phone
@@ -1838,6 +1842,338 @@ async def complete_trip_in_rr(
         "rr_parcel_id":  result["rr_parcel_id"],
         "rr_booking_id": result["rr_booking_id"],
     }
+
+
+# ── Edit trip (RR web: Manage → Parcels step → edit pencil) ───────────────────
+
+# RR web greys that pencil out from Enroute onward, but RR's server enforces
+# nothing, so RR4 must. "Original POD…" and "Trip Cancelled" are added here:
+# RR web's own list omits them, yet both are equally past editing.
+_RR_EDIT_LOCKED_STAGES = {
+    "Enroute",
+    "Unloading",
+    "Clear POD Balance",
+    "Original POD with invoice submitted to consignor",
+    "POD Invoice Clearance",
+    "Trip Completed",
+    "Trip Cancelled",
+}
+
+_EDIT_PIN_RE = re.compile(r"^[1-9][0-9]{5}$")
+
+# Fields that may never be blanked — RR4's own create flow requires them too.
+_EDIT_REQUIRED = {
+    "consignor_rr_company_id": "Consignor company",
+    "consignor_name":          "Consignor name",
+    "origin_rr_city_id":       "Pickup city",
+    "origin":                  "Pickup city",
+    "destination_rr_city_id":  "Unload city",
+    "destination":             "Unload city",
+    "material_rr_id":          "Material",
+    "load_item":               "Material",
+    "weight_value":            "Weight",
+    "weight_unit":             "Weight unit",
+    "invoice_value":           "Total cost",
+}
+
+
+class RrEditTripRequest(BaseModel):
+    """Only the fields the user actually changed — anything left out is untouched."""
+    consignor_rr_company_id: str | None = None
+    consignor_name:  str | None = Field(None, max_length=100)
+    consignor_gstin: str | None = Field(None, max_length=15)
+    consignee_rr_company_id: str | None = None
+    consignee_name:  str | None = Field(None, max_length=100)
+    consignee_gstin: str | None = Field(None, max_length=15)
+
+    origin:                 str | None = None
+    origin_rr_city_id:      str | None = None
+    pickup_address_line1:   str | None = Field(None, max_length=200)
+    pickup_address_line2:   str | None = Field(None, max_length=200)
+    pickup_pin:             str | None = None
+    pickup_no_entry_zone:   bool | None = None
+
+    destination:            str | None = None
+    destination_rr_city_id: str | None = None
+    unload_address_line1:   str | None = Field(None, max_length=200)
+    unload_address_line2:   str | None = Field(None, max_length=200)
+    unload_pin:             str | None = None
+    unload_no_entry_zone:   bool | None = None
+    depot_code:             str | None = Field(None, max_length=50)
+
+    load_item:          str | None = None
+    material_rr_id:     str | None = None
+    weight_value:       float | None = Field(None, ge=0.1, le=999999.99)
+    weight_unit:        str | None = None
+    invoice_value:      float | None = Field(None, gt=0, le=999999999)
+    parcel_description: str | None = Field(None, max_length=100)
+    part_load:          bool | None = None
+
+
+def _normalize_edit_updates(raw: dict, snap: dict) -> dict:
+    """Clean the changed fields and enforce RR's rules. Raises HTTP 422 with a user-readable reason."""
+    updates = {}
+    for key, value in raw.items():
+        if isinstance(value, str):
+            value = value.strip() or None
+        updates[key] = value
+
+    for key, label in _EDIT_REQUIRED.items():
+        if key in updates and updates[key] is None:
+            raise HTTPException(status_code=422, detail=f"{label} is required")
+
+    for id_key, name_key, label in (
+        ("origin_rr_city_id", "origin", "Pickup city"),
+        ("destination_rr_city_id", "destination", "Unload city"),
+        ("material_rr_id", "load_item", "Material"),
+    ):
+        if (id_key in updates) != (name_key in updates):
+            raise HTTPException(status_code=422, detail=f"{label} must be picked from the list")
+
+    for key in ("pickup_pin", "unload_pin"):
+        if updates.get(key) is not None and not _EDIT_PIN_RE.match(updates[key]):
+            raise HTTPException(status_code=422, detail="Pin code must be 6 digits")
+
+    if updates.get("depot_code"):
+        updates["depot_code"] = updates["depot_code"].upper()
+
+    if "part_load" in updates:
+        updates["part_load"] = bool(updates["part_load"])
+
+    # RR's schema ties quantity_unit to quantity, so the two always travel together.
+    if "weight_value" in updates or "weight_unit" in updates:
+        raw_unit = (updates.get("weight_unit") or snap.get("weight_unit") or "").upper()
+        unit = raw_unit if raw_unit in _RR_UNITS else _UNIT_MAP.get(raw_unit)
+        if not unit:
+            raise HTTPException(status_code=422, detail="Unsupported weight unit")
+        value = updates.get("weight_value", snap.get("weight_value"))
+        if value is None:
+            raise HTTPException(status_code=422, detail="Weight is required")
+        # Rounded to RR4's column precision so RR and RR4 hold the identical number.
+        updates["weight_value"] = round(float(value), 3)
+        updates["weight_unit"] = unit
+
+    if "invoice_value" in updates:
+        updates["invoice_value"] = round(float(updates["invoice_value"]), 2)
+        if updates["invoice_value"] <= 0:
+            raise HTTPException(status_code=422, detail="Total cost must be greater than 0")
+
+    if "consignor_gstin" in updates or "consignee_gstin" in updates:
+        consignor = (updates["consignor_gstin"] if "consignor_gstin" in updates else snap.get("consignor_gstin")) or ""
+        consignee = (updates["consignee_gstin"] if "consignee_gstin" in updates else snap.get("consignee_gstin")) or ""
+        if consignor and consignee and consignor.upper() == consignee.upper() and consignor.upper() != "URP":
+            raise HTTPException(status_code=422, detail="Consignor and Consignee GSTIN should not be the same")
+
+    return updates
+
+
+def _build_rr_parcel_patch(updates: dict, parcel: dict) -> dict:
+    """
+    Translate the changed fields into RR's parcel document. RR replaces nested
+    objects (sender/receiver/addresses) wholesale on PATCH, so each one is
+    merged onto RR's *current* copy — never sent as a bare partial, which would
+    wipe fields RR4 doesn't manage (e.g. sender_person set from RR web).
+    """
+    patch: dict = {}
+    if "material_rr_id" in updates:
+        patch["material_type"] = updates["material_rr_id"]
+    if "weight_value" in updates:
+        patch["quantity"] = updates["weight_value"]
+        patch["quantity_unit"] = updates["weight_unit"]
+    if "invoice_value" in updates:
+        patch["cost"] = updates["invoice_value"]
+    if "parcel_description" in updates:
+        patch["description"] = updates["parcel_description"]
+    if "part_load" in updates:
+        patch["part_load"] = updates["part_load"]
+    if "depot_code" in updates:
+        patch["depot_code"] = updates["depot_code"]
+
+    def merged(section: str, mapping: dict) -> dict | None:
+        changed = {rr_key: updates[local_key] for local_key, rr_key in mapping.items() if local_key in updates}
+        if not changed:
+            return None
+        if changed.get("pin") is not None:
+            changed["pin"] = int(changed["pin"])
+        return {**(parcel.get(section) or {}), **changed}
+
+    sections = {
+        "pickup_postal_address": {
+            "origin_rr_city_id": "city", "pickup_address_line1": "address_line_1",
+            "pickup_address_line2": "address_line_2", "pickup_pin": "pin",
+            "pickup_no_entry_zone": "no_entry_zone",
+        },
+        "unload_postal_address": {
+            "destination_rr_city_id": "city", "unload_address_line1": "address_line_1",
+            "unload_address_line2": "address_line_2", "unload_pin": "pin",
+            "unload_no_entry_zone": "no_entry_zone",
+        },
+        "sender": {
+            "consignor_rr_company_id": "sender_company", "consignor_name": "name", "consignor_gstin": "gstin",
+        },
+        "receiver": {
+            "consignee_rr_company_id": "receiver_company", "consignee_name": "name", "consignee_gstin": "gstin",
+        },
+    }
+    for section, mapping in sections.items():
+        section_patch = merged(section, mapping)
+        if section_patch is not None:
+            patch[section] = section_patch
+    return patch
+
+
+async def _rr_get_json(client: httpx.AsyncClient, path: str, token: str) -> dict:
+    try:
+        resp = await client.get(
+            f"{settings.RR_API_BASE}/{path}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not reach RR: {str(exc)[:200]}")
+    if resp.status_code == 401:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+    if resp.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"RR could not be read ({resp.status_code})")
+    return resp.json()
+
+
+def _rr_error_text(resp: httpx.Response) -> str:
+    try:
+        body = resp.json()
+    except ValueError:
+        return resp.text[:300]
+    if not isinstance(body, dict):
+        return resp.text[:300]
+    reason = body.get("_issues") or (body.get("_error") or {}).get("message") or body.get("statusText") or body
+    return (reason if isinstance(reason, str) else json.dumps(reason))[:300]
+
+
+@router.patch("/edit-trip/{trip_id}", summary="Edit a trip's parcel details and push them to RR")
+async def edit_trip(
+    trip_id: str,
+    body: RrEditTripRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Mirrors RR web's parcel-edit pencil. Booked trips: RR is checked live
+    (stage / payment), updated first, and RR4's own row is saved only if RR
+    accepts — the two never disagree. Unbooked trips have nothing on RR yet, so
+    only RR4's row changes; Confirm Booking sends it later.
+    """
+    raw = body.model_dump(exclude_unset=True)
+    if not raw:
+        raise HTTPException(status_code=400, detail="No changes to save")
+    try:
+        trip_uuid = uuid.UUID(trip_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid trip ID")
+
+    # Phase 1 — checks on a short-lived session, closed before any RR call
+    db = SessionLocal()
+    try:
+        _require_rr_session_role(current_user, db)
+        user_org = db.query(UserOrganization).filter(
+            UserOrganization.user_id == current_user.id,
+            UserOrganization.status == "active",
+        ).first()
+        if not user_org:
+            raise HTTPException(status_code=403, detail="User must be in an active organization")
+
+        trip = db.query(Trip).filter(
+            Trip.id == trip_uuid,
+            Trip.organization_id == user_org.organization_id,
+        ).first()
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        if trip.moved_to_records_at is not None:
+            raise HTTPException(status_code=423, detail="This trip is in Records and can no longer be edited")
+
+        org_id = user_org.organization_id
+        rr_trip_id, rr_parcel_id = trip.rr_trip_id, trip.rr_parcel_id
+        snap = {
+            "weight_value":    float(trip.weight_value) if trip.weight_value is not None else None,
+            "weight_unit":     trip.weight_unit,
+            "consignor_gstin": trip.consignor_gstin,
+            "consignee_gstin": trip.consignee_gstin,
+        }
+        token = None
+        if rr_parcel_id:
+            token = await get_org_rr_token(user_org.organization, db)
+            if not token:
+                raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+    finally:
+        db.close()
+
+    updates = _normalize_edit_updates(raw, snap)
+
+    # Phase 2 — RR round-trip, no DB session held
+    rr_etag = None
+    if rr_parcel_id:
+        if not rr_trip_id:
+            raise HTTPException(status_code=422, detail="This trip is not fully linked to RR — contact support")
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+            rr_trip = await _rr_get_json(client, f"trips/{rr_trip_id}", token)
+            stage = rr_trip.get("trip_stage")
+            if stage in _RR_EDIT_LOCKED_STAGES:
+                raise HTTPException(
+                    status_code=423,
+                    detail=f"This trip is at '{stage}' on RR — parcel details can no longer be edited",
+                )
+            parcel = await _rr_get_json(client, f"parcels/{rr_parcel_id}", token)
+            if (parcel.get("invoice_receiving_payment") or {}).get("amount"):
+                raise HTTPException(
+                    status_code=423,
+                    detail="Payment has already been received for this trip — parcel details can no longer be edited",
+                )
+            patch = _build_rr_parcel_patch(updates, parcel)
+            if patch:
+                try:
+                    resp = await client.patch(
+                        f"{settings.RR_API_BASE}/parcels/{rr_parcel_id}",
+                        json=patch,
+                        headers={**_json_header(token), "If-Match": parcel.get("_etag", "")},
+                    )
+                except Exception as exc:
+                    raise HTTPException(status_code=502, detail=f"Could not reach RR: {str(exc)[:200]}")
+                if resp.status_code == 412:
+                    raise HTTPException(
+                        status_code=412,
+                        detail="This trip was changed on RR a moment ago — close this and try again",
+                    )
+                if resp.status_code not in (200, 201):
+                    raise HTTPException(
+                        status_code=422 if resp.status_code < 500 else 502,
+                        detail=f"RR rejected the update: {_rr_error_text(resp)}",
+                    )
+                rr_etag = resp.json().get("_etag")
+
+    # Phase 3 — write RR4's own row on a fresh session
+    db = SessionLocal()
+    try:
+        trip = db.query(Trip).filter(Trip.id == trip_uuid, Trip.organization_id == org_id).first()
+        if not trip:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        for key, value in updates.items():
+            setattr(trip, key, value)
+        if "weight_value" in updates:
+            trip.weight = f"{updates['weight_value']:.3f}".rstrip("0").rstrip(".") + f" {updates['weight_unit']}"
+        if rr_etag:
+            trip.rr_parcel_etag = rr_etag
+        db.commit()
+        logger.info(f"[Edit Trip] {trip.trip_number} by user {current_user.id}: {sorted(updates)}")
+    except HTTPException:
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception(f"[Edit Trip] RR accepted the edit for trip {trip_id} but saving it locally failed")
+        raise HTTPException(
+            status_code=500,
+            detail="Updated on RR but could not be saved here — please repeat the same edit (it is safe to retry)",
+        )
+    finally:
+        db.close()
+
+    return {"success": True, "rr_updated": bool(rr_parcel_id)}
 
 
 class RrReassignDriverRequest(BaseModel):
