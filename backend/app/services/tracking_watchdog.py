@@ -99,9 +99,33 @@ async def check_stale_trails() -> None:
             if trip.driver_tracking_stale_alert_sent_at is not None:
                 continue  # already alerted for this stale period
 
-            await _notify_stale_trail(trip, last_ping, db)
-            trip.driver_tracking_stale_alert_sent_at = now
+            # Prod runs several uvicorn workers, each with its own copy of this
+            # loop — claim the alert atomically so only the worker whose UPDATE
+            # actually flips the flag sends it, instead of every worker seeing
+            # the flag empty and notifying.
+            claimed = (
+                db.query(Trip)
+                .filter(
+                    Trip.id == trip.id,
+                    Trip.driver_tracking_stale_alert_sent_at.is_(None),
+                )
+                .update({Trip.driver_tracking_stale_alert_sent_at: now}, synchronize_session=False)
+            )
             db.commit()
+            if not claimed:
+                continue
+
+            try:
+                await _notify_stale_trail(trip, last_ping, db)
+            except Exception:
+                # Release the claim so the next cycle retries rather than
+                # silently losing the alert.
+                db.rollback()
+                db.query(Trip).filter(Trip.id == trip.id).update(
+                    {Trip.driver_tracking_stale_alert_sent_at: None}, synchronize_session=False
+                )
+                db.commit()
+                raise
     finally:
         db.close()
 
