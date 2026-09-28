@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,7 @@ import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 import 'package:fleet_management/providers/settings_provider.dart' show sharedPreferencesProvider;
 import 'package:fleet_management/data/models/last_trip_data.dart';
+import 'package:fleet_management/data/models/trip_model.dart';
 import 'dart:convert';
 
 // ─── Typography & Colours ─────────────────────────────────────────────────────
@@ -43,13 +45,18 @@ const _divider    = Color(0xFFECEEF0);
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 class CreateTripScreen extends ConsumerStatefulWidget {
-  const CreateTripScreen({super.key});
+  /// When set, the screen opens as the swipeable "Edit Trip" dialog for that
+  /// trip instead of the New Trip stepper. Pops `true` after a saved edit.
+  final TripModel? editTrip;
+
+  const CreateTripScreen({super.key, this.editTrip});
 
   @override
   ConsumerState<CreateTripScreen> createState() => _CreateTripScreenState();
 }
 
-class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
+class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
+    with SingleTickerProviderStateMixin {
 
   // ── City search ───────────────────────────────────────────────────────────
   final _pickupCtrl       = TextEditingController();
@@ -211,6 +218,18 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   bool _submitting  = false;
   String? _submitError;
 
+  // ── Edit mode (opened from the pencil on a trip card) ─────────────────────
+  bool get _isEdit => widget.editTrip != null;
+  late final TabController _tabCtrl = TabController(length: 3, vsync: this);
+  // Field values as loaded — an edit sends only what differs from this.
+  Map<String, dynamic> _editInitial = const {};
+  // Which swipe page owns each validated field, so a failed check can jump there.
+  static const _editPageOfField = <String, int>{
+    'consignorName': 0, 'consignorCompany': 0, 'pickupCity': 0,
+    'unloadCity': 1,
+    'material': 2, 'weight': 2, 'invoiceValue': 2,
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
 
   @override
@@ -225,11 +244,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _invoiceValueCtrl.addListener(() => _clearFieldErr('invoiceValue'));
     _expectedFreightCtrl.addListener(() => _clearFieldErr('expectedFreight'));
     _bookingAmountCtrl.addListener(() => _clearFieldErr('bookingAmount'));
+    if (_isEdit) _prefillFromTrip(widget.editTrip!);
     // Deferred to after the first frame — the phone prefill below can
     // trigger a live lookup that shows the RR login dialog, and doing that
     // before the widget is mounted (still inside initState) is unsafe.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadLastTripData();
+      // Edit mode is filled from the trip itself; the "last trip" cache would overwrite it.
+      if (!_isEdit) _loadLastTripData();
       _loadRrPartyData();
     });
   }
@@ -264,6 +285,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     _pickupDebounce?.cancel();
     _dropDebounce?.cancel();
     _materialDebounce?.cancel();
+    if (_isEdit) _tabCtrl.dispose();
     super.dispose();
   }
 
@@ -382,7 +404,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           final vals = (r.data['values'] as List? ?? []).cast<String>();
           if (vals.isNotEmpty) setState(() {
             _quantityUnits = vals;
-            if (!_quantityUnits.contains(_weightUnit)) _weightUnit = _quantityUnits.first;
+            // Edit keeps the trip's own unit — resetting it would register as a change.
+            if (!_isEdit && !_quantityUnits.contains(_weightUnit)) _weightUnit = _quantityUnits.first;
           });
         }).catchError((_) {});
     dio.get('/api/rr/enums', queryParameters: {'name': 'VehicleBodyTypes'})
@@ -396,7 +419,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     // runRrAction so an expired session prompts login exactly once; the
     // second then runs with that same now-valid session, avoiding a
     // duplicate login dialog from two concurrent 409s.
-    if (mounted) setState(() { _partnersLoading = true; _opsWorkersLoading = true; });
+    if (mounted) setState(() { _partnersLoading = true; _opsWorkersLoading = !_isEdit; });
     try {
       final r = await runRrAction(context, ref, () => dio.get('/api/rr/preferred-partners'));
       if (mounted) setState(() {
@@ -406,6 +429,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     } catch (_) {
       if (mounted) setState(() => _partnersLoading = false);
     }
+    // Trip Handled By isn't editable, so the worker list isn't needed.
+    if (_isEdit) return;
     try {
       final r = await runRrAction(context, ref, () => dio.get('/api/rr/company-workers'));
       if (mounted) setState(() {
@@ -826,6 +851,24 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   // Sets error state, switches step if needed, then scrolls to field.
   void _failField(int step, GlobalKey key, String fieldKey, String msg) {
+    if (_isEdit) {
+      // Edit swipes between pages instead of stepping — jump to the page that
+      // owns this field, wait for the swipe to settle, then scroll to it.
+      setState(() {
+        _fieldErr[fieldKey]    = true;
+        _fieldErrMsg[fieldKey] = msg;
+      });
+      final page = _editPageOfField[fieldKey] ?? 0;
+      if (_tabCtrl.index != page) {
+        _tabCtrl.animateTo(page);
+        Future.delayed(const Duration(milliseconds: 450), () {
+          if (mounted) _scrollToKey(key);
+        });
+      } else {
+        _scrollToKey(key);
+      }
+      return;
+    }
     final bool stepChange = _currentStep != step;
     setState(() {
       _fieldErr[fieldKey]    = true;
@@ -878,13 +921,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           'Total Invoice Value (₹) is required — used as parcel cost in RR');
       return false;
     }
-    if (_selectedOpsWorkerId == null) {
+    if (!_isEdit && _selectedOpsWorkerId == null) {
       _failField(0, _keyOpsWorker, 'opsWorker',
           'Select the RR Ops worker handling this trip');
       return false;
     }
     final ef = _expectedFreightCtrl.text.trim();
-    if (ef.isEmpty || double.tryParse(ef) == null) {
+    if (!_isEdit && (ef.isEmpty || double.tryParse(ef) == null)) {
       _failField(0, _keyExpectedFreight, 'expectedFreight',
           'Expected Freight Amount (₹) is required by RR create trip');
       return false;
@@ -1073,10 +1116,766 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     Navigator.of(context).pop();
   }
 
+  // ── Edit mode ─────────────────────────────────────────────────────────────
+  // Same fields as RR web's parcel-edit pencil (consignor, pickup, consignee,
+  // unload, parcel). Vehicle, provider, booking amount and driver are absent on
+  // purpose: RR only lets its CSR role change the first three, and the driver is
+  // changed from the trip's stage screen.
+
+  static String? _blankToNull(String v) {
+    final t = v.trim();
+    return t.isEmpty ? null : t;
+  }
+
+  static String _fmtNum(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  void _prefillFromTrip(TripModel t) {
+    _consignorRrCompanyId    = t.consignorRrCompanyId;
+    // The company's own name isn't stored on the trip; the saved party name labels the chip.
+    _consignorCompanyName    = t.consignorName;
+    _consignorNameCtrl.text  = t.consignorName ?? '';
+    _consignorGstinCtrl.text = t.consignorGstin ?? '';
+
+    _consigneeRrCompanyId    = t.consigneeRrCompanyId;
+    _consigneeCompanyName    = t.consigneeName;
+    _consigneeNameCtrl.text  = t.consigneeName ?? '';
+    _consigneeGstinCtrl.text = t.consigneeGstin ?? '';
+
+    _pickupCtrl.text         = t.origin;
+    _pickupCityId            = t.originRrCityId;
+    _pickupLine1Ctrl.text    = t.pickupAddressLine1 ?? '';
+    _pickupLine2Ctrl.text    = t.pickupAddressLine2 ?? '';
+    _pickupPinCtrl.text      = t.pickupPin ?? '';
+    _pickupNoEntryZone       = t.pickupNoEntryZone ?? false;
+
+    _dropCtrl.text           = t.destination;
+    _dropCityId              = t.destinationRrCityId;
+    _unloadLine1Ctrl.text    = t.unloadAddressLine1 ?? '';
+    _unloadLine2Ctrl.text    = t.unloadAddressLine2 ?? '';
+    _unloadPinCtrl.text      = t.unloadPin ?? '';
+    _depotCodeCtrl.text      = t.depotCode ?? '';
+    _unloadNoEntryZone       = t.unloadNoEntryZone ?? false;
+
+    _materialCtrl.text       = t.loadItem;
+    _materialRrId            = t.materialRrId;
+    _weightCtrl.text         = t.weightValue == null ? '' : _fmtNum(t.weightValue!);
+    _weightUnit              = t.weightUnit ?? _weightUnit;
+    _invoiceValueCtrl.text   = t.invoiceValue == null ? '' : _fmtNum(t.invoiceValue!);
+    _parcelDescCtrl.text     = t.parcelDescription ?? '';
+    _partLoad                = t.partLoad ?? false;
+
+    _editInitial = _editValues();
+  }
+
+  Map<String, dynamic> _editValues() => {
+        'consignor_rr_company_id': _consignorRrCompanyId,
+        'consignor_name':         _blankToNull(_consignorNameCtrl.text),
+        'consignor_gstin':        _blankToNull(_consignorGstinCtrl.text),
+        'consignee_rr_company_id': _consigneeRrCompanyId,
+        'consignee_name':         _blankToNull(_consigneeNameCtrl.text),
+        'consignee_gstin':        _blankToNull(_consigneeGstinCtrl.text),
+        'origin_rr_city_id':      _pickupCityId,
+        'origin':                 _blankToNull(_pickupCtrl.text),
+        'pickup_address_line1':   _blankToNull(_pickupLine1Ctrl.text),
+        'pickup_address_line2':   _blankToNull(_pickupLine2Ctrl.text),
+        'pickup_pin':             _blankToNull(_pickupPinCtrl.text),
+        'pickup_no_entry_zone':   _pickupNoEntryZone,
+        'destination_rr_city_id': _dropCityId,
+        'destination':            _blankToNull(_dropCtrl.text),
+        'unload_address_line1':   _blankToNull(_unloadLine1Ctrl.text),
+        'unload_address_line2':   _blankToNull(_unloadLine2Ctrl.text),
+        'unload_pin':             _blankToNull(_unloadPinCtrl.text),
+        'depot_code':             _blankToNull(_depotCodeCtrl.text)?.toUpperCase(),
+        'unload_no_entry_zone':   _unloadNoEntryZone,
+        'material_rr_id':         _materialRrId,
+        'load_item':              _blankToNull(_materialCtrl.text),
+        'weight_value':           double.tryParse(_weightCtrl.text.trim()),
+        'weight_unit':            _weightUnit,
+        'invoice_value':          double.tryParse(_invoiceValueCtrl.text.trim()),
+        'parcel_description':     _blankToNull(_parcelDescCtrl.text),
+        'part_load':              _partLoad,
+      };
+
+  /// Only the fields that differ from what was loaded — sending the whole form
+  /// would silently overwrite anything changed on RR web since this trip was
+  /// last fetched. Id/name (and weight/unit) pairs always travel together.
+  Map<String, dynamic> _editChanges() {
+    final now = _editValues();
+    final out = <String, dynamic>{
+      for (final e in now.entries)
+        if (e.value != _editInitial[e.key]) e.key: e.value,
+    };
+    for (final pair in const [
+      ['origin_rr_city_id', 'origin'],
+      ['destination_rr_city_id', 'destination'],
+      ['material_rr_id', 'load_item'],
+      ['weight_value', 'weight_unit'],
+    ]) {
+      if (pair.any(out.containsKey)) {
+        for (final k in pair) { out[k] = now[k]; }
+      }
+    }
+    return out;
+  }
+
+  bool get _isDirty => _isEdit && _editChanges().isNotEmpty;
+
+  bool _pageHasError(int page) => _fieldErr.entries
+      .any((e) => e.value == true && _editPageOfField[e.key] == page);
+
+  /// FastAPI sends `detail` as a String for our own refusals but as a List for
+  /// request-validation errors — handle both, never cast.
+  String _editErrorText(Object e) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      final detail = data is Map ? data['detail'] : null;
+      if (detail is String && detail.isNotEmpty) return detail;
+      if (detail is List && detail.isNotEmpty) {
+        return detail
+            .map((d) => d is Map ? (d['msg'] ?? d).toString() : d.toString())
+            .join('; ');
+      }
+      if (e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionTimeout) {
+        return 'RR is taking too long to respond — please try again';
+      }
+    }
+    return 'Could not save the changes — please try again';
+  }
+
+  Future<void> _submitEdit() async {
+    if (_submitting) return;
+    setState(() { _submitError = null; _fieldErr.clear(); _fieldErrMsg.clear(); });
+    if (!_validateStep0()) return;
+
+    final changes = _editChanges();
+    if (changes.isEmpty) {
+      setState(() => _submitError = 'Nothing has been changed');
+      return;
+    }
+
+    final trip = widget.editTrip!;
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _submitting = true);
+    try {
+      // runRrAction shows the RR login dialog when the org's RR session has
+      // expired (backend 409), then retries this update once after sign-in.
+      await runRrAction(context, ref, () => ref.read(dioProvider).patch(
+            '/api/rr/edit-trip/${trip.id}',
+            data: changes,
+            options: Options(receiveTimeout: const Duration(seconds: 90)),
+          ));
+      if (!mounted) return;
+      try {
+        await ref.read(tripProvider.notifier).fetchSingleTrip(trip.id);
+      } catch (_) {
+        // The save already succeeded; the card refreshes on its own next load.
+      }
+      messenger.showSnackBar(SnackBar(
+        content: Text('Trip updated', style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: _successClr,
+        behavior: SnackBarBehavior.floating,
+      ));
+      if (!mounted) return;
+      try { Navigator.of(context).pop(true); } catch (_) {}
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _submitting = false; _submitError = _editErrorText(e); });
+    }
+  }
+
+  Future<void> _requestClose() async {
+    if (_submitting) return;
+    if (_isDirty) {
+      final discard = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Discard changes?'),
+          content: const Text('Your edits to this trip have not been saved.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Keep editing')),
+            TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Discard')),
+          ],
+        ),
+      );
+      if (discard != true || !mounted) return;
+    }
+    try { Navigator.of(context).pop(); } catch (_) {}
+  }
+
+  Widget _editPage(ScrollController ctrl, List<Widget> children) => ListView(
+        controller: ctrl,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: children,
+      );
+
+  Widget _buildEditView() {
+    final t = widget.editTrip!;
+    final ident = (t.rrTripNumber != null && t.rrTripNumber!.isNotEmpty) ? t.rrTripNumber! : t.tripNumber;
+    final booked = t.rrParcelId != null;
+
+    Widget tab(String label, int page) => Tab(
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Text(label),
+            if (_pageHasError(page)) ...[
+              const SizedBox(width: 6),
+              const Icon(Icons.circle, size: 8, color: _errorClr),
+            ],
+          ]),
+        );
+
+    // A floating card (opened via showDialog by the caller), not a full page
+    // and not a sheet flush against a screen edge — an explicit close button
+    // instead of an AppBar/Scaffold, so it reads as a card floating over the
+    // trip list. The rounding/fill/shadow all belong to the Dialog itself (set
+    // at the call site in rr_trip_card.dart) — this just supplies a Material
+    // ancestor for the TabBar's ink effects, without re-painting a second
+    // background or shape.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) { if (!didPop) _requestClose(); },
+      child: Material(
+        type: MaterialType.transparency,
+        child: GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Column(
+              children: [
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 10, 20, 0),
+                  child: Row(children: [
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: _onSurface),
+                      onPressed: _requestClose,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text('Edit Trip · $ident',
+                          style: _manrope(size: 16, weight: FontWeight.w800),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ]),
+                ),
+                TabBar(
+                  controller: _tabCtrl,
+                  // RR blue (matches the trip card header), not the orange
+                  // _primary used for buttons elsewhere in this screen.
+                  labelColor: const Color(0xFF1B6CA8),
+                  unselectedLabelColor: _secondary,
+                  indicatorColor: const Color(0xFF1B6CA8),
+                  labelStyle: _manrope(size: 13, weight: FontWeight.w700),
+                  unselectedLabelStyle: _manrope(size: 13, weight: FontWeight.w600, color: _secondary),
+                  tabs: [tab('Consignor', 0), tab('Consignee', 1), tab('Load Info', 2)],
+                ),
+                const Divider(height: 1, color: _border),
+                if (!booked)
+                  Container(
+                    width: double.infinity,
+                    color: const Color(0xFFFFF3E0),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                      'Not booked on RR yet — changes are saved here and sent to RR when you Confirm Booking.',
+                      style: _inter(size: 12, weight: FontWeight.w600, color: const Color(0xFFE65100)),
+                    ),
+                  ),
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabCtrl,
+                    children: [
+                      _editPage(_scrollCtrl0, _consignorPickupChildren()),
+                      _editPage(_scrollCtrl1, _consigneeUnloadChildren()),
+                      _editPage(_scrollCtrl2, _parcelChildren()),
+                    ],
+                  ),
+                ),
+                if (_submitError != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF0F0),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _errorClr.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.error_outline_rounded, color: _errorClr, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(_submitError!, style: _inter(size: 13, color: _errorClr))),
+                      ]),
+                    ),
+                  ),
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+                  decoration: const BoxDecoration(
+                    color: _surface,
+                    border: Border(top: BorderSide(color: _border)),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: Row(children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: _submitting ? null : _requestClose,
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size.fromHeight(48),
+                            side: const BorderSide(color: _border),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text('Cancel', style: _manrope(size: 14, color: _onSurface)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: _submitting ? null : _submitEdit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _primary,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(48),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: _submitting
+                              ? const SizedBox(
+                                  width: 20, height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : Text(booked ? 'Update' : 'Save', style: _manrope(size: 14, color: Colors.white)),
+                        ),
+                      ),
+                    ]),
+                  ),
+                ),
+              ],
+            ),
+        ),
+      ),
+    );
+  }
+
+  // ── Step-0 sections ───────────────────────────────────────────────────────
+  // Shared by New Trip (all three stacked on one page) and Edit Trip (one per
+  // swipe page), so the fields, error keys and auto-fill behave identically.
+
+  /// Consignor Info + Pickup Location.
+  List<Widget> _consignorPickupChildren() => [
+      // ─── 1 · CONSIGNOR
+      // ═══════════════════════════════════════════════════════════
+      _SectionHeader(label: 'Consignor Info'),
+      const SizedBox(height: 4),
+      Text('Select from Partners to auto fill Consignor details',
+          style: _inter(size: 12, color: _secondary)),
+      const SizedBox(height: 12),
+
+      _FieldLabel(label: 'Select from Partners (optional)'),
+      const SizedBox(height: 6),
+      _partnersLoading
+          ? const _LoadingChip(label: 'Loading partners…')
+          : _DropdownField<String>(
+              value: _consignorPartner?['partner_id'] as String?,
+              hint: 'Select partner',
+              items: _partners.map((p) => DropdownMenuItem<String>(
+                value: p['partner_id'] as String?,
+                child: Text(p['name'] as String? ?? '—',
+                    style: _inter(size: 13, color: _onSurface),
+                    overflow: TextOverflow.ellipsis),
+              )).toList(),
+              onChanged: (v) {
+                final p = _partners.firstWhere((x) => x['partner_id'] == v, orElse: () => {});
+                if (p.isEmpty) return;
+                setState(() {
+                  _consignorPartner        = p;
+                  _consignorPhone          = (p['phone'] as Map?)?['number'] as String?;
+                  _consignorNameCtrl.text  = p['name'] as String? ?? '';
+                  _consignorGstinCtrl.text = p['gstin'] as String? ?? '';
+                  _consignorAddresses      = (p['postal_addresses'] as List? ?? []).cast<Map<String, dynamic>>();
+                  _consignorRrCompanyId    = null;
+                  _consignorCompanyName    = null;
+                  _consignorCompanies      = [];
+                });
+                _loadPartnerCompanies(p, isConsignor: true);
+              },
+            ),
+
+      if (_consignorPhone != null) ...[
+        const SizedBox(height: 10),
+        _FieldLabel(label: 'Phone Number'),
+        const SizedBox(height: 6),
+        _ReadOnlyField(value: _consignorPhone!, icon: Icons.phone_outlined),
+      ],
+
+      const SizedBox(height: 10),
+      _FieldLabel(key: _keyConsignorName, label: 'Consignor Name *'),
+      const SizedBox(height: 6),
+      _TextInput(
+        controller: _consignorNameCtrl,
+        hint: 'e.g. Tata Steel Ltd',
+        hasError: _fieldErr['consignorName'] == true,
+      ),
+      _inlineErr('consignorName'),
+
+      const SizedBox(height: 10),
+      _FieldLabel(key: _keyConsignorCompany, label: 'Select Consignor Company *'),
+      const SizedBox(height: 6),
+      _consignorCompaniesLoading
+          ? const _LoadingChip(label: 'Loading companies…')
+          : _consignorCompanies.isEmpty && _consignorRrCompanyId != null
+              ? _SelectedChip(
+                  label: _consignorCompanyName ?? '',
+                  onClear: () => setState(() {
+                    _consignorRrCompanyId = null;
+                    _consignorCompanyName = null;
+                    _consignorGstinCtrl.clear();
+                  }),
+                )
+              : _DropdownField<String>(
+                  hasError: _fieldErr['consignorCompany'] == true,
+                  value: _consignorRrCompanyId,
+                  hint: _consignorPartner == null ? 'Select a partner above first' : 'Select company',
+                  items: _consignorCompanies.map((c) => DropdownMenuItem<String>(
+                    value: c['rr_company_id'] as String,
+                    child: Text(c['name'] as String? ?? '—',
+                        style: _inter(size: 13, color: _onSurface),
+                        overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: _consignorPartner == null ? null : (v) {
+                    final c = _consignorCompanies.firstWhere(
+                        (x) => x['rr_company_id'] == v, orElse: () => {});
+                    setState(() {
+                      _consignorRrCompanyId  = v;
+                      _consignorCompanyName  = c['name'] as String?;
+                      _consignorGstinCtrl.text = c['gstin'] as String? ?? '';
+                      // Only fill if the user hasn't typed their own
+                      // name already — this must never clobber a
+                      // manual edit, only spare the common case of
+                      // leaving it blank after picking a company.
+                      if (_consignorNameCtrl.text.trim().isEmpty) {
+                        _consignorNameCtrl.text = c['name'] as String? ?? '';
+                      }
+                      _consignorAddresses    = [];
+                      _fieldErr.remove('consignorCompany');
+                      _fieldErrMsg.remove('consignorCompany');
+                      // consignorName's own error clears itself via
+                      // the controller listener above when this fill
+                      // actually changes its text — left alone here so
+                      // a company with no name doesn't falsely clear
+                      // a still-blank required field.
+                    });
+                    _loadCompanyLocations(v, isConsignor: true);
+                  },
+                ),
+      _inlineErr('consignorCompany'),
+
+      const SizedBox(height: 10),
+      _FieldLabel(label: 'Consignor GSTIN'),
+      const SizedBox(height: 6),
+      _TextInput(controller: _consignorGstinCtrl, hint: 'Auto-filled or enter manually'),
+
+      // ═══════════════════════════════════════════════════════════
+      // 2 · PICKUP LOCATION
+      // ═══════════════════════════════════════════════════════════
+      const SizedBox(height: 24),
+      _SectionHeader(label: 'Pickup Location'),
+      const SizedBox(height: 4),
+      Text('Select consignor address to auto fill',
+          style: _inter(size: 12, color: _secondary)),
+      const SizedBox(height: 12),
+
+      if (_consignorAddresses.isNotEmpty) ...[
+        _FieldLabel(label: 'Select consignor address (optional)'),
+        const SizedBox(height: 6),
+        _DropdownField<int>(
+          value: null,
+          hint: 'Select to auto-fill address fields',
+          items: List.generate(_consignorAddresses.length, (i) {
+            final a = _consignorAddresses[i];
+            final parts = <String>[
+              if ((a['city_name'] as String? ?? '').isNotEmpty) a['city_name'] as String,
+              if ((a['address_line_1'] as String? ?? '').isNotEmpty) a['address_line_1'] as String,
+            ];
+            final label = parts.isNotEmpty ? parts.join(' — ') : 'Address ${i + 1}';
+            return DropdownMenuItem<int>(
+              value: i,
+              child: Text(label, style: _inter(size: 13, color: _onSurface), overflow: TextOverflow.ellipsis),
+            );
+          }),
+          onChanged: (i) { if (i != null) _selectConsignorAddress(_consignorAddresses[i]); },
+        ),
+        const SizedBox(height: 10),
+      ],
+
+      _FieldLabel(label: 'Address Line 1'),
+      const SizedBox(height: 6),
+      _CountedTextInput(controller: _pickupLine1Ctrl, hint: 'Street / area', maxLength: 200),
+
+      const SizedBox(height: 10),
+      _FieldLabel(label: 'Address Line 2'),
+      const SizedBox(height: 6),
+      _CountedTextInput(controller: _pickupLine2Ctrl, hint: 'Landmark / locality', maxLength: 200),
+
+      const SizedBox(height: 10),
+      _FieldLabel(key: _keyPickupCity, label: 'Pickup City Name *'),
+      const SizedBox(height: 6),
+      _SearchField(
+        hasError: _fieldErr['pickupCity'] == true,
+        controller: _pickupCtrl,
+        hint: 'Search city…',
+        loading: _pickupLoading,
+        confirmed: _pickupCityId != null,
+        onChanged: _onPickupTyped,
+        onClear: () => setState(() { _pickupCityId = null; _pickupCtrl.clear(); _pickupResults = []; }),
+      ),
+      _inlineErr('pickupCity'),
+      if (_pickupResults.isNotEmpty)
+        _ResultsCard(items: _pickupResults, labelKey: 'name', onSelect: _selectPickup),
+
+      const SizedBox(height: 10),
+      _FieldLabel(label: 'Pin / Zip Code'),
+      const SizedBox(height: 6),
+      _TextInput(controller: _pickupPinCtrl, hint: '6-digit PIN', inputType: TextInputType.number),
+
+      const SizedBox(height: 10),
+      _CheckboxRow(
+        label: 'No Entry Zone',
+        value: _pickupNoEntryZone,
+        onChanged: (v) => setState(() => _pickupNoEntryZone = v ?? false),
+      ),
+  ];
+
+  /// Consignee Info + Unload Location.
+  List<Widget> _consigneeUnloadChildren() => [
+      _SectionHeader(label: 'Consignee Info'),
+      const SizedBox(height: 4),
+      Text('Select from Partners to auto fill Consignee details',
+          style: _inter(size: 12, color: _secondary)),
+      const SizedBox(height: 12),
+
+      _FieldLabel(label: 'Select from Partners (optional)'),
+      const SizedBox(height: 6),
+      _partnersLoading
+          ? const _LoadingChip(label: 'Loading partners…')
+          : _DropdownField<String>(
+              value: _consigneePartner?['partner_id'] as String?,
+              hint: 'Select partner',
+              items: _partners.map((p) => DropdownMenuItem<String>(
+                value: p['partner_id'] as String?,
+                child: Text(p['name'] as String? ?? '—',
+                    style: _inter(size: 13, color: _onSurface),
+                    overflow: TextOverflow.ellipsis),
+              )).toList(),
+              onChanged: (v) {
+                final p = _partners.firstWhere((x) => x['partner_id'] == v, orElse: () => {});
+                if (p.isEmpty) return;
+                setState(() {
+                  _consigneePartner        = p;
+                  _consigneePhone          = (p['phone'] as Map?)?['number'] as String?;
+                  _consigneeNameCtrl.text  = p['name'] as String? ?? '';
+                  _consigneeGstinCtrl.text = p['gstin'] as String? ?? '';
+                  _consigneeAddresses      = (p['postal_addresses'] as List? ?? []).cast<Map<String, dynamic>>();
+                  _consigneeRrCompanyId    = null;
+                  _consigneeCompanyName    = null;
+                  _consigneeCompanies      = [];
+                });
+                _loadPartnerCompanies(p, isConsignor: false);
+              },
+            ),
+
+      if (_consigneePhone != null) ...[
+        const SizedBox(height: 10),
+        _FieldLabel(label: 'Phone Number'),
+        const SizedBox(height: 6),
+        _ReadOnlyField(value: _consigneePhone!, icon: Icons.phone_outlined),
+      ],
+
+      const SizedBox(height: 10),
+      _FieldLabel(label: 'Consignee Name'),
+      const SizedBox(height: 6),
+      _TextInput(controller: _consigneeNameCtrl, hint: 'e.g. JSW Steel Ltd'),
+
+      const SizedBox(height: 10),
+      _FieldLabel(label: 'Select Consignee Company'),
+      const SizedBox(height: 6),
+      _consigneeCompaniesLoading
+          ? const _LoadingChip(label: 'Loading companies…')
+          : _consigneeCompanies.isEmpty && _consigneeRrCompanyId != null
+              ? _SelectedChip(
+                  label: _consigneeCompanyName ?? '',
+                  onClear: () => setState(() {
+                    _consigneeRrCompanyId = null;
+                    _consigneeCompanyName = null;
+                    _consigneeGstinCtrl.clear();
+                  }),
+                )
+              : _DropdownField<String>(
+                  value: _consigneeRrCompanyId,
+                  hint: _consigneePartner == null ? 'Select a partner above first' : 'Select company',
+                  items: _consigneeCompanies.map((c) => DropdownMenuItem<String>(
+                    value: c['rr_company_id'] as String,
+                    child: Text(c['name'] as String? ?? '—',
+                        style: _inter(size: 13, color: _onSurface),
+                        overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: _consigneePartner == null ? null : (v) {
+                    final c = _consigneeCompanies.firstWhere(
+                        (x) => x['rr_company_id'] == v, orElse: () => {});
+                    setState(() {
+                      _consigneeRrCompanyId  = v;
+                      _consigneeCompanyName  = c['name'] as String?;
+                      _consigneeGstinCtrl.text = c['gstin'] as String? ?? '';
+                      _consigneeAddresses    = [];
+                    });
+                    _loadCompanyLocations(v, isConsignor: false);
+                  },
+                ),
+
+      const SizedBox(height: 10),
+      _FieldLabel(label: 'Consignee GSTIN'),
+      const SizedBox(height: 6),
+      _TextInput(controller: _consigneeGstinCtrl, hint: 'Auto-filled or enter manually'),
+
+      // ═══════════════════════════════════════════════════════════
+      // 4 · UNLOAD LOCATION
+      // ═══════════════════════════════════════════════════════════
+      const SizedBox(height: 24),
+      _SectionHeader(label: 'Unload Location'),
+      const SizedBox(height: 4),
+      Text('Select consignee address to auto fill',
+          style: _inter(size: 12, color: _secondary)),
+      const SizedBox(height: 12),
+
+      if (_consigneeAddresses.isNotEmpty) ...[
+        _FieldLabel(label: 'Select consignee address (optional)'),
+        const SizedBox(height: 6),
+        _DropdownField<int>(
+          value: null,
+          hint: 'Select to auto-fill address fields',
+          items: List.generate(_consigneeAddresses.length, (i) {
+            final a = _consigneeAddresses[i];
+            final parts = <String>[
+              if ((a['city_name'] as String? ?? '').isNotEmpty) a['city_name'] as String,
+              if ((a['address_line_1'] as String? ?? '').isNotEmpty) a['address_line_1'] as String,
+            ];
+            final label = parts.isNotEmpty ? parts.join(' — ') : 'Address ${i + 1}';
+            return DropdownMenuItem<int>(
+              value: i,
+              child: Text(label, style: _inter(size: 13, color: _onSurface), overflow: TextOverflow.ellipsis),
+            );
+          }),
+          onChanged: (i) { if (i != null) _selectConsigneeAddress(_consigneeAddresses[i]); },
+        ),
+        const SizedBox(height: 10),
+      ],
+
+      _FieldLabel(label: 'Address Line 1'),
+      const SizedBox(height: 6),
+      _CountedTextInput(controller: _unloadLine1Ctrl, hint: 'Street / area', maxLength: 200),
+
+      const SizedBox(height: 10),
+      _FieldLabel(label: 'Address Line 2'),
+      const SizedBox(height: 6),
+      _CountedTextInput(controller: _unloadLine2Ctrl, hint: 'Landmark / locality', maxLength: 200),
+
+      const SizedBox(height: 10),
+      _FieldLabel(key: _keyUnloadCity, label: 'Unload City Name *'),
+      const SizedBox(height: 6),
+      _SearchField(
+        hasError: _fieldErr['unloadCity'] == true,
+        controller: _dropCtrl,
+        hint: 'Search city…',
+        loading: _dropLoading,
+        confirmed: _dropCityId != null,
+        onChanged: _onDropTyped,
+        onClear: () => setState(() { _dropCityId = null; _dropCtrl.clear(); _dropResults = []; }),
+      ),
+      _inlineErr('unloadCity'),
+      if (_dropResults.isNotEmpty)
+        _ResultsCard(items: _dropResults, labelKey: 'name', onSelect: _selectDrop),
+
+      const SizedBox(height: 10),
+      _FieldLabel(label: 'Pin / Zip Code'),
+      const SizedBox(height: 6),
+      _TextInput(controller: _unloadPinCtrl, hint: '6-digit PIN', inputType: TextInputType.number),
+
+      const SizedBox(height: 10),
+      _FieldLabel(label: 'Depot Code'),
+      const SizedBox(height: 6),
+      _TextInput(controller: _depotCodeCtrl, hint: 'e.g. KNP01'),
+
+      const SizedBox(height: 10),
+      _CheckboxRow(
+        label: 'No Entry Zone',
+        value: _unloadNoEntryZone,
+        onChanged: (v) => setState(() => _unloadNoEntryZone = v ?? false),
+      ),
+  ];
+
+  /// Parcel / Load Information.
+  List<Widget> _parcelChildren() => [
+      _SectionHeader(label: 'Parcel / Load Information'),
+      const SizedBox(height: 12),
+
+      _FieldLabel(key: _keyMaterial, label: 'Material / Product Type *'),
+      const SizedBox(height: 6),
+      Focus(
+        onFocusChange: (focused) {
+          if (focused && _materialCtrl.text.isEmpty) _searchMaterial('');
+        },
+        child: _SearchField(
+          hasError: _fieldErr['material'] == true,
+          controller: _materialCtrl,
+          hint: 'Search material…',
+          loading: _materialLoading,
+          confirmed: _materialRrId != null,
+          onChanged: _onMaterialTyped,
+          onClear: () => setState(() { _materialRrId = null; _materialCtrl.clear(); _materialResults = []; }),
+        ),
+      ),
+      _inlineErr('material'),
+      if (_materialResults.isNotEmpty)
+        _ResultsCard(items: _materialResults, labelKey: 'name', onSelect: _selectMaterial),
+
+      const SizedBox(height: 10),
+      _FieldLabel(key: _keyWeight, label: 'Total Weight / Quantity *'),
+      const SizedBox(height: 6),
+      _WeightRow(
+        hasError: _fieldErr['weight'] == true,
+        controller: _weightCtrl,
+        unit: _quantityUnits.contains(_weightUnit) ? _weightUnit : _quantityUnits.first,
+        units: _quantityUnits,
+        onUnitChanged: (u) => setState(() => _weightUnit = u),
+      ),
+      _inlineErr('weight'),
+
+      const SizedBox(height: 10),
+      _FieldLabel(key: _keyInvoiceValue, label: 'Total Invoice Value (₹) *'),
+      const SizedBox(height: 6),
+      _TextInput(
+        hasError: _fieldErr['invoiceValue'] == true,
+        controller: _invoiceValueCtrl,
+        hint: 'e.g. 150000',
+        inputType: TextInputType.number,
+      ),
+      _inlineErr('invoiceValue'),
+
+      const SizedBox(height: 10),
+      _FieldLabel(label: 'Description of Parcel'),
+      const SizedBox(height: 6),
+      _CountedTextInput(controller: _parcelDescCtrl, hint: 'e.g. Steel coils', maxLength: 100),
+
+      const SizedBox(height: 10),
+      _CheckboxRow(
+        label: 'Part Load',
+        value: _partLoad,
+        onChanged: (v) => setState(() => _partLoad = v ?? false),
+      ),
+  ];
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    if (_isEdit) return _buildEditView();
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -1106,417 +1905,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               children: [
 
-            // ─── 1 · CONSIGNOR
-            // ═══════════════════════════════════════════════════════════
-            _SectionHeader(label: 'Consignor Info'),
-            const SizedBox(height: 4),
-            Text('Select from Partners to auto fill Consignor details',
-                style: _inter(size: 12, color: _secondary)),
-            const SizedBox(height: 12),
-
-            _FieldLabel(label: 'Select from Partners (optional)'),
-            const SizedBox(height: 6),
-            _partnersLoading
-                ? const _LoadingChip(label: 'Loading partners…')
-                : _DropdownField<String>(
-                    value: _consignorPartner?['partner_id'] as String?,
-                    hint: 'Select partner',
-                    items: _partners.map((p) => DropdownMenuItem<String>(
-                      value: p['partner_id'] as String?,
-                      child: Text(p['name'] as String? ?? '—',
-                          style: _inter(size: 13, color: _onSurface),
-                          overflow: TextOverflow.ellipsis),
-                    )).toList(),
-                    onChanged: (v) {
-                      final p = _partners.firstWhere((x) => x['partner_id'] == v, orElse: () => {});
-                      if (p.isEmpty) return;
-                      setState(() {
-                        _consignorPartner        = p;
-                        _consignorPhone          = (p['phone'] as Map?)?['number'] as String?;
-                        _consignorNameCtrl.text  = p['name'] as String? ?? '';
-                        _consignorGstinCtrl.text = p['gstin'] as String? ?? '';
-                        _consignorAddresses      = (p['postal_addresses'] as List? ?? []).cast<Map<String, dynamic>>();
-                        _consignorRrCompanyId    = null;
-                        _consignorCompanyName    = null;
-                        _consignorCompanies      = [];
-                      });
-                      _loadPartnerCompanies(p, isConsignor: true);
-                    },
-                  ),
-
-            if (_consignorPhone != null) ...[
-              const SizedBox(height: 10),
-              _FieldLabel(label: 'Phone Number'),
-              const SizedBox(height: 6),
-              _ReadOnlyField(value: _consignorPhone!, icon: Icons.phone_outlined),
-            ],
-
-            const SizedBox(height: 10),
-            _FieldLabel(key: _keyConsignorName, label: 'Consignor Name *'),
-            const SizedBox(height: 6),
-            _TextInput(
-              controller: _consignorNameCtrl,
-              hint: 'e.g. Tata Steel Ltd',
-              hasError: _fieldErr['consignorName'] == true,
-            ),
-            _inlineErr('consignorName'),
-
-            const SizedBox(height: 10),
-            _FieldLabel(key: _keyConsignorCompany, label: 'Select Consignor Company *'),
-            const SizedBox(height: 6),
-            _consignorCompaniesLoading
-                ? const _LoadingChip(label: 'Loading companies…')
-                : _consignorCompanies.isEmpty && _consignorRrCompanyId != null
-                    ? _SelectedChip(
-                        label: _consignorCompanyName ?? '',
-                        onClear: () => setState(() {
-                          _consignorRrCompanyId = null;
-                          _consignorCompanyName = null;
-                          _consignorGstinCtrl.clear();
-                        }),
-                      )
-                    : _DropdownField<String>(
-                        hasError: _fieldErr['consignorCompany'] == true,
-                        value: _consignorRrCompanyId,
-                        hint: _consignorPartner == null ? 'Select a partner above first' : 'Select company',
-                        items: _consignorCompanies.map((c) => DropdownMenuItem<String>(
-                          value: c['rr_company_id'] as String,
-                          child: Text(c['name'] as String? ?? '—',
-                              style: _inter(size: 13, color: _onSurface),
-                              overflow: TextOverflow.ellipsis),
-                        )).toList(),
-                        onChanged: _consignorPartner == null ? null : (v) {
-                          final c = _consignorCompanies.firstWhere(
-                              (x) => x['rr_company_id'] == v, orElse: () => {});
-                          setState(() {
-                            _consignorRrCompanyId  = v;
-                            _consignorCompanyName  = c['name'] as String?;
-                            _consignorGstinCtrl.text = c['gstin'] as String? ?? '';
-                            // Only fill if the user hasn't typed their own
-                            // name already — this must never clobber a
-                            // manual edit, only spare the common case of
-                            // leaving it blank after picking a company.
-                            if (_consignorNameCtrl.text.trim().isEmpty) {
-                              _consignorNameCtrl.text = c['name'] as String? ?? '';
-                            }
-                            _consignorAddresses    = [];
-                            _fieldErr.remove('consignorCompany');
-                            _fieldErrMsg.remove('consignorCompany');
-                            // consignorName's own error clears itself via
-                            // the controller listener above when this fill
-                            // actually changes its text — left alone here so
-                            // a company with no name doesn't falsely clear
-                            // a still-blank required field.
-                          });
-                          _loadCompanyLocations(v, isConsignor: true);
-                        },
-                      ),
-            _inlineErr('consignorCompany'),
-
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Consignor GSTIN'),
-            const SizedBox(height: 6),
-            _TextInput(controller: _consignorGstinCtrl, hint: 'Auto-filled or enter manually'),
-
-            // ═══════════════════════════════════════════════════════════
-            // 2 · PICKUP LOCATION
-            // ═══════════════════════════════════════════════════════════
+            ..._consignorPickupChildren(),
             const SizedBox(height: 24),
-            _SectionHeader(label: 'Pickup Location'),
-            const SizedBox(height: 4),
-            Text('Select consignor address to auto fill',
-                style: _inter(size: 12, color: _secondary)),
-            const SizedBox(height: 12),
-
-            if (_consignorAddresses.isNotEmpty) ...[
-              _FieldLabel(label: 'Select consignor address (optional)'),
-              const SizedBox(height: 6),
-              _DropdownField<int>(
-                value: null,
-                hint: 'Select to auto-fill address fields',
-                items: List.generate(_consignorAddresses.length, (i) {
-                  final a = _consignorAddresses[i];
-                  final parts = <String>[
-                    if ((a['city_name'] as String? ?? '').isNotEmpty) a['city_name'] as String,
-                    if ((a['address_line_1'] as String? ?? '').isNotEmpty) a['address_line_1'] as String,
-                  ];
-                  final label = parts.isNotEmpty ? parts.join(' — ') : 'Address ${i + 1}';
-                  return DropdownMenuItem<int>(
-                    value: i,
-                    child: Text(label, style: _inter(size: 13, color: _onSurface), overflow: TextOverflow.ellipsis),
-                  );
-                }),
-                onChanged: (i) { if (i != null) _selectConsignorAddress(_consignorAddresses[i]); },
-              ),
-              const SizedBox(height: 10),
-            ],
-
-            _FieldLabel(label: 'Address Line 1'),
-            const SizedBox(height: 6),
-            _CountedTextInput(controller: _pickupLine1Ctrl, hint: 'Street / area', maxLength: 200),
-
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Address Line 2'),
-            const SizedBox(height: 6),
-            _CountedTextInput(controller: _pickupLine2Ctrl, hint: 'Landmark / locality', maxLength: 200),
-
-            const SizedBox(height: 10),
-            _FieldLabel(key: _keyPickupCity, label: 'Pickup City Name *'),
-            const SizedBox(height: 6),
-            _SearchField(
-              hasError: _fieldErr['pickupCity'] == true,
-              controller: _pickupCtrl,
-              hint: 'Search city…',
-              loading: _pickupLoading,
-              confirmed: _pickupCityId != null,
-              onChanged: _onPickupTyped,
-              onClear: () => setState(() { _pickupCityId = null; _pickupCtrl.clear(); _pickupResults = []; }),
-            ),
-            _inlineErr('pickupCity'),
-            if (_pickupResults.isNotEmpty)
-              _ResultsCard(items: _pickupResults, labelKey: 'name', onSelect: _selectPickup),
-
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Pin / Zip Code'),
-            const SizedBox(height: 6),
-            _TextInput(controller: _pickupPinCtrl, hint: '6-digit PIN', inputType: TextInputType.number),
-
-            const SizedBox(height: 10),
-            _CheckboxRow(
-              label: 'No Entry Zone',
-              value: _pickupNoEntryZone,
-              onChanged: (v) => setState(() => _pickupNoEntryZone = v ?? false),
-            ),
-
-            // ═══════════════════════════════════════════════════════════
-            // 3 · CONSIGNEE
-            // ═══════════════════════════════════════════════════════════
+            ..._consigneeUnloadChildren(),
             const SizedBox(height: 24),
-            _SectionHeader(label: 'Consignee Info'),
-            const SizedBox(height: 4),
-            Text('Select from Partners to auto fill Consignee details',
-                style: _inter(size: 12, color: _secondary)),
-            const SizedBox(height: 12),
-
-            _FieldLabel(label: 'Select from Partners (optional)'),
-            const SizedBox(height: 6),
-            _partnersLoading
-                ? const _LoadingChip(label: 'Loading partners…')
-                : _DropdownField<String>(
-                    value: _consigneePartner?['partner_id'] as String?,
-                    hint: 'Select partner',
-                    items: _partners.map((p) => DropdownMenuItem<String>(
-                      value: p['partner_id'] as String?,
-                      child: Text(p['name'] as String? ?? '—',
-                          style: _inter(size: 13, color: _onSurface),
-                          overflow: TextOverflow.ellipsis),
-                    )).toList(),
-                    onChanged: (v) {
-                      final p = _partners.firstWhere((x) => x['partner_id'] == v, orElse: () => {});
-                      if (p.isEmpty) return;
-                      setState(() {
-                        _consigneePartner        = p;
-                        _consigneePhone          = (p['phone'] as Map?)?['number'] as String?;
-                        _consigneeNameCtrl.text  = p['name'] as String? ?? '';
-                        _consigneeGstinCtrl.text = p['gstin'] as String? ?? '';
-                        _consigneeAddresses      = (p['postal_addresses'] as List? ?? []).cast<Map<String, dynamic>>();
-                        _consigneeRrCompanyId    = null;
-                        _consigneeCompanyName    = null;
-                        _consigneeCompanies      = [];
-                      });
-                      _loadPartnerCompanies(p, isConsignor: false);
-                    },
-                  ),
-
-            if (_consigneePhone != null) ...[
-              const SizedBox(height: 10),
-              _FieldLabel(label: 'Phone Number'),
-              const SizedBox(height: 6),
-              _ReadOnlyField(value: _consigneePhone!, icon: Icons.phone_outlined),
-            ],
-
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Consignee Name'),
-            const SizedBox(height: 6),
-            _TextInput(controller: _consigneeNameCtrl, hint: 'e.g. JSW Steel Ltd'),
-
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Select Consignee Company'),
-            const SizedBox(height: 6),
-            _consigneeCompaniesLoading
-                ? const _LoadingChip(label: 'Loading companies…')
-                : _consigneeCompanies.isEmpty && _consigneeRrCompanyId != null
-                    ? _SelectedChip(
-                        label: _consigneeCompanyName ?? '',
-                        onClear: () => setState(() {
-                          _consigneeRrCompanyId = null;
-                          _consigneeCompanyName = null;
-                          _consigneeGstinCtrl.clear();
-                        }),
-                      )
-                    : _DropdownField<String>(
-                        value: _consigneeRrCompanyId,
-                        hint: _consigneePartner == null ? 'Select a partner above first' : 'Select company',
-                        items: _consigneeCompanies.map((c) => DropdownMenuItem<String>(
-                          value: c['rr_company_id'] as String,
-                          child: Text(c['name'] as String? ?? '—',
-                              style: _inter(size: 13, color: _onSurface),
-                              overflow: TextOverflow.ellipsis),
-                        )).toList(),
-                        onChanged: _consigneePartner == null ? null : (v) {
-                          final c = _consigneeCompanies.firstWhere(
-                              (x) => x['rr_company_id'] == v, orElse: () => {});
-                          setState(() {
-                            _consigneeRrCompanyId  = v;
-                            _consigneeCompanyName  = c['name'] as String?;
-                            _consigneeGstinCtrl.text = c['gstin'] as String? ?? '';
-                            _consigneeAddresses    = [];
-                          });
-                          _loadCompanyLocations(v, isConsignor: false);
-                        },
-                      ),
-
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Consignee GSTIN'),
-            const SizedBox(height: 6),
-            _TextInput(controller: _consigneeGstinCtrl, hint: 'Auto-filled or enter manually'),
-
-            // ═══════════════════════════════════════════════════════════
-            // 4 · UNLOAD LOCATION
-            // ═══════════════════════════════════════════════════════════
-            const SizedBox(height: 24),
-            _SectionHeader(label: 'Unload Location'),
-            const SizedBox(height: 4),
-            Text('Select consignee address to auto fill',
-                style: _inter(size: 12, color: _secondary)),
-            const SizedBox(height: 12),
-
-            if (_consigneeAddresses.isNotEmpty) ...[
-              _FieldLabel(label: 'Select consignee address (optional)'),
-              const SizedBox(height: 6),
-              _DropdownField<int>(
-                value: null,
-                hint: 'Select to auto-fill address fields',
-                items: List.generate(_consigneeAddresses.length, (i) {
-                  final a = _consigneeAddresses[i];
-                  final parts = <String>[
-                    if ((a['city_name'] as String? ?? '').isNotEmpty) a['city_name'] as String,
-                    if ((a['address_line_1'] as String? ?? '').isNotEmpty) a['address_line_1'] as String,
-                  ];
-                  final label = parts.isNotEmpty ? parts.join(' — ') : 'Address ${i + 1}';
-                  return DropdownMenuItem<int>(
-                    value: i,
-                    child: Text(label, style: _inter(size: 13, color: _onSurface), overflow: TextOverflow.ellipsis),
-                  );
-                }),
-                onChanged: (i) { if (i != null) _selectConsigneeAddress(_consigneeAddresses[i]); },
-              ),
-              const SizedBox(height: 10),
-            ],
-
-            _FieldLabel(label: 'Address Line 1'),
-            const SizedBox(height: 6),
-            _CountedTextInput(controller: _unloadLine1Ctrl, hint: 'Street / area', maxLength: 200),
-
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Address Line 2'),
-            const SizedBox(height: 6),
-            _CountedTextInput(controller: _unloadLine2Ctrl, hint: 'Landmark / locality', maxLength: 200),
-
-            const SizedBox(height: 10),
-            _FieldLabel(key: _keyUnloadCity, label: 'Unload City Name *'),
-            const SizedBox(height: 6),
-            _SearchField(
-              hasError: _fieldErr['unloadCity'] == true,
-              controller: _dropCtrl,
-              hint: 'Search city…',
-              loading: _dropLoading,
-              confirmed: _dropCityId != null,
-              onChanged: _onDropTyped,
-              onClear: () => setState(() { _dropCityId = null; _dropCtrl.clear(); _dropResults = []; }),
-            ),
-            _inlineErr('unloadCity'),
-            if (_dropResults.isNotEmpty)
-              _ResultsCard(items: _dropResults, labelKey: 'name', onSelect: _selectDrop),
-
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Pin / Zip Code'),
-            const SizedBox(height: 6),
-            _TextInput(controller: _unloadPinCtrl, hint: '6-digit PIN', inputType: TextInputType.number),
-
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Depot Code'),
-            const SizedBox(height: 6),
-            _TextInput(controller: _depotCodeCtrl, hint: 'e.g. KNP01'),
-
-            const SizedBox(height: 10),
-            _CheckboxRow(
-              label: 'No Entry Zone',
-              value: _unloadNoEntryZone,
-              onChanged: (v) => setState(() => _unloadNoEntryZone = v ?? false),
-            ),
-
-            // ═══════════════════════════════════════════════════════════
-            // 5 · PARCEL / LOAD INFORMATION
-            // ═══════════════════════════════════════════════════════════
-            const SizedBox(height: 24),
-            _SectionHeader(label: 'Parcel / Load Information'),
-            const SizedBox(height: 12),
-
-            _FieldLabel(key: _keyMaterial, label: 'Material / Product Type *'),
-            const SizedBox(height: 6),
-            Focus(
-              onFocusChange: (focused) {
-                if (focused && _materialCtrl.text.isEmpty) _searchMaterial('');
-              },
-              child: _SearchField(
-                hasError: _fieldErr['material'] == true,
-                controller: _materialCtrl,
-                hint: 'Search material…',
-                loading: _materialLoading,
-                confirmed: _materialRrId != null,
-                onChanged: _onMaterialTyped,
-                onClear: () => setState(() { _materialRrId = null; _materialCtrl.clear(); _materialResults = []; }),
-              ),
-            ),
-            _inlineErr('material'),
-            if (_materialResults.isNotEmpty)
-              _ResultsCard(items: _materialResults, labelKey: 'name', onSelect: _selectMaterial),
-
-            const SizedBox(height: 10),
-            _FieldLabel(key: _keyWeight, label: 'Total Weight / Quantity *'),
-            const SizedBox(height: 6),
-            _WeightRow(
-              hasError: _fieldErr['weight'] == true,
-              controller: _weightCtrl,
-              unit: _quantityUnits.contains(_weightUnit) ? _weightUnit : _quantityUnits.first,
-              units: _quantityUnits,
-              onUnitChanged: (u) => setState(() => _weightUnit = u),
-            ),
-            _inlineErr('weight'),
-
-            const SizedBox(height: 10),
-            _FieldLabel(key: _keyInvoiceValue, label: 'Total Invoice Value (₹) *'),
-            const SizedBox(height: 6),
-            _TextInput(
-              hasError: _fieldErr['invoiceValue'] == true,
-              controller: _invoiceValueCtrl,
-              hint: 'e.g. 150000',
-              inputType: TextInputType.number,
-            ),
-            _inlineErr('invoiceValue'),
-
-            const SizedBox(height: 10),
-            _FieldLabel(label: 'Description of Parcel'),
-            const SizedBox(height: 6),
-            _CountedTextInput(controller: _parcelDescCtrl, hint: 'e.g. Steel coils', maxLength: 100),
-
-            const SizedBox(height: 10),
-            _CheckboxRow(
-              label: 'Part Load',
-              value: _partLoad,
-              onChanged: (v) => setState(() => _partLoad = v ?? false),
-            ),
+            ..._parcelChildren(),
 
             // ── Trip Handled By (step 0) ──────────────────────────────
             const SizedBox(height: 24),

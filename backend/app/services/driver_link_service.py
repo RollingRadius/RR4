@@ -93,14 +93,20 @@ def _nudge_driver_refresh(driver: Driver, trip: Trip) -> None:
 
 
 def _driver_has_other_open_trip(db: Session, driver_id, exclude_trip_id) -> bool:
-    """True if `driver_id` already has another ongoing, not-yet-stage-5-complete
-    trip besides `exclude_trip_id`. Mirrors the same rule enforced in
-    app/api/v1/trips.py's create/update endpoints (duplicated in miniature here
-    rather than imported, to avoid a service→router dependency)."""
+    """True if `driver_id` already has another ongoing, not-yet-stage-5-complete,
+    not-manually-released trip besides `exclude_trip_id`. Mirrors the same rule
+    enforced in app/api/v1/trips.py's _driver_has_open_trip (duplicated in
+    miniature here rather than imported, to avoid a service→router dependency)
+    — must be kept in sync with it field-for-field. Missing the
+    driver_tracking_stopped exclusion here previously meant a driver released
+    early via "Stop Driver Tracking" still couldn't be auto-linked to a new
+    trip through this flow, even though every other path already treated them
+    as free."""
     return db.query(Trip).filter(
         Trip.driver_id == driver_id,
         Trip.status == 'ongoing',
         ~Trip.is_stage5_complete,
+        ~Trip.driver_tracking_stopped,
         Trip.id != exclude_trip_id,
     ).first() is not None
 

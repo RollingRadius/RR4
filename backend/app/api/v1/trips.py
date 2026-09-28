@@ -25,6 +25,7 @@ from app.models import User, UserOrganization
 from app.models.trip import Trip
 from app.models.role import Role
 from app.models.driver import Driver
+from app.models.tracking import DriverLocation
 from app.services import fcm_service
 
 router = APIRouter()
@@ -601,15 +602,25 @@ def update_trip(
 
     # Same as create_trip: a direct LP driver reassignment was previously
     # silent — no push, no location-reminder check. Only fire on a genuine
-    # change, not every unrelated PATCH to this trip.
-    if 'driver_id' in update_fields and trip.driver_id and str(trip.driver_id) != str(old_driver_id):
-        assigned_driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
-        if assigned_driver:
-            from app.services.driver_link_service import (
-                _notify_driver_assigned, maybe_send_location_reminder,
-            )
-            _notify_driver_assigned(assigned_driver, trip)
-            maybe_send_location_reminder(assigned_driver, trip, db)
+    # change, not every unrelated PATCH to this trip. Also fires the same
+    # silent instant-refresh nudge link_driver_to_trip's auto-link path
+    # already sends (driver_link_service.py) — the two paths must behave
+    # identically, since a driver shouldn't wait ~30s to see a manually
+    # assigned trip just because it wasn't RR-web's auto-link that did it.
+    if 'driver_id' in update_fields and str(trip.driver_id) != str(old_driver_id):
+        from app.services.driver_link_service import (
+            _notify_driver_assigned, _nudge_driver_refresh, maybe_send_location_reminder,
+        )
+        if trip.driver_id:
+            assigned_driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
+            if assigned_driver:
+                _notify_driver_assigned(assigned_driver, trip)
+                _nudge_driver_refresh(assigned_driver, trip)
+                maybe_send_location_reminder(assigned_driver, trip, db)
+        if old_driver_id:
+            old_driver = db.query(Driver).filter(Driver.id == old_driver_id).first()
+            if old_driver:
+                _nudge_driver_refresh(old_driver, trip)
 
     return _enrich(trip, db)
 
@@ -705,6 +716,59 @@ def get_trip_vehicle_location(
         "heading": loc_status["heading"],
         "timestamp": loc_status["timestamp"],
         "message": loc_status["message"],
+    }
+
+
+@router.get("/trips/{trip_id}/driver-trail")
+def get_trip_driver_trail(
+    trip_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Get the driver's actual travelled path for this trip — every GPS ping
+    tagged with this trip's ID (see tracking_service.py's
+    _resolve_active_trip_id), oldest to newest. Naturally starts at trip
+    assignment and stops accumulating once the driver is no longer linked
+    to this trip (stage 5 complete, or driver_tracking_stopped) — see
+    POST .../stop-tracking / .../resume-tracking.
+    """
+    user_org = _get_user_org(current_user, db)
+    role_key = _get_role_key(user_org, db)
+
+    trip = db.query(Trip).filter(Trip.id == trip_id).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+
+    # Same access check as vehicle-location.
+    org_id_str = str(user_org.organization_id)
+    if role_key == 'load_owner':
+        if str(trip.load_owner_org_id) != org_id_str:
+            raise HTTPException(status_code=403, detail="Access denied")
+    elif role_key in ('driver', 'independent_user'):
+        driver = db.query(Driver).filter(Driver.user_id == current_user.id).first()
+        if not driver or trip.driver_id != driver.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    else:
+        if str(trip.organization_id) != org_id_str:
+            raise HTTPException(status_code=403, detail="Access denied")
+
+    points = (
+        db.query(DriverLocation)
+        .filter(DriverLocation.trip_id == trip.id)
+        .order_by(DriverLocation.timestamp.asc())
+        .all()
+    )
+    return {
+        "trip_id": trip_id,
+        "points": [
+            {
+                "latitude": float(p.latitude),
+                "longitude": float(p.longitude),
+                "timestamp": p.timestamp,
+            }
+            for p in points
+        ],
     }
 
 
@@ -810,6 +874,8 @@ def resume_driver_tracking(
         raise HTTPException(status_code=403, detail="LP / RR-ops only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
+    if trip.driver_id and _driver_has_open_trip(db, trip.driver_id, exclude_trip_id=trip.id):
+        raise HTTPException(status_code=400, detail="Driver already has an open trip")
     trip.driver_tracking_stopped = False
     trip.driver_tracking_stopped_at = None
     trip.driver_tracking_stopped_by = None

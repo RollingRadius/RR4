@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:fleet_management/core/config/app_config.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:fleet_management/data/services/tracking_api.dart';
 import 'package:fleet_management/data/services/location_service.dart';
 import 'package:fleet_management/data/services/background_tracking_service.dart';
@@ -292,7 +291,7 @@ Future<void> syncDriverTrackingToActiveTrip(WidgetRef ref) async {
     // and the driver logging out — stop the UI-isolate path to avoid
     // double-tracking/duplicate uploads for the same driver.
     await notifier.stopTracking();
-    await _ensureBackgroundTrackingStarted(user!.userId);
+    await _ensureBackgroundTrackingStarted(ref, user!.userId);
   } else if (trackingEnabled && hasActiveTrip) {
     // Defensive: in case permission was ever downgraded from "always" while
     // the background service was running for this driver.
@@ -304,23 +303,64 @@ Future<void> syncDriverTrackingToActiveTrip(WidgetRef ref) async {
   }
 }
 
+// Only actually shows the OS dialog once per app run — this is called from
+// every 30s sync poll while a driver is on "Always" permission, and unlike
+// a normal runtime permission, Android will re-show this one's system
+// dialog on every request() while the user hasn't granted it, which would
+// otherwise nag every 30 seconds.
+bool _batteryOptimizationPromptShown = false;
+
+/// Requests exemption from OS/OEM battery optimization for this app —
+/// without it, some manufacturers (confirmed: Samsung One UI) throttle or
+/// suspend the fused location provider's callbacks for backgrounded apps
+/// even while a foreground-service notification is showing, silently
+/// killing tracking with no error surfaced anywhere (incident 2026-09-16,
+/// trip RR-05849). AndroidManifest.xml already declares
+/// REQUEST_IGNORE_BATTERY_OPTIMIZATIONS; this is what actually uses it.
+/// Best-effort — never blocks or fails the tracking start/stop flow.
+Future<void> _ensureBatteryOptimizationExemption() async {
+  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+  try {
+    final status = await Permission.ignoreBatteryOptimizations.status;
+    if (status.isGranted) return;
+    if (_batteryOptimizationPromptShown) return;
+    _batteryOptimizationPromptShown = true;
+    await Permission.ignoreBatteryOptimizations.request();
+  } catch (e) {
+    debugPrint('⚠️ Failed to request battery optimization exemption: $e');
+  }
+}
+
 /// Starts the durable background tracking service for [userId] if it isn't
-/// already running for them — persisting a fresh copy of the current
-/// refresh token as the service's own auth-session-independent credential
-/// on first use. Safe to call repeatedly (idempotent).
-Future<void> _ensureBackgroundTrackingStarted(String userId) async {
+/// already running for them. Safe to call repeatedly (idempotent).
+///
+/// Deliberately mints a brand-new, independent refresh token via
+/// POST /api/auth/tracking-session rather than handing the background
+/// service a copy of the main session's own live refresh token — refresh
+/// tokens are single-use/rotated, so two consumers sharing one race to use
+/// it and whichever refreshes second gets a hard 401 "revoked" the moment
+/// the other rotates it out from under them. This was silently killing
+/// background tracking roughly every ~30 minutes (incident: 2026-09-16,
+/// see AuthService.issue_tracking_session's docstring for the full trace).
+Future<void> _ensureBackgroundTrackingStarted(WidgetRef ref, String userId) async {
+  await _ensureBatteryOptimizationExemption();
+
   final persistedDriverId = await BackgroundTrackingService.currentDriverId();
   if (persistedDriverId == userId) {
     await BackgroundTrackingService.start();
     return;
   }
-  const storage = FlutterSecureStorage();
-  final refreshToken = await storage.read(key: AppConfig.refreshTokenKey);
-  if (refreshToken != null && refreshToken.isNotEmpty) {
-    await BackgroundTrackingService.startForDriver(
-      driverId: userId,
-      refreshToken: refreshToken,
-    );
+  try {
+    final session = await ref.read(authApiProvider).getTrackingSession();
+    final refreshToken = session['refresh_token'] as String?;
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      await BackgroundTrackingService.startForDriver(
+        driverId: userId,
+        refreshToken: refreshToken,
+      );
+    }
+  } catch (e) {
+    debugPrint('⚠️ Failed to mint tracking session, will retry next sync: $e');
   }
 }
 

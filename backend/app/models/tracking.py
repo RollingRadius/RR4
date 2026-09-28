@@ -43,6 +43,17 @@ class DriverLocation(Base):
         nullable=True,
         index=True
     )
+    # The trip this ping was recorded during, stamped automatically at
+    # ingestion by resolving the driver's currently active trip (see
+    # tracking_service.py) — null when the driver has no active trip
+    # (idle). Lets a trip's actual travelled path be queried on its own
+    # instead of mixing across every trip the driver has ever run.
+    trip_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("trips.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True
+    )
 
     # Location Data
     latitude = Column(Numeric(10, 8), nullable=False)
@@ -63,6 +74,7 @@ class DriverLocation(Base):
     # Relationships
     driver = relationship("Driver", foreign_keys=[driver_id])
     organization = relationship("Organization")
+    trip = relationship("Trip", foreign_keys=[trip_id])
 
     # Constraints
     __table_args__ = (
@@ -81,6 +93,7 @@ class DriverLocation(Base):
         Index('idx_locations_driver_time', 'driver_id', 'timestamp'),
         Index('idx_locations_org_time', 'organization_id', 'timestamp'),
         Index('idx_locations_timestamp', 'timestamp'),
+        Index('idx_locations_trip_time', 'trip_id', 'timestamp'),
         # Note: This is a partitioned table, partitions created in migration
         {'postgresql_partition_by': 'RANGE (timestamp)'}
     )

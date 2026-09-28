@@ -265,8 +265,20 @@ class BackgroundTrackingService {
     final List<Map<String, dynamic>> locationQueue = [];
     const maxQueueSize = 10;
     const uploadInterval = Duration(seconds: 60);
+    // Watchdog: if no GPS fix has landed in this long, the position stream
+    // below has silently stopped (seen in production, incident 2026-09-16,
+    // trip RR-05849: a stream `timeLimit` timeout — or an OS/OEM battery
+    // manager throttling the fused location provider — threw/stalled the
+    // stream with no error surfaced anywhere, permanently killing tracking
+    // for the rest of the trip since nothing was restarting it). Restarting
+    // the stream is cheap and safe even when the real cause is a transient
+    // GPS loss (tunnel/indoor).
+    const staleThreshold = Duration(minutes: 3);
+    DateTime lastPositionAt = DateTime.now();
 
     Timer? uploadTimer;
+    Timer? watchdogTimer;
+    StreamSubscription<Position>? positionSub;
 
     Future<bool> uploadBatch(String token) async {
       await dio.post(
@@ -282,6 +294,8 @@ class BackgroundTrackingService {
     // notification) — forget the credential and shut the service down.
     Future<void> handleRevoked() async {
       uploadTimer?.cancel();
+      watchdogTimer?.cancel();
+      await positionSub?.cancel();
       await _storage.delete(key: trackingDriverIdKey);
       await _storage.delete(key: trackingRefreshTokenKey);
       service.stopSelf();
@@ -347,9 +361,8 @@ class BackgroundTrackingService {
       timeLimit: Duration(seconds: 30),
     );
 
-    await for (final position in Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    )) {
+    void onPosition(Position position) {
+      lastPositionAt = DateTime.now();
       final ts = position.timestamp;
       locationQueue.add({
         'latitude': position.latitude,
@@ -365,7 +378,7 @@ class BackgroundTrackingService {
       debugPrint('📍 Background location: ${position.latitude}, ${position.longitude}');
 
       if (locationQueue.length >= maxQueueSize) {
-        await sendQueuedLocations();
+        sendQueuedLocations();
       }
 
       if (service is AndroidServiceInstance) {
@@ -377,8 +390,46 @@ class BackgroundTrackingService {
       }
     }
 
-    uploadTimer.cancel();
-    await sendQueuedLocations();
+    // Unlike a bare `await for`, `.listen()` with an explicit `onError` lets
+    // a stream error (e.g. the 30s `timeLimit` firing a TimeoutException
+    // when no fix arrives in time) restart the stream instead of silently
+    // terminating this whole function — which is exactly what happened in
+    // the 2026-09-16 incident: no crash, no log, tracking just stopped.
+    void startPositionStream() {
+      positionSub?.cancel();
+      positionSub = Geolocator.getPositionStream(
+        locationSettings: locationSettings,
+      ).listen(
+        onPosition,
+        onError: (e) {
+          debugPrint('❌ Background tracking: position stream error, restarting: $e');
+          startPositionStream();
+        },
+        cancelOnError: false,
+      );
+    }
+
+    startPositionStream();
+
+    // Belt-and-suspenders for the case the stream stalls without ever
+    // emitting an error (e.g. an OEM battery manager quietly suspending the
+    // fused location provider's callbacks) — force a restart if nothing has
+    // arrived in staleThreshold regardless of whether onError ever fired.
+    watchdogTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (DateTime.now().difference(lastPositionAt) > staleThreshold) {
+        debugPrint(
+          '⚠️ Background tracking: no fix in ${staleThreshold.inMinutes}m, restarting stream',
+        );
+        lastPositionAt = DateTime.now(); // avoid restarting again next tick
+        startPositionStream();
+      }
+    });
+
+    service.on('stop').listen((event) {
+      uploadTimer?.cancel();
+      watchdogTimer?.cancel();
+      positionSub?.cancel();
+    });
   }
 }
 
