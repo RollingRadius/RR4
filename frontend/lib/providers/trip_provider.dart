@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/data/services/api_service.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
@@ -168,20 +167,15 @@ class TripNotifier extends StateNotifier<TripState> {
   }
 
   /// The driver's actual travelled path for this trip (every GPS ping
-  /// tagged with this trip, oldest to newest) — see GET .../driver-trail.
-  Future<List<LatLng>> fetchDriverTrail(String tripId) async {
+  /// tagged with this trip, oldest to newest) plus the "location was off"
+  /// gaps in it — see GET .../driver-trail.
+  Future<DriverTrail> fetchDriverTrail(String tripId) async {
     try {
       final resp =
           await _apiService.dio.get('/api/trips/$tripId/driver-trail');
-      final points = (resp.data['points'] as List<dynamic>? ?? []);
-      return points
-          .map((p) => LatLng(
-                (p['latitude'] as num).toDouble(),
-                (p['longitude'] as num).toDouble(),
-              ))
-          .toList();
+      return DriverTrail.fromJson(resp.data as Map<String, dynamic>);
     } catch (_) {
-      return [];
+      return const DriverTrail();
     }
   }
 

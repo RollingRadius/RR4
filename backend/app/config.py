@@ -86,6 +86,18 @@ class Settings(BaseSettings):
     # OSRM Route Optimization Service
     OSRM_BASE_URL: str = "http://localhost:5000"
 
+    # Driver-trail gap routing — fills "location was off" gaps with a road route.
+    # Empty GEOAPIFY_API_KEY disables it (gaps simply get no line). See
+    # docs/tracking/gap_trail_design_2026-10.md.
+    GEOAPIFY_API_KEY: str = ""
+    GEOAPIFY_ROUTING_URL: str = "https://api.geoapify.com/v1/routing"
+    GEOAPIFY_ROUTING_MODE: str = "medium_truck"
+    GEOAPIFY_ROUTE_TYPE: str = "balanced"
+    GEOAPIFY_DAILY_CALL_CAP: int = 200
+    GAP_TRAIL_MIN_GAP_SECONDS: int = 180
+    GAP_TRAIL_MIN_ROUTE_METERS: int = 200
+    GAP_TRAIL_MAX_NEW_PER_REQUEST: int = 5
+
     # RR Sync — integration with RollingRadius main platform
     RR_API_BASE: str = "https://35.244.19.78:8042"   # test; change to https://rollingradius.com:8042 for prod
     RR_SYNC_ENABLED: bool = True                       # master kill-switch for all RR sync

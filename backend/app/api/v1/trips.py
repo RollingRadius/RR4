@@ -27,6 +27,7 @@ from app.models.role import Role
 from app.models.driver import Driver
 from app.models.tracking import DriverLocation
 from app.services import fcm_service
+from app.services.gap_trail_service import TrailPing, build_trail_gaps, gaps_tracked_elsewhere
 
 router = APIRouter()
 
@@ -753,22 +754,33 @@ def get_trip_driver_trail(
         if str(trip.organization_id) != org_id_str:
             raise HTTPException(status_code=403, detail="Access denied")
 
+    trip_uuid = trip.id
     points = (
         db.query(DriverLocation)
-        .filter(DriverLocation.trip_id == trip.id)
+        .filter(DriverLocation.trip_id == trip_uuid)
         .order_by(DriverLocation.timestamp.asc())
         .all()
     )
+    trail = [
+        {
+            "latitude": float(p.latitude),
+            "longitude": float(p.longitude),
+            "timestamp": p.timestamp,
+        }
+        for p in points
+    ]
+    pings = [
+        TrailPing(p.id, p.driver_id, float(p.latitude), float(p.longitude), p.timestamp)
+        for p in points
+    ]
+    elsewhere = gaps_tracked_elsewhere(db, pings)
+
+    # Release this request's DB connection before any outside routing call.
+    db.close()
     return {
         "trip_id": trip_id,
-        "points": [
-            {
-                "latitude": float(p.latitude),
-                "longitude": float(p.longitude),
-                "timestamp": p.timestamp,
-            }
-            for p in points
-        ],
+        "points": trail,
+        "gaps": build_trail_gaps(trip_uuid, pings, elsewhere),
     }
 
 
