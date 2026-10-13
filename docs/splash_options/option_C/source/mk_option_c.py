@@ -1,0 +1,133 @@
+import re
+
+B = open('template.html', encoding='utf-8').read()
+
+# ---------- reuse from option B: head/styles, tread geometry, smoke ----------
+head_end = B.index('<defs>')
+head = B[:head_end]
+defs_pre = B[B.index('<defs>'):B.index('<mask id="reveal"')]          # %%DEFS%% + gBand + gShade
+tread = B[B.index('const NB=18'):B.index('const SMOKE_START')]
+smoke = B[B.index('const mixc='):B.index('function render')]
+smoke = smoke.replace('bx=pp.x+f*halfW*.9-k*26*pp.s*2+f*k*10*pp.s*2', 'bx=pp.x+f*halfW*.9+f*k*14*pp.s*2')
+assert 'f*k*14*pp.s*2' in smoke
+
+body = defs_pre + r'''<clipPath id="extClip"><rect id="extClipR" x="0" y="377" width="360" height="263"/></clipPath>
+</defs>
+<g id="lines"></g>
+<g id="roadExt" clip-path="url(#extClip)"></g>
+<ellipse id="shadow" rx="30" ry="6" fill="#000" opacity=".2"/>
+<g id="logo" transform="translate(27.7 151.7) scale(0.58)">
+%%BLUE%%
+%%ROAD%%
+%%DASH%%
+<g id="logoWheel">%%WHEEL%%</g>
+</g>
+<g id="tyre"><g id="band"><path id="strip" fill="#0a0a0c"/><g id="treads"></g><path id="stripShade" fill="url(#gShade)"/><path id="stripEdge" fill="none" stroke="#000" stroke-width="2.6" stroke-linejoin="round"/></g><g id="nearFace"><circle id="baseBlack" r="100" fill="#000"/>
+<g id="tyreDetail"><g id="rA">%%A%%</g>%%CAL%%<g id="rB">%%B%%</g>%%HI%%</g></g></g>
+<g id="smoke"></g>
+<text id="word" x="180" y="417" text-anchor="middle" font-family="DejaVu Sans,Verdana,Segoe UI,sans-serif" font-size="26" fill="#000">RollingRadius</text>
+</svg></div>
+<div id="ui"><button id="pl">Replay</button><input id="sc" type="range" min="0" max="1500" value="0"><span id="tt">0 ms</span></div>
+<script>
+const $=id=>document.getElementById(id);
+const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const eo=t=>1-(1-t)*(1-t), eio=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+// ---- layout (screen px, 360x640) ----
+const XC=138.5, GROUND=377, FX=233.3, FY=266.5, FS=0.2697, HW=36;      // road centre x, logo base, final wheel
+const WORD_START=1042;                         // wordmark starts appearing right after the road has merged
+const ROAD_SHRINK=780, ROAD_END=1039;           // perspective road shrinks into the logo road, fully merged at 1039ms
+const BURN_END=333, ROLL_END=700, JUMP_END=950, SWAP=1010;
+const HZ=261, KS=0.0031, Y0=540;                   // perspective horizon, scale per px below it, tyre start (ground y)
+const YS=283.9, ACX=214.9, ACY=283.9, AR=76.3, ASW=53*Math.PI/180;      // logo road: straight part ends at YS, then arcs
+const L1=Y0-YS, DT=L1+AR*ASW, DB=Y0-GROUND, S_BASE=KS*(GROUND-HZ), TH0=84, KK=1/KS;
+function pathAt(d){if(d<=L1)return {x:XC,g:Y0-d,turn:0};
+  const a=(d-L1)/AR;return {x:ACX+AR*Math.cos(Math.PI+a),g:ACY+AR*Math.sin(Math.PI+a),turn:a};}
+function scaleAt(d){return d<=DB?KS*((Y0-d)-HZ):lerp(S_BASE,FS,(d-DB)/(DT-DB));}
+function dist(t){return DT*eio(clamp((t-BURN_END)/(ROLL_END-BURN_END)));}
+function pos(t){const d=dist(t),p=pathAt(d);return {x:p.x,g:p.g,s:scaleAt(d),turn:p.turn,d};}
+const END=pos(ROLL_END), JUMP_FROM_Y=END.g-100*END.s, TH_END=TH0-END.turn*180/Math.PI;
+function thetaAt(t){if(t<ROLL_END)return TH0-pos(t).turn*180/Math.PI;
+  const p=(t-ROLL_END)/(JUMP_END-ROLL_END);return lerp(TH_END,0,eio(clamp((p-.08)/.82)));}
+// wheel spin: follows the ground but is capped so the tread never strobes at 60fps
+const OM=8.2, ROT=new Float32Array(1502);
+{let r=0;for(let ms=1;ms<=1501;ms++){const v=(dist(ms)-dist(ms-1))/.001,R=100*scaleAt(Math.min(DT,dist(ms)));
+  const om=(ms<BURN_END||ms>=ROLL_END)?OM:Math.min(OM,v/R);r+=om*.001;ROT[ms]=r;}}
+const rotAt=t=>ROT[Math.min(1501,Math.max(0,Math.floor(t)))];
+const streaks=[];for(let i=0;i<22;i++)streaks.push({a:((i*47)%190)-95,h:(i*83)%230,L:.18+.32*(((i*29)%10)/10),c:i%4?'#aab4bb':'#3997CD'});
+''' + tread + r'''const SMOKE_START=50, SMOKE_END=830, SM_PUFFS=[];
+for(let k=0;k<=10;k++){const fs=k<=3?[-.8,0,.8]:[-.5,.5];fs.forEach(f=>SM_PUFFS.push({ts:SMOKE_START+k*48,f}));}
+SM_PUFFS.push({ts:ROLL_END+10,f:-.5},{ts:ROLL_END+30,f:.5});
+''' + smoke + r'''
+// ---- perspective road that flows into the logo's road ----
+const HWR=y=>12.76+(y-GROUND)*0.11, YB=640, PZ=.125, LZ=.05, ZMIN=(GROUND-HZ)/(YB-HZ), PHI=8, ZSPAN=1-ZMIN;
+const LS=1.93, RS=2.38;                              // blue shoulder widths in road half-widths (as in the logo)
+const Yz=z=>HZ+(GROUND-HZ)/z;
+const YT=GROUND-1.5;
+const strip=(f,attrs)=>{const a=f(YB),b=f(YT);return `<polygon points="${a[0].toFixed(1)},${YB} ${a[1].toFixed(1)},${YB} ${b[1].toFixed(1)},${YT} ${b[0].toFixed(1)},${YT}" ${attrs}/>`;};
+const bandPoly=(f,yn,yf,attrs)=>{const a=f(yn),b=f(yf);return `<polygon points="${a[0].toFixed(1)},${yn.toFixed(1)} ${a[1].toFixed(1)},${yn.toFixed(1)} ${b[1].toFixed(1)},${yf.toFixed(1)} ${b[0].toFixed(1)},${yf.toFixed(1)}" ${attrs}/>`;};
+const fRoad=y=>[XC-HWR(y),XC+HWR(y)];
+const fShL=y=>[XC-HWR(y)*(1+LS),XC-HWR(y)], fShR=y=>[XC+HWR(y),XC+HWR(y)*(1+RS)];
+const fTrL=y=>[XC-HWR(y)*.55,XC-HWR(y)*.29], fTrR=y=>[XC+HWR(y)*.29,XC+HWR(y)*.55];
+const fEdL=y=>[XC-HWR(y)*.8355,XC-HWR(y)*.7445], fEdR=y=>[XC+HWR(y)*.7445,XC+HWR(y)*.8355];
+$('roadExt').innerHTML=strip(fShL,'fill="#3997CD"')+strip(fShR,'fill="#3997CD"')
+  +strip(fRoad,'fill="#000"')+strip(fTrL,'fill="#17171a"')+strip(fTrR,'fill="#17171a"')+'<g id="extB"></g>'
+  +strip(fEdL,'fill="#fff" fill-opacity=".9"')+strip(fEdR,'fill="#fff" fill-opacity=".9"')+'<g id="extDash"></g>';
+const extB=$('extB'), extDash=$('extDash'), dashP=$('dashP'), extClipR=$('extClipR');
+const SPK=[];for(let i=0;i<90;i++)SPK.push({u:rnd(i,1,7),lat:(rnd(i,2,7)*2-1)*.88,r:.5+rnd(i,3,7),c:i%3?'#2c2c31':'#44444b'});
+function extSpecks(phi){let o='';const sh=(phi-PHI)*PZ;
+  SPK.forEach(p=>{const z=ZMIN+((((p.u*ZSPAN+sh)%ZSPAN)+ZSPAN)%ZSPAN);const y=Yz(z),hw=HWR(y);
+    o+=`<circle cx="${(XC+p.lat*hw).toFixed(1)}" cy="${y.toFixed(1)}" r="${(.05*hw*p.r).toFixed(2)}" fill="${p.c}"/>`;});
+  return o;}
+function extDashes(phi){let o='';const n0=Math.floor(ZMIN/PZ-phi)-1,n1=Math.ceil(1/PZ-phi)+1;
+  for(let n=n0;n<=n1;n++){const z0=(n+phi)*PZ,z1=z0+LZ,a=Math.max(z0,ZMIN),b=Math.min(z1,1);
+    if(b>a){const yn=Yz(a),yf=Yz(b),hn=.104*HWR(yn),hf=.104*HWR(yf);
+      o+=`<polygon points="${XC-hn},${yn.toFixed(1)} ${XC+hn},${yn.toFixed(1)} ${XC+hf},${yf.toFixed(1)} ${XC-hf},${yf.toFixed(1)}" fill="#fff"/>`;}
+    const zr=(n+phi+.5)*PZ;if(zr>=ZMIN&&zr<=1){const y=Yz(zr),hw=HWR(y),r=.055*hw;
+      [-1,1].forEach(sg=>{o+=`<circle cx="${(XC+sg*.79*hw).toFixed(1)}" cy="${y.toFixed(1)}" r="${(r*1.9).toFixed(2)}" fill="#bfe6fb" fill-opacity=".3"/><circle cx="${(XC+sg*.79*hw).toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(2)}" fill="#fff"/>`;});}}
+  return o;}
+function render(t){
+ $('tt').textContent=Math.round(t)+' ms';$('sc').value=t;
+ let x,y,s,sx=1,sy=1,gy,air=0;
+ if(t<ROLL_END){const p=pos(t);x=p.x;s=p.s;gy=p.g;
+   const c=clamp((t-640)/60);sy=1-.1*c;sx=1+.08*c;y=gy-100*s*sy;}
+ else if(t<JUMP_END){const p=(t-ROLL_END)/(JUMP_END-ROLL_END);
+   x=lerp(END.x,FX,p);s=lerp(END.s,FS,eo(p));
+   y=lerp(JUMP_FROM_Y,FY,p)-4*58*p*(1-p);gy=lerp(END.g,GROUND,p);air=4*p*(1-p);
+   const st=p<.5?Math.sin(Math.PI*p/.5)*.13:0;sy=1+st;sx=1/sy;}
+ else{x=FX;s=FS;y=FY;gy=GROUND;
+   if(t<SWAP){const k=Math.sin(Math.PI*(t-JUMP_END)/(SWAP-JUMP_END))*.14;sy=1-k;sx=1+k;y=FY+100*FS*k;}}
+ $('tyre').setAttribute('transform',`translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${(s*sx).toFixed(3)} ${(s*sy).toFixed(3)})`);
+ const th=thetaAt(t)*Math.PI/180, sn=Math.sin(th), cs=Math.max(.001,Math.cos(th)), w=HW*sn;
+ const rotDeg=rotAt(t)*180/Math.PI;
+ $('rA').setAttribute('transform',`rotate(${rotDeg})`);$('rB').setAttribute('transform',`rotate(${rotDeg})`);
+ const T=treadGeom(rotDeg,th);$('strip').setAttribute('d',T.strip);$('stripShade').setAttribute('d',T.strip);$('stripEdge').setAttribute('d',T.edge);$('treads').innerHTML=T.svg;
+ $('band').style.opacity=clamp(sn*14);
+ $('nearFace').setAttribute('transform',`translate(${w.toFixed(2)} 0) scale(${cs.toFixed(3)} 1)`);
+ $('tyreDetail').style.opacity=1-clamp((t-870)/110);
+ $('tyre').style.opacity=t>=SWAP?0:1;
+ $('logoWheel').style.display=t>=SWAP?'inline':'none';
+ // speed trails (perspective lines that run back along the road)
+ let ln='';const lv=clamp((t-BURN_END)/100)*(1-clamp((t-430)/150));
+ if(lv>0){const pd=pos(Math.min(t,ROLL_END)),dn=1/pd.s;
+   streaks.forEach(st=>{for(let q=0;q<4;q++){const f0=q/4,f1=(q+1)/4,s0=1/(dn-st.L*.7*f0),s1=1/(dn-st.L*.7*f1);
+     ln+=`<line x1="${(XC+st.a*s0).toFixed(1)}" y1="${(HZ+(KK-st.h)*s0).toFixed(1)}" x2="${(XC+st.a*s1).toFixed(1)}" y2="${(HZ+(KK-st.h)*s1).toFixed(1)}" stroke="${st.c}" stroke-width="${(1.6+2.4*s0).toFixed(2)}" stroke-linecap="round" opacity="${(.85*lv*(1-f0)).toFixed(2)}"/>`}});}
+ $('lines').innerHTML=ln;
+ const sh=$('shadow');sh.setAttribute('cx',x.toFixed(1));sh.setAttribute('cy',gy.toFixed(1));
+ sh.setAttribute('rx',((HW*sn+100*cs*.9+8)*s*(1-air*.5)).toFixed(1));sh.setAttribute('ry',(100*s*.16).toFixed(1));
+ sh.style.opacity=t<JUMP_END?(.22*(1-air*.6)):.22*(1-clamp((t-JUMP_END)/150));
+ // road: dashes flow toward the viewer, then settle; the perspective part fades once the logo forms
+ const e=eio(clamp(t/ROAD_END)),phi=PHI*(1-e);
+ $('roadExt').style.display=t>=ROAD_END?'none':'inline';if(t<ROAD_END){extB.innerHTML=extSpecks(phi);extDash.innerHTML=extDashes(phi);}dashP.setAttribute('stroke-dashoffset',(-25*phi).toFixed(2));
+ {const yb=YB-(YB-YT)*eio(clamp((t-ROAD_SHRINK)/(ROAD_END-ROAD_SHRINK)));extClipR.setAttribute('y',YT.toFixed(1));extClipR.setAttribute('height',Math.max(0,yb-YT).toFixed(1));}
+ // the blue arch grows outward from the road edges
+ const ww=clamp((t-WORD_START)/(1500-WORD_START)),we=eo(ww);$('word').style.opacity=we;$('word').setAttribute('y',417+12*(1-we));
+ $('smoke').innerHTML=smokeSVG(t);
+}
+let t0=null,raf;function play(){cancelAnimationFrame(raf);t0=null;const f=ts=>{if(t0===null)t0=ts;const t=ts-t0;render(Math.min(t,1500));if(t<1500)raf=requestAnimationFrame(f)};raf=requestAnimationFrame(f)}
+$('pl').onclick=play;$('sc').oninput=e=>{cancelAnimationFrame(raf);render(+e.target.value)};
+const q=new URLSearchParams(location.search).get('t');if(q!==null)render(+q);else play();
+</script></body></html>
+'''
+open('template_cc.html', 'w', encoding='utf-8').write(head + body)
+print('ok')

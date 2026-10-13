@@ -86,6 +86,7 @@ flutter:
   assets:
     - assest/images/
     - assest/icons/
+    - assest/splash/
 
   # Fonts
   # fonts:

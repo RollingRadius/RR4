@@ -1,0 +1,157 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Splash Motion</title>
+<style>
+body{margin:0;background:#eee;font-family:system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px}
+#phone{width:360px;height:640px;background:#fff;box-shadow:0 2px 16px #0003;border-radius:8px;overflow:hidden}
+svg{display:block}
+#ui{width:360px;display:flex;gap:8px;align-items:center;font-size:13px}
+#ui input[type=range]{flex:1}
+</style></head><body>
+<div id="phone"><svg id="s" viewBox="0 0 360 640" width="360" height="640">
+<defs>%%DEFS%%
+<linearGradient id="gBand" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0a0a0b"/><stop offset=".5" stop-color="#1b1c1f"/><stop offset="1" stop-color="#0a0a0b"/></linearGradient>
+<linearGradient id="gShade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#000" stop-opacity=".72"/><stop offset=".22" stop-color="#000" stop-opacity=".18"/><stop offset=".5" stop-color="#000" stop-opacity="0"/><stop offset=".78" stop-color="#000" stop-opacity=".18"/><stop offset="1" stop-color="#000" stop-opacity=".72"/></linearGradient>
+<mask id="reveal" maskUnits="userSpaceOnUse" x="0" y="0" width="512" height="512">
+<path id="rp" d="M190 410 L190 215 C190 150 228 118 290 118 C350 118 405 135 408 160" fill="none" stroke="#fff" stroke-width="260"/>
+</mask>
+</defs>
+<g id="lines"></g>
+<ellipse id="shadow" rx="30" ry="6" fill="#000" opacity=".2"/>
+<g id="logo" transform="translate(27.7 151.7) scale(0.58)">
+<g mask="url(#reveal)">%%BLUE%%%%ROAD%%%%DASH%%</g>
+<g id="logoWheel">%%WHEEL%%</g>
+</g>
+<g id="tyre"><g id="band"><path id="strip" fill="#0a0a0c"/><g id="treads"></g><path id="stripShade" fill="url(#gShade)"/><path id="stripEdge" fill="none" stroke="#000" stroke-width="2.6" stroke-linejoin="round"/></g><g id="nearFace"><circle id="baseBlack" r="100" fill="#000"/>
+<g id="tyreDetail"><g id="rA">%%A%%</g>%%CAL%%<g id="rB">%%B%%</g>%%HI%%</g></g></g>
+<g id="smoke"></g>
+<text id="word" x="180" y="417" text-anchor="middle" font-family="DejaVu Sans,Verdana,Segoe UI,sans-serif" font-size="26" fill="#000">RollingRadius</text>
+</svg></div>
+<div id="ui"><button id="pl">Replay</button><input id="sc" type="range" min="0" max="1500" value="0"><span id="tt">0 ms</span></div>
+<script>
+const $=id=>document.getElementById(id);
+const clamp=(v,a=0,b=1)=>Math.min(b,Math.max(a,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const eo=t=>1-(1-t)*(1-t), eio=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const GROUND=377, FX=233.3, FY=266.5, FS=0.2697, HW=36;
+const BURN_END=150, ROLL_END=620, JUMP_END=950, SWAP=1010;
+const HZ=254, KK=364, VX=243, S0=0.75, X0=96, D0=1/S0, D1=1/0.36;
+const TH0=70, TH1=84;
+function pos(t){const u=clamp((t-BURN_END)/(ROLL_END-BURN_END)), d=lerp(D0,D1,eio(u)), s=1/d;
+  return {x:VX+(X0-VX)*s/S0, g:HZ+KK*s, s, u, d};}
+const END=pos(ROLL_END), JUMP_FROM_Y=END.g-100*END.s;
+const ROT_BURN=1.6, ROT_K=1.7/0.4, ROT_HOP=6.0;
+function rotAt(t){if(t<BURN_END)return ROT_BURN*t/BURN_END;
+  if(t<ROLL_END)return ROT_BURN+(pos(t).d-D0)*ROT_K;
+  const base=ROT_BURN+(D1-D0)*ROT_K;const p=clamp((t-ROLL_END)/(JUMP_END-ROLL_END));return base+p*ROT_HOP;}
+function thetaAt(t){if(t<BURN_END)return TH0;if(t<ROLL_END)return lerp(TH0,TH1,pos(t).u);
+  const p=(t-ROLL_END)/(JUMP_END-ROLL_END);return lerp(TH1,0,eio(clamp((p-.08)/.82)));}
+const rp=$('rp'),len=rp.getTotalLength();rp.style.strokeDasharray=len;
+const puffs=[];for(let i=0;i<13;i++)puffs.push(i*40);puffs.push(ROLL_END+10);
+const streaks=[];for(let i=0;i<22;i++)streaks.push({a:((i*47)%190)-95,h:(i*83)%230,L:.18+.32*(((i*29)%10)/10),c:i%4?'#aab4bb':'#3997CD'});
+const NB=18, PITCH=360/NB;
+function rnd(i,j,k){const v=Math.sin(i*127.1+j*311.7+k*74.7)*43758.5453;return v-Math.floor(v);}
+const RIBS=4, RA=2*HW/RIBS, GA=2.6, SLANT=9, HB=PITCH*0.36, D2R=Math.PI/180;
+function treadGeom(rotDeg,th){
+  const sn=Math.sin(th), cs=Math.cos(th);
+  const X=(a,p)=>a*sn-100*cs*Math.cos(p*D2R), Y=p=>-100*Math.sin(p*D2R);
+  const P=(a,p)=>X(a,p).toFixed(1)+','+Y(p).toFixed(1);
+  const arc=(a,p0,p1,n=12)=>{let s=[];for(let k=0;k<=n;k++){const p=p0+(p1-p0)*k/n;s.push(P(a,p));}return s;};
+  const strip='M'+arc(-HW,90,-90).join('L')+'L'+arc(HW,-90,90).join('L')+'Z';
+  const edge='M'+arc(-HW,90,-90).join('L');
+  let o='';
+  // main grooves: deep cut with a lit lower lip
+  for(let j=1;j<RIBS;j++){const ga=-HW+j*RA;
+    o+=`<path d="M${arc(ga,90,-90).join('L')}" fill="none" stroke="#010102" stroke-width="${GA}"/>`
+      +`<path d="M${arc(ga+GA*.55,90,-90).join('L')}" fill="none" stroke="#a4a7b0" stroke-opacity=".5" stroke-width=".9"/>`;}
+  for(let j=0;j<RIBS;j++){
+    const a0=-HW+j*RA+GA/2+.2, a1=-HW+(j+1)*RA-GA/2-.2, dir=j<RIBS/2?-1:1, ph=(RIBS-1-j)*PITCH*.37;
+    for(let i=0;i<NB;i++){
+      const pc=((i*PITCH+rotDeg+ph)%360+540)%360-180;
+      if(Math.abs(pc)>90+HB)continue;
+      const lo=pc-HB, hi=pc+HB, d0=-dir*SLANT, d1=dir*SLANT;
+      const cl=v=>Math.max(-90,Math.min(90,v));
+      const l0=cl(lo+d0), h0=cl(hi+d0), l1=cl(lo+d1), h1=cl(hi+d1);
+      if(h0-l0<1.2&&h1-l1<1.2)continue;
+      const c=Math.max(.05,Math.cos(pc*D2R)), sh=.4+.6*c;
+      const pts=arc(a0,l0,h0,3).concat(arc(a1,l1,h1,3).reverse());
+      o+=`<polygon points="${pts.join(' ')}" fill="#464951" opacity="${sh.toFixed(2)}"/>`;
+      // raised edge (light, upper) and shadowed edge (dark, lower)
+      o+=`<line x1="${X(a0,h0).toFixed(1)}" y1="${Y(h0).toFixed(1)}" x2="${X(a1,h1).toFixed(1)}" y2="${Y(h1).toFixed(1)}" stroke="#b9bcc5" stroke-opacity="${(.85*c).toFixed(2)}" stroke-width="1.3" stroke-linecap="round"/>`;
+      o+=`<line x1="${X(a0,l0).toFixed(1)}" y1="${Y(l0).toFixed(1)}" x2="${X(a1,l1).toFixed(1)}" y2="${Y(l1).toFixed(1)}" stroke="#09090b" stroke-opacity=".95" stroke-width="1.6"/>`;
+      // sipe (thin cut) across the middle
+      o+=`<line x1="${X(a0+.12*RA,pc+d0*.8).toFixed(1)}" y1="${Y(pc+d0*.8).toFixed(1)}" x2="${X(a1-.12*RA,pc+d1*.8).toFixed(1)}" y2="${Y(pc+d1*.8).toFixed(1)}" stroke="#0b0b0d" stroke-opacity=".9" stroke-width=".9"/>`;
+      // rough rubber speckle
+      for(let k=0;k<3;k++){const ap=a0+(a1-a0)*(.15+.7*rnd(i,j,k)), pp=cl(lo+(hi-lo)*(.2+.6*rnd(i,j,k+9)));
+        o+=`<circle cx="${X(ap,pp).toFixed(1)}" cy="${Y(pp).toFixed(1)}" r=".55" fill="#6c6f77" opacity="${(.5*c).toFixed(2)}"/>`;}
+    }
+  }
+  return {strip,edge,svg:o};
+}
+const SMOKE_START=50, SMOKE_END=830, SM_PUFFS=[];
+for(let k=0;k<=10;k++){const fs=k<=3?[-.8,0,.8]:[-.5,.5];fs.forEach(f=>SM_PUFFS.push({ts:SMOKE_START+k*48,f}));}
+SM_PUFFS.push({ts:ROLL_END+10,f:-.5},{ts:ROLL_END+30,f:.5});
+const mixc=(a,b,k)=>{const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));const A=p(a),B=p(b);
+  return '#'+A.map((v,i)=>Math.round(v+(B[i]-v)*k).toString(16).padStart(2,'0')).join('');};
+function smokeSVG(t){
+  if(t<SMOKE_START)return '';
+  let ol='';
+  // billowing lobed puffs (cel-shaded)
+  SM_PUFFS.forEach(({ts,f},i)=>{const LIFE=Math.min(880,SMOKE_END-ts),age=t-ts;if(LIFE<=0||age<0||age>=LIFE)return;const k=age/LIFE,pp=ts<ROLL_END?pos(ts):END;
+    const hot=ts<BURN_END;
+    const th0=thetaAt(Math.min(ts,ROLL_END))*D2R, halfW=(HW*Math.sin(th0)+100*Math.cos(th0))*pp.s, bx=pp.x+f*halfW*.9-k*26*pp.s*2+f*k*10*pp.s*2, by=pp.g-6-k*78*pp.s*1.4-(i%3)*3*pp.s*2;
+    const rb=(20+(i%4)*5)*pp.s*1.2*(hot?1.15:1), grow=lerp(hot?.85:.5,1,eo(Math.min(1,k*2))), alpha=Math.max(0,1-Math.pow(k,1.5))*(hot?.55:.5);
+    const cOut=mixc('#0a1017','#34414f',k), cBase=mixc(hot?'#1f2a37':'#2a3644','#566679',k),
+          cMid=mixc(hot?'#2e3b4b':'#3a4959','#6f8196',k), cLit=mixc('#506074','#9aabbd',k);
+    const sw=(i%2?1:-1)*k*1.1;
+    let po='',pb='',pm='',pl='';
+    for(let l=0;l<6;l++){
+      const ang=rnd(i,l,1)*6.2832+sw, dist=rb*.62*rnd(i,l,2)*grow, lr=rb*grow*(.42+.32*rnd(i,l,3)), ld=rnd(i,l,4);
+      const m=1-clamp((k-.4-.38*ld)/.3); if(m<=.03)continue;
+      const cx=bx+Math.cos(ang)*dist, cy=by+Math.sin(ang)*dist*.8-lr*.1, r=lr*m;
+      po+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${(r+1.3).toFixed(1)}" fill="${cOut}"/>`;
+      pb+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="${cBase}"/>`;
+      pm+=`<circle cx="${(cx-r*.16).toFixed(1)}" cy="${(cy-r*.2).toFixed(1)}" r="${(r*.78).toFixed(1)}" fill="${cMid}"/>`;
+      pl+=`<circle cx="${(cx-r*.34).toFixed(1)}" cy="${(cy-r*.4).toFixed(1)}" r="${(r*.4).toFixed(1)}" fill="${cLit}" opacity=".8"/>`;
+    }
+    ol+=`<g opacity="${alpha.toFixed(2)}">${po}${pb}${pm}${pl}</g>`;
+  });
+  return ol;
+}
+function render(t){
+ $('tt').textContent=Math.round(t)+' ms';$('sc').value=t;
+ let x,y,s,sx=1,sy=1,gy,air=0;
+ if(t<ROLL_END){const p=pos(t);x=p.x;s=p.s;gy=p.g;
+   const c=clamp((t-560)/60);sy=1-.1*c;sx=1+.08*c;y=gy-100*s*sy;}
+ else if(t<JUMP_END){const p=(t-ROLL_END)/(JUMP_END-ROLL_END);
+   x=lerp(END.x,FX,p);s=lerp(END.s,FS,eo(p));
+   y=lerp(JUMP_FROM_Y,FY,p)-4*58*p*(1-p);gy=lerp(END.g,GROUND,p);air=4*p*(1-p);
+   const st=p<.5?Math.sin(Math.PI*p/.5)*.13:0;sy=1+st;sx=1/sy;}
+ else{x=FX;s=FS;y=FY;gy=GROUND;
+   if(t<SWAP){const k=Math.sin(Math.PI*(t-JUMP_END)/(SWAP-JUMP_END))*.14;sy=1-k;sx=1+k;y=FY+100*FS*k;}}
+ $('tyre').setAttribute('transform',`translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${(s*sx).toFixed(3)} ${(s*sy).toFixed(3)})`);
+ const th=thetaAt(t)*Math.PI/180, sn=Math.sin(th), cs=Math.max(.001,Math.cos(th)), w=HW*sn;
+ const rotDeg=rotAt(t)*180/Math.PI;
+ $('rA').setAttribute('transform',`rotate(${rotDeg})`);$('rB').setAttribute('transform',`rotate(${rotDeg})`);
+ const T=treadGeom(rotDeg,th);$('strip').setAttribute('d',T.strip);$('stripShade').setAttribute('d',T.strip);$('stripEdge').setAttribute('d',T.edge);$('treads').innerHTML=T.svg;
+ $('band').style.opacity=clamp(sn*14);
+ $('nearFace').setAttribute('transform',`translate(${w.toFixed(2)} 0) scale(${cs.toFixed(3)} 1)`);
+ $('tyreDetail').style.opacity=1-clamp((t-870)/110);
+ $('tyre').style.opacity=t>=SWAP?0:1;
+ $('logoWheel').style.display=t>=SWAP?'inline':'none';
+ let ln='';const lv=clamp((t-BURN_END)/100)*(1-clamp((t-500)/130));
+ if(lv>0){const pd=t<ROLL_END?pos(t):END, KX=(X0-VX)/S0;
+   streaks.forEach(st=>{
+     for(let q=0;q<4;q++){const f0=q/4,f1=(q+1)/4,d0=pd.d-st.L*f0,d1=pd.d-st.L*f1,s0=1/d0,s1=1/d1;
+       ln+=`<line x1="${(VX+(KX+st.a)*s0).toFixed(1)}" y1="${(HZ+(KK-st.h)*s0).toFixed(1)}" x2="${(VX+(KX+st.a)*s1).toFixed(1)}" y2="${(HZ+(KK-st.h)*s1).toFixed(1)}" stroke="${st.c}" stroke-width="${(1.6+2.4*s0).toFixed(2)}" stroke-linecap="round" opacity="${(.85*lv*(1-f0)).toFixed(2)}"/>`}});}
+ $('lines').innerHTML=ln;
+ const sh=$('shadow');sh.setAttribute('cx',x.toFixed(1));sh.setAttribute('cy',gy.toFixed(1));
+ sh.setAttribute('rx',((HW*sn+100*cs*.9+8)*s*(1-air*.5)).toFixed(1));sh.setAttribute('ry',(100*s*.16).toFixed(1));
+ sh.style.opacity=t<JUMP_END?(.22*(1-air*.6)):.22*(1-clamp((t-JUMP_END)/150));
+ const rv=eio(clamp((t-780)/370));rp.style.strokeDashoffset=len*(1-rv);
+ const ww=clamp((t-1100)/400),we=eo(ww);$('word').style.opacity=we;$('word').setAttribute('y',417+12*(1-we));
+ $('smoke').innerHTML=smokeSVG(t);
+}
+let t0=null,raf;function play(){cancelAnimationFrame(raf);t0=null;const f=ts=>{if(t0===null)t0=ts;const t=ts-t0;render(Math.min(t,1500));if(t<1500)raf=requestAnimationFrame(f)};raf=requestAnimationFrame(f)}
+$('pl').onclick=play;$('sc').oninput=e=>{cancelAnimationFrame(raf);render(+e.target.value)};
+const q=new URLSearchParams(location.search).get('t');if(q!==null)render(+q);else play();
+</script></body></html>
