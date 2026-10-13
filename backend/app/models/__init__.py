@@ -33,6 +33,7 @@ from .notification import Notification
 from .material_type import MaterialType
 from .refresh_token import RefreshToken
 from .receiving_document import ReceivingDocument
+from .trip_trail_gap import TripTrailGap
 
 __all__ = [
     "User",
@@ -78,4 +79,5 @@ __all__ = [
     "MaterialType",
     "RefreshToken",
     "ReceivingDocument",
+    "TripTrailGap",
 ]

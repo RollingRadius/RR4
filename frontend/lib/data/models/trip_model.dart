@@ -613,3 +613,79 @@ class TripLocationModel {
     );
   }
 }
+
+/// One GPS ping of a trip's driver trail.
+class TrailPoint {
+  final double latitude;
+  final double longitude;
+  const TrailPoint(this.latitude, this.longitude);
+}
+
+/// A stretch where the driver's location was off. It sits between
+/// `points[index]` and `points[index + 1]` of the trail. `minutes` comes from
+/// the two real ping timestamps; `route` and `distanceKm` are set only when
+/// status is `ok` (otherwise: pending, near, suspicious) and no line is drawn.
+class TrailGap {
+  final int index;
+  final double minutes;
+  final double straightKm;
+  final String status;
+  final double? distanceKm;
+  final List<TrailPoint> route;
+  final String? provider;
+  final String? mode;
+
+  const TrailGap({
+    required this.index,
+    required this.minutes,
+    required this.straightKm,
+    required this.status,
+    this.distanceKm,
+    this.route = const [],
+    this.provider,
+    this.mode,
+  });
+
+  factory TrailGap.fromJson(Map<String, dynamic> json) {
+    final raw = json['route_points'] as List<dynamic>? ?? [];
+    return TrailGap(
+      index: (json['index'] as num).toInt(),
+      minutes: (json['minutes'] as num).toDouble(),
+      straightKm: (json['straight_km'] as num).toDouble(),
+      status: json['status'] as String? ?? 'pending',
+      distanceKm: (json['distance_km'] as num?)?.toDouble(),
+      route: raw
+          .map((p) => TrailPoint(
+                (p[0] as num).toDouble(),
+                (p[1] as num).toDouble(),
+              ))
+          .toList(),
+      provider: json['provider'] as String?,
+      mode: json['mode'] as String?,
+    );
+  }
+}
+
+/// A trip's driver trail: the pings plus the "location was off" gaps in it.
+class DriverTrail {
+  final List<TrailPoint> points;
+  final List<TrailGap> gaps;
+
+  const DriverTrail({this.points = const [], this.gaps = const []});
+
+  factory DriverTrail.fromJson(Map<String, dynamic> json) {
+    final pts = json['points'] as List<dynamic>? ?? [];
+    final gps = json['gaps'] as List<dynamic>? ?? [];
+    return DriverTrail(
+      points: pts
+          .map((p) => TrailPoint(
+                (p['latitude'] as num).toDouble(),
+                (p['longitude'] as num).toDouble(),
+              ))
+          .toList(),
+      gaps: gps
+          .map((g) => TrailGap.fromJson(g as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
