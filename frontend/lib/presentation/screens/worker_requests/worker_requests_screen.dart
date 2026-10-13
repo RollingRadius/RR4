@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -168,6 +169,11 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
   /// immediately (not just staged locally), so it survives a refresh and a
   /// later plain Accept just uses whatever this last set.
   Future<void> _overrideRole(String userOrgId, String roleKey) async {
+    // A stale dialog (e.g. a double-tap on the badge stacks two) can resolve
+    // after the request was already accepted — nothing left to override.
+    if (!_pending.any((r) => r['user_organization_id'] == userOrgId)) {
+      return;
+    }
     try {
       final dio = ref.read(dioProvider);
       await dio.patch(
@@ -176,6 +182,11 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
       );
       await _fetchAll();
     } catch (e) {
+      // 404 = request was accepted/rejected meanwhile; just resync the lists.
+      if (e is DioException && e.response?.statusCode == 404) {
+        await _fetchAll();
+        return;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content:
