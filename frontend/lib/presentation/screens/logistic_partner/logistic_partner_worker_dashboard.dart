@@ -599,9 +599,21 @@ class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
   String _query = '';
   final _biltySearchCtrl = TextEditingController();
   String _biltyQuery = '';
+  late final TripNotifier _tripNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _tripNotifier = ref.read(tripProvider.notifier);
+  }
+
+  void _onSearchChanged() => ref
+      .read(tripProvider.notifier)
+      .setSearch(query: _query, bilty: _biltyQuery, rrWeb: true);
 
   @override
   void dispose() {
+    _tripNotifier.clearSearch();
     _searchCtrl.dispose();
     _biltySearchCtrl.dispose();
     super.dispose();
@@ -617,10 +629,14 @@ class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
     // client-side filtering here. Finishing Stage 5 sync does NOT remove a
     // trip from this list; only the long-press "Move to Records" action does.
     final ongoingTrips = tripState.activeTrips;
-    final filteredTrips = ongoingTrips
-        .where((t) => matchesTripSearch(_query, t.tripNumber, t.rrTripNumber))
-        .where((t) => matchesBiltySearch(_biltyQuery, t.s4BiltyNumber))
-        .toList();
+    final filteredTrips = latestUnlessSearching(
+      ongoingTrips
+          .where((t) => matchesTripSearch(_query, t.tripNumber, t.rrTripNumber))
+          .where((t) => matchesBiltySearch(_biltyQuery, t.s4BiltyNumber))
+          .toList(),
+      _query,
+      _biltyQuery,
+    );
 
     return RefreshIndicator(
       color: _primary,
@@ -646,16 +662,19 @@ class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
 
             // Fleet Status
             _WorkerFleetStatusHeader(
-              tripCount: ongoingTrips.length,
+              tripCount: tripState.activeTotal ?? ongoingTrips.length,
               isLive: !tripState.isLoading,
             ),
             const SizedBox(height: 12),
-            if (ongoingTrips.isNotEmpty) ...[
+            if (ongoingTrips.isNotEmpty || _query.trim().isNotEmpty || _biltyQuery.trim().isNotEmpty) ...[
               Row(children: [
                 Expanded(
                   child: TripSearchField(
                     controller: _searchCtrl,
-                    onChanged: (v) => setState(() => _query = v),
+                    onChanged: (v) {
+                    setState(() => _query = v);
+                    _onSearchChanged();
+                  },
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -663,7 +682,10 @@ class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
                   child: TripSearchField(
                     controller: _biltySearchCtrl,
                     hintText: 'Search by bilty number',
-                    onChanged: (v) => setState(() => _biltyQuery = v),
+                    onChanged: (v) {
+                    setState(() => _biltyQuery = v);
+                    _onSearchChanged();
+                  },
                   ),
                 ),
               ]),
@@ -678,7 +700,7 @@ class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
                     .read(tripProvider.notifier)
                     .loadTrips(statusFilter: 'ongoing,pending', rrWeb: true),
               )
-            else if (ongoingTrips.isEmpty)
+            else if (ongoingTrips.isEmpty && _query.trim().isEmpty && _biltyQuery.trim().isEmpty)
               _EmptyTrips()
             else if (filteredTrips.isEmpty)
               _NoSearchMatches(query: _query)

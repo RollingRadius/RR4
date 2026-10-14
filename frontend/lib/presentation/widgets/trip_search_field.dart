@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fleet_management/providers/trip_provider.dart' show kLatestTripsShown;
 
 /// Compact search field for filtering an already-loaded trip list by trip
 /// number, reused across the Fleet Status / RR Web Trips sections of the LP,
@@ -69,4 +70,12 @@ bool matchesBiltySearch(String query, String? biltyNumber) {
   if (query.isEmpty) return true;
   if (biltyNumber == null || biltyNumber.isEmpty) return false;
   return biltyNumber.toLowerCase().contains(query.trim().toLowerCase());
+}
+
+/// The list is capped to the newest [kLatestTripsShown] while both search boxes are empty; once
+/// either has text, every match is shown, so older trips are found by trip number or bilty number.
+/// [trips] must already be ordered newest first (as the API returns them).
+List<T> latestUnlessSearching<T>(List<T> trips, String tripQuery, String biltyQuery) {
+  if (tripQuery.trim().isNotEmpty || biltyQuery.trim().isNotEmpty) return trips;
+  return trips.length <= kLatestTripsShown ? trips : trips.sublist(0, kLatestTripsShown);
 }

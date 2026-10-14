@@ -74,6 +74,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   String _query = '';
   final _biltySearchCtrl = TextEditingController();
   String _biltyQuery = '';
+  late final TripNotifier _tripNotifier;
 
   void _switchNav(int i) {
     if (i == 0 && _navIndex != 0) _loadData();
@@ -86,6 +87,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   @override
   void initState() {
     super.initState();
+    _tripNotifier = ref.read(tripProvider.notifier);
     _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       if (mounted) _silentRefresh();
     });
@@ -109,6 +111,10 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
       ));
     });
   }
+
+  void _onSearchChanged() => ref
+      .read(tripProvider.notifier)
+      .setSearch(query: _query, bilty: _biltyQuery, rrWeb: true);
 
   void _loadData() {
     if (!mounted) return;
@@ -267,6 +273,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   void dispose() {
     _pollTimer?.cancel();
     _rrExpirySub?.cancel();
+    _tripNotifier.clearSearch();
     _searchCtrl.dispose();
     _biltySearchCtrl.dispose();
     super.dispose();
@@ -289,10 +296,14 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     // client-side filtering here. Finishing Stage 5 sync does NOT remove a
     // trip from this list; only the long-press "Move to Records" action does.
     final rrTrips = tripState.trips;
-    final filteredTrips = rrTrips
-        .where((t) => matchesTripSearch(_query, t.tripNumber, t.rrTripNumber))
-        .where((t) => matchesBiltySearch(_biltyQuery, t.s4BiltyNumber))
-        .toList();
+    final filteredTrips = latestUnlessSearching(
+      rrTrips
+          .where((t) => matchesTripSearch(_query, t.tripNumber, t.rrTripNumber))
+          .where((t) => matchesBiltySearch(_biltyQuery, t.s4BiltyNumber))
+          .toList(),
+      _query,
+      _biltyQuery,
+    );
 
     return Scaffold(
       backgroundColor: _bg,
@@ -426,7 +437,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                         style: _manrope(
                             size: 15, weight: FontWeight.w700)),
                     const SizedBox(width: 8),
-                    if (!tripState.isLoading && rrTrips.isNotEmpty)
+                    if (!tripState.isLoading && (rrTrips.isNotEmpty || _query.trim().isNotEmpty || _biltyQuery.trim().isNotEmpty))
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 2),
@@ -434,7 +445,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                           color: _rrBlue.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Text('${rrTrips.length}',
+                        child: Text('${tripState.activeTotal ?? rrTrips.length}',
                             style: _inter(
                                 size: 12,
                                 weight: FontWeight.w700,
@@ -495,7 +506,10 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                     Expanded(
                       child: TripSearchField(
                         controller: _searchCtrl,
-                        onChanged: (v) => setState(() => _query = v),
+                        onChanged: (v) {
+                          setState(() => _query = v);
+                          _onSearchChanged();
+                        },
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -503,7 +517,10 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                       child: TripSearchField(
                         controller: _biltySearchCtrl,
                         hintText: 'Search by bilty number',
-                        onChanged: (v) => setState(() => _biltyQuery = v),
+                        onChanged: (v) {
+                          setState(() => _biltyQuery = v);
+                          _onSearchChanged();
+                        },
                       ),
                     ),
                   ]),
@@ -516,7 +533,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                 child: Center(
                     child: CircularProgressIndicator(color: _rrBlue)),
               )
-            else if (rrTrips.isEmpty)
+            else if (rrTrips.isEmpty && _query.trim().isEmpty && _biltyQuery.trim().isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child: _EmptyState(),

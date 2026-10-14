@@ -241,6 +241,11 @@ class TripUpdate(BaseModel):
     expected_freight: Optional[float] = None
 
 
+def _like_escape(text: str) -> str:
+    """Escape LIKE wildcards so a typed '%' or '_' is matched literally."""
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.get("/trips")
@@ -248,6 +253,8 @@ def list_trips(
     status_filter: Optional[str] = Query(None, alias="status"),
     rr_only: bool = Query(False),
     rr_web: bool = Query(False),
+    q: Optional[str] = Query(None, max_length=60),
+    bilty: Optional[str] = Query(None, max_length=60),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     current_user: User = Depends(get_current_user),
@@ -319,6 +326,17 @@ def list_trips(
         query = query.filter(
             Trip.moved_to_records_at.is_(None),
         )
+
+    # Dashboard search boxes: case-insensitive "contains" on either trip number, or on the Stage 4
+    # bilty number. Done here so a search reaches trips older than the page the app loaded.
+    if q and q.strip():
+        term = f"%{_like_escape(q.strip())}%"
+        query = query.filter(or_(
+            Trip.trip_number.ilike(term, escape="\\"),
+            Trip.rr_trip_number.ilike(term, escape="\\"),
+        ))
+    if bilty and bilty.strip():
+        query = query.filter(Trip.s4_bilty_number.ilike(f"%{_like_escape(bilty.strip())}%", escape="\\"))
 
     total = query.count()
     trips = query.order_by(Trip.created_at.desc()).offset(offset).limit(limit).all()
