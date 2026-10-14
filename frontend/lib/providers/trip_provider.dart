@@ -1,8 +1,13 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/data/services/api_service.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+
+/// How many trips a fleet-status list shows when nobody is searching.
+const int kLatestTripsShown = 20;
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -12,6 +17,9 @@ class TripState {
   final bool isRefreshing;  // true on background poll (no shimmer)
   final String? error;
   final DateTime? lastUpdated;
+  /// Number of active (ongoing + pending) trips in the whole fleet-status list, not just the ones loaded.
+  /// Null until an active list has loaded without a search.
+  final int? activeTotal;
 
   const TripState({
     this.trips = const [],
@@ -19,6 +27,7 @@ class TripState {
     this.isRefreshing = false,
     this.error,
     this.lastUpdated,
+    this.activeTotal,
   });
 
   TripState copyWith({
@@ -27,6 +36,7 @@ class TripState {
     bool? isRefreshing,
     String? error,
     DateTime? lastUpdated,
+    int? activeTotal,
   }) =>
       TripState(
         trips: trips ?? this.trips,
@@ -34,6 +44,7 @@ class TripState {
         isRefreshing: isRefreshing ?? this.isRefreshing,
         error: error,
         lastUpdated: lastUpdated ?? this.lastUpdated,
+        activeTotal: activeTotal ?? this.activeTotal,
       );
 
   List<TripModel> get ongoingTrips =>
@@ -55,16 +66,72 @@ class TripNotifier extends StateNotifier<TripState> {
 
   TripNotifier(this._apiService) : super(const TripState());
 
+  /// Fleet-status lists open on the newest [kLatestTripsShown] trips; older ones are reached by search.
+  static const int _searchResultLimit = 200; // the endpoint's maximum
+
+  // The dashboards' two search boxes. Kept here (not in the screens) so every refresh of the active
+  // list — the 30s poll, pull-to-refresh, "refresh after an action" — keeps asking for the same search.
+  String _query = '';
+  String _bilty = '';
+  Timer? _debounce;
+  int _requestSeq = 0;
+
+  static bool _isActiveList(String? statusFilter, bool rrOnly) =>
+      !rrOnly &&
+      statusFilter != null &&
+      statusFilter.split(',').every((s) => s.trim() == 'ongoing' || s.trim() == 'pending');
+
+  /// Search the active list on the server (trip number / RR trip number, and Stage 4 bilty number),
+  /// after a short pause in typing. Empty strings go back to the newest [kLatestTripsShown].
+  void setSearch({required String query, required String bilty, bool rrWeb = false}) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      loadTrips(statusFilter: 'ongoing,pending', rrWeb: rrWeb, query: query, bilty: bilty, silent: true);
+    });
+  }
+
+  /// Forget the search without a request (the next refresh of the list is unfiltered). Called when a
+  /// dashboard goes away, so other screens reading this list are not left holding search results.
+  void clearSearch() {
+    _debounce?.cancel();
+    _query = '';
+    _bilty = '';
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
   /// First load: shows full loading indicator.
   /// Subsequent background polls: silent refresh (isRefreshing only).
-  Future<void> loadTrips({String? statusFilter, bool rrOnly = false, bool rrWeb = false, bool silent = false}) async {
-    final firstLoad = state.trips.isEmpty && !silent;
+  ///
+  /// For an ongoing/pending list, [query] / [bilty] replace the remembered search (null keeps it).
+  Future<void> loadTrips({
+    String? statusFilter,
+    bool rrOnly = false,
+    bool rrWeb = false,
+    bool silent = false,
+    String? query,
+    String? bilty,
+  }) async {
+    final activeList = _isActiveList(statusFilter, rrOnly);
+    if (activeList) {
+      if (query != null) _query = query.trim();
+      if (bilty != null) _bilty = bilty.trim();
+    }
+    final searching = activeList && (_query.isNotEmpty || _bilty.isNotEmpty);
+
+    final firstLoad = state.trips.isEmpty && !silent && !searching;
     if (firstLoad) {
       state = state.copyWith(isLoading: true, error: null);
     } else {
       state = state.copyWith(isRefreshing: true, error: null);
     }
 
+    final seq = ++_requestSeq;
     try {
       final resp = await _apiService.dio.get(
         '/api/trips',
@@ -72,19 +139,26 @@ class TripNotifier extends StateNotifier<TripState> {
           if (statusFilter != null) 'status': statusFilter,
           if (rrOnly) 'rr_only': true,
           if (rrWeb) 'rr_web': true,
+          if (activeList) 'limit': searching ? _searchResultLimit : kLatestTripsShown,
+          if (searching && _query.isNotEmpty) 'q': _query,
+          if (searching && _bilty.isNotEmpty) 'bilty': _bilty,
         },
       );
+      if (seq != _requestSeq || !mounted) return; // a newer request (e.g. more typing) supersedes this one
       final data = resp.data as Map<String, dynamic>;
       final trips = (data['trips'] as List<dynamic>? ?? [])
           .map((j) => TripModel.fromJson(j as Map<String, dynamic>))
           .toList();
       state = state.copyWith(
         trips: trips,
+        // the header count: every active trip, which a search result is not
+        activeTotal: activeList && !searching ? (data['total'] as num?)?.toInt() ?? trips.length : null,
         isLoading: false,
         isRefreshing: false,
         lastUpdated: DateTime.now(),
       );
     } catch (e) {
+      if (seq != _requestSeq || !mounted) return;
       state = state.copyWith(
         error: _apiService.handleError(e),
         isLoading: false,
