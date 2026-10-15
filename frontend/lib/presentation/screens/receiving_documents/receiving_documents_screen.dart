@@ -96,10 +96,11 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
     if (uploaded == true) _load();
   }
 
-  void _openView(ReceivingDocumentModel doc) {
-    Navigator.of(context).push(
+  Future<void> _openView(ReceivingDocumentModel doc) async {
+    final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => _ViewReceivingDocumentScreen(doc: doc)),
     );
+    if (changed == true) _load();
   }
 
   @override
@@ -286,7 +287,9 @@ class _ReceivingDocCard extends StatelessWidget {
 // ─── Upload flow ────────────────────────────────────────────────────────────
 
 class _UploadReceivingDocumentScreen extends ConsumerStatefulWidget {
-  const _UploadReceivingDocumentScreen();
+  /// When set, the screen edits this document instead of creating a new one.
+  final ReceivingDocumentModel? existing;
+  const _UploadReceivingDocumentScreen({this.existing});
 
   @override
   ConsumerState<_UploadReceivingDocumentScreen> createState() => _UploadReceivingDocumentScreenState();
@@ -297,6 +300,15 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
   DateTime? _docDate;
   bool _uploading = false;
   String? _error;
+
+  bool get _isEdit => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existing;
+    if (existing != null) _docDate = DateTime.tryParse(existing.docDate);
+  }
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -346,7 +358,7 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
   }
 
   Future<void> _upload() async {
-    if (_image == null) {
+    if (_image == null && !_isEdit) {
       setState(() => _error = 'Please attach the receiving sheet image');
       return;
     }
@@ -356,12 +368,22 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
     }
     setState(() { _uploading = true; _error = null; });
     try {
-      final bytes = await _image!.readAsBytes();
-      await ref.read(receivingDocumentApiProvider).upload(
-        fileBytes: bytes,
-        fileName: _image!.name,
-        docDate: _apiDateFmt.format(_docDate!),
-      );
+      final api = ref.read(receivingDocumentApiProvider);
+      final bytes = _image == null ? null : await _image!.readAsBytes();
+      if (_isEdit) {
+        await api.update(
+          widget.existing!.id,
+          docDate: _apiDateFmt.format(_docDate!),
+          fileBytes: bytes,
+          fileName: _image?.name,
+        );
+      } else {
+        await api.upload(
+          fileBytes: bytes!,
+          fileName: _image!.name,
+          docDate: _apiDateFmt.format(_docDate!),
+        );
+      }
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) setState(() { _error = e.toString(); _uploading = false; });
@@ -379,7 +401,8 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
           icon: const Icon(Icons.close_rounded, color: _onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Upload Receiving Doc', style: _manrope(size: 16, weight: FontWeight.w800)),
+        title: Text(_isEdit ? 'Edit Receiving Doc' : 'Upload Receiving Doc',
+            style: _manrope(size: 16, weight: FontWeight.w800)),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
@@ -394,7 +417,18 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: _border),
               ),
-              child: _image == null
+              child: _image == null && _isEdit
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.network(
+                        '${AppConfig.apiBaseUrl}${widget.existing!.fileUrl}',
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.image_not_supported_outlined, color: _secondary),
+                      ),
+                    )
+                  : _image == null
                   ? Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -439,7 +473,7 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
               child: _uploading
                   ? const SizedBox(width: 20, height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Upload'),
+                  : Text(_isEdit ? 'Save Changes' : 'Upload'),
             ),
           ),
         ],
@@ -450,9 +484,53 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
 
 // ─── View flow ──────────────────────────────────────────────────────────────
 
-class _ViewReceivingDocumentScreen extends StatelessWidget {
+class _ViewReceivingDocumentScreen extends ConsumerStatefulWidget {
   final ReceivingDocumentModel doc;
   const _ViewReceivingDocumentScreen({required this.doc});
+
+  @override
+  ConsumerState<_ViewReceivingDocumentScreen> createState() => _ViewReceivingDocumentScreenState();
+}
+
+class _ViewReceivingDocumentScreenState extends ConsumerState<_ViewReceivingDocumentScreen> {
+  bool _deleting = false;
+
+  ReceivingDocumentModel get doc => widget.doc;
+
+  Future<void> _edit() async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => _UploadReceivingDocumentScreen(existing: doc)),
+    );
+    if (saved == true && mounted) Navigator.of(context).pop(true);
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete receiving doc?'),
+        content: const Text('This permanently removes the image and cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _deleting = true);
+    try {
+      await ref.read(receivingDocumentApiProvider).delete(doc.id);
+      if (mounted) Navigator.of(context).pop(true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _deleting = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -467,6 +545,18 @@ class _ViewReceivingDocumentScreen extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text('Receiving Doc', style: _manrope(size: 16, weight: FontWeight.w800)),
+        actions: [
+          IconButton(
+            tooltip: 'Edit',
+            icon: const Icon(Icons.edit_outlined, color: _onSurface),
+            onPressed: _deleting ? null : _edit,
+          ),
+          IconButton(
+            tooltip: 'Delete',
+            icon: Icon(Icons.delete_outline_rounded, color: Colors.red.shade700),
+            onPressed: _deleting ? null : _delete,
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),

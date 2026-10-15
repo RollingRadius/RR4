@@ -27,6 +27,35 @@ class ReceivingDocumentApi {
     }
   }
 
+  /// Change the date and/or replace the image of an existing document.
+  Future<ReceivingDocumentModel> update(
+    String id, {
+    String? docDate,
+    List<int>? fileBytes,
+    String? fileName,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        if (docDate != null) 'doc_date': docDate,
+        if (fileBytes != null)
+          'file': MultipartFile.fromBytes(fileBytes, filename: fileName ?? 'receiving.jpg'),
+      });
+      final response = await _apiService.dio.patch('/api/receiving-documents/$id', data: formData);
+      return ReceivingDocumentModel.fromJson(
+          (response.data as Map<String, dynamic>)['document'] as Map<String, dynamic>);
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
+  Future<void> delete(String id) async {
+    try {
+      await _apiService.dio.delete('/api/receiving-documents/$id');
+    } catch (e) {
+      throw _apiService.handleError(e);
+    }
+  }
+
   /// Paginated list of past uploads for the current org, newest first.
   /// [docDate] (yyyy-MM-dd), when given, only returns docs tagged with that day.
   Future<Map<String, dynamic>> list({int skip = 0, int limit = 50, String? docDate}) async {
