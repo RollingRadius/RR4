@@ -93,6 +93,88 @@ async def upload_receiving_document(
         db.close()
 
 
+def _remove_file(file_url: str) -> None:
+    """Best-effort delete of an uploaded receiving-sheet image."""
+    try:
+        path = Path(settings.UPLOAD_DIR) / "receiving_documents" / Path(file_url).name
+        path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
+@router.patch("/{document_id}")
+async def update_receiving_document(
+    document_id: uuid_module.UUID,
+    doc_date: Optional[date] = Form(None),
+    file: Optional[UploadFile] = File(None),
+    current_user: User = Depends(get_current_user),
+):
+    """Change the date and/or replace the image of an existing document."""
+    db = SessionLocal()
+    try:
+        user_org = _verify_owner_org(current_user, db)
+        org_id = user_org.organization_id
+        doc = db.query(ReceivingDocument).filter(
+            ReceivingDocument.id == document_id,
+            ReceivingDocument.organization_id == org_id,
+        ).first()
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+    finally:
+        db.close()
+
+    new_file_url = None
+    if file is not None and file.filename:
+        doc_dir = Path(settings.UPLOAD_DIR) / "receiving_documents"
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        ext = Path(file.filename).suffix or '.jpg'
+        filename = f"{uuid_module.uuid4().hex}{ext}"
+        (doc_dir / filename).write_bytes(await file.read())
+        new_file_url = f"/uploads/receiving_documents/{filename}"
+
+    db = SessionLocal()
+    try:
+        doc = db.query(ReceivingDocument).filter(
+            ReceivingDocument.id == document_id,
+            ReceivingDocument.organization_id == org_id,
+        ).first()
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+        old_file_url = doc.file_url
+        if doc_date is not None:
+            doc.doc_date = doc_date
+        if new_file_url:
+            doc.file_url = new_file_url
+        db.commit()
+        db.refresh(doc)
+        if new_file_url:
+            _remove_file(old_file_url)
+        return {"success": True, "document": _doc_to_dict(doc, db)}
+    finally:
+        db.close()
+
+
+@router.delete("/{document_id}")
+def delete_receiving_document(
+    document_id: uuid_module.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a receiving document (row + image file)."""
+    user_org = _verify_owner_org(current_user, db)
+    doc = db.query(ReceivingDocument).filter(
+        ReceivingDocument.id == document_id,
+        ReceivingDocument.organization_id == user_org.organization_id,
+    ).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    file_url = doc.file_url
+    db.delete(doc)
+    db.commit()
+    _remove_file(file_url)
+    return {"success": True}
+
+
 @router.get("")
 def list_receiving_documents(
     skip: int = 0,
