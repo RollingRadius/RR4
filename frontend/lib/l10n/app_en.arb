@@ -1,0 +1,26 @@
+{
+  "@@locale": "en",
+  "commonCancel": "Cancel",
+  "commonOk": "OK",
+  "commonSave": "Save",
+  "commonContinue": "Continue",
+  "commonBack": "Back",
+  "commonNext": "Next",
+  "commonRetry": "Retry",
+  "commonSubmit": "Submit",
+  "commonYes": "Yes",
+  "commonNo": "No",
+  "commonClose": "Close",
+  "commonDelete": "Delete",
+  "commonEdit": "Edit",
+  "commonSearch": "Search",
+  "commonLoading": "Please wait...",
+  "settingsLanguageTitle": "Language",
+  "@settingsLanguageTitle": {
+    "description": "Settings tile title for choosing the app language"
+  },
+  "settingsLanguageSubtitle": "Choose English or Hindi",
+  "@settingsLanguageSubtitle": {
+    "description": "Settings tile subtitle for choosing the app language"
+  }
+}

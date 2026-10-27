@@ -1,0 +1,20 @@
+{
+  "@@locale": "hi",
+  "commonCancel": "रद्द करें",
+  "commonOk": "ठीक है",
+  "commonSave": "सेव करें",
+  "commonContinue": "जारी रखें",
+  "commonBack": "वापस",
+  "commonNext": "आगे",
+  "commonRetry": "फिर कोशिश करें",
+  "commonSubmit": "सबमिट करें",
+  "commonYes": "हाँ",
+  "commonNo": "नहीं",
+  "commonClose": "बंद करें",
+  "commonDelete": "हटाएं",
+  "commonEdit": "एडिट करें",
+  "commonSearch": "खोजें",
+  "commonLoading": "कृपया प्रतीक्षा करें...",
+  "settingsLanguageTitle": "भाषा",
+  "settingsLanguageSubtitle": "अंग्रेज़ी या हिंदी चुनें"
+}
