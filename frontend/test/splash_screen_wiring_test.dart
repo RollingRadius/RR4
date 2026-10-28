@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/presentation/screens/splash/splash_animation/splash_animation.dart';
 import 'package:fleet_management/presentation/screens/splash/splash_screen.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/settings_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Stand-in for the real AuthNotifier (which needs API/storage services): just holds an AuthState.
 class _FakeAuth extends StateNotifier<AuthState> implements AuthNotifier {
@@ -19,14 +21,25 @@ class _FakeAuth extends StateNotifier<AuthState> implements AuthNotifier {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  Future<_FakeAuth> pumpSplash(WidgetTester tester, AuthState initial) async {
+  // A saved language by default, so the first-launch language dialog stays out
+  // of the way of the navigation tests.
+  Future<_FakeAuth> pumpSplash(
+    WidgetTester tester,
+    AuthState initial, {
+    Map<String, Object> prefsValues = const {'app_locale': 'en'},
+  }) async {
+    SharedPreferences.setMockInitialValues(prefsValues);
+    final prefs = await SharedPreferences.getInstance();
     final auth = _FakeAuth(initial);
     final router = GoRouter(initialLocation: '/splash', routes: [
       GoRoute(path: '/splash', builder: (_, __) => const SplashScreen()),
       GoRoute(path: '/login', builder: (_, __) => const Text('LOGIN_PAGE')),
     ]);
     await tester.pumpWidget(ProviderScope(
-      overrides: [authProvider.overrideWith((ref) => auth)],
+      overrides: [
+        authProvider.overrideWith((ref) => auth),
+        sharedPreferencesProvider.overrideWithValue(prefs),
+      ],
       child: MaterialApp.router(routerConfig: router),
     ));
     // let the sprites decode (real async), then build the first animated frame
@@ -61,6 +74,18 @@ void main() {
     expect(find.text('LOGIN_PAGE'), findsNothing, reason: 'auth still restoring - must stay on the splash');
     auth.set(AuthState(isInitialized: true));
     await tester.pump();
+    await tester.pumpAndSettle();
+    expect(find.text('LOGIN_PAGE'), findsOneWidget);
+  });
+
+  testWidgets('first launch: asks for the language after the splash, then goes to login', (tester) async {
+    await pumpSplash(tester, AuthState(isInitialized: true), prefsValues: const {});
+    await tester.pump(const Duration(milliseconds: 2200));
+    await tester.pump();
+    expect(find.text('हिंदी'), findsOneWidget, reason: 'language dialog shows once the splash is done');
+    expect(find.text('LOGIN_PAGE'), findsNothing, reason: 'must not reach login before a language is chosen');
+
+    await tester.tap(find.text('हिंदी'));
     await tester.pumpAndSettle();
     expect(find.text('LOGIN_PAGE'), findsOneWidget);
   });

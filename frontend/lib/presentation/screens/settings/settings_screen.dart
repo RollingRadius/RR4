@@ -6,6 +6,8 @@ import 'package:fleet_management/providers/location_tracking_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/data/services/location_service.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
+import 'package:fleet_management/presentation/widgets/language_dialog.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -187,6 +189,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   color: const Color(0xFF6366F1),
                   title: 'Display',
                   children: [
+                    _SettingTile(
+                      icon: Icons.language_rounded,
+                      iconColor: const Color(0xFF6366F1),
+                      title: AppLocalizations.of(context).settingsLanguageTitle,
+                      subtitle:
+                          AppLocalizations.of(context).settingsLanguageSubtitle,
+                      showArrow: true,
+                      onTap: () => showLanguageDialog(context),
+                    ),
+                    _div(),
                     _ThemeSelector(
                       value: settings.settings.themeMode,
                       onChanged: (v) => ref

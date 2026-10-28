@@ -5,7 +5,9 @@ import 'dart:io';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
@@ -19,6 +21,8 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/providers/location_tracking_provider.dart';
 import 'package:fleet_management/data/services/background_tracking_service.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
+import 'package:fleet_management/providers/locale_provider.dart';
 
 /// App-wide ScaffoldMessenger — outlives any single screen's own Scaffold.
 /// A SnackBar shown via a screen-local `ScaffoldMessenger.of(context)`
@@ -79,6 +83,9 @@ void main() async {
 
   // Initialize SharedPreferences
   final prefs = await SharedPreferences.getInstance();
+
+  // Month/day names for DateFormat in Hindi
+  await initializeDateFormatting('hi');
 
   runApp(
     ProviderScope(
@@ -159,6 +166,7 @@ class _FleetManagementAppState extends ConsumerState<FleetManagementApp>
   Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
     final themeState = ref.watch(themeProvider);
+    final locale = ref.watch(localeProvider);
 
     return MaterialApp.router(
       title: 'Fleet Management System',
@@ -168,6 +176,15 @@ class _FleetManagementAppState extends ConsumerState<FleetManagementApp>
       themeMode: ThemeMode.light,
       routerConfig: router,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
+      // English until the user picks a language on first launch
+      locale: locale ?? const Locale('en'),
+      supportedLocales: LocaleNotifier.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
     );
   }
 }

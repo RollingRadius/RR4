@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/routing/dashboard_route.dart';
 import 'package:fleet_management/presentation/screens/splash/splash_animation/splash_animation.dart';
+import 'package:fleet_management/presentation/widgets/language_dialog.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/providers/locale_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -65,12 +67,24 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _startMinTimer(const Duration(milliseconds: 1500));
   }
 
-  void _maybeNavigate() {
+  Future<void> _maybeNavigate() async {
     if (_navigated || !mounted || !_minTimeElapsed) return;
     final auth = ref.read(authProvider);
     if (!auth.isInitialized) return; // retried by the ref.listen below once it resolves
 
     _navigated = true;
+
+    // First launch: ask for the language once, after the splash has played
+    // and auth has resolved, before anything else is shown.
+    if (ref.read(localeProvider) == null) {
+      try {
+        await showLanguageDialog(context, firstLaunch: true);
+      } catch (_) {
+        // A failed dialog must never block entering the app.
+      }
+      if (!mounted) return;
+    }
+
     if (!auth.isAuthenticated || auth.user == null) {
       context.go(AppConstants.routeLogin);
       return;
