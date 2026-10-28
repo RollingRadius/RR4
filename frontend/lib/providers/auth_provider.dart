@@ -9,6 +9,7 @@ import 'package:fleet_management/data/services/fcm_service.dart';
 import 'package:fleet_management/data/models/user_model.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:fleet_management/core/config/app_config.dart';
+import 'package:fleet_management/providers/locale_provider.dart';
 import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/providers/location_tracking_provider.dart';
 import 'package:fleet_management/data/services/background_tracking_service.dart';
@@ -17,7 +18,7 @@ final fcmServiceProvider = Provider<FcmService>((ref) => FcmService());
 
 /// API Service Provider
 final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService();
+  return ApiService(currentLocale: () => ref.read(localeProvider));
 });
 
 /// Dio Provider (for services that use Dio directly)

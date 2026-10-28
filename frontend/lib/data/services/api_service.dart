@@ -1,13 +1,22 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/widgets.dart' show Locale;
 import 'package:fleet_management/core/config/app_config.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 /// Base API Service
 /// Handles HTTP requests with error handling and token management
 class ApiService {
   late final Dio _dio;
   String get baseUrl => AppConfig.apiBaseUrl;
+
+  /// Current app language, read when an error message is built (this class has
+  /// no BuildContext). Null getter or null result means English.
+  final Locale? Function()? _currentLocale;
+
+  AppLocalizations get _l10n =>
+      lookupAppLocalizations(_currentLocale?.call() ?? const Locale('en'));
 
   Future<bool> Function()? _onRefresh;
   Future<void> Function()? _onLogout;
@@ -21,7 +30,8 @@ class ApiService {
     _onLogout  = onLogout;
   }
 
-  ApiService() {
+  ApiService({Locale? Function()? currentLocale})
+      : _currentLocale = currentLocale {
     _dio = Dio(BaseOptions(
       baseUrl: AppConfig.apiBaseUrl,
       connectTimeout: AppConfig.connectionTimeout,
@@ -153,7 +163,7 @@ class ApiService {
         case DioExceptionType.connectionTimeout:
         case DioExceptionType.sendTimeout:
         case DioExceptionType.receiveTimeout:
-          return 'Connection timeout. Please try again.';
+          return _l10n.apiErrorTimeout;
 
         case DioExceptionType.badResponse:
           if (error.response?.data != null) {
@@ -162,21 +172,21 @@ class ApiService {
               return _extractDetail(error.response!.data['detail']);
             }
           }
-          return 'Server error: ${error.response?.statusCode}';
+          return _l10n.apiErrorServer('${error.response?.statusCode}');
 
         case DioExceptionType.connectionError:
-          return 'Cannot connect to server. Please check your connection.';
+          return _l10n.apiErrorCannotConnect;
 
         case DioExceptionType.cancel:
-          return 'Request cancelled';
+          return _l10n.apiErrorCancelled;
 
         case DioExceptionType.unknown:
         default:
-          return 'Network error. Please check your connection.';
+          return _l10n.apiErrorNetwork;
       }
     }
 
-    return 'An unexpected error occurred';
+    return _l10n.apiErrorUnexpected;
   }
 
   /// FastAPI's `detail` is a String for a plain HTTPException but a List of
@@ -213,6 +223,6 @@ class ApiService {
       }
       return detail;
     }
-    return detail?.toString() ?? 'An unexpected error occurred';
+    return detail?.toString() ?? _l10n.apiErrorUnexpected;
   }
 }
