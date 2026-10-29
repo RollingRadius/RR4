@@ -6,6 +6,7 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class CodeVerificationScreen extends ConsumerStatefulWidget {
   final String? verificationCode;
@@ -65,21 +66,22 @@ class _CodeVerificationScreenState extends ConsumerState<CodeVerificationScreen>
 
   Future<void> _handleVerify() async {
     if (!_isCodeComplete) {
-      _showError('Please enter the complete 6-digit code');
+      _showError(AppLocalizations.of(context).codeVerifyIncomplete);
       return;
     }
 
     final success = await ref.read(authProvider.notifier).verifyEmailCode(_verificationCode);
 
     if (mounted) {
+      final l10n = AppLocalizations.of(context);
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
+            content: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('Email verified successfully!'),
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Text(l10n.codeVerifySuccess),
               ],
             ),
             backgroundColor: AppTheme.successColor,
@@ -93,7 +95,7 @@ class _CodeVerificationScreenState extends ConsumerState<CodeVerificationScreen>
         context.go(AppConstants.routeLogin);
       } else {
         final error = ref.read(authProvider).error;
-        _showError(error ?? 'Verification failed');
+        _showError(error ?? l10n.codeVerifyFailed);
       }
     }
   }
@@ -120,12 +122,13 @@ class _CodeVerificationScreenState extends ConsumerState<CodeVerificationScreen>
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context);
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 600;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Verify Email'),
+        title: Text(l10n.authVerifyEmail),
         centerTitle: true,
       ),
       body: Container(
@@ -180,8 +183,8 @@ class _CodeVerificationScreenState extends ConsumerState<CodeVerificationScreen>
                       const SizedBox(height: 24),
 
                       // Title
-                      const Text(
-                        'Enter Verification Code',
+                      Text(
+                        l10n.codeVerifyHeading,
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -193,7 +196,7 @@ class _CodeVerificationScreenState extends ConsumerState<CodeVerificationScreen>
                       // Description
                       if (widget.email != null)
                         Text(
-                          'We sent a 6-digit code to ${widget.email}',
+                          l10n.codeVerifySentTo(widget.email!),
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[600],
@@ -202,7 +205,7 @@ class _CodeVerificationScreenState extends ConsumerState<CodeVerificationScreen>
                         ),
                       const SizedBox(height: 8),
                       Text(
-                        'Enter the code below to verify your email',
+                        l10n.codeVerifyInstruction,
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],
@@ -299,7 +302,7 @@ class _CodeVerificationScreenState extends ConsumerState<CodeVerificationScreen>
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  'Code expires in 24 hours',
+                                  l10n.codeVerifyExpiry,
                                   style: TextStyle(
                                     color: Colors.orange[700],
                                     fontSize: 13,
@@ -334,9 +337,9 @@ class _CodeVerificationScreenState extends ConsumerState<CodeVerificationScreen>
                                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                   ),
                                 )
-                              : const Text(
-                                  'Verify Email',
-                                  style: TextStyle(
+                              : Text(
+                                  l10n.authVerifyEmail,
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -351,7 +354,7 @@ class _CodeVerificationScreenState extends ConsumerState<CodeVerificationScreen>
                         onPressed: () {
                           context.go(AppConstants.routeLogin);
                         },
-                        child: const Text('Back to Login'),
+                        child: Text(l10n.authBackToLogin),
                       ),
                     ],
                   ),

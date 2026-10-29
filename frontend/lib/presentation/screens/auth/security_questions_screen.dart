@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fleet_management/data/models/security_question_model.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/providers/security_questions_provider.dart';
-import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 
 class SecurityQuestionsScreen extends ConsumerStatefulWidget {
@@ -62,19 +62,20 @@ class _SecurityQuestionsScreenState
   }
 
   void _handleSubmit() {
+    final l10n = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
 
     if (_selectedQuestion1 == null ||
         _selectedQuestion2 == null ||
         _selectedQuestion3 == null) {
-      _showSnackBar('Please select all 3 security questions', Colors.red);
+      _showSnackBar(l10n.secQuestionsSelectAll, Colors.red);
       return;
     }
 
     if (_selectedQuestion1 == _selectedQuestion2 ||
         _selectedQuestion1 == _selectedQuestion3 ||
         _selectedQuestion2 == _selectedQuestion3) {
-      _showSnackBar('Please select 3 different security questions', Colors.red);
+      _showSnackBar(l10n.secQuestionsSelectDifferent, Colors.red);
       return;
     }
 
@@ -100,7 +101,7 @@ class _SecurityQuestionsScreenState
       widget.onQuestionsCompleted!(questions);
     }
 
-    _showSnackBar('Security questions saved!', AppTheme.statusActive);
+    _showSnackBar(l10n.secQuestionsSaved, AppTheme.statusActive);
     Navigator.of(context).pop(questions);
   }
 
@@ -118,6 +119,7 @@ class _SecurityQuestionsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final questionsState = ref.watch(securityQuestionsProvider);
 
     return Scaffold(
@@ -152,8 +154,8 @@ class _SecurityQuestionsScreenState
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'Secure Your Account',
+                                Text(
+                                  l10n.secQuestionsTitle,
                                   style: TextStyle(
                                     fontSize: 28,
                                     fontWeight: FontWeight.bold,
@@ -161,8 +163,8 @@ class _SecurityQuestionsScreenState
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
-                                  'Choose three security questions to verify your identity if you lose access to your account.',
+                                Text(
+                                  l10n.secQuestionsIntro,
                                   style: TextStyle(
                                     fontSize: 14,
                                     color: AppTheme.textSecondary,
@@ -260,7 +262,7 @@ class _StepHeader extends StatelessWidget {
                 ),
                 Expanded(
                   child: Text(
-                    'Step $step of 4',
+                    AppLocalizations.of(context).secQuestionsStepOf(step),
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 17,
@@ -336,6 +338,7 @@ class _QuestionBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -362,7 +365,7 @@ class _QuestionBlock extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'Question $number',
+              l10n.authQuestionNumber(number),
               style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
@@ -377,8 +380,8 @@ class _QuestionBlock extends StatelessWidget {
         DropdownButtonFormField<SecurityQuestionModel>(
           value: selected,
           isExpanded: true,
-          hint: const Text(
-            'Select a security question',
+          hint: Text(
+            l10n.secQuestionsSelectHint,
             style: TextStyle(fontSize: 14, color: AppTheme.textTertiary),
           ),
           icon: const Icon(Icons.expand_more,
@@ -420,7 +423,7 @@ class _QuestionBlock extends StatelessWidget {
               .toList(),
           onChanged: onChanged,
           validator: (v) =>
-              v == null ? 'Please select a question' : null,
+              v == null ? l10n.secQuestionsSelectError : null,
         ),
         const SizedBox(height: 10),
 
@@ -431,7 +434,7 @@ class _QuestionBlock extends StatelessWidget {
           style: const TextStyle(
               fontSize: 14, color: AppTheme.textPrimary),
           decoration: InputDecoration(
-            hintText: 'Your answer',
+            hintText: l10n.secQuestionsYourAnswer,
             hintStyle: const TextStyle(
                 fontSize: 14, color: AppTheme.textTertiary),
             suffixIcon: IconButton(
@@ -468,8 +471,8 @@ class _QuestionBlock extends StatelessWidget {
             ),
           ),
           validator: (v) {
-            if (v == null || v.isEmpty) return AppConstants.validationRequired;
-            if (v.length < 2) return 'Answer must be at least 2 characters';
+            if (v == null || v.isEmpty) return l10n.authFieldRequired;
+            if (v.length < 2) return l10n.secQuestionsAnswerMin;
             return null;
           },
         ),
@@ -487,6 +490,7 @@ class _StepFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: EdgeInsets.fromLTRB(
           24, 16, 24, 16 + MediaQuery.of(context).padding.bottom),
@@ -515,7 +519,7 @@ class _StepFooter extends StatelessWidget {
                 textStyle: const TextStyle(
                     fontSize: 16, fontWeight: FontWeight.bold),
               ),
-              child: const Text('Next'),
+              child: Text(l10n.commonNext),
             ),
           ),
           const SizedBox(height: 8),
@@ -531,20 +535,20 @@ class _StepFooter extends StatelessWidget {
                 textStyle: const TextStyle(
                     fontSize: 15, fontWeight: FontWeight.w600),
               ),
-              child: const Text('Go Back'),
+              child: Text(l10n.commonBack),
             ),
           ),
           const SizedBox(height: 4),
           // Security badge
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: const [
-              Icon(Icons.lock_outline,
+            children: [
+              const Icon(Icons.lock_outline,
                   size: 12, color: AppTheme.textTertiary),
-              SizedBox(width: 4),
+              const SizedBox(width: 4),
               Text(
-                'END-TO-END ENCRYPTED',
-                style: TextStyle(
+                l10n.secQuestionsEncrypted,
+                style: const TextStyle(
                   fontSize: 9,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textTertiary,
@@ -568,6 +572,7 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -592,7 +597,7 @@ class _ErrorView extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
               ),
-              child: const Text('Retry'),
+              child: Text(l10n.commonRetry),
             ),
           ],
         ),

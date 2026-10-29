@@ -7,6 +7,7 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/data/services/api_service.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class SignupScreen extends ConsumerStatefulWidget {
   const SignupScreen({super.key});
@@ -56,7 +57,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         if (mounted) {
           setState(() {
             _checkingPhone = false;
-            _phoneTakenError = available ? null : 'This phone number is already registered';
+            _phoneTakenError = available ? null : AppLocalizations.of(context).signupPhoneTaken;
           });
         }
       } catch (_) {
@@ -84,7 +85,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
         if (mounted) {
           setState(() {
             _checkingUsername = false;
-            _usernameTakenError = available ? null : 'This username is already taken';
+            _usernameTakenError = available ? null : AppLocalizations.of(context).signupUsernameTaken;
           });
         }
       } catch (_) {
@@ -108,15 +109,16 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
   Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context);
     if (_usernameTakenError != null) return;
     if (_checkingUsername) {
-      _showSnackBar('Please wait — checking username availability',
+      _showSnackBar(l10n.signupUsernameChecking,
           AppTheme.statusWarning, Icons.hourglass_top_rounded);
       return;
     }
     if (_phoneTakenError != null) return;
     if (_checkingPhone) {
-      _showSnackBar('Please wait — checking phone number availability',
+      _showSnackBar(l10n.signupPhoneChecking,
           AppTheme.statusWarning, Icons.hourglass_top_rounded);
       return;
     }
@@ -130,7 +132,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       if (!available) {
         if (mounted) {
           setState(() => _phoneTakenError =
-              'This phone number is already registered');
+              l10n.signupPhoneTaken);
         }
         return;
       }
@@ -139,7 +141,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     }
 
     if (!_termsAccepted) {
-      _showSnackBar('Please accept the terms and conditions',
+      _showSnackBar(l10n.signupAcceptTerms,
           AppTheme.statusWarning, Icons.warning_amber_rounded);
       return;
     }
@@ -177,14 +179,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     if (mounted) {
       if (response != null) {
         final message = response['message'] as String? ??
-            AppConstants.successSignupEmail;
+            l10n.signupSuccessEmail;
         _showSnackBar(message, AppTheme.statusActive, Icons.check_circle);
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) context.go(AppConstants.routeLogin);
         });
       } else {
         final error = ref.read(authProvider).error;
-        _showSnackBar(error ?? AppConstants.errorUnknown,
+        _showSnackBar(error ?? l10n.authUnknownError,
             AppTheme.statusError, Icons.error_outline);
       }
     }
@@ -210,6 +212,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
@@ -262,17 +265,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                               Border.all(color: const Color(0xFFE2E0E0)),
                         ),
                         child: SegmentedButton<String>(
-                          segments: const [
+                          segments: [
                             ButtonSegment(
                               value: 'email',
-                              label: Text('Email'),
+                              label: Text(l10n.authEmail),
                               icon:
                                   Icon(Icons.email_outlined, size: 16),
                               enabled: false,
                             ),
                             ButtonSegment(
                               value: 'security_questions',
-                              label: Text('Security Q'),
+                              label: Text(l10n.signupSecurityQ),
                               icon: Icon(Icons.security, size: 16),
                             ),
                           ],
@@ -290,21 +293,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       const SizedBox(height: 24),
 
                       // Full Name
-                      _SignupFieldLabel(label: 'Full Name'),
+                      _SignupFieldLabel(label: l10n.signupFullName),
                       const SizedBox(height: 8),
                       _SignupTextField(
                         controller: _fullNameController,
-                        hintText: 'John Doe',
+                        hintText: l10n.signupFullNameHint,
                         prefixIcon: Icons.person_outline,
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
-                            return 'Full name is required';
+                            return l10n.signupFullNameRequired;
                           }
                           if (RegExp(r'[0-9]').hasMatch(v)) {
-                            return 'Do not enter numbers in full name — letters only';
+                            return l10n.signupFullNameNoNumbers;
                           }
                           if (v.trim().length < 2) {
-                            return 'Full name must be at least 2 characters';
+                            return l10n.signupFullNameTooShort;
                           }
                           return null;
                         },
@@ -312,11 +315,11 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       const SizedBox(height: 16),
 
                       // Username
-                      _SignupFieldLabel(label: 'Username'),
+                      _SignupFieldLabel(label: l10n.authUsername),
                       const SizedBox(height: 8),
                       _SignupTextField(
                         controller: _usernameController,
-                        hintText: 'e.g. johndoe or john99',
+                        hintText: l10n.signupUsernameHint,
                         prefixIcon: Icons.account_circle_outlined,
                         onChanged: _onUsernameChanged,
                         suffixIcon: _checkingUsername
@@ -341,13 +344,13 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 : null,
                         validator: (v) {
                           if (v == null || v.isEmpty) {
-                            return 'Username is required';
+                            return l10n.signupUsernameRequired;
                           }
                           if (v.length < 3) {
-                            return 'Username must be at least 3 characters';
+                            return l10n.signupUsernameTooShort;
                           }
                           if (!RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(v)) {
-                            return 'Username can only contain letters, numbers, and underscores';
+                            return l10n.signupUsernameInvalid;
                           }
                           return null;
                         },
@@ -374,7 +377,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
 
                       // Work Email (conditional)
                       if (_authMethod == AppConstants.authMethodEmail) ...[
-                        _SignupFieldLabel(label: 'Work Email'),
+                        _SignupFieldLabel(label: l10n.signupWorkEmail),
                         const SizedBox(height: 8),
                         _SignupTextField(
                           controller: _emailController,
@@ -383,21 +386,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                           keyboardType: TextInputType.emailAddress,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) {
-                              return 'Email is required';
+                              return l10n.signupEmailRequired;
                             }
                             if (!v.contains('@')) {
-                              return 'Email must contain "@" — e.g. name@company.com';
+                              return l10n.signupEmailNoAt;
                             }
                             final parts = v.split('@');
                             if (parts.length != 2 || parts[1].isEmpty) {
-                              return 'Enter a valid email — e.g. name@company.com';
+                              return l10n.signupEmailInvalid;
                             }
                             if (!parts[1].contains('.')) {
-                              return 'Email must have a domain ending — e.g. .com or .in';
+                              return l10n.signupEmailNoDomain;
                             }
                             final domainParts = parts[1].split('.');
                             if (domainParts.last.length < 2) {
-                              return 'Enter a valid email — e.g. name@company.com';
+                              return l10n.signupEmailInvalid;
                             }
                             return null;
                           },
@@ -406,7 +409,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       ],
 
                       // Phone Number
-                      _SignupFieldLabel(label: 'Phone Number'),
+                      _SignupFieldLabel(label: l10n.authPhoneNumber),
                       const SizedBox(height: 8),
                       _SignupTextField(
                         controller: _phoneController,
@@ -439,10 +442,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 : null,
                         validator: (v) {
                           if (v == null || v.trim().isEmpty) {
-                            return 'Phone number is required';
+                            return l10n.signupPhoneRequired;
                           }
                           if (v.trim().length < 10) {
-                            return 'Mobile number must be exactly 10 digits';
+                            return l10n.signupPhoneLength;
                           }
                           return null;
                         },
@@ -468,7 +471,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       const SizedBox(height: 16),
 
                       // Password
-                      _SignupFieldLabel(label: 'Password'),
+                      _SignupFieldLabel(label: l10n.authPassword),
                       const SizedBox(height: 8),
                       _SignupTextField(
                         controller: _passwordController,
@@ -488,10 +491,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         ),
                         validator: (v) {
                           if (v == null || v.isEmpty) {
-                            return 'Password is required';
+                            return l10n.signupPasswordRequired;
                           }
                           if (v.length < 8) {
-                            return 'Password must be at least 8 characters';
+                            return l10n.signupPasswordTooShort;
                           }
                           return null;
                         },
@@ -499,7 +502,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                       const SizedBox(height: 16),
 
                       // Confirm Password
-                      _SignupFieldLabel(label: 'Confirm Password'),
+                      _SignupFieldLabel(label: l10n.signupConfirmPassword),
                       const SizedBox(height: 8),
                       _SignupTextField(
                         controller: _confirmPasswordController,
@@ -520,10 +523,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         ),
                         validator: (v) {
                           if (v == null || v.isEmpty) {
-                            return 'Please confirm your password';
+                            return l10n.signupConfirmPasswordRequired;
                           }
                           if (v != _passwordController.text) {
-                            return 'Passwords do not match — please re-enter';
+                            return l10n.signupPasswordMismatch;
                           }
                           return null;
                         },
@@ -560,25 +563,24 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                       color: AppTheme.textSecondary,
                                       height: 1.5),
                                   children: [
-                                    const TextSpan(
-                                        text:
-                                            'By clicking Create Account, you agree to our '),
                                     TextSpan(
-                                      text: 'Terms of Service',
+                                        text: l10n.signupTermsPrefix),
+                                    TextSpan(
+                                      text: l10n.signupTermsOfService,
                                       style: const TextStyle(
                                         color: AppTheme.primaryBlue,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    const TextSpan(text: ' and '),
+                                    TextSpan(text: l10n.signupTermsAnd),
                                     TextSpan(
-                                      text: 'Privacy Policy',
+                                      text: l10n.authPrivacyPolicy,
                                       style: const TextStyle(
                                         color: AppTheme.primaryBlue,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    const TextSpan(text: '.'),
+                                    TextSpan(text: l10n.signupTermsSuffix),
                                   ],
                                 ),
                               ),
@@ -616,7 +618,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 )
                               : const Icon(Icons.arrow_forward_outlined,
                                   size: 20),
-                          label: const Text('Create Account'),
+                          label: Text(l10n.signupCreateAccount),
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -629,12 +631,12 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                                 fontSize: 14,
                                 color: AppTheme.textSecondary),
                             children: [
-                              const TextSpan(text: 'Already have an account? '),
+                              TextSpan(text: l10n.signupAlreadyHaveAccount),
                               WidgetSpan(
                                 child: GestureDetector(
                                   onTap: () => context.pop(),
-                                  child: const Text(
-                                    'Log In',
+                                  child: Text(
+                                    l10n.signupLogIn,
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,

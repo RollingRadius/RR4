@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/data/models/security_question_model.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/providers/security_questions_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
@@ -82,12 +83,13 @@ class _UsernameRecoveryScreenState
   }
 
   Future<void> _handleSecurityQuestionsSubmit() async {
+    final l10n = AppLocalizations.of(context);
     // Validate all answers are filled
     for (var controller in _answerControllers) {
       if (controller.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please answer all security questions'),
+          SnackBar(
+            content: Text(l10n.authAnswerAllQuestions),
             backgroundColor: Colors.red,
           ),
         );
@@ -118,9 +120,10 @@ class _UsernameRecoveryScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Username Recovery'),
+        title: Text(l10n.userRecoveryTitle),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -147,14 +150,14 @@ class _UsernameRecoveryScreenState
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'Forgot Your Username?',
+                        l10n.userRecoveryHeading,
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'We\'ll help you recover your username by verifying your identity',
+                        l10n.userRecoverySubtitle,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.grey[600],
                             ),
@@ -167,7 +170,7 @@ class _UsernameRecoveryScreenState
                 if (!_showQuestions && !_showUsername) ...[
                   // Step 1: Full Name and Phone
                   Text(
-                    'Enter Your Details',
+                    l10n.userRecoveryEnterDetails,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
@@ -176,14 +179,14 @@ class _UsernameRecoveryScreenState
 
                   TextFormField(
                     controller: _fullNameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name',
-                      hintText: 'Enter your registered full name',
+                    decoration: InputDecoration(
+                      labelText: l10n.userRecoveryFullName,
+                      hintText: l10n.userRecoveryFullNameHint,
                       prefixIcon: Icon(Icons.person),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return AppConstants.validationRequired;
+                        return l10n.authFieldRequired;
                       }
                       return null;
                     },
@@ -193,14 +196,14 @@ class _UsernameRecoveryScreenState
                   TextFormField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(
-                      labelText: 'Phone Number',
-                      hintText: 'Enter your registered phone number',
+                    decoration: InputDecoration(
+                      labelText: l10n.userRecoveryPhone,
+                      hintText: l10n.userRecoveryPhoneHint,
                       prefixIcon: Icon(Icons.phone),
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return AppConstants.validationRequired;
+                        return l10n.authFieldRequired;
                       }
                       return null;
                     },
@@ -217,7 +220,7 @@ class _UsernameRecoveryScreenState
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'You will need to answer your security questions to verify your identity.',
+                              l10n.userRecoveryInfo,
                               style: TextStyle(color: Colors.blue.shade900),
                             ),
                           ),
@@ -237,7 +240,7 @@ class _UsernameRecoveryScreenState
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Continue'),
+                          : Text(l10n.commonContinue),
                     ),
                   ),
                 ],
@@ -245,14 +248,14 @@ class _UsernameRecoveryScreenState
                 if (_showQuestions && !_showUsername) ...[
                   // Step 2: Security Questions
                   Text(
-                    'Answer Your Security Questions',
+                    l10n.authAnswerSecurityQuestions,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Please answer the following questions to verify your identity',
+                    l10n.userRecoveryAnswerPrompt,
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 24),
@@ -303,15 +306,15 @@ class _UsernameRecoveryScreenState
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _answerControllers[i],
-                            decoration: const InputDecoration(
-                              hintText: 'Enter your answer',
+                            decoration: InputDecoration(
+                              hintText: l10n.authEnterAnswer,
                               prefixIcon: Icon(Icons.edit),
                               filled: true,
                               fillColor: Colors.white,
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return AppConstants.validationRequired;
+                                return l10n.authFieldRequired;
                               }
                               return null;
                             },
@@ -335,7 +338,7 @@ class _UsernameRecoveryScreenState
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Verify & Recover Username'),
+                          : Text(l10n.userRecoveryVerifyButton),
                     ),
                   ),
                 ],
@@ -364,7 +367,7 @@ class _UsernameRecoveryScreenState
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Username Recovered!',
+                          l10n.userRecoveryRecovered,
                           style: Theme.of(context)
                               .textTheme
                               .headlineSmall
@@ -375,7 +378,7 @@ class _UsernameRecoveryScreenState
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Your username is:',
+                          l10n.userRecoveryYourUsernameIs,
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey[700],
@@ -411,7 +414,7 @@ class _UsernameRecoveryScreenState
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'Please save this username for future reference',
+                          l10n.userRecoverySaveNote,
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.grey[600],
@@ -427,7 +430,7 @@ class _UsernameRecoveryScreenState
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _handleContinueToLogin,
-                      child: const Text('Continue to Login'),
+                      child: Text(l10n.userRecoveryContinueToLogin),
                     ),
                   ),
                 ],
@@ -438,7 +441,7 @@ class _UsernameRecoveryScreenState
                 Center(
                   child: TextButton(
                     onPressed: () => context.go(AppConstants.routeLogin),
-                    child: const Text('Back to Login'),
+                    child: Text(l10n.authBackToLogin),
                   ),
                 ),
               ],

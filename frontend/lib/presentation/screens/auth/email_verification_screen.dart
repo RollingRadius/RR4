@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class EmailVerificationScreen extends ConsumerStatefulWidget {
   final String? email;
@@ -46,10 +47,11 @@ class _EmailVerificationScreenState
           _isVerifying = false;
         });
 
+        final l10n = AppLocalizations.of(context);
         if (success) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Email verified successfully! You can now login.'),
+            SnackBar(
+              content: Text(l10n.emailVerifyVerified),
               backgroundColor: Colors.green,
             ),
           );
@@ -60,7 +62,7 @@ class _EmailVerificationScreenState
           final error = ref.read(authProvider).error;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(error ?? 'Verification failed. Please try again.'),
+              content: Text(error ?? l10n.emailVerifyFailed),
               backgroundColor: Colors.red,
             ),
           );
@@ -74,7 +76,7 @@ class _EmailVerificationScreenState
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text(AppLocalizations.of(context).emailVerifyError(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -84,9 +86,10 @@ class _EmailVerificationScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Verify Email'),
+        title: Text(l10n.authVerifyEmail),
       ),
       body: SafeArea(
         child: Center(
@@ -113,7 +116,7 @@ class _EmailVerificationScreenState
                   child: Column(
                     children: [
                       Text(
-                        'Verify Your Email',
+                        l10n.emailVerifyHeading,
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -122,7 +125,7 @@ class _EmailVerificationScreenState
                       const SizedBox(height: 16),
                       if (widget.email != null) ...[
                         Text(
-                          'We sent a verification code to:',
+                          l10n.emailVerifySentTo,
                           style: Theme.of(context).textTheme.bodyMedium,
                           textAlign: TextAlign.center,
                         ),
@@ -138,7 +141,7 @@ class _EmailVerificationScreenState
                         const SizedBox(height: 16),
                       ],
                       Text(
-                        'Please enter the verification code from your email below.',
+                        l10n.emailVerifyEnterCode,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.grey[600],
                             ),
@@ -162,19 +165,19 @@ class _EmailVerificationScreenState
                           // Token input
                           TextFormField(
                             controller: _tokenController,
-                            decoration: const InputDecoration(
-                              labelText: 'Verification Code',
-                              hintText: 'Enter the code from your email',
-                              prefixIcon: Icon(Icons.vpn_key),
+                            decoration: InputDecoration(
+                              labelText: l10n.emailVerifyCodeLabel,
+                              hintText: l10n.emailVerifyCodeHint,
+                              prefixIcon: const Icon(Icons.vpn_key),
                             ),
                             keyboardType: TextInputType.text,
                             textCapitalization: TextCapitalization.characters,
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return AppConstants.validationRequired;
+                                return l10n.authFieldRequired;
                               }
                               if (value.length < 6) {
-                                return 'Verification code must be at least 6 characters';
+                                return l10n.emailVerifyCodeTooShort;
                               }
                               return null;
                             },
@@ -197,7 +200,7 @@ class _EmailVerificationScreenState
                                         ),
                                       ),
                                     )
-                                  : const Text('Verify Email'),
+                                  : Text(l10n.authVerifyEmail),
                             ),
                           ),
                         ],
@@ -217,19 +220,19 @@ class _EmailVerificationScreenState
                         onPressed: () {
                           // TODO: Implement resend verification email
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Verification email resent!'),
+                            SnackBar(
+                              content: Text(l10n.emailVerifyResent),
                               backgroundColor: Colors.green,
                             ),
                           );
                         },
-                        child: const Text('Didn\'t receive the code? Resend'),
+                        child: Text(l10n.emailVerifyResend),
                       ),
                       TextButton(
                         onPressed: () {
                           context.go(AppConstants.routeLogin);
                         },
-                        child: const Text('Back to Login'),
+                        child: Text(l10n.authBackToLogin),
                       ),
                     ],
                   ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
@@ -56,10 +57,11 @@ class _PasswordRecoveryScreenState
   }
 
   Future<void> _loadUserSecurityQuestions() async {
+    final l10n = AppLocalizations.of(context);
     if (_usernameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your username'),
+        SnackBar(
+          content: Text(l10n.pwRecoveryEnterUsername),
           backgroundColor: Colors.red,
         ),
       );
@@ -109,6 +111,7 @@ class _PasswordRecoveryScreenState
   }
 
   Future<void> _handleSecurityQuestionsRecovery() async {
+    final l10n = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
 
     // Build answers list matching the loaded questions order
@@ -117,8 +120,8 @@ class _PasswordRecoveryScreenState
       final text = _answerControllers[i].text.trim();
       if (text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please answer all security questions'),
+          SnackBar(
+            content: Text(l10n.authAnswerAllQuestions),
             backgroundColor: Colors.red,
           ),
         );
@@ -160,11 +163,12 @@ class _PasswordRecoveryScreenState
   }
 
   Future<void> _handlePasswordReset() async {
+    final l10n = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
     if (_resetToken == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Session expired. Please start over.'),
+        SnackBar(
+          content: Text(l10n.pwRecoverySessionExpired),
           backgroundColor: Colors.red,
         ),
       );
@@ -183,9 +187,8 @@ class _PasswordRecoveryScreenState
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Password reset successful! Please login with your new password.'),
+          SnackBar(
+            content: Text(l10n.pwRecoveryResetSuccess),
             backgroundColor: Colors.green,
           ),
         );
@@ -206,9 +209,10 @@ class _PasswordRecoveryScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Password Recovery'),
+        title: Text(l10n.pwRecoveryTitle),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -236,14 +240,14 @@ class _PasswordRecoveryScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Forgot Your Password?',
+                        l10n.pwRecoveryHeading,
                         style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Reset your password using your security questions',
+                        l10n.pwRecoverySubtitle,
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: Colors.grey[600],
                             ),
@@ -260,23 +264,23 @@ class _PasswordRecoveryScreenState
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Recovery Method',
+                        l10n.pwRecoveryMethod,
                         style: Theme.of(context).textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                       ),
                       const SizedBox(height: 12),
                       SegmentedButton<String>(
-                  segments: const [
+                  segments: [
                     ButtonSegment(
                       value: 'email',
-                      label: Text('Email'),
-                      icon: Icon(Icons.email),
+                      label: Text(l10n.pwRecoveryMethodEmail),
+                      icon: const Icon(Icons.email),
                     ),
                     ButtonSegment(
                       value: 'security_questions',
-                      label: Text('Security Questions'),
-                      icon: Icon(Icons.security),
+                      label: Text(l10n.pwRecoveryMethodQuestions),
+                      icon: const Icon(Icons.security),
                     ),
                   ],
                   selected: {_recoveryMethod},
@@ -298,13 +302,13 @@ class _PasswordRecoveryScreenState
                   delay: 350,
                   child: TextFormField(
                   controller: _usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
+                  decoration: InputDecoration(
+                    labelText: l10n.pwRecoveryUsername,
                     prefixIcon: Icon(Icons.person),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return AppConstants.validationRequired;
+                      return l10n.authFieldRequired;
                     }
                     return null;
                   },
@@ -329,7 +333,7 @@ class _PasswordRecoveryScreenState
                                 size: 48, color: Colors.amber.shade700),
                             const SizedBox(height: 12),
                             Text(
-                              'Coming Soon',
+                              l10n.pwRecoveryComingSoon,
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold,
@@ -338,8 +342,7 @@ class _PasswordRecoveryScreenState
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Email-based password recovery is under development. '
-                              'Please use Security Questions to reset your password for now.',
+                              l10n.pwRecoveryEmailComingSoon,
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Colors.amber.shade800),
                             ),
@@ -357,7 +360,7 @@ class _PasswordRecoveryScreenState
                         onPressed: () => setState(
                             () => _recoveryMethod = 'security_questions'),
                         icon: const Icon(Icons.security),
-                        label: const Text('Use Security Questions Instead'),
+                        label: Text(l10n.pwRecoveryUseQuestions),
                       ),
                     ),
                   ),
@@ -377,7 +380,7 @@ class _PasswordRecoveryScreenState
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
-                                'Enter your username and we\'ll show you your security questions.',
+                                l10n.pwRecoveryUsernameInfo,
                                 style: TextStyle(color: Colors.orange.shade900),
                               ),
                             ),
@@ -399,12 +402,12 @@ class _PasswordRecoveryScreenState
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text('Load Security Questions'),
+                            : Text(l10n.pwRecoveryLoadQuestions),
                       ),
                     ),
                   ] else if (!_showPasswordReset) ...[
                     Text(
-                      'Answer Your Security Questions',
+                      l10n.authAnswerSecurityQuestions,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -413,7 +416,7 @@ class _PasswordRecoveryScreenState
 
                     for (int i = 0; i < _userQuestions.length; i++) ...[
                       Text(
-                        'Question ${i + 1}',
+                        l10n.authQuestionNumber(i + 1),
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: 8),
@@ -429,13 +432,13 @@ class _PasswordRecoveryScreenState
                         controller: i < _answerControllers.length
                             ? _answerControllers[i]
                             : TextEditingController(),
-                        decoration: const InputDecoration(
-                          hintText: 'Enter your answer',
+                        decoration: InputDecoration(
+                          hintText: l10n.authEnterAnswer,
                           prefixIcon: Icon(Icons.edit),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return AppConstants.validationRequired;
+                            return l10n.authFieldRequired;
                           }
                           return null;
                         },
@@ -456,13 +459,13 @@ class _PasswordRecoveryScreenState
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text('Verify Answers'),
+                            : Text(l10n.pwRecoveryVerifyAnswers),
                       ),
                     ),
                   ] else ...[
                     // Password Reset Form
                     Text(
-                      'Set New Password',
+                      l10n.pwRecoverySetNewPassword,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -473,7 +476,7 @@ class _PasswordRecoveryScreenState
                       controller: _newPasswordController,
                       obscureText: _obscureNewPassword,
                       decoration: InputDecoration(
-                        labelText: 'New Password',
+                        labelText: l10n.authNewPassword,
                         prefixIcon: const Icon(Icons.lock),
                         suffixIcon: IconButton(
                           icon: Icon(_obscureNewPassword
@@ -488,10 +491,10 @@ class _PasswordRecoveryScreenState
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return AppConstants.validationRequired;
+                          return l10n.authFieldRequired;
                         }
                         if (value.length < 8) {
-                          return AppConstants.validationPassword;
+                          return l10n.authPasswordRule;
                         }
                         return null;
                       },
@@ -502,7 +505,7 @@ class _PasswordRecoveryScreenState
                       controller: _confirmPasswordController,
                       obscureText: _obscureConfirmPassword,
                       decoration: InputDecoration(
-                        labelText: 'Confirm Password',
+                        labelText: l10n.pwRecoveryConfirmPassword,
                         prefixIcon: const Icon(Icons.lock_outline),
                         suffixIcon: IconButton(
                           icon: Icon(_obscureConfirmPassword
@@ -518,10 +521,10 @@ class _PasswordRecoveryScreenState
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
-                          return AppConstants.validationRequired;
+                          return l10n.authFieldRequired;
                         }
                         if (value != _newPasswordController.text) {
-                          return AppConstants.validationPasswordMismatch;
+                          return l10n.authPasswordMismatch;
                         }
                         return null;
                       },
@@ -539,7 +542,7 @@ class _PasswordRecoveryScreenState
                                 child:
                                     CircularProgressIndicator(strokeWidth: 2),
                               )
-                            : const Text('Reset Password'),
+                            : Text(l10n.pwRecoveryResetButton),
                       ),
                     ),
                   ],
@@ -553,7 +556,7 @@ class _PasswordRecoveryScreenState
                   child: Center(
                     child: TextButton(
                       onPressed: () => context.go(AppConstants.routeLogin),
-                      child: const Text('Back to Login'),
+                      child: Text(l10n.authBackToLogin),
                     ),
                   ),
                 ),

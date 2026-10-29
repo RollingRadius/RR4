@@ -6,6 +6,7 @@ import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/routing/dashboard_route.dart';
 import 'package:fleet_management/main.dart' show rootScaffoldMessengerKey;
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -37,22 +38,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (mounted) {
       if (success) {
+        final l10n = AppLocalizations.of(context);
         final user = ref.read(authProvider).user;
         if (user != null && !user.profileCompleted) {
-          _showSnackBar('Please complete your profile to continue',
+          _showSnackBar(l10n.loginCompleteProfile,
               AppTheme.statusWarning, Icons.info_outline);
           context.go('/profile-complete');
         } else if (user != null) {
-          _showSnackBar(AppConstants.successLogin, AppTheme.statusActive,
+          _showSnackBar(l10n.loginSuccess, AppTheme.statusActive,
               Icons.check_circle);
           context.go(dashboardRouteFor(user));
         }
       } else {
         final error = ref.read(authProvider).error;
+        final l10n = AppLocalizations.of(context);
         if (error == 'WORKER_PENDING_APPROVAL') {
           _showPendingApprovalDialog();
         } else {
-          _showSnackBar(error ?? AppConstants.errorUnknown,
+          _showSnackBar(error ?? l10n.authUnknownError,
               AppTheme.statusError, Icons.error_outline);
         }
       }
@@ -82,6 +85,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   void _showPendingApprovalDialog() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -100,13 +104,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             size: 36,
           ),
         ),
-        title: const Text(
-          'Pending Approval',
+        title: Text(
+          l10n.loginPendingTitle,
           textAlign: TextAlign.center,
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
         ),
-        content: const Text(
-          'Wait for acceptance by company owner.\n\nOnce the company owner accepts your request, you will be able to log in.',
+        content: Text(
+          l10n.loginPendingMessage,
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 14, height: 1.5),
         ),
@@ -122,7 +126,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
             ),
-            child: const Text('OK', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(l10n.commonOk, style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -132,6 +136,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: AppTheme.bgPrimary,
@@ -168,10 +173,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               children: [
                 // Top bar
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                   child: Text(
-                    'Login',
+                    l10n.loginTitle,
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 18,
@@ -196,8 +201,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             height: 90,
                           ),
                           const SizedBox(height: 20),
-                          const Text(
-                            'Welcome back to RR',
+                          Text(
+                            l10n.loginWelcome,
                             style: TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.bold,
@@ -206,8 +211,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 8),
-                          const Text(
-                            'Securely access your fleet dashboard',
+                          Text(
+                            l10n.loginSubtitle,
                             style: TextStyle(
                                 fontSize: 15, color: AppTheme.textSecondary),
                             textAlign: TextAlign.center,
@@ -215,16 +220,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           const SizedBox(height: 40),
 
                           // Username field
-                          _FieldLabel(label: 'Username'),
+                          _FieldLabel(label: l10n.authUsername),
                           const SizedBox(height: 8),
                           _AuthTextField(
                             controller: _usernameController,
-                            hintText: 'Enter your username',
+                            hintText: l10n.loginUsernameHint,
                             prefixIcon: Icons.account_circle_outlined,
                             keyboardType: TextInputType.text,
                             textInputAction: TextInputAction.next,
                             validator: (v) => (v == null || v.isEmpty)
-                                ? AppConstants.validationRequired
+                                ? l10n.authFieldRequired
                                 : null,
                           ),
                           const SizedBox(height: 20),
@@ -233,12 +238,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const _FieldLabel(label: 'Password'),
+                              _FieldLabel(label: l10n.authPassword),
                               GestureDetector(
                                 onTap: () =>
                                     context.push('/password-recovery'),
-                                child: const Text(
-                                  'Forgot password?',
+                                child: Text(
+                                  l10n.loginForgotPassword,
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
@@ -268,7 +273,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   () => _obscurePassword = !_obscurePassword),
                             ),
                             validator: (v) => (v == null || v.isEmpty)
-                                ? AppConstants.validationRequired
+                                ? l10n.authFieldRequired
                                 : null,
                           ),
                           const SizedBox(height: 24),
@@ -306,7 +311,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           )
                                         : const Icon(Icons.login_outlined,
                                             size: 20),
-                                    label: const Text('Login to Fleet'),
+                                    label: Text(l10n.loginButton),
                                   ),
                                 ),
                               ),
@@ -328,12 +333,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       color: AppTheme.primaryBlue, size: 28),
                                   onPressed: () {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
+                                      SnackBar(
                                           content: Text(
-                                              'Biometric login coming soon')),
+                                              l10n.loginBiometricSoon)),
                                     );
                                   },
-                                  tooltip: 'Biometric Login',
+                                  tooltip: l10n.loginBiometricTooltip,
                                 ),
                               ),
                             ],
@@ -349,7 +354,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 16),
                                 child: Text(
-                                  'Or continue with',
+                                  l10n.loginOrContinueWith,
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
@@ -372,7 +377,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   icon: Icons.g_mobiledata,
                                   label: 'Google',
                                   onTap: () => _showSnackBar(
-                                      'Google SSO coming soon',
+                                      l10n.loginGoogleSoon,
                                       AppTheme.primaryBlue,
                                       Icons.info_outline),
                                 ),
@@ -381,9 +386,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               Expanded(
                                 child: _SsoButton(
                                   icon: Icons.corporate_fare,
-                                  label: 'Corporate ID',
+                                  label: l10n.loginCorporateId,
                                   onTap: () => _showSnackBar(
-                                      'Corporate SSO coming soon',
+                                      l10n.loginCorporateSoon,
                                       AppTheme.primaryBlue,
                                       Icons.info_outline),
                                 ),
@@ -399,13 +404,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               style: const TextStyle(
                                   fontSize: 13, color: AppTheme.textSecondary),
                               children: [
-                                const TextSpan(text: 'New to the fleet? '),
+                                TextSpan(text: l10n.loginNewToFleet),
                                 WidgetSpan(
                                   child: GestureDetector(
                                     onTap: () => context
                                         .push(AppConstants.routeSignup),
-                                    child: const Text(
-                                      'Sign Up',
+                                    child: Text(
+                                      l10n.authSignUp,
                                       style: TextStyle(
                                         fontSize: 13,
                                         fontWeight: FontWeight.bold,
@@ -423,14 +428,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             children: [
                               _FooterLink(
                                 icon: Icons.help_outline,
-                                label: 'Help Center',
+                                label: l10n.loginHelpCenter,
                                 onTap: () =>
                                     context.push('/help'),
                               ),
                               const SizedBox(width: 24),
                               _FooterLink(
                                 icon: Icons.security_outlined,
-                                label: 'Privacy Policy',
+                                label: l10n.authPrivacyPolicy,
                                 onTap: () {},
                               ),
                             ],

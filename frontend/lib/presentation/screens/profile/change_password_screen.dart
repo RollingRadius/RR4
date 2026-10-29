@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/profile_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
@@ -59,11 +60,12 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   }
 
   Future<void> _loadQuestions() async {
+    final l10n = AppLocalizations.of(context);
     final username = ref.read(authProvider).user?.username;
     if (username == null) {
       setState(() {
         _isLoadingQuestions = false;
-        _loadError = 'Could not determine your username. Please try again.';
+        _loadError = l10n.changePwNoUsername;
       });
       return;
     }
@@ -95,6 +97,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
 
     final answers = <Map<String, String>>[
@@ -113,8 +116,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Password changed. Please log in again.'),
+        SnackBar(
+          content: Text(l10n.changePwSuccess),
           backgroundColor: AppTheme.successColor,
         ),
       );
@@ -125,7 +128,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
       final error = ref.read(profileProvider).error;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(error ?? 'Failed to change password'),
+          content: Text(error ?? l10n.changePwFailed),
           backgroundColor: AppTheme.errorColor,
         ),
       );
@@ -134,8 +137,9 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Change Password')),
+      appBar: AppBar(title: Text(l10n.changePwTitle)),
       body: SafeArea(
         child: _isLoadingQuestions
             ? const Center(child: CircularProgressIndicator())
@@ -149,14 +153,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Answer your security questions and set a new password. '
-                            'You will be signed out of every device and need to log in again.',
+                            l10n.changePwIntro,
                             style: TextStyle(color: Colors.grey[700]),
                           ),
                           const SizedBox(height: 24),
 
                           for (var i = 0; i < _questions.length; i++) ...[
-                            Text('Question ${i + 1}',
+                            Text(l10n.authQuestionNumber(i + 1),
                                 style: Theme.of(context).textTheme.titleSmall),
                             const SizedBox(height: 6),
                             Text(
@@ -169,20 +172,20 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                             const SizedBox(height: 8),
                             TextFormField(
                               controller: _answerControllers[i],
-                              decoration: const InputDecoration(
-                                hintText: 'Enter your answer',
+                              decoration: InputDecoration(
+                                hintText: l10n.authEnterAnswer,
                                 prefixIcon: Icon(Icons.edit),
                               ),
                               validator: (value) =>
                                   (value == null || value.isEmpty)
-                                      ? AppConstants.validationRequired
+                                      ? l10n.authFieldRequired
                                       : null,
                             ),
                             const SizedBox(height: 16),
                           ],
 
                           const SizedBox(height: 8),
-                          Text('New Password',
+                          Text(l10n.authNewPassword,
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium
@@ -193,7 +196,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                             controller: _newPasswordController,
                             obscureText: _obscureNewPassword,
                             decoration: InputDecoration(
-                              labelText: 'New Password',
+                              labelText: l10n.authNewPassword,
                               prefixIcon: const Icon(Icons.lock),
                               suffixIcon: IconButton(
                                 icon: Icon(_obscureNewPassword
@@ -205,10 +208,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return AppConstants.validationRequired;
+                                return l10n.authFieldRequired;
                               }
                               if (value.length < 8) {
-                                return AppConstants.validationPassword;
+                                return l10n.authPasswordRule;
                               }
                               return null;
                             },
@@ -219,7 +222,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                             controller: _confirmPasswordController,
                             obscureText: _obscureConfirmPassword,
                             decoration: InputDecoration(
-                              labelText: 'Confirm New Password',
+                              labelText: l10n.changePwConfirmNew,
                               prefixIcon: const Icon(Icons.lock_outline),
                               suffixIcon: IconButton(
                                 icon: Icon(_obscureConfirmPassword
@@ -231,10 +234,10 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                             ),
                             validator: (value) {
                               if (value == null || value.isEmpty) {
-                                return AppConstants.validationRequired;
+                                return l10n.authFieldRequired;
                               }
                               if (value != _newPasswordController.text) {
-                                return AppConstants.validationPasswordMismatch;
+                                return l10n.authPasswordMismatch;
                               }
                               return null;
                             },
@@ -251,7 +254,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                                       width: 20,
                                       child: CircularProgressIndicator(strokeWidth: 2),
                                     )
-                                  : const Text('Change Password'),
+                                  : Text(l10n.changePwTitle),
                             ),
                           ),
                         ],
@@ -263,6 +266,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   }
 
   Widget _buildErrorState() {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -281,7 +285,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                 });
                 _loadQuestions();
               },
-              child: const Text('Retry'),
+              child: Text(l10n.commonRetry),
             ),
           ],
         ),
