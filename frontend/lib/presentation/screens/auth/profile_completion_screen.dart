@@ -10,6 +10,7 @@ import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:flutter/services.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
 import 'package:fleet_management/main.dart' show rootScaffoldMessengerKey;
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class ProfileCompletionScreen extends ConsumerStatefulWidget {
   const ProfileCompletionScreen({super.key});
@@ -69,8 +70,9 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
 
 
   Future<void> _submitProfile() async {
+    final l10n = AppLocalizations.of(context);
     if (_selectedRoleType == null) {
-      _showError('Please select a role type');
+      _showError(l10n.profileCompleteSelectRole);
       return;
     }
 
@@ -79,7 +81,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
     if (authState.token != null) {
       ref.read(apiServiceProvider).setToken(authState.token!);
     } else {
-      _showError('Session expired. Please log in again.');
+      _showError(l10n.profileCompleteSessionExpired);
       return;
     }
 
@@ -91,37 +93,37 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
     // Add fields based on role type
     if (_selectedRoleType == 'driver') {
       if (_licenseNumberController.text.isEmpty) {
-        _showError('Please enter your license number');
+        _showError(l10n.profileCompleteEnterLicense);
         return;
       }
       if (_licenseExpiryController.text.isEmpty) {
-        _showError('Please enter your license expiry date');
+        _showError(l10n.profileCompleteEnterLicenseExpiry);
         return;
       }
       profileData['license_number'] = _licenseNumberController.text.trim();
       profileData['license_expiry'] = _licenseExpiryController.text.trim();
     } else if (_selectedRoleType == 'join_company') {
       if (_selectedWorkerType == null) {
-        _showError('Please select your worker type');
+        _showError(l10n.profileCompleteSelectWorkerType);
         return;
       }
       if (_selectedCompanyId == null) {
-        _showError('Please select a company to join');
+        _showError(l10n.profileCompleteSelectCompanyToJoin);
         return;
       }
       profileData['company_id'] = _selectedCompanyId;
       profileData['requested_role_key'] = _selectedWorkerType;
     } else if (_selectedRoleType == 'create_company') {
       if (_selectedCompanyType == null) {
-        _showError('Please select a company type');
+        _showError(l10n.profileCompleteSelectCompanyType);
         return;
       }
       if (_companyNameController.text.isEmpty) {
-        _showError('Please enter company name');
+        _showError(l10n.profileCompleteEnterCompanyName);
         return;
       }
       if (_addressController.text.trim().length < 5) {
-        _showError('Address must be at least 5 characters');
+        _showError(l10n.profileCompleteAddressMin);
         return;
       }
       profileData['company_name'] = _companyNameController.text.trim();
@@ -133,22 +135,22 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
       profileData['state'] = _stateController.text.trim();
       final pincode = _pincodeController.text.trim();
       if (pincode.length != 6 || pincode[0] == '0') {
-        _showError('Enter a valid 6-digit Indian pincode');
+        _showError(l10n.companyCreatePincodeInvalid);
         return;
       }
       profileData['pincode'] = pincode;
       profileData['country'] = 'India';
     } else if (_selectedRoleType == 'transporter') {
       if (_companyNameController.text.isEmpty) {
-        _showError('Please enter your company name');
+        _showError(l10n.profileCompleteEnterYourCompanyName);
         return;
       }
       if (_panNumberController.text.isEmpty) {
-        _showError('Please enter your PAN Card Number');
+        _showError(l10n.profileCompleteEnterPan);
         return;
       }
       if (_addressController.text.trim().length < 5) {
-        _showError('Address must be at least 5 characters');
+        _showError(l10n.profileCompleteAddressMin);
         return;
       }
       profileData['company_name'] = _companyNameController.text.trim();
@@ -177,13 +179,13 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
             // animation frames (confirmed live for the driver-nav case below).
             rootScaffoldMessengerKey.currentState?.showSnackBar(
               SnackBar(
-                content: const Row(
+                content: Row(
                   children: [
-                    Icon(Icons.hourglass_top_rounded, color: Colors.white),
-                    SizedBox(width: 12),
+                    const Icon(Icons.hourglass_top_rounded, color: Colors.white),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Request sent! Wait for acceptance by the company owner.',
+                        l10n.profileCompleteRequestSent,
                       ),
                     ),
                   ],
@@ -211,11 +213,11 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
             // RenderFlex overflow on the orphaned SnackBar's remaining frames).
             rootScaffoldMessengerKey.currentState?.showSnackBar(
               SnackBar(
-                content: const Row(
+                content: Row(
                   children: [
-                    Icon(Icons.check_circle, color: Colors.white),
-                    SizedBox(width: 12),
-                    Text('Profile completed successfully!'),
+                    const Icon(Icons.check_circle, color: Colors.white),
+                    const SizedBox(width: 12),
+                    Text(l10n.profileCompleteSuccess),
                   ],
                 ),
                 backgroundColor: AppTheme.successColor,
@@ -232,7 +234,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
         }
       } else {
         final error = ref.read(profileProvider).error;
-        _showError(error ?? 'Failed to complete profile');
+        _showError(error ?? l10n.profileCompleteFailed);
       }
     }
   }
@@ -269,7 +271,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
 
       await ref.read(companyProvider.notifier).searchCompanies(query, businessType: businessType);
     } catch (e) {
-      _showError('Failed to search companies: $e');
+      _showError(AppLocalizations.of(context).profileCompleteSearchFailed(e.toString()));
     }
   }
 
@@ -278,10 +280,11 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
     final profileState = ref.watch(profileProvider);
     final size = MediaQuery.of(context).size;
     final isDesktop = size.width > 600;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Complete Your Profile'),
+        title: Text(l10n.profileCompleteTitle),
         automaticallyImplyLeading: false, // Cannot go back
         centerTitle: true,
       ),
@@ -321,8 +324,8 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text(
-                        'Choose Your Role',
+                      Text(
+                        l10n.profileCompleteChooseRole,
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -336,13 +339,13 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: Colors.red[200]!),
                         ),
-                        child: const Row(
+                        child: Row(
                           children: [
-                            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
-                            SizedBox(width: 8),
+                            const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 20),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'This decision is permanent and cannot be changed later.',
+                                l10n.profileCompletePermanentWarning,
                                 style: TextStyle(
                                   color: Colors.red,
                                   fontWeight: FontWeight.w600,
@@ -358,37 +361,37 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                       // Role Options
                       _buildRoleOption(
                         'independent',
-                        'Independent User',
-                        'Use basic features without company affiliation',
+                        l10n.roleIndependentUser,
+                        l10n.profileCompleteIndependentDesc,
                         Icons.person_outline,
                         comingSoon: true,
                       ),
                       const SizedBox(height: 12),
                       _buildRoleOption(
                         'driver',
-                        'Driver',
-                        'Register as a driver with license information',
+                        l10n.roleDriver,
+                        l10n.profileCompleteDriverDesc,
                         Icons.local_shipping_outlined,
                       ),
                       const SizedBox(height: 12),
                       _buildRoleOption(
                         'join_company',
-                        'Join as Worker',
-                        'Join an existing company as a worker (requires owner approval)',
+                        l10n.profileCompleteJoinWorker,
+                        l10n.profileCompleteJoinWorkerDesc,
                         Icons.badge_outlined,
                       ),
                       const SizedBox(height: 12),
                       _buildRoleOption(
                         'create_company',
-                        'Create Company',
-                        'Register your company and become the Logistic Partner',
+                        l10n.profileCompleteCreateCompany,
+                        l10n.profileCompleteCreateCompanyDesc,
                         Icons.add_business_outlined,
                       ),
                       const SizedBox(height: 12),
                       _buildRoleOption(
                         'transporter',
-                        'Join as Transporter',
-                        'Register as an independent transporter to upload loading slips for assigned trips',
+                        l10n.profileCompleteJoinTransporter,
+                        l10n.profileCompleteJoinTransporterDesc,
                         Icons.airport_shuttle_outlined,
                         comingSoon: true,
                       ),
@@ -424,8 +427,8 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                                     ),
                                   )
-                                : const Text(
-                                    'Complete Profile',
+                                : Text(
+                                    l10n.profileCompleteButton,
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -446,6 +449,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
   }
 
   Widget _buildRoleOption(String value, String title, String description, IconData icon, {bool comingSoon = false}) {
+    final l10n = AppLocalizations.of(context);
     final isSelected = _selectedRoleType == value;
 
     return Opacity(
@@ -520,7 +524,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
-                    'Coming Soon',
+                    l10n.profileCompleteComingSoon,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -542,12 +546,13 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
   }
 
   Widget _buildDriverForm() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 32),
-        const Text(
-          'Driver Information',
+        Text(
+          l10n.profileCompleteDriverInfo,
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -557,7 +562,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
         TextField(
           controller: _licenseNumberController,
           decoration: InputDecoration(
-            labelText: 'License Number *',
+            labelText: l10n.profileCompleteLicenseNumber,
             hintText: 'DL1234567890',
             prefixIcon: const Icon(Icons.credit_card),
             border: OutlineInputBorder(
@@ -569,7 +574,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
         TextField(
           controller: _licenseExpiryController,
           decoration: InputDecoration(
-            labelText: 'License Expiry Date (YYYY-MM-DD) *',
+            labelText: l10n.profileCompleteLicenseExpiry,
             hintText: '2027-12-31',
             prefixIcon: const Icon(Icons.calendar_today),
             border: OutlineInputBorder(
@@ -583,18 +588,19 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
 
   Widget _buildJoinCompanyForm() {
     final companyState = ref.watch(companyProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 32),
-        const Text(
-          'Select Company Type',
+        Text(
+          l10n.profileCompleteSelectCompanyTypeTitle,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 6),
         Text(
-          'Which type of company do you want to work for?',
+          l10n.profileCompleteWorkForWhichType,
           style: TextStyle(fontSize: 13, color: Colors.grey[600]),
         ),
         const SizedBox(height: 16),
@@ -602,8 +608,8 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
         // Step 1 — Company category cards
         _buildWorkerTypeCard(
           value: 'logistic_partner',
-          title: 'Logistic Partner Company',
-          description: 'Work at a fleet/logistics company (Field Executive or RR Operations)',
+          title: l10n.profileCompleteLpCompany,
+          description: l10n.profileCompleteLpCompanyWorkDesc,
           icon: Icons.local_shipping_outlined,
           color: const Color(0xFFFF6B00),
           selectedValue: _selectedWorkerCategory,
@@ -619,8 +625,8 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
         const SizedBox(height: 10),
         _buildWorkerTypeCard(
           value: 'load_owner',
-          title: 'Load Owner Company',
-          description: 'Work at a cargo/load company',
+          title: l10n.profileCompleteLoCompany,
+          description: l10n.profileCompleteLoCompanyWorkDesc,
           icon: Icons.inventory_2_outlined,
           color: Colors.blue,
           comingSoon: true,
@@ -640,20 +646,20 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
           const SizedBox(height: 24),
           const Divider(height: 1),
           const SizedBox(height: 20),
-          const Text(
-            'Select Your Role',
+          Text(
+            l10n.profileCompleteSelectYourRole,
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 6),
           Text(
-            'What will you do at the logistics company?',
+            l10n.profileCompleteWhatWillYouDo,
             style: TextStyle(fontSize: 13, color: Colors.grey[600]),
           ),
           const SizedBox(height: 14),
           _buildWorkerTypeCard(
             value: 'logistic_partner_worker',
-            title: 'Field Executive',
-            description: 'Manage trip stages and fleet status on the ground',
+            title: l10n.roleFieldExecutive,
+            description: l10n.profileCompleteFieldExecutiveDesc,
             icon: Icons.badge_outlined,
             color: const Color(0xFFFF6B00),
             selectedValue: _selectedWorkerType,
@@ -668,8 +674,8 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
           const SizedBox(height: 10),
           _buildWorkerTypeCard(
             value: 'lp_rr_operations',
-            title: 'RR Operations',
-            description: 'Handle RR sync and trip data entry in the RR system',
+            title: l10n.roleRrOperations,
+            description: l10n.profileCompleteRrOpsDesc,
             icon: Icons.sync_alt,
             color: const Color(0xFF1B6CA8),
             selectedValue: _selectedWorkerType,
@@ -687,16 +693,16 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
           const SizedBox(height: 24),
           const Divider(height: 1),
           const SizedBox(height: 20),
-          const Text(
-            'Search Company',
+          Text(
+            l10n.profileCompleteSearchCompany,
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _companySearchController,
             decoration: InputDecoration(
-              labelText: 'Search Company',
-              hintText: 'Enter at least 3 characters',
+              labelText: l10n.profileCompleteSearchCompany,
+              hintText: l10n.profileCompleteSearchHint,
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -758,7 +764,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Selected: $_selectedCompanyName',
+                        l10n.profileCompleteSelectedCompany(_selectedCompanyName!),
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -877,7 +883,7 @@ class _WorkerTypeCardInner extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Coming Soon',
+                  AppLocalizations.of(context).profileCompleteComingSoon,
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[600]),
                 ),
               )
@@ -893,17 +899,18 @@ class _WorkerTypeCardInner extends StatelessWidget {
 // ─── Back in main state class ─────────────────────────────────────────────────
 extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState {
   Widget _buildCreateCompanyForm() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 32),
-        const Text(
-          'What type of company are you registering?',
+        Text(
+          l10n.profileCompleteWhatCompanyType,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 6),
         Text(
-          'Select the category that best describes your business',
+          l10n.profileCompleteCategoryHint,
           style: TextStyle(fontSize: 13, color: Colors.grey[600]),
         ),
         const SizedBox(height: 16),
@@ -911,8 +918,8 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
         // Logistics / Fleet Company card
         _buildCompanyTypeCard(
           value: 'logistic_partner',
-          title: 'Logistic Partner Company',
-          description: 'You manage a fleet of vehicles for transportation — your role: Logistic Partner',
+          title: l10n.profileCompleteLpCompany,
+          description: l10n.profileCompleteLpCompanyCreateDesc,
           icon: Icons.local_shipping_outlined,
           color: Colors.blue,
         ),
@@ -921,8 +928,8 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
         // Load Provider Company card
         _buildCompanyTypeCard(
           value: 'load_owner',
-          title: 'Load Provider Company',
-          description: 'You have cargo/goods that need to be transported',
+          title: l10n.profileCompleteLoadProviderCompany,
+          description: l10n.profileCompleteLoadProviderDesc,
           icon: Icons.inventory_2_outlined,
           color: Colors.orange,
         ),
@@ -931,8 +938,8 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
         // Load Receiver Company card
         _buildCompanyTypeCard(
           value: 'load_receiver',
-          title: 'Load Receiver Company',
-          description: 'You receive deliveries — you are the consignee',
+          title: l10n.profileCompleteLoadReceiverCompany,
+          description: l10n.profileCompleteLoadReceiverDesc,
           icon: Icons.move_to_inbox_outlined,
           color: const Color(0xFF00796B),
           comingSoon: true,
@@ -943,15 +950,15 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           const SizedBox(height: 24),
           const Divider(height: 1),
           const SizedBox(height: 20),
-          const Text(
-            'Company Information',
+          Text(
+            l10n.companyCreateSectionCompany,
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _companyNameController,
             decoration: InputDecoration(
-              labelText: 'Company Name *',
+              labelText: l10n.companyCreateNameLabel,
               prefixIcon: const Icon(Icons.business),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -962,7 +969,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           TextField(
             controller: _businessEmailController,
             decoration: InputDecoration(
-              labelText: 'Business Email',
+              labelText: l10n.profileCompleteBusinessEmail,
               prefixIcon: const Icon(Icons.email),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -979,7 +986,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
               LengthLimitingTextInputFormatter(10),
             ],
             decoration: InputDecoration(
-              labelText: 'Business Phone',
+              labelText: l10n.profileCompleteBusinessPhone,
               hintText: '9876543210',
               prefixIcon: const Icon(Icons.phone),
               prefix: const Text(
@@ -999,7 +1006,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           TextField(
             controller: _addressController,
             decoration: InputDecoration(
-              labelText: 'Address',
+              labelText: l10n.profileCompleteAddress,
               prefixIcon: const Icon(Icons.location_on),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -1015,7 +1022,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
                 child: TextField(
                   controller: _cityController,
                   decoration: InputDecoration(
-                    labelText: 'City',
+                    labelText: l10n.profileCompleteCity,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1027,7 +1034,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
                 child: TextField(
                   controller: _stateController,
                   decoration: InputDecoration(
-                    labelText: 'State',
+                    labelText: l10n.profileCompleteState,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -1040,7 +1047,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           TextField(
             controller: _pincodeController,
             decoration: InputDecoration(
-              labelText: 'Pincode (6 digits)',
+              labelText: l10n.profileCompletePincode,
               prefixIcon: const Icon(Icons.pin_drop),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -1058,25 +1065,26 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
   }
 
   Widget _buildTransporterForm() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Divider(height: 32),
-        const Text(
-          'Transporter Details',
+        Text(
+          l10n.profileCompleteTransporterDetails,
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 6),
         Text(
-          'Enter your transport business details',
+          l10n.profileCompleteTransporterSub,
           style: TextStyle(fontSize: 13, color: Colors.grey[600]),
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _companyNameController,
           decoration: InputDecoration(
-            labelText: 'Company Name *',
-            hintText: 'Your transport company name',
+            labelText: l10n.companyCreateNameLabel,
+            hintText: l10n.profileCompleteTransporterCompanyHint,
             prefixIcon: const Icon(Icons.business),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -1086,7 +1094,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           controller: _gstNumberController,
           textCapitalization: TextCapitalization.characters,
           decoration: InputDecoration(
-            labelText: 'GST Number (optional)',
+            labelText: l10n.profileCompleteGstOptional,
             hintText: '22AAAAA0000A1Z5',
             prefixIcon: const Icon(Icons.receipt_long),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -1097,7 +1105,7 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
           controller: _panNumberController,
           textCapitalization: TextCapitalization.characters,
           decoration: InputDecoration(
-            labelText: 'PAN Card Number *',
+            labelText: l10n.profileCompletePanLabel,
             hintText: 'ABCDE1234F',
             prefixIcon: const Icon(Icons.credit_card),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -1107,8 +1115,8 @@ extension _ProfileCompletionScreenStateMethods on _ProfileCompletionScreenState 
         TextField(
           controller: _addressController,
           decoration: InputDecoration(
-            labelText: 'Address *',
-            hintText: 'Your business address',
+            labelText: l10n.companyCreateAddressLabel,
+            hintText: l10n.profileCompleteBusinessAddressHint,
             prefixIcon: const Icon(Icons.location_on),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -1209,7 +1217,7 @@ class _CompanyTypeCardWrapper extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Coming Soon',
+                  AppLocalizations.of(context).profileCompleteComingSoon,
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[600]),
                 ),
               )

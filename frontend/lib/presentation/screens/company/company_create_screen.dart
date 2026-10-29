@@ -6,6 +6,7 @@ import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class CompanyCreateScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic>? signupData;
@@ -87,41 +88,44 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
   }
 
   String? _validateGSTIN(String? value) {
+    final l10n = AppLocalizations.of(context);
     if (value == null || value.isEmpty) {
       return null; // Optional field
     }
 
     // GSTIN format: 15 characters alphanumeric
     if (value.length != 15) {
-      return 'GSTIN must be exactly 15 characters';
+      return l10n.companyCreateGstinLength;
     }
 
     if (!RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$')
         .hasMatch(value)) {
-      return 'Invalid GSTIN format';
+      return l10n.companyCreateGstinInvalid;
     }
 
     return null;
   }
 
   String? _validatePAN(String? value) {
+    final l10n = AppLocalizations.of(context);
     if (value == null || value.isEmpty) {
       return null; // Optional field
     }
 
     // PAN format: 10 characters alphanumeric
     if (value.length != 10) {
-      return 'PAN must be exactly 10 characters';
+      return l10n.companyCreatePanLength;
     }
 
     if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$').hasMatch(value)) {
-      return 'Invalid PAN format';
+      return l10n.companyCreatePanInvalid;
     }
 
     return null;
   }
 
   Future<void> _handleCreate() async {
+    final l10n = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -176,7 +180,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(validation['message'] ?? 'Invalid company details'),
+              content: Text(validation['message'] ?? l10n.companyCreateInvalidDetails),
               backgroundColor: Colors.red,
             ),
           );
@@ -201,9 +205,8 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
 
       if (response != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Company created successfully! You are now the Owner.'),
+          SnackBar(
+            content: Text(l10n.companyCreateSuccess),
             backgroundColor: Colors.green,
           ),
         );
@@ -219,7 +222,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
         final error = ref.read(authProvider).error;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(error ?? 'Company creation failed'),
+            content: Text(error ?? l10n.companyCreateFailed),
             backgroundColor: Colors.red,
           ),
         );
@@ -229,9 +232,10 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Company'),
+        title: Text(l10n.companyCreateTitle),
       ),
       body: SafeArea(
         child: PageEntrance(
@@ -244,14 +248,14 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
               children: [
                 // Header
                 Text(
-                  'Register Your Company',
+                  l10n.companyCreateHeading,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'You will become the company Owner with full administrative access.',
+                  l10n.companyCreateSubheading,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -260,7 +264,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
 
                 // Company Information
                 Text(
-                  'Company Information',
+                  l10n.companyCreateSectionCompany,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -269,13 +273,13 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
 
                 TextFormField(
                   controller: _companyNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Company Name *',
+                  decoration: InputDecoration(
+                    labelText: l10n.companyCreateNameLabel,
                     prefixIcon: Icon(Icons.business),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return AppConstants.validationRequired;
+                      return l10n.authFieldRequired;
                     }
                     return null;
                   },
@@ -286,15 +290,15 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Business Type *',
+                      l10n.companyCreateBusinessType,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Colors.grey[700],
                           ),
                     ),
                     const SizedBox(height: 8),
                     CheckboxListTile(
-                      title: const Text('Logistic Partner'),
-                      subtitle: const Text('Manages a fleet and fulfills load requirements'),
+                      title: Text(l10n.roleLogisticPartner),
+                      subtitle: Text(l10n.companyCreateLpDesc),
                       value: _isLogisticPartner,
                       onChanged: (val) {
                         setState(() {
@@ -306,8 +310,8 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                       contentPadding: EdgeInsets.zero,
                     ),
                     CheckboxListTile(
-                      title: const Text('Load Owner'),
-                      subtitle: const Text('Posts load requirements and seeks transport'),
+                      title: Text(l10n.roleLoadOwner),
+                      subtitle: Text(l10n.companyCreateLoDesc),
                       value: _isLoadOwner,
                       onChanged: (val) {
                         setState(() {
@@ -322,7 +326,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                       Padding(
                         padding: const EdgeInsets.only(left: 12.0, top: 4.0),
                         child: Text(
-                          'Please select at least one business type',
+                          l10n.companyCreateBusinessTypeError,
                           style: TextStyle(
                             color: Theme.of(context).colorScheme.error,
                             fontSize: 12,
@@ -338,7 +342,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                   keyboardType: TextInputType.emailAddress,
                   autovalidateMode: AutovalidateMode.onUserInteraction,
                   decoration: InputDecoration(
-                    labelText: 'Business Email *',
+                    labelText: l10n.companyCreateEmailLabel,
                     hintText: 'name@company.com',
                     prefixIcon: const Icon(Icons.email),
                     suffixIcon: _emailTouched
@@ -351,21 +355,21 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Business email is required';
+                      return l10n.companyCreateEmailRequired;
                     }
                     if (!value.contains('@')) {
-                      return 'Email must contain "@" — e.g. name@company.com';
+                      return l10n.companyCreateEmailNoAt;
                     }
                     final parts = value.split('@');
                     if (parts.length != 2 || parts[1].isEmpty) {
-                      return 'Enter a valid email — e.g. name@company.com';
+                      return l10n.companyCreateEmailInvalid;
                     }
                     if (!parts[1].contains('.')) {
-                      return 'Email must have a domain ending — e.g. .com or .in';
+                      return l10n.companyCreateEmailNoDomain;
                     }
                     final domainParts = parts[1].split('.');
                     if (domainParts.last.length < 2) {
-                      return 'Enter a valid email — e.g. name@company.com';
+                      return l10n.companyCreateEmailInvalid;
                     }
                     return null;
                   },
@@ -380,8 +384,8 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                     FilteringTextInputFormatter.digitsOnly,
                     LengthLimitingTextInputFormatter(10),
                   ],
-                  decoration: const InputDecoration(
-                    labelText: 'Business Phone *',
+                  decoration: InputDecoration(
+                    labelText: l10n.companyCreatePhoneLabel,
                     hintText: '9876543210',
                     prefixIcon: Icon(Icons.phone),
                     prefix: Text(
@@ -395,10 +399,10 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return 'Business phone is required';
+                      return l10n.companyCreatePhoneRequired;
                     }
                     if (value.trim().length < 10) {
-                      return 'Mobile number must be exactly 10 digits';
+                      return l10n.companyCreatePhoneLength;
                     }
                     return null;
                   },
@@ -407,7 +411,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
 
                 // Address Information
                 Text(
-                  'Address Information',
+                  l10n.companyCreateSectionAddress,
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -417,13 +421,13 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                 TextFormField(
                   controller: _addressController,
                   maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'Address *',
+                  decoration: InputDecoration(
+                    labelText: l10n.companyCreateAddressLabel,
                     prefixIcon: Icon(Icons.location_on),
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return AppConstants.validationRequired;
+                      return l10n.authFieldRequired;
                     }
                     return null;
                   },
@@ -435,13 +439,13 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _cityController,
-                        decoration: const InputDecoration(
-                          labelText: 'City *',
+                        decoration: InputDecoration(
+                          labelText: l10n.companyCreateCityLabel,
                           prefixIcon: Icon(Icons.location_city),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return AppConstants.validationRequired;
+                            return l10n.authFieldRequired;
                           }
                           return null;
                         },
@@ -451,13 +455,13 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _stateController,
-                        decoration: const InputDecoration(
-                          labelText: 'State *',
+                        decoration: InputDecoration(
+                          labelText: l10n.companyCreateStateLabel,
                           prefixIcon: Icon(Icons.map),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return AppConstants.validationRequired;
+                            return l10n.authFieldRequired;
                           }
                           return null;
                         },
@@ -478,19 +482,19 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(6),
                         ],
-                        decoration: const InputDecoration(
-                          labelText: 'Pincode *',
+                        decoration: InputDecoration(
+                          labelText: l10n.companyCreatePincodeLabel,
                           prefixIcon: Icon(Icons.pin_drop),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return AppConstants.validationRequired;
+                            return l10n.authFieldRequired;
                           }
                           if (value.length != 6) {
-                            return 'Enter a valid 6-digit Indian pincode';
+                            return l10n.companyCreatePincodeInvalid;
                           }
                           if (value[0] == '0') {
-                            return 'Enter a valid 6-digit Indian pincode';
+                            return l10n.companyCreatePincodeInvalid;
                           }
                           return null;
                         },
@@ -500,13 +504,13 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _countryController,
-                        decoration: const InputDecoration(
-                          labelText: 'Country *',
+                        decoration: InputDecoration(
+                          labelText: l10n.companyCreateCountryLabel,
                           prefixIcon: Icon(Icons.flag),
                         ),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
-                            return AppConstants.validationRequired;
+                            return l10n.authFieldRequired;
                           }
                           return null;
                         },
@@ -520,7 +524,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                 Row(
                   children: [
                     Text(
-                      'Legal Information (Optional)',
+                      l10n.companyCreateSectionLegal,
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -532,13 +536,13 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                           _showLegalInfo = !_showLegalInfo;
                         });
                       },
-                      child: Text(_showLegalInfo ? 'Hide' : 'Show'),
+                      child: Text(_showLegalInfo ? l10n.companyCreateHide : l10n.companyCreateShow),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'You can add GSTIN and PAN details now or later from company settings',
+                  l10n.companyCreateLegalHint,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -549,9 +553,9 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                   TextFormField(
                     controller: _gstinController,
                     textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'GSTIN (Optional)',
-                      hintText: '15-character GSTIN',
+                    decoration: InputDecoration(
+                      labelText: l10n.companyCreateGstinLabel,
+                      hintText: l10n.companyCreateGstinHint,
                       prefixIcon: Icon(Icons.receipt_long),
                     ),
                     validator: _validateGSTIN,
@@ -560,9 +564,9 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                   TextFormField(
                     controller: _panController,
                     textCapitalization: TextCapitalization.characters,
-                    decoration: const InputDecoration(
-                      labelText: 'PAN Number (Optional)',
-                      hintText: '10-character PAN',
+                    decoration: InputDecoration(
+                      labelText: l10n.companyCreatePanLabel,
+                      hintText: l10n.companyCreatePanHint,
                       prefixIcon: Icon(Icons.credit_card),
                     ),
                     validator: _validatePAN,
@@ -589,7 +593,7 @@ class _CompanyCreateScreenState extends ConsumerState<CompanyCreateScreen> {
                                 ),
                               ),
                             )
-                          : const Text('Create Company'),
+                          : Text(l10n.companyCreateButton),
                     ),
                   ),
                 ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class CompanySelectionScreen extends ConsumerWidget {
   final Map<String, dynamic>? signupData;
@@ -16,9 +17,10 @@ class CompanySelectionScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Company Selection'),
+        title: Text(l10n.companySelectTitle),
       ),
       body: SafeArea(
         child: Padding(
@@ -32,7 +34,7 @@ class CompanySelectionScreen extends ConsumerWidget {
                 child: Column(
                   children: [
                     Text(
-                      'Company Association',
+                      l10n.companySelectHeading,
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
@@ -40,7 +42,7 @@ class CompanySelectionScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Choose how you want to proceed with your account',
+                      l10n.companySelectSubheading,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                             color: Colors.grey[600],
                           ),
@@ -57,9 +59,8 @@ class CompanySelectionScreen extends ConsumerWidget {
                   delay: 100,
                   child: _SelectionCard(
                     icon: Icons.business,
-                    title: 'Join Existing Company',
-                    description:
-                        'Search and join an existing company. You will be added as a Pending User until approved by the company owner.',
+                    title: l10n.companySelectJoinTitle,
+                    description: l10n.companySelectJoinDesc,
                     color: Colors.blue,
                     onTap: () {
                       if (onSelectionComplete != null) {
@@ -78,9 +79,8 @@ class CompanySelectionScreen extends ConsumerWidget {
                   delay: 200,
                   child: _SelectionCard(
                     icon: Icons.add_business,
-                    title: 'Create New Company',
-                    description:
-                        'Register your company and become the Owner. You will have full control over your company and can invite team members.',
+                    title: l10n.companySelectCreateTitle,
+                    description: l10n.companySelectCreateDesc,
                     color: Colors.green,
                     onTap: () {
                       if (onSelectionComplete != null) {
@@ -99,9 +99,8 @@ class CompanySelectionScreen extends ConsumerWidget {
                   delay: 300,
                   child: _SelectionCard(
                     icon: Icons.person,
-                    title: 'Skip for Now',
-                    description:
-                        'Continue as an Independent User without company affiliation. You can join or create a company later from your profile.',
+                    title: l10n.companySelectSkipTitle,
+                    description: l10n.companySelectSkipDesc,
                     color: Colors.grey,
                     onTap: () {
                       if (onSelectionComplete != null) {
@@ -123,18 +122,17 @@ class CompanySelectionScreen extends ConsumerWidget {
   }
 
   void _handleSkipCompany(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     // Show confirmation
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Skip Company Selection'),
-        content: const Text(
-          'You will be registered as an Independent User. You can join or create a company later from your profile settings.\n\nContinue?',
-        ),
+        title: Text(l10n.companySelectSkipDialogTitle),
+        content: Text(l10n.companySelectSkipDialogBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           ElevatedButton(
             onPressed: () {
@@ -142,9 +140,8 @@ class CompanySelectionScreen extends ConsumerWidget {
 
               // Show success message
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                      'Registration completed! You can now login as an Independent User.'),
+                SnackBar(
+                  content: Text(l10n.companySelectSkipDone),
                   backgroundColor: Colors.green,
                 ),
               );
@@ -158,7 +155,7 @@ class CompanySelectionScreen extends ConsumerWidget {
                 context.go(AppConstants.routeLogin);
               }
             },
-            child: const Text('Continue'),
+            child: Text(l10n.commonContinue),
           ),
         ],
       ),

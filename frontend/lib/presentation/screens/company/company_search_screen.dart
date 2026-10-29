@@ -6,6 +6,7 @@ import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class CompanySearchScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic>? signupData;
@@ -63,17 +64,18 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
   }
 
   Future<void> _handleCompanySelection(CompanyModel company) async {
+    final l10n = AppLocalizations.of(context);
     // Show confirmation dialog
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Join Company'),
+        title: Text(l10n.companySearchJoinTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'You want to join:',
+              l10n.companySearchJoinPrompt,
               style: TextStyle(color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
@@ -101,7 +103,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'You will be added as a Pending User. The company owner must approve your request.',
+                      l10n.companySearchJoinNotice,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.orange.shade900,
@@ -116,11 +118,11 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Join'),
+            child: Text(l10n.companySearchJoinButton),
           ),
         ],
       ),
@@ -132,6 +134,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
   }
 
   Future<void> _completeSignupWithCompany(CompanyModel company) async {
+    final l10n = AppLocalizations.of(context);
     // Add company to signup data
     final updatedSignupData = {
       ...?widget.signupData,
@@ -146,9 +149,8 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
     if (mounted) {
       if (response != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Registration successful! You are now a Pending User. Please wait for approval.'),
+          SnackBar(
+            content: Text(l10n.companySearchRegisterSuccess),
             backgroundColor: Colors.green,
           ),
         );
@@ -164,7 +166,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
         final error = ref.read(authProvider).error;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(error ?? 'Registration failed'),
+            content: Text(error ?? l10n.companySearchRegisterFailed),
             backgroundColor: Colors.red,
           ),
         );
@@ -174,11 +176,12 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final companyState = ref.watch(companyProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Search Company'),
+        title: Text(l10n.companySearchTitle),
       ),
       body: PageEntrance(
         child: SafeArea(
@@ -191,10 +194,10 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: _businessTypeFilter == 'logistic_partner'
-                      ? 'Search logistic partner companies...'
+                      ? l10n.companySearchHintLp
                       : _businessTypeFilter == 'load_owner'
-                          ? 'Search load owner companies...'
-                          : 'Search by company name (min 3 characters)',
+                          ? l10n.companySearchHintLo
+                          : l10n.companySearchHintDefault,
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
@@ -216,7 +219,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
 
             // Search results
             Expanded(
-              child: _buildSearchResults(companyState),
+              child: _buildSearchResults(companyState, l10n),
             ),
           ],
         ),
@@ -225,7 +228,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
     );
   }
 
-  Widget _buildSearchResults(CompanyState companyState) {
+  Widget _buildSearchResults(CompanyState companyState, AppLocalizations l10n) {
     if (_searchController.text.isEmpty) {
       return Center(
         child: Column(
@@ -238,7 +241,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Search for a company',
+              l10n.companySearchEmptyTitle,
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey[600],
@@ -246,7 +249,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Enter at least 3 characters to search',
+              l10n.companySearchEmptyHint,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[500],
@@ -269,7 +272,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Keep typing...',
+              l10n.companySearchKeepTyping,
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey[600],
@@ -277,7 +280,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Minimum 3 characters required',
+              l10n.companySearchMinChars,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[500],
@@ -306,7 +309,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Error searching companies',
+              l10n.companySearchError,
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.red[600],
@@ -324,7 +327,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => _handleSearch(_searchController.text),
-              child: const Text('Retry'),
+              child: Text(l10n.commonRetry),
             ),
           ],
         ),
@@ -343,7 +346,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No companies found',
+              l10n.companySearchNoResults,
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey[600],
@@ -351,7 +354,7 @@ class _CompanySearchScreenState extends ConsumerState<CompanySearchScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Try a different search term',
+              l10n.companySearchTryOther,
               style: TextStyle(
                 fontSize: 14,
                 color: Colors.grey[500],
