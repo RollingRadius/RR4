@@ -29,6 +29,7 @@ import 'package:fleet_management/providers/rr_sync_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
 import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/data/models/notification_model.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 // ─── Typography & Colours ─────────────────────────────────────────────────────
 TextStyle _manrope({double size = 14, FontWeight weight = FontWeight.w600, Color color = const Color(0xFF191C1E)}) =>
@@ -40,11 +41,12 @@ TextStyle _inter({double size = 13, FontWeight weight = FontWeight.w400, Color c
 /// Shared message for a failed image_picker call (camera/gallery permission
 /// denied, or any other picker failure) — used wherever a doc-upload widget
 /// doesn't already keep its own dedicated inline error-message state.
-String _pickErrorMessage(Object e, ImageSource source) {
+String _pickErrorMessage(BuildContext context, Object e, ImageSource source) {
+  final l10n = AppLocalizations.of(context);
   final isCamera = source == ImageSource.camera;
   return e is PlatformException && e.code.contains('access_denied')
-      ? 'Permission denied. Enable ${isCamera ? "Camera" : "Photos"} access for this app in Settings and try again.'
-      : 'Could not ${isCamera ? "open camera" : "access gallery"}. Please try again.';
+      ? (isCamera ? l10n.stageCommonCameraDenied : l10n.stageCommonPhotosDenied)
+      : (isCamera ? l10n.stageCommonCameraFailed : l10n.stageCommonGalleryFailed);
 }
 
 bool _isPdfFile(String nameOrUrl) => nameOrUrl.toLowerCase().endsWith('.pdf');
@@ -54,7 +56,7 @@ bool _isPdfFile(String nameOrUrl) => nameOrUrl.toLowerCase().endsWith('.pdf');
 void _showPickError(BuildContext context, Object e, ImageSource source) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text(_pickErrorMessage(e, source), style: _inter(size: 13, color: Colors.white)),
+      content: Text(_pickErrorMessage(context, e, source), style: _inter(size: 13, color: Colors.white)),
       backgroundColor: _error,
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -193,7 +195,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
     } on DioException catch (e) {
       if (!mounted) return false;
       setState(() => _fetchingFresh = false);
-      final msg = _dioErrorDetail(e, 'Failed to load trip details. Please try again.');
+      final msg = _dioErrorDetail(e, AppLocalizations.of(context).stageCommonLoadTripFailed);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg),
@@ -227,7 +229,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
     if (visualStage == 0 && _isFieldExecutive && !_trip.s1Required) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Filling S1 is not necessary for this trip.',
+          content: Text(AppLocalizations.of(context).stageS1NotNecessary,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _secondary,
           behavior: SnackBarBehavior.floating,
@@ -287,7 +289,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sync complete', style: _inter(size: 13, color: Colors.white)),
+          content: Text(AppLocalizations.of(context).stageRrSyncComplete, style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _success,
           duration: const Duration(seconds: 3),
         ),
@@ -296,7 +298,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Sync failed: ${e.toString().split(':').last.trim()}',
+          content: Text(AppLocalizations.of(context).stageRrSyncFailed(e.toString().split(':').last.trim()),
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           duration: const Duration(seconds: 4),
@@ -503,7 +505,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                   )
                 : IconButton(
                     icon: Icon(Icons.sync_rounded, color: theme.primary, size: 22),
-                    tooltip: 'Sync to RR',
+                    tooltip: AppLocalizations.of(context).stageRrSyncTooltip,
                     onPressed: _triggerRrSync,
                   ),
           const SizedBox(width: 4),
@@ -554,7 +556,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                   const Icon(Icons.lock_outline_rounded, color: _secondary, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text('Read-only — Completed Trip',
+                    child: Text(AppLocalizations.of(context).stageCommonReadOnlyCompleted,
                         style: _manrope(size: 12.5, weight: FontWeight.w700, color: _secondary)),
                   ),
                 ],
@@ -575,7 +577,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                   Icon(Icons.info_outline_rounded, color: theme.primary, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text('Filling S1 is not necessary for this trip.',
+                    child: Text(AppLocalizations.of(context).stageS1NotNecessary,
                         style: _manrope(size: 12.5, weight: FontWeight.w700, color: theme.primary)),
                   ),
                 ],
@@ -695,11 +697,20 @@ class _TripStateBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final (label, bg, fg) = _tripStateColors(trip);
+    final labelText = switch (label) {
+      'CANCELLED' => l10n.stageCommonStateCancelled,
+      'COMPLETED' => l10n.stageCommonStateCompleted,
+      'IN TRANSIT' => l10n.stageCommonStateInTransit,
+      'ONGOING' => l10n.stageCommonStateOngoing,
+      'PENDING' => l10n.stageCommonStatePending,
+      _ => label,
+    };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(label,
+      child: Text(labelText,
           style: GoogleFonts.inter(
               fontSize: 9, fontWeight: FontWeight.w700, color: fg,
               letterSpacing: 0.6)),
@@ -725,10 +736,16 @@ class _StepIndicator extends StatelessWidget {
     this.activeColor = _primary,
   });
 
-  static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit', 'Unloading'];
-
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final labels = [
+      l10n.stageNameDetails,
+      l10n.stageNameCompliance,
+      l10n.stageNameArrival,
+      l10n.stageNameExit,
+      l10n.stageNameUnloading,
+    ];
     return Container(
       color: _surface,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
@@ -787,7 +804,7 @@ class _StepIndicator extends StatelessWidget {
                       size: 8.5,
                       weight: isActive ? FontWeight.w700 : FontWeight.w400,
                       color: color),
-                  child: Text(_labels[i], textAlign: TextAlign.center),
+                  child: Text(labels[i], textAlign: TextAlign.center),
                 ),
               ],
             ),
@@ -1131,18 +1148,18 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     final driverRrId = newDriver['user_id'] as String?;
     if (driverRrId == null || driverRrId.isEmpty) return;
 
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Reassign Driver?', style: _inter(size: 16, weight: FontWeight.w700, color: _onSurface)),
+        title: Text(l10n.stageS1ReassignTitle, style: _inter(size: 16, weight: FontWeight.w700, color: _onSurface)),
         content: Text(
-          'This trip will be reassigned to ${newDriver['name'] ?? 'the selected driver'} on RR — '
-          'the My Trips list and crew records will update to reflect this.',
+          l10n.stageS1ReassignBody('${newDriver['name'] ?? l10n.stageS1SelectedDriver}'),
           style: _inter(size: 13, color: _secondary),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Reassign')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.commonCancel)),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(l10n.stageS1Reassign)),
         ],
       ),
     );
@@ -1157,7 +1174,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       ));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Driver reassigned', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.stageS1DriverReassigned, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _success,
         behavior: SnackBarBehavior.floating,
       ));
@@ -1170,7 +1187,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Could not reassign driver', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.stageS1ReassignFailed, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _error,
         behavior: SnackBarBehavior.floating,
       ));
@@ -1359,22 +1376,24 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   // ── Validators ───────────────────────────────────────────────────────────────
 
   String? _validateDriverName(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Driver Name is required';
-    if (!RegExp(r'^[a-zA-Z ]+$').hasMatch(v.trim())) return 'Only alphabets allowed';
-    if (v.trim().length > 25) return 'Maximum 25 characters';
+    final l10n = AppLocalizations.of(context);
+    if (v == null || v.trim().isEmpty) return l10n.stageS1DriverNameRequired;
+    if (!RegExp(r'^[a-zA-Z ]+$').hasMatch(v.trim())) return l10n.stageS1OnlyAlphabets;
+    if (v.trim().length > 25) return l10n.stageCommonMaxChars(25);
     return null;
   }
 
   String? _validatePhone(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Phone number is required';
-    if (!RegExp(r'^\d{10}$').hasMatch(v.trim())) return 'Enter exactly 10 digits';
+    final l10n = AppLocalizations.of(context);
+    if (v == null || v.trim().isEmpty) return l10n.stageCommonPhoneRequired;
+    if (!RegExp(r'^\d{10}$').hasMatch(v.trim())) return l10n.stageCommonPhone10Digits;
     return null;
   }
 
   String? _validateAadhaar(String? v) {
     if (v == null || v.trim().isEmpty) return null; // optional
     final cleaned = v.trim().replaceAll(' ', '');
-    if (!RegExp(r'^\d{12}$').hasMatch(cleaned)) return 'Aadhaar must be exactly 12 digits';
+    if (!RegExp(r'^\d{12}$').hasMatch(cleaned)) return AppLocalizations.of(context).stageS1AadhaarLength;
     return null;
   }
 
@@ -1387,10 +1406,11 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   // through locally that RR's own sync then rejects outright — this closes
   // that gap so the error surfaces immediately, not after a failed sync.
   String? _validateDrivingLicense(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Driving License is required';
+    final l10n = AppLocalizations.of(context);
+    if (v == null || v.trim().isEmpty) return l10n.stageS1DlRequired;
     final cleaned = v.trim().replaceAll(RegExp(r'[\s/\-]'), '').toUpperCase();
     if (!RegExp(r'^[A-Z]{2}[0-9]{2}[A-Z]?(19|20)[0-9]{2}[0-9]{7}$').hasMatch(cleaned)) {
-      return 'Invalid format — e.g. RJ1420230012345 (state+RTO+year+7 digits)';
+      return l10n.stageS1DlInvalid;
     }
     return null;
   }
@@ -1406,7 +1426,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     final hasLetter = RegExp(r'[A-Za-z]').hasMatch(cleaned);
     final hasDigit = RegExp(r'[0-9]').hasMatch(cleaned);
     if (!hasLetter || !hasDigit) {
-      return 'Invalid RC number — must contain both letters and digits';
+      return AppLocalizations.of(context).stageS1RcInvalid;
     }
     return null;
   }
@@ -1417,7 +1437,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   // check only (reasonable length), not a fabricated strict format.
   String? _validateGenericDocNumber(String? v) {
     if (v == null || v.trim().isEmpty) return null; // optional
-    if (v.trim().length < 4) return 'Too short to be a valid number';
+    if (v.trim().length < 4) return AppLocalizations.of(context).stageCommonNumberTooShort;
     return null;
   }
 
@@ -1474,8 +1494,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     void check(String label, ({Uint8List bytes, String name})? doc, String? existingUrl) {
       if (doc == null && (existingUrl == null || existingUrl.isEmpty)) missing.add(label);
     }
-    check('Driving License (Front)', _dlDoc, widget.trip.s1DrivingLicenseUrl);
-    check('Driving License (Back)', _dlBackDoc, widget.trip.s1DrivingLicenseBackUrl);
+    check(AppLocalizations.of(context).stageDocDrivingLicenseFront, _dlDoc, widget.trip.s1DrivingLicenseUrl);
+    check(AppLocalizations.of(context).stageDocDrivingLicenseBack, _dlBackDoc, widget.trip.s1DrivingLicenseBackUrl);
     return missing;
   }
 
@@ -1520,7 +1540,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Please upload: ${missingDocs.join(", ")}',
+            AppLocalizations.of(context).stageCommonPleaseUpload(missingDocs.join(", ")),
             style: _inter(size: 13, color: Colors.white),
           ),
           backgroundColor: _error,
@@ -1569,7 +1589,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
         .submitStage1(FormData.fromMap(fields));
 
     if (ok && mounted) {
-      final msg = isEdit ? 'Stage 1 updated successfully.' : 'Stage 1 saved. Proceed to compliance check.';
+      final l10n = AppLocalizations.of(context);
+      final msg = isEdit ? l10n.stageS1Updated : l10n.stageS1Saved;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(msg, style: _inter(size: 13, color: Colors.white)),
@@ -1665,6 +1686,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   @override
   Widget build(BuildContext context) {
     final busy = ref.watch(tripStagesProvider(widget.providerKey)).isSubmitting;
+    final l10n = AppLocalizations.of(context);
 
     return Form(
       key: _formKey,
@@ -1681,7 +1703,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
             ),
 
             // ── Driver Details ─────────────────────────────────────────────────
-            _SectionHeader(icon: Icons.person_outline_rounded, title: 'Driver Details'),
+            _SectionHeader(icon: Icons.person_outline_rounded, title: l10n.stageS1SecDriver),
 
             // Appoint New Driver — LP/RR-ops only, FE never sees this at all.
             if (_canManageRr && (widget.trip.rrDriverId?.isNotEmpty ?? false))
@@ -1700,7 +1722,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                       Row(
                         children: [
                           Expanded(
-                            child: Text('Appoint New Driver',
+                            child: Text(l10n.stageS1AppointNewDriver,
                                 style: _inter(size: 13, weight: FontWeight.w700, color: _onSurface)),
                           ),
                           Switch(
@@ -1718,7 +1740,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                       if (_showDriverReassign) ...[
                         const SizedBox(height: 8),
                         RrSearchField<Map<String, dynamic>>(
-                          label: 'Search Driver by Name or Phone',
+                          label: l10n.stageS1SearchDriver,
                           controller: _newDriverSearchCtrl,
                           search: (q) async {
                             return runRrAction(context, ref, () => ref.read(rrSyncApiProvider)
@@ -1741,7 +1763,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                                       height: 16, width: 16,
                                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                     )
-                                  : Text('Reassign to ${_pendingNewDriver!['name'] ?? 'this driver'}',
+                                  : Text(l10n.stageS1ReassignTo('${_pendingNewDriver!['name'] ?? l10n.stageS1ThisDriver}'),
                                       style: _inter(size: 13, weight: FontWeight.w700, color: Colors.white)),
                             ),
                           ),
@@ -1764,7 +1786,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                   FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z ]')),
                   LengthLimitingTextInputFormatter(25),
                 ],
-                decoration: _dec('Driver Name'),
+                decoration: _dec(l10n.stageS1DriverName),
               ),
             ),
             _FieldAttribution(username: _attrOf('driver_name')),
@@ -1783,7 +1805,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(10),
                 ],
-                decoration: _dec('Phone Number').copyWith(
+                decoration: _dec(l10n.authPhoneNumber).copyWith(
                   prefixText: '+91 ',
                   prefixStyle: _inter(size: 13, color: _onSurface, weight: FontWeight.w600),
                   floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -1806,13 +1828,13 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                   FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9/\-]')),
                   LengthLimitingTextInputFormatter(18),
                 ],
-                decoration: _dec('Driving License No.'),
+                decoration: _dec(l10n.stageS1DlNumber),
               ),
             ),
             Padding(
               padding: const EdgeInsets.only(bottom: 4, top: 4),
               child: Text(
-                'New: RJ1420230012345   Old: RJ14/1234/2009',
+                l10n.stageS1DlFormatHint,
                 style: _inter(size: 11, color: _secondary),
               ),
             ),
@@ -1832,7 +1854,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                   FilteringTextInputFormatter.digitsOnly,
                   LengthLimitingTextInputFormatter(12),
                 ],
-                decoration: _dec('Aadhaar Number (12 digits)'),
+                decoration: _dec(l10n.stageS1AadhaarNumber),
               ),
             ),
             _FieldAttribution(username: _attrOf('aadhaar')),
@@ -1840,10 +1862,10 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
 
             // Driving License — Front & Back
             _DocPairSection(
-              title: 'Driving License',
+              title: l10n.stageDocDrivingLicense,
               frontTile: _uploadTile(
-                'Front Side',
-                'Photo of the front of the driving license',
+                l10n.stageDocFrontSide,
+                l10n.stageS1DlFrontPhoto,
                 _dlDoc,
                 (f) => _dlDoc = f,
                 () { setState(() => _dlDoc = null); _onUploadChanged(); },
@@ -1852,8 +1874,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 rrPreviewBytes: _rrPreview['dl_front'],
               ),
               backTile: _uploadTile(
-                'Back Side',
-                'Photo of the back of the driving license',
+                l10n.stageDocBackSide,
+                l10n.stageS1DlBackPhoto,
                 _dlBackDoc,
                 (f) => _dlBackDoc = f,
                 () { setState(() => _dlBackDoc = null); _onUploadChanged(); },
@@ -1865,10 +1887,10 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
 
             // Aadhaar Card — Front & Back
             _DocPairSection(
-              title: 'Aadhaar Card',
+              title: l10n.stageDocAadhaarCard,
               frontTile: _uploadTile(
-                'Front Side',
-                'Photo of the front of the Aadhaar card',
+                l10n.stageDocFrontSide,
+                l10n.stageS1AadhaarFrontPhoto,
                 _aadhaarDoc,
                 (f) => _aadhaarDoc = f,
                 () { setState(() => _aadhaarDoc = null); _onUploadChanged(); },
@@ -1877,8 +1899,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 rrPreviewBytes: _rrPreview['aadhaar_front'],
               ),
               backTile: _uploadTile(
-                'Back Side',
-                'Photo of the back of the Aadhaar card',
+                l10n.stageDocBackSide,
+                l10n.stageS1AadhaarBackPhoto,
                 _aadhaarBackDoc,
                 (f) => _aadhaarBackDoc = f,
                 () { setState(() => _aadhaarBackDoc = null); _onUploadChanged(); },
@@ -1890,15 +1912,15 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
             const SizedBox(height: 8),
 
             // ── Vehicle Documents ──────────────────────────────────────────────
-            _SectionHeader(icon: Icons.directions_car_outlined, title: 'Vehicle Documents'),
+            _SectionHeader(icon: Icons.directions_car_outlined, title: l10n.stageS1SecVehicleDocs),
             // RC — Front & Back (RC is the only vehicle doc RR itself supports
             // a back side for; PUC/Fitness/Permit stay front-only, matching RR web)
-            _numberField('RC Number', _rcNumber, 'rc_number', validator: _validateRcNumber),
+            _numberField(l10n.stageS1RcNumber, _rcNumber, 'rc_number', validator: _validateRcNumber),
             _DocPairSection(
-              title: 'RC (Registration Certificate)',
+              title: l10n.stageDocRcFull,
               frontTile: _uploadTile(
-                'Front Side',
-                'Photo of the front of the RC',
+                l10n.stageDocFrontSide,
+                l10n.stageS1RcFrontPhoto,
                 _rcDoc,
                 (f) => _rcDoc = f,
                 () { setState(() => _rcDoc = null); _onUploadChanged(); },
@@ -1907,8 +1929,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 rrPreviewBytes: _rrPreview['rc_front'],
               ),
               backTile: _uploadTile(
-                'Back Side',
-                'Photo of the back of the RC',
+                l10n.stageDocBackSide,
+                l10n.stageS1RcBackPhoto,
                 _rcBackDoc,
                 (f) => _rcBackDoc = f,
                 () { setState(() => _rcBackDoc = null); _onUploadChanged(); },
@@ -1917,26 +1939,26 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 rrPreviewBytes: _rrPreview['rc_back'],
               ),
             ),
-            _numberField('Insurance Policy Number', _insuranceNumber, 'insurance_number'),
-            _uploadTile('Insurance', 'Upload insurance document',
+            _numberField(l10n.stageS1InsuranceNumber, _insuranceNumber, 'insurance_number'),
+            _uploadTile(l10n.stageDocInsurance, l10n.stageS1UploadInsurance,
               _insuranceDoc, (f) => _insuranceDoc = f,
               () { setState(() => _insuranceDoc = null); _onUploadChanged(); },
               existingUrl: widget.trip.s1Insurance, fieldKey: 'insurance_doc',
               rrPreviewBytes: _rrPreview['insurance']),
-            _numberField('PUC Number', _pucNumber, 'puc_number'),
-            _uploadTile('Pollution Certificate', 'Upload pollution certificate',
+            _numberField(l10n.stageS1PucNumber, _pucNumber, 'puc_number'),
+            _uploadTile(l10n.stageDocPollution, l10n.stageS1UploadPollution,
               _pollutionDoc, (f) => _pollutionDoc = f,
               () { setState(() => _pollutionDoc = null); _onUploadChanged(); },
               existingUrl: widget.trip.s1Pollution, fieldKey: 'pollution_doc',
               rrPreviewBytes: _rrPreview['puc']),
-            _numberField('Fitness Number', _fitnessNumber, 'fitness_number'),
-            _uploadTile('Fitness Certificate', 'Upload fitness certificate',
+            _numberField(l10n.stageS1FitnessNumber, _fitnessNumber, 'fitness_number'),
+            _uploadTile(l10n.stageDocFitness, l10n.stageS1UploadFitness,
               _fitnessDoc, (f) => _fitnessDoc = f,
               () { setState(() => _fitnessDoc = null); _onUploadChanged(); },
               existingUrl: widget.trip.s1Fitness, fieldKey: 'fitness_doc',
               rrPreviewBytes: _rrPreview['fitness']),
-            _numberField('Permit Number', _permitNumber, 'permit_number'),
-            _uploadTile('Permit', 'Upload permit document',
+            _numberField(l10n.stageS1PermitNumber, _permitNumber, 'permit_number'),
+            _uploadTile(l10n.stageDocPermit, l10n.stageS1UploadPermit,
               _permitDoc, (f) => _permitDoc = f,
               () { setState(() => _permitDoc = null); _onUploadChanged(); },
               existingUrl: widget.trip.s1Permit, fieldKey: 'permit_doc',
@@ -1944,20 +1966,20 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
             const SizedBox(height: 8),
 
             // ── Owner Documents ────────────────────────────────────────────────
-            _SectionHeader(icon: Icons.business_outlined, title: 'Owner Documents'),
-            _uploadTile('PAN', 'Upload PAN card',
+            _SectionHeader(icon: Icons.business_outlined, title: l10n.stageS1SecOwnerDocs),
+            _uploadTile('PAN', l10n.stageS1UploadPan,
               _panDoc, (f) => _panDoc = f,
               () { setState(() => _panDoc = null); _onUploadChanged(); },
               existingUrl: widget.trip.s1Pan, fieldKey: 'pan_doc'),
-            _uploadTile('Tax Declaration', 'Upload tax declaration document',
+            _uploadTile(l10n.stageDocTaxDeclaration, l10n.stageS1UploadTaxDeclaration,
               _taxDeclDoc, (f) => _taxDeclDoc = f,
               () { setState(() => _taxDeclDoc = null); _onUploadChanged(); },
               existingUrl: widget.trip.s1TaxDeclaration, fieldKey: 'tax_decl_doc'),
             const SizedBox(height: 8),
 
             // ── Truck Owner Payment Details ────────────────────────────────────
-            _SectionHeader(icon: Icons.account_balance_outlined, title: 'Truck Owner Payment Details'),
-            _uploadTile('Cancelled Cheque (Owner / Transporter)', 'Upload a cancelled cheque',
+            _SectionHeader(icon: Icons.account_balance_outlined, title: l10n.stageS1SecOwnerPayment),
+            _uploadTile(l10n.stageDocCancelledCheque, l10n.stageS1UploadCancelledCheque,
               _cancelledChequeDoc, (f) => _cancelledChequeDoc = f,
               () { setState(() => _cancelledChequeDoc = null); _onUploadChanged(); },
               existingUrl: widget.trip.s1CancelledCheque, fieldKey: 'cancelled_cheque_doc'),
@@ -1970,7 +1992,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                   children: [
                     const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
                     const SizedBox(width: 4),
-                    Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                    Text(AppLocalizations.of(context).stageCommonLastSaved(_formatSaved(context, _lastSaved!)),
                         style: _inter(size: 11, color: _success)),
                   ],
                 ),
@@ -1991,7 +2013,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                 child: busy
                     ? const SizedBox(width: 20, height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Save & Continue →'),
+                    : Text(l10n.stageCommonSaveContinue),
               ),
             ),
           ],
@@ -2002,11 +2024,12 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
 }
 
 
-String _formatSaved(DateTime dt) {
+String _formatSaved(BuildContext context, DateTime dt) {
+  final l10n = AppLocalizations.of(context);
   final diff = DateTime.now().difference(dt);
-  if (diff.inSeconds < 60) return 'just now';
-  if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
-  return '${diff.inHours}h ago';
+  if (diff.inSeconds < 60) return l10n.stageCommonJustNow;
+  if (diff.inMinutes < 60) return l10n.stageCommonMinAgo(diff.inMinutes);
+  return l10n.stageCommonHoursAgo(diff.inHours);
 }
 
 InputDecoration _stageFieldDec(String label) => InputDecoration(
@@ -2048,10 +2071,10 @@ String _dioErrorDetail(DioException e, String fallback) {
 void _showDraftSaveError(BuildContext context, Object e) {
   final status = e is DioException ? e.response?.statusCode : null;
   final detail = e is DioException
-      ? _dioErrorDetail(e, e.message ?? 'Unknown error')
+      ? _dioErrorDetail(e, e.message ?? AppLocalizations.of(context).stageCommonUnknownError)
       : e.toString();
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-    content: Text('Draft save failed ($status): $detail',
+    content: Text(AppLocalizations.of(context).stageCommonDraftSaveFailed('$status', detail),
         style: const TextStyle(fontSize: 12)),
     backgroundColor: Colors.orange.shade800,
     behavior: SnackBarBehavior.floating,
@@ -2233,18 +2256,18 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Upload Loading Slip', style: _manrope(size: 16, weight: FontWeight.w800)),
+              Text(AppLocalizations.of(context).stageS2UploadSlipTitle, style: _manrope(size: 16, weight: FontWeight.w800)),
               const SizedBox(height: 4),
-              Text('Attach the loading slip image', style: _inter(size: 12, color: _secondary)),
+              Text(AppLocalizations.of(context).stageS2AttachSlip, style: _inter(size: 12, color: _secondary)),
               const SizedBox(height: 20),
               Row(children: [
                 Expanded(child: _PickerOption(
-                  icon: Icons.camera_alt_rounded, label: 'Camera', color: _primary,
+                  icon: Icons.camera_alt_rounded, label: AppLocalizations.of(context).stageCommonCamera, color: _primary,
                   onTap: () { Navigator.pop(context); _pickLoadingSlip(ImageSource.camera); },
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _PickerOption(
-                  icon: Icons.photo_library_rounded, label: 'Gallery', color: _secondary,
+                  icon: Icons.photo_library_rounded, label: AppLocalizations.of(context).stageCommonGallery, color: _secondary,
                   onTap: () { Navigator.pop(context); _pickLoadingSlip(ImageSource.gallery); },
                 )),
               ]),
@@ -2316,7 +2339,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                     onTap: _showSlipPicker,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Text('Retake',
+                      child: Text(AppLocalizations.of(context).stageCommonRetake,
                           style: _manrope(size: 11, weight: FontWeight.w700, color: _primary)),
                     ),
                   ),
@@ -2384,16 +2407,16 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                 children: [
                   const Icon(Icons.cloud_done_rounded, size: 16, color: _success),
                   const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text('Loading Slip',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                  Expanded(
+                    child: Text(AppLocalizations.of(context).stageDocLoadingSlip,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
                             color: _success, fontFamily: 'Manrope')),
                   ),
                   GestureDetector(
                     onTap: _showSlipPicker,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 6),
-                      child: Text('Replace',
+                      child: Text(AppLocalizations.of(context).stageCommonReplace,
                           style: _manrope(size: 11, weight: FontWeight.w700, color: _primary)),
                     ),
                   ),
@@ -2423,9 +2446,9 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Loading Slip',
+                  Text(AppLocalizations.of(context).stageDocLoadingSlip,
                       style: _manrope(size: 13, weight: FontWeight.w700, color: _onSurface)),
-                  Text('Optional — tap to attach slip image',
+                  Text(AppLocalizations.of(context).stageS2SlipOptional,
                       style: _inter(size: 11, color: _secondary)),
                 ],
               ),
@@ -2458,13 +2481,13 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   Future<void> _submit() async {
     // 1. All 3 verification checkboxes must be checked
     if (!_specsVerified || !_docsVerified || !_driverDocsValid) {
-      _showError(_checklistKey, 'Please confirm all verification items before proceeding.');
+      _showError(_checklistKey, AppLocalizations.of(context).stageS2ErrConfirmAll);
       return;
     }
 
     // 2. Dharam Kanta location must be selected (inside or outside)
     if (_dharamKantaLoc == null) {
-      _showError(_dharamKantaKey, 'Please select weighbridge location (Inside or Outside Factory).');
+      _showError(_dharamKantaKey, AppLocalizations.of(context).stageS2ErrSelectWeighbridge);
       return;
     }
 
@@ -2473,14 +2496,14 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
       final weightVal = double.tryParse(_emptyWeightCtrl.text.trim()) ?? 0;
       if (_emptyWeightCtrl.text.trim().isEmpty || weightVal <= 0 || !_s2WeightConfirmed) {
         _showError(_weightSectionKey,
-            'Please enter a valid empty truck weight (greater than 0) and confirm it.');
+            AppLocalizations.of(context).stageS2ErrEmptyWeight);
         return;
       }
     }
 
     // 4. Entry permission checkbox must be checked
     if (!_entryPermissionChecked) {
-      _showError(_entryPermissionKey, 'Please check "Truck Entry Permission Issued" before proceeding.');
+      _showError(_entryPermissionKey, AppLocalizations.of(context).stageS2ErrCheckEntry);
       return;
     }
 
@@ -2488,7 +2511,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
       _scrollToKey(_entryPermissionKey);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Entry Permission must be issued to proceed.',
+          content: Text(AppLocalizations.of(context).stageS2ErrEntryRequired,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
@@ -2525,7 +2548,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
     if (ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Entry permission issued. Coordinate truck arrival.',
+          content: Text(AppLocalizations.of(context).stageS2Done,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _success,
           behavior: SnackBarBehavior.floating,
@@ -2539,6 +2562,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
   @override
   Widget build(BuildContext context) {
     final busy = ref.watch(tripStagesProvider(widget.providerKey)).isSubmitting;
+    final l10n = AppLocalizations.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -2580,26 +2604,26 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
           ),
           const SizedBox(height: 20),
 
-          Text('RR Executive verifies:',
+          Text(l10n.stageS2Verifies,
               style: _manrope(size: 16, weight: FontWeight.w800)),
           const SizedBox(height: 4),
-          Text('All items must be confirmed before issuing entry permission.',
+          Text(l10n.stageS2VerifiesNote,
               style: _inter(size: 12)),
           const SizedBox(height: 16),
 
           _CheckItem(
             key: _checklistKey,
-            label: 'Truck specifications match requirement',
+            label: l10n.stageS2CheckSpecs,
             value: _specsVerified,
             onChanged: (v) { setState(() => _specsVerified = v); _touchField('specs_verified'); _onCheckChanged(); },
           ),
           _CheckItem(
-            label: 'All documents uploaded',
+            label: l10n.stageS2CheckDocs,
             value: _docsVerified,
             onChanged: (v) { setState(() => _docsVerified = v); _touchField('docs_verified'); _onCheckChanged(); },
           ),
           _CheckItem(
-            label: 'Driver documents valid',
+            label: l10n.stageS2CheckDriverDocs,
             value: _driverDocsValid,
             onChanged: (v) { setState(() => _driverDocsValid = v); _touchField('driver_docs_valid'); _onCheckChanged(); },
           ),
@@ -2620,17 +2644,17 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                 Row(children: [
                   const Icon(Icons.scale_outlined, color: _primary, size: 18),
                   const SizedBox(width: 8),
-                  Text('Dharam Kanta (Weighbridge)',
+                  Text(l10n.stageS2DharamKanta,
                       style: _manrope(size: 14, weight: FontWeight.w700)),
                 ]),
                 const SizedBox(height: 3),
-                Text('Is the weighbridge inside or outside the factory?',
+                Text(l10n.stageS2DharamKantaWhere,
                     style: _inter(size: 12)),
                 const SizedBox(height: 12),
 
                 // Inside Factory checkbox
                 _CheckItem(
-                  label: 'Inside Factory',
+                  label: l10n.stageCommonInsideFactory,
                   value: _dharamKantaLoc == 'inside',
                   onChanged: (v) {
                     setState(() {
@@ -2647,7 +2671,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
 
                 // Outside Factory checkbox
                 _CheckItem(
-                  label: 'Outside Factory',
+                  label: l10n.stageCommonOutsideFactory,
                   value: _dharamKantaLoc == 'outside',
                   onChanged: (v) {
                     setState(() {
@@ -2668,9 +2692,9 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                   _WeighField(
                     key: _weightSectionKey,
                     controller: _emptyWeightCtrl,
-                    label: 'Empty Truck Weight Before Loading',
-                    hint: 'e.g. 12.5',
-                    note: 'Weight recorded outside factory (before loading).',
+                    label: l10n.stageS2EmptyWeightLabel,
+                    hint: l10n.stageCommonEg('12.5'),
+                    note: l10n.stageS2EmptyWeightNote,
                     unitNotifier: _emptyWeightUnit,
                     enabled: !_s2WeightConfirmed && !widget.readOnly,
                   ),
@@ -2701,7 +2725,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                         textStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700),
                       ),
                       icon: const Icon(Icons.input_rounded, size: 16),
-                      label: const Text('Confirm Weight'),
+                      label: Text(l10n.stageCommonConfirmWeight),
                     ),
                   ),
                   if (_s2WeightConfirmed)
@@ -2717,7 +2741,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                       children: [
                         const Icon(Icons.check_circle_rounded, color: _success, size: 16),
                         const SizedBox(width: 8),
-                        Text('Weight recorded: ${_emptyWeightCtrl.text.trim()} ${_emptyWeightUnit.value}',
+                        Text(l10n.stageCommonWeightRecorded(_emptyWeightCtrl.text.trim(), _emptyWeightUnit.value),
                             style: _manrope(size: 13, weight: FontWeight.w700, color: _success)),
                       ],
                     ),
@@ -2742,8 +2766,8 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
               ),
             ),
             child: _CheckItem(
-              label: 'Truck Entry Permission Issued',
-              sublabel: 'Factory logistics team receives truck number + driver details.',
+              label: l10n.stageS2EntryIssued,
+              sublabel: l10n.stageS2EntryIssuedNote,
               value: _entryPermissionChecked,
               onChanged: (v) => setState(() => _entryPermissionChecked = v),
               activeColor: _success,
@@ -2762,7 +2786,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
                 children: [
                   const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
                   const SizedBox(width: 4),
-                  Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                  Text(AppLocalizations.of(context).stageCommonLastSaved(_formatSaved(context, _lastSaved!)),
                       style: _inter(size: 11, color: _success)),
                 ],
               ),
@@ -2785,7 +2809,7 @@ class _Stage2FormState extends ConsumerState<_Stage2Form> {
               child: busy
                   ? const SizedBox(width: 20, height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Issue Entry Permission →'),
+                  : Text(l10n.stageS2IssueEntry),
             ),
           ),
         ],
@@ -2860,7 +2884,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
       _saveDraft();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _errorMsg = _pickErrorMessage(e, source));
+      setState(() => _errorMsg = _pickErrorMessage(context, e, source));
     }
   }
 
@@ -2878,16 +2902,16 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Upload Loading Slip', style: _manrope(size: 16, weight: FontWeight.w800)),
+              Text(AppLocalizations.of(context).stageS2UploadSlipTitle, style: _manrope(size: 16, weight: FontWeight.w800)),
               const SizedBox(height: 4),
-              Text('Choose how to add the slip image', style: _inter(size: 12, color: _secondary)),
+              Text(AppLocalizations.of(context).stageS2ChooseSlipSource, style: _inter(size: 12, color: _secondary)),
               const SizedBox(height: 20),
               Row(
                 children: [
                   Expanded(
                     child: _PickerOption(
                       icon: Icons.camera_alt_rounded,
-                      label: 'Camera',
+                      label: AppLocalizations.of(context).stageCommonCamera,
                       color: _primary,
                       onTap: () { Navigator.pop(context); _pick(ImageSource.camera); },
                     ),
@@ -2896,7 +2920,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                   Expanded(
                     child: _PickerOption(
                       icon: Icons.photo_library_rounded,
-                      label: 'Gallery',
+                      label: AppLocalizations.of(context).stageCommonGallery,
                       color: _secondary,
                       onTap: () { Navigator.pop(context); _pick(ImageSource.gallery); },
                     ),
@@ -2928,7 +2952,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
       if (mounted) widget.onUploaded(updated);
     } catch (e) {
       final msg = e is DioException
-          ? _dioErrorDetail(e, 'Upload failed')
+          ? _dioErrorDetail(e, AppLocalizations.of(context).stageCommonUploadFailed)
           : e.toString();
       setState(() { _uploading = false; _errorMsg = msg; });
     }
@@ -2941,6 +2965,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
     final imageUrl = existingUrl != null
         ? '${AppConfig.apiBaseUrl}$existingUrl'
         : null;
+    final l10n = AppLocalizations.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
@@ -2986,15 +3011,15 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                     children: [
                       Text(
                         showExisting
-                            ? 'Loading Slip Uploaded'
-                            : 'Loading Slip Required',
+                            ? l10n.stageS2SlipUploadedTitle
+                            : l10n.stageS2SlipRequiredTitle,
                         style: _manrope(size: 15, weight: FontWeight.w800),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         showExisting
-                            ? 'Slip uploaded by transporter. Tap image to replace if needed.'
-                            : 'Upload the loading slip before the truck can proceed to the factory.',
+                            ? l10n.stageS2SlipUploadedByTransporter
+                            : l10n.stageS2SlipRequiredBody,
                         style: _inter(size: 12, color: _secondary),
                       ),
                     ],
@@ -3005,7 +3030,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
           ),
           const SizedBox(height: 24),
 
-          _SectionHeader(icon: Icons.upload_file_rounded, title: 'Loading Slip'),
+          _SectionHeader(icon: Icons.upload_file_rounded, title: l10n.stageDocLoadingSlip),
 
           // Upload tile / preview
           GestureDetector(
@@ -3064,7 +3089,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                               children: [
                                 const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
                                 const SizedBox(width: 4),
-                                Text('Ready to Upload', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+                                Text(l10n.stageCommonReadyToUpload, style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
                               ],
                             ),
                           ),
@@ -3106,7 +3131,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                                     Icon(Icons.broken_image_rounded,
                                         size: 36, color: _secondary.withValues(alpha: 0.4)),
                                     const SizedBox(height: 8),
-                                    Text('Could not load image',
+                                    Text(l10n.stageCommonImageLoadFailed,
                                         style: _inter(size: 12, color: _secondary)),
                                   ],
                                 ),
@@ -3128,7 +3153,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                               children: [
                                 const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
                                 const SizedBox(width: 4),
-                                Text('Slip Uploaded', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+                                Text(l10n.stageS2SlipUploadedBadge, style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
                               ],
                             ),
                           ),
@@ -3147,7 +3172,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                               children: [
                                 const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 12),
                                 const SizedBox(width: 4),
-                                Text('Tap to replace', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w500)),
+                                Text(AppLocalizations.of(context).stageCommonTapToReplace, style: _inter(size: 11, color: Colors.white, weight: FontWeight.w500)),
                               ],
                             ),
                           ),
@@ -3162,10 +3187,10 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                           Icon(Icons.add_photo_alternate_rounded,
                               size: 40, color: _secondary.withValues(alpha: 0.5)),
                           const SizedBox(height: 10),
-                          Text('Tap to upload loading slip',
+                          Text(l10n.stageS2TapToUploadSlip,
                               style: _inter(size: 13, weight: FontWeight.w600, color: _secondary)),
                           const SizedBox(height: 4),
-                          Text('Camera or Gallery',
+                          Text(AppLocalizations.of(context).stageCommonCameraOrGallery,
                               style: _inter(size: 11, color: _secondary.withValues(alpha: 0.7))),
                         ],
                       ),
@@ -3214,7 +3239,7 @@ class _LoadingSlipMiniState extends ConsumerState<_LoadingSlipMini> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
                     : const Icon(Icons.upload_rounded, size: 20),
-                label: Text(_uploading ? 'Uploading...' : 'Submit Loading Slip'),
+                label: Text(_uploading ? l10n.stageCommonUploading : l10n.stageS2SubmitSlip),
               ),
             ),
         ],
@@ -3675,12 +3700,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       setState(() { _truckReportSending = false; _truckReportSent = true; });
       _saveDraft();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Truck photos sent for identification.')));
+        SnackBar(content: Text(AppLocalizations.of(context).stageS3TruckPhotosSent)));
     } catch (e) {
       if (!mounted) return;
       setState(() => _truckReportSending = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not send truck photos: $e')));
+        SnackBar(content: Text(AppLocalizations.of(context).stageS3TruckPhotosFailed('$e'))));
     }
   }
 
@@ -3694,6 +3719,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       ),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) {
+          final l10n = AppLocalizations.of(sheetContext);
           Future<void> pick(String side) async {
             final source = await _showSourcePicker(sheetContext);
             if (source == null) return;
@@ -3713,11 +3739,11 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             setSheetState(() {});
           }
 
-          const slots = [
-            ('front', 'Front'),
-            ('right', 'Right Side'),
-            ('left',  'Left Side'),
-            ('back',  'Back'),
+          final slots = [
+            ('front', l10n.stageS3PhotoFront),
+            ('right', l10n.stageS3PhotoRight),
+            ('left',  l10n.stageS3PhotoLeft),
+            ('back',  l10n.stageS3PhotoBack),
           ];
 
           return SafeArea(
@@ -3729,9 +3755,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Truck Pictures', style: _manrope(size: 16, weight: FontWeight.w800)),
+                    Text(l10n.stageS3TruckPictures, style: _manrope(size: 16, weight: FontWeight.w800)),
                     const SizedBox(height: 4),
-                    Text('Add photos of all 4 sides of the truck',
+                    Text(l10n.stageS3TruckPicturesSub,
                         style: _inter(size: 12, color: _secondary)),
                     const SizedBox(height: 16),
                     TextField(
@@ -3740,7 +3766,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                       style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
                       onChanged: (_) => setSheetState(() {}),
                       decoration: InputDecoration(
-                        labelText: 'Phone number on the truck',
+                        labelText: l10n.stageS3TruckPhone,
                         labelStyle: _inter(size: 12, color: _secondary),
                         filled: true,
                         fillColor: _bg,
@@ -3771,14 +3797,14 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                       const SizedBox(height: 10),
                     ],
                     const SizedBox(height: 6),
-                    Text('Extra info (optional)',
+                    Text(l10n.stageS3ExtraInfo,
                         style: _manrope(size: 13, weight: FontWeight.w800, color: _onSurface)),
                     const SizedBox(height: 4),
-                    Text('Anything that helps — a close-up of the plate, a visible phone number, etc.',
+                    Text(l10n.stageS3ExtraInfoHint,
                         style: _inter(size: 11, color: _secondary)),
                     const SizedBox(height: 10),
                     _TruckPhotoSlot(
-                      label: 'Extra photo',
+                      label: l10n.stageS3ExtraPhoto,
                       data: _truckPhotoFor('extra'),
                       onAdd: () => pick('extra'),
                       onRemove: () => remove('extra'),
@@ -3799,7 +3825,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                           children: [
                             const Icon(Icons.check_circle_rounded, color: _success, size: 18),
                             const SizedBox(width: 8),
-                            Text('Sent for identification',
+                            Text(l10n.stageS3SentForId,
                                 style: _manrope(size: 13, weight: FontWeight.w700, color: _success)),
                           ],
                         ),
@@ -3820,7 +3846,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                                   width: 18, height: 18,
                                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
-                              : Text('Send for Identification',
+                              : Text(l10n.stageS3SendForId,
                                   style: _manrope(size: 14, weight: FontWeight.w700, color: Colors.white)),
                         ),
                       ),
@@ -3829,7 +3855,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                       width: double.infinity,
                       child: TextButton(
                         onPressed: () => Navigator.pop(sheetContext),
-                        child: Text('Close',
+                        child: Text(l10n.commonClose,
                             style: _manrope(size: 13, weight: FontWeight.w700, color: _secondary)),
                       ),
                     ),
@@ -3883,7 +3909,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       _scrollToFirstUnchecked();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('All steps must be completed before marking loading complete.',
+          content: Text(AppLocalizations.of(context).stageS3ErrStepsLoading,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
@@ -3902,7 +3928,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
       _scrollToFirstUnchecked();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('All steps must be completed before completing the stage.',
+          content: Text(AppLocalizations.of(context).stageS3ErrStepsStage,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
@@ -3914,7 +3940,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     if (!_loadingComplete) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please check "Loading Completed" before completing the stage.',
+          content: Text(AppLocalizations.of(context).stageS3ErrLoadingCompleted,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
@@ -3992,6 +4018,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
     final weightFromS2 =
         (stagesState.s2DharamKantaLoc == 'outside' || _s2DharamKantaLoc == 'outside') &&
         s2Weight.isNotEmpty;
+    final l10n = AppLocalizations.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -4014,32 +4041,32 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           ),
           const SizedBox(height: 16),
 
-          Text('RR Executive coordinates with driver:',
+          Text(l10n.stageS3Coordinates,
               style: _manrope(size: 16, weight: FontWeight.w800)),
           const SizedBox(height: 16),
 
-          _SectionHeader(icon: Icons.local_parking_rounded, title: 'Arrival Steps'),
+          _SectionHeader(icon: Icons.local_parking_rounded, title: l10n.stageS3ArrivalSteps),
           _CheckItem(
             key: _driverParkedKey,
-            label: 'Driver parks outside factory',
+            label: l10n.stageS3DriverParks,
             value: _driverParked,
             onChanged: (v) { setState(() => _driverParked = v); _touchField('driver_parked'); _onCheckChanged(); },
           ),
           _CheckItem(
             key: _docsSubmittedKey,
-            label: 'Documents submitted to security',
+            label: l10n.stageS3DocsToSecurity,
             value: _docsSubmitted,
             onChanged: (v) { setState(() => _docsSubmitted = v); _touchField('docs_submitted'); _onCheckChanged(); },
           ),
           _CheckItem(
             key: _securityVerifiedKey,
-            label: 'Security verifies vehicle requirements',
+            label: l10n.stageS3SecurityVerifies,
             value: _securityVerified,
             onChanged: (v) { setState(() => _securityVerified = v); _touchField('security_verified'); _onCheckChanged(); },
           ),
           const SizedBox(height: 8),
 
-          _SectionHeader(icon: Icons.security_rounded, title: 'Driver Safety Rules'),
+          _SectionHeader(icon: Icons.security_rounded, title: l10n.stageS3SafetyRules),
           Container(
             decoration: BoxDecoration(
               color: const Color(0xFFFFF3E0),
@@ -4051,7 +4078,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               children: [
                 _CheckItem(
                   key: _driverExitedCabinKey,
-                  label: 'Driver must exit cabin',
+                  label: l10n.stageS3ExitCabin,
                   value: _driverExitedCabin,
                   onChanged: (v) { setState(() => _driverExitedCabin = v); _touchField('driver_exited_cabin'); _onCheckChanged(); },
                   activeColor: _primary,
@@ -4059,7 +4086,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                 Divider(height: 1, indent: 16, endIndent: 16, color: _primary.withValues(alpha: 0.15)),
                 _CheckItem(
                   key: _wheelStoppersKey,
-                  label: 'Wheel stoppers installed',
+                  label: l10n.stageS3WheelStoppers,
                   value: _wheelStoppers,
                   onChanged: (v) { setState(() => _wheelStoppers = v); _touchField('wheel_stoppers'); _onCheckChanged(); },
                   activeColor: _primary,
@@ -4067,7 +4094,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                 Divider(height: 1, indent: 16, endIndent: 16, color: _primary.withValues(alpha: 0.15)),
                 _CheckItem(
                   key: _safetyGearKey,
-                  label: 'Safety shoes and helmet required',
+                  label: l10n.stageS3SafetyGear,
                   value: _safetyGear,
                   onChanged: (v) { setState(() => _safetyGear = v); _touchField('safety_gear'); _onCheckChanged(); },
                   activeColor: _primary,
@@ -4077,10 +4104,10 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           ),
           const SizedBox(height: 20),
 
-          _SectionHeader(icon: Icons.schedule_rounded, title: 'Loading Timing'),
+          _SectionHeader(icon: Icons.schedule_rounded, title: l10n.stageS3LoadingTiming),
           _DateTimeField(
             fieldKey: _vehicleReachKey,
-            label: 'Vehicle Reach Date And Time',
+            label: AppLocalizations.of(context).stageS3VehicleReach,
             value: _vehicleReachDatetime,
             showError: _showDatetimeErrors && _vehicleReachDatetime == null,
             onChanged: (dt) {
@@ -4093,12 +4120,12 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
 
           // Dharma Kanta — Empty Weight (hidden when already captured in Stage 2)
           if (!weightFromS2) ...[
-            _SectionHeader(icon: Icons.scale_rounded, title: 'Dharma Kanta (Weigh Bridge)'),
+            _SectionHeader(icon: Icons.scale_rounded, title: l10n.stageS3DharamKanta),
             _WeighField(
               controller: _emptyTruckWeight,
-              label: 'Empty Truck Weight',
-              hint: 'e.g. 12.5',
-              note: 'Record the empty truck weight before loading.',
+              label: l10n.stageS3EmptyWeight,
+              hint: l10n.stageCommonEg('12.5'),
+              note: l10n.stageS3EmptyWeightNote,
               enabled: !widget.readOnly,
               unitNotifier: _emptyWeightUnit,
             ),
@@ -4115,7 +4142,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                   color: _loadingComplete ? _success.withValues(alpha: 0.30) : _border),
             ),
             child: _CheckItem(
-              label: 'Loading Completed',
+              label: l10n.stageS3LoadingCompleted,
               value: _loadingComplete,
               activeColor: _success,
               onChanged: widget.readOnly ? (_) {} : _onLoadingCompleteToggle,
@@ -4126,9 +4153,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           // Loaded weight + Bilty + Material Documents + Complete Stage
           _WeighField(
               controller: _loadedTruckWeight,
-              label: 'Loaded Truck Weight',
-              hint: 'e.g. 28.5',
-              note: 'Record the truck weight after loading is done.',
+              label: l10n.stageS3LoadedWeight,
+              hint: l10n.stageCommonEg('28.5'),
+              note: l10n.stageS3LoadedWeightNote,
               enabled: !widget.readOnly,
               unitNotifier: _loadedWeightUnit,
               existingSlipUrl: _weightSlipData == null ? widget.trip.s3LoadedWeightSlipUrl : null,
@@ -4149,19 +4176,19 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             const SizedBox(height: 20),
 
             // ── E-way Bill Upload ──────────────────────────────────────
-            _SectionHeader(icon: Icons.receipt_long_rounded, title: 'E-way Bill'),
+            _SectionHeader(icon: Icons.receipt_long_rounded, title: l10n.stageDocEway),
             Padding(
               padding: const EdgeInsets.only(bottom: 3),
               child: TextFormField(
                 controller: _ewayBillNumberCtrl,
                 style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
-                decoration: _stageFieldDec('E-way Bill Number'),
+                decoration: _stageFieldDec(l10n.stageS3EwayNumber),
               ),
             ),
             _FieldAttribution(username: _attrOf('eway_bill_number')),
             const SizedBox(height: 8),
             _DateTimeField(
-              label: 'E-way Bill Issue Date',
+              label: l10n.stageS3EwayIssueDate,
               value: _ewayBillIssueDate,
               // RR's documents.eway_bill.issue_date has is_restricted_future_date
               // — a future value gets rejected with a 422 at sync time.
@@ -4173,7 +4200,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               },
             ),
             _DateTimeField(
-              label: 'E-way Bill Expiry Date',
+              label: l10n.stageS3EwayExpiryDate,
               value: _ewayBillExpiryDate,
               onChanged: (dt) {
                 setState(() => _ewayBillExpiryDate = dt);
@@ -4183,8 +4210,8 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             ),
             const SizedBox(height: 8),
             _DocUploadTile(
-              label: 'Upload E-way Bill',
-              subtitle: 'Attach the e-way bill document',
+              label: l10n.stageS3UploadEway,
+              subtitle: l10n.stageS3AttachEway,
               bytes: _ewayBillData?.bytes,
               fileName: _ewayBillData?.name,
               existingUrl: _ewayBillData == null ? widget.trip.s3EwayBillUrl : null,
@@ -4196,10 +4223,10 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
             const SizedBox(height: 20),
 
             // ── Invoice Upload ─────────────────────────────
-            _SectionHeader(icon: Icons.folder_open_rounded, title: 'Invoice'),
+            _SectionHeader(icon: Icons.folder_open_rounded, title: l10n.stageDocInvoice),
             _DocUploadTile(
-              label: 'Upload Invoice',
-              subtitle: 'Attach the invoice document',
+              label: l10n.stageS3UploadInvoice,
+              subtitle: l10n.stageS3AttachInvoice,
               bytes: _materialDocs?.bytes,
               fileName: _materialDocs?.name,
               existingUrl: _materialDocs == null
@@ -4218,7 +4245,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               child: TextFormField(
                 controller: _invoiceNumberCtrl,
                 style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
-                decoration: _stageFieldDec('Enter Invoice Number'),
+                decoration: _stageFieldDec(l10n.stageS3InvoiceNumber),
                 textCapitalization: TextCapitalization.characters,
               ),
             ),
@@ -4229,7 +4256,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
               child: TextFormField(
                 controller: _actualInvoiceValueCtrl,
                 style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
-                decoration: _stageFieldDec('Enter Invoice Value (₹, max 10 digits)'),
+                decoration: _stageFieldDec(l10n.stageS3InvoiceValue),
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}$')),
@@ -4251,7 +4278,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                   children: [
                     const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
                     const SizedBox(width: 4),
-                    Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                    Text(AppLocalizations.of(context).stageCommonLastSaved(_formatSaved(context, _lastSaved!)),
                         style: _inter(size: 11, color: _success)),
                   ],
                 ),
@@ -4270,7 +4297,7 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
                 child: busy
                     ? const SizedBox(width: 20, height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Complete Stage ✓'),
+                    : Text(l10n.stageCommonCompleteStage),
               ),
             ),
         ],
@@ -4302,6 +4329,7 @@ class _CompletionView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
@@ -4316,7 +4344,7 @@ class _CompletionView extends StatelessWidget {
             child: const Icon(Icons.check_circle_rounded, color: _success, size: 56),
           ),
           const SizedBox(height: 24),
-          Text('Truck Loading Complete!',
+          Text(l10n.stageS3LoadingCompleteTitle,
               style: _manrope(size: 22, weight: FontWeight.w800, color: _success)),
           const SizedBox(height: 8),
           Text(trip.tripNumber,
@@ -4329,7 +4357,7 @@ class _CompletionView extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Loading complete. Proceed to factory exit.',
+            l10n.stageS3LoadingCompleteBody,
             textAlign: TextAlign.center,
             style: _inter(size: 13, color: _secondary),
           ),
@@ -4341,7 +4369,7 @@ class _CompletionView extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: onNextStage,
               icon: const Icon(Icons.exit_to_app_rounded, size: 18),
-              label: const Text('Next Stage — Truck Exit →'),
+              label: Text(l10n.stageS3NextStageExit),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _StageTheme.rrWeb.primary,
                 foregroundColor: Colors.white,
@@ -4369,7 +4397,7 @@ class _CompletionView extends StatelessWidget {
                 ),
               ),
               icon: const Icon(Icons.local_shipping_rounded, size: 16, color: _primary),
-              label: Text('Track Truck', style: GoogleFonts.manrope(
+              label: Text(l10n.stageCommonTrackTruck, style: GoogleFonts.manrope(
                   fontSize: 13, fontWeight: FontWeight.w600, color: _primary)),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -4392,7 +4420,7 @@ class _CompletionView extends StatelessWidget {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 textStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600),
               ),
-              child: const Text('Back to Dashboard'),
+              child: Text(AppLocalizations.of(context).stageCommonBackToDashboard),
             ),
           ),
         ],
@@ -4490,7 +4518,7 @@ class _StageAttribution extends StatelessWidget {
           const Icon(Icons.person_outline_rounded, size: 14, color: _success),
           const SizedBox(width: 6),
           Text(
-            'Submitted by @$username',
+            AppLocalizations.of(context).stageCommonSubmittedBy(username!),
             style: _inter(size: 12, weight: FontWeight.w600, color: _success),
           ),
         ],
@@ -4545,13 +4573,15 @@ class _TruckPicturesOption extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Truck Pictures',
+                  Text(AppLocalizations.of(context).stageS3TruckPictures,
                       style: _manrope(size: 14, weight: FontWeight.w800, color: _onSurface)),
                   const SizedBox(height: 2),
                   Text(
                     done
-                        ? 'Sent for identification'
-                        : (phoneFilled ? '$count/4 photos added' : '$count/4 photos · phone number needed'),
+                        ? AppLocalizations.of(context).stageS3SentForId
+                        : (phoneFilled
+                            ? AppLocalizations.of(context).stageS3PhotosAdded(count)
+                            : AppLocalizations.of(context).stageS3PhotosNeedPhone(count)),
                     style: _inter(size: 12, color: done ? _success : (ready ? _secondary : _secondary)),
                   ),
                 ],
@@ -4613,12 +4643,12 @@ class _TruckPhotoSlot extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.close_rounded, size: 20, color: _error),
               onPressed: onRemove,
-              tooltip: 'Remove',
+              tooltip: AppLocalizations.of(context).stageCommonRemove,
             )
           else
             TextButton(
               onPressed: onAdd,
-              child: Text('Add', style: _manrope(size: 13, weight: FontWeight.w700, color: _primary)),
+              child: Text(AppLocalizations.of(context).stageCommonAdd, style: _manrope(size: 13, weight: FontWeight.w700, color: _primary)),
             ),
         ],
       ),
@@ -4668,7 +4698,7 @@ class _FormField extends StatelessWidget {
         keyboardType: keyboardType,
         style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
         validator: required
-            ? (v) => (v == null || v.trim().isEmpty) ? '$label is required' : null
+            ? (v) => (v == null || v.trim().isEmpty) ? AppLocalizations.of(context).stageCommonFieldRequired(label) : null
             : null,
         decoration: InputDecoration(
           labelText: label,
@@ -4808,7 +4838,7 @@ class _DateTimeField extends StatelessWidget {
     if (disallowFuture && picked.isAfter(now)) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('$label can\'t be a future date/time — using current time instead',
+          content: Text(AppLocalizations.of(context).stageCommonFutureNotAllowed(label),
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
@@ -4844,11 +4874,11 @@ class _DateTimeField extends StatelessWidget {
               borderSide: BorderSide(color: showError ? _error : const Color(0xFFE0E0E0)),
             ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            errorText: showError ? '$label is required' : null,
-            helperText: enabled ? null : 'Locked — already synced to RR',
+            errorText: showError ? AppLocalizations.of(context).stageCommonFieldRequired(label) : null,
+            helperText: enabled ? null : AppLocalizations.of(context).stageCommonLockedSynced,
           ),
           child: Text(
-            hasValue ? _format(value!) : 'Select date & time',
+            hasValue ? _format(value!) : AppLocalizations.of(context).stageCommonSelectDateTime,
             style: _manrope(
               size: 14,
               weight: FontWeight.w600,
@@ -4937,10 +4967,10 @@ class _WeighFieldState extends State<_WeighField> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Upload Weigh Slip',
+              Text(AppLocalizations.of(context).stageCommonUploadWeighSlip,
                   style: _manrope(size: 16, weight: FontWeight.w800)),
               const SizedBox(height: 4),
-              Text('Choose how to add the slip image',
+              Text(AppLocalizations.of(context).stageS2ChooseSlipSource,
                   style: _inter(size: 12, color: _secondary)),
               const SizedBox(height: 20),
               Row(
@@ -4948,7 +4978,7 @@ class _WeighFieldState extends State<_WeighField> {
                   Expanded(
                     child: _PickerOption(
                       icon: Icons.camera_alt_rounded,
-                      label: 'Camera',
+                      label: AppLocalizations.of(context).stageCommonCamera,
                       color: _primary,
                       onTap: () {
                         Navigator.pop(context);
@@ -4960,7 +4990,7 @@ class _WeighFieldState extends State<_WeighField> {
                   Expanded(
                     child: _PickerOption(
                       icon: Icons.photo_library_rounded,
-                      label: 'Gallery',
+                      label: AppLocalizations.of(context).stageCommonGallery,
                       color: const Color(0xFF1565C0),
                       onTap: () {
                         Navigator.pop(context);
@@ -5029,7 +5059,7 @@ class _WeighFieldState extends State<_WeighField> {
               decoration: InputDecoration(
                 labelText: widget.label,
                 labelStyle: _inter(size: 12, color: _secondary),
-                hintText: unit == 'tons' ? 'e.g. 12.5' : 'e.g. 12500',
+                hintText: AppLocalizations.of(context).stageCommonEg(unit == 'tons' ? '12.5' : '12500'),
                 hintStyle: _inter(size: 12, color: _secondary),
                 prefixIcon:
                     const Icon(Icons.scale_outlined, size: 18, color: _secondary),
@@ -5140,7 +5170,7 @@ class _WeighFieldState extends State<_WeighField> {
                         borderRadius: BorderRadius.vertical(
                             bottom: Radius.circular(10)),
                       ),
-                      child: Text('Weigh Slip',
+                      child: Text(AppLocalizations.of(context).stageCommonWeighSlip,
                           style: _inter(
                               size: 11,
                               color: Colors.white,
@@ -5236,7 +5266,7 @@ class _WeighFieldState extends State<_WeighField> {
                         borderRadius: BorderRadius.vertical(
                             bottom: Radius.circular(10)),
                       ),
-                      child: Text('Weigh Slip',
+                      child: Text(AppLocalizations.of(context).stageCommonWeighSlip,
                           style: _inter(
                               size: 11,
                               color: Colors.white,
@@ -5270,14 +5300,14 @@ class _WeighFieldState extends State<_WeighField> {
                           size: 24),
                       const SizedBox(height: 6),
                       Text(
-                        'Upload Weigh Slip',
+                        AppLocalizations.of(context).stageCommonUploadWeighSlip,
                         style: _inter(
                             size: 12,
                             weight: FontWeight.w600,
                             color: widget.enabled ? _primary : _secondary),
                       ),
                       const SizedBox(height: 2),
-                      Text('Camera or Gallery',
+                      Text(AppLocalizations.of(context).stageCommonCameraOrGallery,
                           style: _inter(size: 11, color: _secondary)),
                     ],
                   ),
@@ -5292,6 +5322,7 @@ class _WeighFieldState extends State<_WeighField> {
 // ─── Source picker bottom sheet helper ───────────────────────────────────────
 
 Future<ImageSource?> _showSourcePicker(BuildContext context) {
+  final l10n = AppLocalizations.of(context);
   return showModalBottomSheet<ImageSource>(
     context: context,
     backgroundColor: Colors.white,
@@ -5321,10 +5352,10 @@ Future<ImageSource?> _showSourcePicker(BuildContext context) {
                 ),
                 child: const Icon(Icons.camera_alt_rounded, color: _primary, size: 20),
               ),
-              title: Text('Take Photo',
+              title: Text(l10n.stageCommonTakePhoto,
                   style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600,
                       color: _onSurface)),
-              subtitle: Text('Use camera',
+              subtitle: Text(l10n.stageCommonUseCamera,
                   style: GoogleFonts.inter(fontSize: 12, color: _secondary)),
               onTap: () => Navigator.of(context).pop(ImageSource.camera),
             ),
@@ -5337,10 +5368,10 @@ Future<ImageSource?> _showSourcePicker(BuildContext context) {
                 ),
                 child: const Icon(Icons.photo_library_rounded, color: _primary, size: 20),
               ),
-              title: Text('Choose from Gallery',
+              title: Text(l10n.stageCommonChooseGallery,
                   style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600,
                       color: _onSurface)),
-              subtitle: Text('Browse photos',
+              subtitle: Text(l10n.stageCommonBrowsePhotos,
                   style: GoogleFonts.inter(fontSize: 12, color: _secondary)),
               onTap: () => Navigator.of(context).pop(ImageSource.gallery),
             ),
@@ -5481,7 +5512,7 @@ class _DocUploadTile extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      fileName ?? 'Image selected',
+                      fileName ?? AppLocalizations.of(context).stageCommonImageSelected,
                       style: GoogleFonts.inter(
                           fontSize: 12, fontWeight: FontWeight.w500, color: _success),
                       maxLines: 1,
@@ -5493,7 +5524,7 @@ class _DocUploadTile extends StatelessWidget {
                       onTap: () => _pick(context),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('Retake',
+                        child: Text(AppLocalizations.of(context).stageCommonRetake,
                             style: GoogleFonts.manrope(
                                 fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
                       ),
@@ -5577,7 +5608,7 @@ class _DocUploadTile extends StatelessWidget {
                       onTap: () => _pick(context),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Text('Replace',
+                        child: Text(AppLocalizations.of(context).stageCommonReplace,
                             style: GoogleFonts.manrope(
                                 fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
                       ),
@@ -5632,7 +5663,7 @@ class _DocUploadTile extends StatelessWidget {
                   const Icon(Icons.cloud_download_rounded, size: 16, color: _primary),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text('Already on RR',
+                    child: Text(AppLocalizations.of(context).stageCommonAlreadyOnRr,
                         style: GoogleFonts.manrope(
                             fontSize: 12, fontWeight: FontWeight.w700, color: _primary),
                         maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -5642,7 +5673,7 @@ class _DocUploadTile extends StatelessWidget {
                       onTap: () => _pick(context),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 6),
-                        child: Text('Replace',
+                        child: Text(AppLocalizations.of(context).stageCommonReplace,
                             style: GoogleFonts.manrope(
                                 fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
                       ),
@@ -5828,7 +5859,7 @@ class _PodPdfCard extends StatelessWidget {
                 style: _inter(size: 13, weight: FontWeight.w600, color: _onSurface)),
             if (onOpen != null) ...[
               const SizedBox(height: 4),
-              Text('Tap to view', style: _inter(size: 11, color: _secondary)),
+              Text(AppLocalizations.of(context).stageCommonTapToView, style: _inter(size: 11, color: _secondary)),
             ],
           ]),
         ),
@@ -5870,7 +5901,7 @@ class _PodPdfCard extends StatelessWidget {
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 12),
                 const SizedBox(width: 4),
-                Text('Tap to replace', style: _inter(size: 11, color: Colors.white)),
+                Text(AppLocalizations.of(context).stageCommonTapToReplace, style: _inter(size: 11, color: Colors.white)),
               ]),
             ),
           ),
@@ -6087,7 +6118,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
       if (mounted) {
         setState(() => _checklistSubmitting = false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed: $e', style: _inter(size: 13, color: Colors.white)),
+          content: Text(AppLocalizations.of(context).stageCommonFailedWith('$e'), style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -6108,7 +6139,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_pickErrorMessage(e, source)),
+        content: Text(_pickErrorMessage(context, e, source)),
         backgroundColor: _error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -6128,7 +6159,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_pickErrorMessage(e, source)),
+        content: Text(_pickErrorMessage(context, e, source)),
         backgroundColor: _error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -6147,7 +6178,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
       _saveDraft();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _dieselError = _pickErrorMessage(e, source));
+      setState(() => _dieselError = _pickErrorMessage(context, e, source));
     }
   }
 
@@ -6164,19 +6195,19 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Upload Diesel Receipt', style: _manrope(size: 16, weight: FontWeight.w800)),
+              Text(AppLocalizations.of(context).stageS4UploadDiesel, style: _manrope(size: 16, weight: FontWeight.w800)),
               const SizedBox(height: 4),
-              Text('Choose how to add the receipt image',
+              Text(AppLocalizations.of(context).stageS4ChooseReceiptSource,
                   style: _inter(size: 12, color: _secondary)),
               const SizedBox(height: 20),
               Row(children: [
                 Expanded(child: _PickerOption(
-                  icon: Icons.camera_alt_rounded, label: 'Camera', color: _primary,
+                  icon: Icons.camera_alt_rounded, label: AppLocalizations.of(context).stageCommonCamera, color: _primary,
                   onTap: () { Navigator.pop(context); _pickDiesel(ImageSource.camera); },
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _PickerOption(
-                  icon: Icons.photo_library_rounded, label: 'Gallery', color: _secondary,
+                  icon: Icons.photo_library_rounded, label: AppLocalizations.of(context).stageCommonGallery, color: _secondary,
                   onTap: () { Navigator.pop(context); _pickDiesel(ImageSource.gallery); },
                 )),
               ]),
@@ -6191,7 +6222,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
     if ((_dieselFile == null && widget.trip.s4DieselReceiptUrl == null) || _dieselUploading) return;
     final biltyNumber = _biltyNumberCtrl.text.trim();
     if (biltyNumber.isNotEmpty && !RegExp(r'^\d{4}$').hasMatch(biltyNumber)) {
-      setState(() => _biltyNumberError = 'Bilty Number must be exactly 4 digits');
+      setState(() => _biltyNumberError = AppLocalizations.of(context).stageS4BiltyNumberError);
       return;
     }
     setState(() { _dieselUploading = true; _dieselError = null; });
@@ -6223,7 +6254,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
       }
     } catch (e) {
       final msg = e is DioException
-          ? _dioErrorDetail(e, 'Upload failed')
+          ? _dioErrorDetail(e, AppLocalizations.of(context).stageCommonUploadFailed)
           : e.toString();
       if (mounted) setState(() { _dieselUploading = false; _dieselError = msg; });
     }
@@ -6287,6 +6318,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
   Widget build(BuildContext context) {
     final existingDieselUrl = widget.trip.s4DieselReceiptUrl;
     final showExistingDiesel = existingDieselUrl != null && _dieselFile == null;
+    final l10n = AppLocalizations.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
@@ -6331,14 +6363,14 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _showDiesel ? 'Upload Diesel Receipt' : 'Truck Exit From Factory',
+                        _showDiesel ? l10n.stageS4UploadDiesel : l10n.stageS4HeaderExit,
                         style: _manrope(size: 15, weight: FontWeight.w800),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _showDiesel
-                            ? 'Upload the diesel receipt to complete Stage 4'
-                            : 'Verify all exit procedures before releasing truck',
+                            ? l10n.stageS4HeaderDieselSub
+                            : l10n.stageS4HeaderExitSub,
                         style: _inter(size: 12),
                       ),
                     ],
@@ -6356,7 +6388,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                 _showDiesel ? Icons.arrow_back_rounded : Icons.arrow_forward_rounded,
                 size: 16,
               ),
-              label: Text(_showDiesel ? 'Exit Checklist' : 'Diesel Receipt and Bilty'),
+              label: Text(_showDiesel ? l10n.stageS4ExitChecklist : l10n.stageS4DieselAndBilty),
               style: TextButton.styleFrom(
                 foregroundColor: _StageTheme.rrWeb.primary,
                 textStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700),
@@ -6366,43 +6398,43 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
           const SizedBox(height: 12),
 
           if (!_showDiesel) ...[ // ── Phase 1: Checklist ──────────────────────
-            _SectionHeader(icon: Icons.directions_car_outlined, title: 'Exit Procedure'),
+            _SectionHeader(icon: Icons.directions_car_outlined, title: l10n.stageS4ExitProcedure),
             const SizedBox(height: 8),
             _buildCheckTile(
               value: _truckMoved,
-              label: 'Truck moves to factory exit gate',
+              label: l10n.stageS4TruckMoves,
               onChanged: (v) { setState(() => _truckMoved = v ?? false); _touchField('truck_moved'); _onCheckChanged(); },
             ),
             _buildCheckTile(
               value: _securityCheck,
-              label: 'Security verifies documents',
+              label: l10n.stageS4SecurityVerifies,
               onChanged: (v) { setState(() => _securityCheck = v ?? false); _touchField('security_check'); _onCheckChanged(); },
             ),
             const SizedBox(height: 16),
 
-            _SectionHeader(icon: Icons.description_outlined, title: 'Documents Checked'),
+            _SectionHeader(icon: Icons.description_outlined, title: l10n.stageS4DocsChecked),
             const SizedBox(height: 8),
             _buildCheckTile(
               value: _biltyChecked,
-              label: 'E-way Bill',
+              label: l10n.stageDocEway,
               onChanged: (v) { setState(() => _biltyChecked = v ?? false); _touchField('bilty_checked'); _onCheckChanged(); },
             ),
             _buildCheckTile(
               value: _weightChecked,
-              label: 'Loaded Weight Slip',
+              label: l10n.stageS4LoadedWeightSlip,
               onChanged: (v) { setState(() => _weightChecked = v ?? false); _touchField('weight_checked'); _onCheckChanged(); },
             ),
             _buildCheckTile(
               value: _materialChecked,
-              label: 'Material Documents',
+              label: l10n.stageS4MaterialDocs,
               onChanged: (v) { setState(() => _materialChecked = v ?? false); _touchField('material_checked'); _onCheckChanged(); },
             ),
             const SizedBox(height: 16),
 
-            _SectionHeader(icon: Icons.schedule_rounded, title: 'Exit Timing'),
+            _SectionHeader(icon: Icons.schedule_rounded, title: l10n.stageS4ExitTiming),
             const SizedBox(height: 8),
             _DateTimeField(
-              label: 'Vehicle Exit Date And Time',
+              label: l10n.stageS4VehicleExit,
               value: _vehicleExitDatetime,
               showError: _showExitDatetimeError && _vehicleExitDatetime == null,
               onChanged: (dt) {
@@ -6426,7 +6458,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Please confirm all items above before proceeding',
+                        l10n.stageS4ConfirmAllItems,
                         style: _inter(size: 12, color: const Color(0xFFE65100)),
                       ),
                     ),
@@ -6441,7 +6473,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                   children: [
                     const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
                     const SizedBox(width: 4),
-                    Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                    Text(AppLocalizations.of(context).stageCommonLastSaved(_formatSaved(context, _lastSaved!)),
                         style: _inter(size: 11, color: _success)),
                   ],
                 ),
@@ -6454,7 +6486,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                     ? const SizedBox(width: 18, height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.logout_rounded, size: 18),
-                label: Text(_checklistSubmitting ? 'Saving…' : 'Truck Exits Factory'),
+                label: Text(_checklistSubmitting ? l10n.stageCommonSavingEllipsis : l10n.stageS4TruckExits),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _StageTheme.rrWeb.primary,
                   foregroundColor: Colors.white,
@@ -6481,7 +6513,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                   const Icon(Icons.check_circle_rounded, color: _success, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text('Exit checklist complete. Now upload diesel receipt.',
+                    child: Text(l10n.stageS4ChecklistDone,
                         style: _inter(size: 12, color: _success, weight: FontWeight.w600)),
                   ),
                 ],
@@ -6489,7 +6521,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
             ),
             const SizedBox(height: 20),
 
-            _SectionHeader(icon: Icons.local_gas_station_rounded, title: 'Diesel Receipt'),
+            _SectionHeader(icon: Icons.local_gas_station_rounded, title: l10n.stageS4DieselReceipt),
             const SizedBox(height: 12),
 
             Container(
@@ -6537,7 +6569,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                             child: Row(mainAxisSize: MainAxisSize.min, children: [
                               const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
                               const SizedBox(width: 4),
-                              Text('Ready to Upload',
+                              Text(AppLocalizations.of(context).stageCommonReadyToUpload,
                                   style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
                             ]),
                           ),
@@ -6571,7 +6603,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                                   const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
                                   const SizedBox(width: 4),
-                                  Text('Uploaded', style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
+                                  Text(l10n.stageCommonUploaded, style: _inter(size: 11, color: Colors.white, weight: FontWeight.w600)),
                                 ]),
                               ),
                             ),
@@ -6586,7 +6618,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                                       const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 12),
                                       const SizedBox(width: 4),
-                                      Text('Tap to replace', style: _inter(size: 11, color: Colors.white)),
+                                      Text(AppLocalizations.of(context).stageCommonTapToReplace, style: _inter(size: 11, color: Colors.white)),
                                     ]),
                                   ),
                                 ),
@@ -6602,10 +6634,10 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                                 Icon(Icons.add_photo_alternate_rounded,
                                     size: 40, color: _secondary.withValues(alpha: 0.5)),
                                 const SizedBox(height: 10),
-                                Text('Tap to upload diesel receipt',
+                                Text(l10n.stageS4TapToUploadDiesel,
                                     style: _inter(size: 13, weight: FontWeight.w600, color: _secondary)),
                                 const SizedBox(height: 4),
-                                Text('Camera or Gallery',
+                                Text(AppLocalizations.of(context).stageCommonCameraOrGallery,
                                     style: _inter(size: 11, color: _secondary.withValues(alpha: 0.7))),
                               ],
                             ),
@@ -6631,7 +6663,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
             ],
             const SizedBox(height: 20),
 
-            _SectionHeader(icon: Icons.receipt_long_rounded, title: 'Bilty'),
+            _SectionHeader(icon: Icons.receipt_long_rounded, title: l10n.stageDocBilty),
             const SizedBox(height: 12),
             TextFormField(
               controller: _biltyNumberCtrl,
@@ -6642,17 +6674,17 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                 LengthLimitingTextInputFormatter(4),
               ],
               style: _inter(size: 13, color: _onSurface, weight: FontWeight.w500),
-              decoration: _stageFieldDec('Bilty Number (4 digits)').copyWith(
+              decoration: _stageFieldDec(l10n.stageS4BiltyNumber).copyWith(
                 errorText: _biltyNumberError,
-                helperText: _biltyLocked ? 'Locked — already synced to RR' : null,
+                helperText: _biltyLocked ? l10n.stageCommonLockedSynced : null,
                 suffixIcon: _biltyLocked ? const Icon(Icons.lock_outline_rounded, size: 18) : null,
               ),
             ),
             _FieldAttribution(username: _attrOf('bilty_number')),
             const SizedBox(height: 14),
             _DocUploadTile(
-              label: 'Manual Bilty Upload',
-              subtitle: 'Upload the physical bilty document',
+              label: l10n.stageS4ManualBilty,
+              subtitle: l10n.stageS4ManualBiltySub,
               bytes: _biltyDocFile?.bytes,
               fileName: _biltyDocFile?.name,
               existingUrl: widget.trip.s4BiltyUrl,
@@ -6663,7 +6695,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
             _FieldAttribution(username: _attrOf('bilty_doc')),
             const SizedBox(height: 14),
             _DateTimeField(
-              label: 'Bilty Date And Time (Optional)',
+              label: l10n.stageS4BiltyDate,
               value: _biltyDate,
               showError: false,
               enabled: !widget.readOnly && !_biltyLocked,
@@ -6675,8 +6707,8 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
             ),
             const SizedBox(height: 14),
             _DocUploadTile(
-              label: 'Material Verification Sheet',
-              subtitle: 'Upload the material verification sheet',
+              label: l10n.stageS4MaterialVerification,
+              subtitle: l10n.stageS4MaterialVerificationSub,
               bytes: _materialVerificationFile?.bytes,
               fileName: _materialVerificationFile?.name,
               existingUrl: widget.trip.s4MaterialVerificationUrl,
@@ -6693,7 +6725,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                 child: Row(children: [
                   const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
                   const SizedBox(width: 4),
-                  Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                  Text(AppLocalizations.of(context).stageCommonLastSaved(_formatSaved(context, _lastSaved!)),
                       style: _inter(size: 11, color: _success)),
                 ]),
               ),
@@ -6708,7 +6740,7 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
                       ? const SizedBox(width: 18, height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.upload_rounded, size: 20),
-                  label: Text(_dieselUploading ? 'Uploading…' : (showExistingDiesel && _dieselFile == null ? 'Save' : 'Submit Diesel Receipt')),
+                  label: Text(_dieselUploading ? l10n.stageCommonUploadingEllipsis : (showExistingDiesel && _dieselFile == null ? l10n.commonSave : l10n.stageS4SubmitDiesel)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _StageTheme.rrWeb.primary,
                     foregroundColor: Colors.white,
@@ -6865,7 +6897,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
       _saveDraft();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _errorMsg = _pickErrorMessage(e, source));
+      setState(() => _errorMsg = _pickErrorMessage(context, e, source));
     }
   }
 
@@ -6884,7 +6916,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
       _saveDraft();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _errorMsg = 'Could not open file picker. Please try again.');
+      setState(() => _errorMsg = AppLocalizations.of(context).stageCommonFilePickerFailed);
     }
   }
 
@@ -6894,7 +6926,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Could not open the PDF.', style: _inter(size: 13, color: Colors.white)),
+          content: Text(AppLocalizations.of(context).stageCommonPdfOpenFailed, style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -6916,25 +6948,25 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Upload Proof of Delivery',
+              Text(AppLocalizations.of(context).stageS5UploadPod,
                   style: _manrope(size: 16, weight: FontWeight.w800)),
               const SizedBox(height: 4),
-              Text('Choose how to add the POD document',
+              Text(AppLocalizations.of(context).stageS5ChoosePodSource,
                   style: _inter(size: 12, color: _secondary)),
               const SizedBox(height: 20),
               Row(children: [
                 Expanded(child: _PickerOption(
-                  icon: Icons.camera_alt_rounded, label: 'Camera', color: _primary,
+                  icon: Icons.camera_alt_rounded, label: AppLocalizations.of(context).stageCommonCamera, color: _primary,
                   onTap: () { Navigator.pop(context); _pickPod(ImageSource.camera); },
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _PickerOption(
-                  icon: Icons.photo_library_rounded, label: 'Gallery', color: _secondary,
+                  icon: Icons.photo_library_rounded, label: AppLocalizations.of(context).stageCommonGallery, color: _secondary,
                   onTap: () { Navigator.pop(context); _pickPod(ImageSource.gallery); },
                 )),
                 const SizedBox(width: 12),
                 Expanded(child: _PickerOption(
-                  icon: Icons.picture_as_pdf_rounded, label: 'File (PDF)', color: _error,
+                  icon: Icons.picture_as_pdf_rounded, label: AppLocalizations.of(context).stageS5FilePdf, color: _error,
                   onTap: () { Navigator.pop(context); _pickPodDocument(); },
                 )),
               ]),
@@ -6947,7 +6979,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
 
   Future<void> _submit() async {
     if (_podFile == null && widget.trip.s5PodUrl == null) {
-      setState(() => _errorMsg = 'Please upload the Proof of Delivery document');
+      setState(() => _errorMsg = AppLocalizations.of(context).stageS5PodRequired);
       return;
     }
     if (_vehicleReachDatetime == null || _unloadingEndDatetime == null) {
@@ -6972,7 +7004,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
       if (mounted) widget.onComplete(updated);
     } catch (e) {
       final msg = e is DioException
-          ? _dioErrorDetail(e, 'Upload failed')
+          ? _dioErrorDetail(e, AppLocalizations.of(context).stageCommonUploadFailed)
           : e.toString();
       if (mounted) setState(() { _uploading = false; _errorMsg = msg; });
     }
@@ -6985,6 +7017,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
     final podImageUrl    = existingPodUrl != null
         ? '${AppConfig.apiBaseUrl}$existingPodUrl'
         : null;
+    final l10n = AppLocalizations.of(context);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 40),
@@ -7032,14 +7065,14 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        showExisting ? 'Unloading Stage Complete' : 'Unloading Stage',
+                        showExisting ? l10n.stageS5HeaderDone : l10n.stageS5Header,
                         style: _manrope(size: 15, weight: FontWeight.w800),
                       ),
                       const SizedBox(height: 3),
                       Text(
                         showExisting
-                            ? 'POD uploaded. Tap to replace if needed.'
-                            : 'Upload POD and enter halting charge if applicable.',
+                            ? l10n.stageS5HeaderDoneSub
+                            : l10n.stageS5HeaderSub,
                         style: _inter(size: 12, color: _secondary),
                       ),
                     ],
@@ -7051,7 +7084,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           const SizedBox(height: 24),
 
           // ── POD Upload ────────────────────────────────────────────────────
-          _SectionHeader(icon: Icons.receipt_long_rounded, title: 'Proof of Delivery (POD)'),
+          _SectionHeader(icon: Icons.receipt_long_rounded, title: l10n.stageS5PodTitle),
           const SizedBox(height: 12),
 
           Container(
@@ -7072,7 +7105,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                 ? (_isPdfFile(_podFile!.name)
                     ? _PodPdfCard(
                         filename: _podFile!.name,
-                        badgeText: 'Ready to Upload',
+                        badgeText: l10n.stageCommonReadyToUpload,
                         onRemove: widget.readOnly
                             ? null
                             : () { setState(() => _podFile = null); _saveDraft(); },
@@ -7108,7 +7141,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
                           const Icon(Icons.check_circle_rounded, color: Colors.white, size: 12),
                           const SizedBox(width: 4),
-                          Text('Ready to Upload',
+                          Text(AppLocalizations.of(context).stageCommonReadyToUpload,
                               style: _inter(size: 11, color: Colors.white,
                                   weight: FontWeight.w600)),
                         ]),
@@ -7119,7 +7152,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                     ? (_isPdfFile(existingPodUrl)
                         ? _PodPdfCard(
                             filename: existingPodUrl.split('/').last,
-                            badgeText: 'POD Uploaded',
+                            badgeText: l10n.stageS5PodUploadedBadge,
                             onOpen: () => _openPdfUrl(podImageUrl!),
                             onReplace: widget.readOnly ? null : _showPodPicker,
                           )
@@ -7155,7 +7188,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                               const Icon(Icons.check_circle_rounded,
                                   color: Colors.white, size: 12),
                               const SizedBox(width: 4),
-                              Text('POD Uploaded',
+                              Text(l10n.stageS5PodUploadedBadge,
                                   style: _inter(size: 11, color: Colors.white,
                                       weight: FontWeight.w600)),
                             ]),
@@ -7176,7 +7209,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                                   const Icon(Icons.swap_horiz_rounded,
                                       color: Colors.white, size: 12),
                                   const SizedBox(width: 4),
-                                  Text('Tap to replace',
+                                  Text(l10n.stageCommonTapToReplace,
                                       style: _inter(size: 11, color: Colors.white)),
                                 ]),
                               ),
@@ -7191,11 +7224,11 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                             Icon(Icons.add_photo_alternate_rounded,
                                 size: 40, color: _secondary.withValues(alpha: 0.5)),
                             const SizedBox(height: 10),
-                            Text('Tap to upload POD document',
+                            Text(l10n.stageS5TapToUploadPod,
                                 style: _inter(size: 13, weight: FontWeight.w600,
                                     color: _secondary)),
                             const SizedBox(height: 4),
-                            Text('Camera, Gallery, or PDF File',
+                            Text(l10n.stageS5CameraGalleryPdf,
                                 style: _inter(
                                     size: 11,
                                     color: _secondary.withValues(alpha: 0.7))),
@@ -7207,10 +7240,10 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           const SizedBox(height: 24),
 
           // ── Unloading Timing ────────────────────────────────────────────────
-          _SectionHeader(icon: Icons.schedule_rounded, title: 'Unloading Timing'),
+          _SectionHeader(icon: Icons.schedule_rounded, title: l10n.stageS5UnloadingTiming),
           const SizedBox(height: 8),
           _DateTimeField(
-            label: 'Vehicle Reach Date And Time',
+            label: AppLocalizations.of(context).stageS3VehicleReach,
             value: _vehicleReachDatetime,
             showError: _showDatetimeErrors && _vehicleReachDatetime == null,
             disallowFuture: true,
@@ -7221,7 +7254,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
             },
           ),
           _DateTimeField(
-            label: 'Unloading End Date And Time',
+            label: l10n.stageS5UnloadingEnd,
             value: _unloadingEndDatetime,
             showError: _showDatetimeErrors && _unloadingEndDatetime == null,
             disallowFuture: true,
@@ -7236,14 +7269,14 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
           // ── Halting Charge ────────────────────────────────────────────────
           _SectionHeader(
               icon: Icons.currency_rupee_rounded,
-              title: 'Halting Charge (Optional)'),
+              title: l10n.stageS5HaltingCharge),
           const SizedBox(height: 8),
           TextFormField(
             controller: _haltingChargeCtrl,
             keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              hintText: 'Enter amount in \u20b9 (e.g. 500)',
+              hintText: l10n.stageS5HaltingHint,
               hintStyle:
                   _inter(size: 13, color: _secondary.withValues(alpha: 0.6)),
               prefixIcon: const Icon(Icons.currency_rupee_rounded,
@@ -7292,7 +7325,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
               child: Row(children: [
                 const Icon(Icons.cloud_done_outlined, size: 14, color: _success),
                 const SizedBox(width: 4),
-                Text('Last saved: ${_formatSaved(_lastSaved!)}',
+                Text(AppLocalizations.of(context).stageCommonLastSaved(_formatSaved(context, _lastSaved!)),
                     style: _inter(size: 11, color: _success)),
               ]),
             ),
@@ -7307,7 +7340,7 @@ class _Stage5FormState extends ConsumerState<_Stage5Form> {
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.check_circle_outline_rounded, size: 20),
-              label: Text(_uploading ? 'Submitting\u2026' : 'Complete Unloading Stage'),
+              label: Text(_uploading ? l10n.stageCommonSubmittingEllipsis : l10n.stageS5Complete),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _StageTheme.rrWeb.primary,
                 foregroundColor: Colors.white,
@@ -7393,7 +7426,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _disposed) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Trip synced', style: _inter(size: 13, color: Colors.white)),
+        content: Text(AppLocalizations.of(context).stageRrTripSynced, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -7433,18 +7466,19 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
   }
 
   Future<void> _showSyncPrompt() async {
+    final l10n = AppLocalizations.of(context);
     final doSync = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('All stages complete', style: _manrope(size: 16, weight: FontWeight.w800)),
+        title: Text(l10n.stageRrAllStagesCompleteTitle, style: _manrope(size: 16, weight: FontWeight.w800)),
         content: Text(
-          'This trip is fully completed. Sync all uploads and data to RR web now?',
+          l10n.stageRrSyncPromptBody,
           style: _inter(size: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('Later', style: _manrope(size: 13, weight: FontWeight.w700, color: _secondary)),
+            child: Text(l10n.stageRrLater, style: _manrope(size: 13, weight: FontWeight.w700, color: _secondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
@@ -7452,7 +7486,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
               backgroundColor: _StageTheme.rrWeb.primary,
               foregroundColor: Colors.white,
             ),
-            child: Text('Sync Now', style: _manrope(size: 13, weight: FontWeight.w700)),
+            child: Text(l10n.stageRrSyncNow, style: _manrope(size: 13, weight: FontWeight.w700)),
           ),
         ],
       ),
@@ -7482,7 +7516,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
     } catch (e) {
       if (!mounted) return;
       final msg = e is DioException
-          ? _dioErrorDetail(e, 'Sync failed')
+          ? _dioErrorDetail(e, AppLocalizations.of(context).stageRrSyncFailedShort)
           : e.toString();
       setState(() { _syncingToRr = false; _rrSyncPromptError = msg; });
     }
@@ -7497,7 +7531,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
       if (mounted) {
         setState(() { _notified = true; });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Load owner notified successfully!',
+          content: Text(AppLocalizations.of(context).stageCommonLoadOwnerNotified,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _success,
           behavior: SnackBarBehavior.floating,
@@ -7507,7 +7541,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Notification failed: $e',
+          content: Text(AppLocalizations.of(context).stageCommonNotifyFailed('$e'),
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
@@ -7528,7 +7562,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
       if (mounted) {
         setState(() { _notifiedLP = true; });
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('LP team notified successfully!',
+          content: Text(AppLocalizations.of(context).stageCommonLpTeamNotified,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _success,
           behavior: SnackBarBehavior.floating,
@@ -7538,7 +7572,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Notification failed: $e',
+          content: Text(AppLocalizations.of(context).stageCommonNotifyFailed('$e'),
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
@@ -7553,6 +7587,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
   @override
   Widget build(BuildContext context) {
     final trip = widget.trip;
+    final l10n = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(32),
       child: Column(
@@ -7568,7 +7603,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
             child: const Icon(Icons.local_shipping_rounded, color: _primary, size: 56),
           ),
           const SizedBox(height: 24),
-          Text('All Stages Completed!',
+          Text(l10n.stageS5AllCompletedTitle,
               style: _manrope(size: 22, weight: FontWeight.w800, color: _primary),
               textAlign: TextAlign.center),
           const SizedBox(height: 10),
@@ -7603,7 +7638,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                 ),
                 const SizedBox(width: 8),
                 Flexible(child: Text(
-                  _alreadySyncedToRr ? 'Synced to RR web' : 'All Stages Done',
+                  _alreadySyncedToRr ? l10n.stageRrSyncedToRrWeb : l10n.stageS5AllStagesDone,
                   style: _manrope(size: 13, weight: FontWeight.w700,
                       color: _alreadySyncedToRr ? _primary : _success),
                 )),
@@ -7612,7 +7647,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
           ),
           const SizedBox(height: 12),
           Text(
-            'All stages completed including unloading.',
+            l10n.stageS5AllCompletedBody,
             textAlign: TextAlign.center,
             style: _inter(size: 13, color: _secondary),
           ),
@@ -7628,18 +7663,18 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
             ),
             child: Column(
               children: [
-                _SummaryRow(label: 'Load', value: trip.loadItem),
+                _SummaryRow(label: l10n.stageCommonLoad, value: trip.loadItem),
                 if (trip.weight != null) ...[
                   const Divider(height: 16, color: _border),
-                  _SummaryRow(label: 'Weight', value: trip.weight!),
+                  _SummaryRow(label: l10n.stageCommonWeight, value: trip.weight!),
                 ],
                 if (trip.vehiclePlate != null) ...[
                   const Divider(height: 16, color: _border),
-                  _SummaryRow(label: 'Vehicle', value: trip.vehiclePlate!),
+                  _SummaryRow(label: l10n.stageCommonVehicle, value: trip.vehiclePlate!),
                 ],
                 if (trip.driverName != null) ...[
                   const Divider(height: 16, color: _border),
-                  _SummaryRow(label: 'Driver', value: trip.driverName!),
+                  _SummaryRow(label: l10n.stageCommonDriver, value: trip.driverName!),
                 ],
               ],
             ),
@@ -7658,10 +7693,10 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                     : Icon(_notified ? Icons.check_circle_rounded : Icons.notifications_rounded,
                         size: 18),
                 label: Text(_notified
-                    ? '${widget.trip.loadOwnerOrgName ?? 'Load Owner'} Notified'
+                    ? l10n.stageCommonNotified(widget.trip.loadOwnerOrgName ?? l10n.stageCommonLoadOwner)
                     : _notifying
-                        ? 'Sending…'
-                        : 'Notify ${widget.trip.loadOwnerOrgName ?? 'Load Owner'}'),
+                        ? l10n.stageCommonSendingEllipsis
+                        : l10n.stageCommonNotify(widget.trip.loadOwnerOrgName ?? l10n.stageCommonLoadOwner)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _notified ? _success : _primary,
                   foregroundColor: Colors.white,
@@ -7688,10 +7723,10 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                   : Icon(_notifiedLP ? Icons.check_circle_rounded : Icons.group_rounded,
                       size: 18),
               label: Text(_notifiedLP
-                  ? '${widget.trip.lpOrgName ?? 'LP Team'} Notified'
+                  ? l10n.stageCommonNotified(widget.trip.lpOrgName ?? l10n.stageCommonLpTeam)
                   : _notifyingLP
-                      ? 'Sending…'
-                      : 'Notify ${widget.trip.lpOrgName ?? 'LP Team'}'),
+                      ? l10n.stageCommonSendingEllipsis
+                      : l10n.stageCommonNotify(widget.trip.lpOrgName ?? l10n.stageCommonLpTeam)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _notifiedLP ? _success : const Color(0xFF006B5E),
                 foregroundColor: Colors.white,
@@ -7717,10 +7752,10 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                     : Icon(_alreadySyncedToRr ? Icons.check_circle_rounded : Icons.cloud_upload_rounded,
                         size: 18),
                 label: Text(_alreadySyncedToRr
-                    ? 'Synced to RR web'
+                    ? l10n.stageRrSyncedToRrWeb
                     : _syncingToRr
-                        ? 'Syncing…'
-                        : 'Sync to RR web'),
+                        ? l10n.stageRrSyncingEllipsis
+                        : l10n.stageRrSyncToRrWeb),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _alreadySyncedToRr ? _success.withValues(alpha: 0.7) : _StageTheme.rrWeb.primary,
                   foregroundColor: Colors.white,
@@ -7751,7 +7786,7 @@ class _Stage4CompleteViewState extends ConsumerState<_Stage4CompleteView> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 textStyle: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w600),
               ),
-              child: const Text('Back to Dashboard'),
+              child: Text(AppLocalizations.of(context).stageCommonBackToDashboard),
             ),
           ),
         ],
@@ -7790,6 +7825,7 @@ class _Stage0LandingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
       child: Column(
@@ -7805,33 +7841,33 @@ class _Stage0LandingView extends StatelessWidget {
             child: const Icon(Icons.upload_rounded, size: 36, color: Color(0xFFFF8F00)),
           ),
           const SizedBox(height: 20),
-          Text('Stage 0 — RR Sync',
+          Text(l10n.stageS0Title,
               style: _manrope(size: 18, weight: FontWeight.w800)),
           const SizedBox(height: 10),
           Text(
-            'Before proceeding to Stage 1, complete the following steps:',
+            l10n.stageS0Intro,
             style: _inter(size: 13, color: _secondary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 28),
           _StepRow(
             number: '1',
-            title: 'Fill Stage 1 — Truck Registration',
-            subtitle: 'Tap Stage 1 in the strip above to enter vehicle & driver details.',
+            title: l10n.stageS0Step1Title,
+            subtitle: l10n.stageS0Step1Sub,
             done: trip.currentStage >= 1,
           ),
           const SizedBox(height: 14),
           _StepRow(
             number: '2',
-            title: 'Sync trip to RR',
-            subtitle: 'Once Stage 1 is complete, use the "Send to RR" button above to push the trip.',
+            title: l10n.stageS0Step2Title,
+            subtitle: l10n.stageS0Step2Sub,
             done: trip.rrTripId != null,
           ),
           const SizedBox(height: 14),
           _StepRow(
             number: '3',
-            title: 'Continue to Stage 2',
-            subtitle: 'After RR sync, proceed with Pre-Arrival Compliance Check.',
+            title: l10n.stageS0Step3Title,
+            subtitle: l10n.stageS0Step3Sub,
             done: trip.currentStage >= 2,
           ),
         ],
@@ -7931,6 +7967,7 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
   @override
   Widget build(BuildContext context) {
     final trip = widget.trip;
+    final l10n = AppLocalizations.of(context);
     final synced = trip.rrTripId != null;
     final failed = !synced && trip.rrSyncStatus == 'failed';
 
@@ -7954,14 +7991,14 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
       cardBg      = bgRed;
       accentColor = _error;
       icon        = Icons.error_outline_rounded;
-      title       = 'RR sync failed';
-      subtitle    = trip.rrSyncError ?? 'Unknown error';
+      title       = l10n.stageRrSyncFailedTitle;
+      subtitle    = trip.rrSyncError ?? l10n.stageCommonUnknownError;
     } else {
       cardBg      = bgGrey;
       accentColor = const Color(0xFF9E9E9E);
       icon        = Icons.hourglass_top_rounded;
-      title       = 'Not synced to RR';
-      subtitle    = 'Tap retry to push this trip to RR Web';
+      title       = l10n.stageRrNotSyncedTitle;
+      subtitle    = l10n.stageRrNotSyncedSub;
     }
 
     return Container(
@@ -7993,7 +8030,7 @@ class _Stage0CardState extends ConsumerState<_Stage0Card> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      failed ? 'Retry' : 'Send to RR',
+                      failed ? l10n.commonRetry : l10n.stageRrSendToRr,
                       style: _manrope(size: 12, weight: FontWeight.w700, color: Colors.white),
                     ),
                   ),
