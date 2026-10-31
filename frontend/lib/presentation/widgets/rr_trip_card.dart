@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:fleet_management/data/models/trip_model.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
@@ -101,6 +102,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       trip.rrTripId == null && trip.rrSyncStatus == 'failed';
 
   Future<void> _confirmBooking() async {
+    final l10n = AppLocalizations.of(context);
     setState(() => _confirmingBooking = true);
     try {
       // Two genuinely different failure points need two different retry
@@ -134,7 +136,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
         if (!mounted) return;
         final success = resp.data is Map && (resp.data['success'] == true);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(success ? 'Booking confirmed' : 'Could not confirm booking',
+          content: Text(success ? l10n.tripCardBookingConfirmed : l10n.tripCardBookingConfirmFailed,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: success ? _done : Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
@@ -169,7 +171,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
 
         if (succeeded == true) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Booking confirmed', style: _inter(size: 13, color: Colors.white)),
+            content: Text(l10n.tripCardBookingConfirmed, style: _inter(size: 13, color: Colors.white)),
             backgroundColor: _done,
             behavior: SnackBarBehavior.floating,
           ));
@@ -177,8 +179,8 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(
               (trip.rrSyncError != null && trip.rrSyncError!.isNotEmpty)
-                  ? 'Still failing: ${trip.rrSyncError}'
-                  : 'Still failing — check back or try again',
+                  ? l10n.tripCardStillFailingWith(trip.rrSyncError!)
+                  : l10n.tripCardStillFailing,
               style: _inter(size: 13, color: Colors.white),
             ),
             backgroundColor: Colors.red.shade700,
@@ -191,8 +193,8 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     } catch (e) {
       if (mounted) {
         final msg = e is DioException && e.response?.data is Map
-            ? (e.response!.data['detail']?.toString() ?? 'Could not retry booking — try again')
-            : 'Could not retry booking — try again';
+            ? (e.response!.data['detail']?.toString() ?? l10n.tripCardRetryBookingFailed)
+            : l10n.tripCardRetryBookingFailed;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(msg, style: _inter(size: 13, color: Colors.white)),
           backgroundColor: Colors.red.shade700,
@@ -205,6 +207,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   }
 
   Future<void> _toggleS1Required(bool value) async {
+    final l10n = AppLocalizations.of(context);
     setState(() { _togglingS1 = true; _s1RequiredOverride = value; });
     try {
       final dio = ref.read(dioProvider);
@@ -213,7 +216,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       if (mounted) {
         setState(() => _s1RequiredOverride = !value);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to update — try again',
+          content: Text(l10n.tripCardUpdateFailed,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: Colors.red.shade700,
           behavior: SnackBarBehavior.floating,
@@ -241,7 +244,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     if (_isRecordsTrip) {
       if (!_canManageRr) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Completed trips are view only',
+          content: Text(AppLocalizations.of(context).tripCardCompletedViewOnly,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _secondary,
           behavior: SnackBarBehavior.floating,
@@ -255,7 +258,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     }
     if (_needsBookingConfirmation && !_canManageRr) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Let this trip get confirmed by your company',
+        content: Text(AppLocalizations.of(context).tripCardAwaitCompanyConfirm,
             style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _secondary,
         behavior: SnackBarBehavior.floating,
@@ -283,7 +286,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     // transparent here; the frosted look is painted ourselves below.
     final saved = await showGeneralDialog<bool>(
       context: context,
-      barrierLabel: 'Dismiss',
+      barrierLabel: AppLocalizations.of(context).tripCardDismiss,
       barrierColor: Colors.transparent,
       transitionDuration: const Duration(milliseconds: 200),
       pageBuilder: (dialogContext, animation, secondaryAnimation) => Stack(
@@ -342,12 +345,13 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   // One-directional for now, no "move back out" action.
 
   Future<void> _moveToRecords() async {
+    final l10n = AppLocalizations.of(context);
     try {
       final dio = ref.read(dioProvider);
       await dio.post('/api/trips/${trip.id}/move-to-records');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Trip moved to Records', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.tripCardMovedToRecords, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _done,
         behavior: SnackBarBehavior.floating,
       ));
@@ -355,7 +359,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Could not move trip to Records', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.tripCardMoveToRecordsFailed, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: Colors.red.shade700,
         behavior: SnackBarBehavior.floating,
       ));
@@ -368,24 +372,21 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   // Reversible via _resumeDriverTracking, so the confirm dialog no longer
   // needs to warn this is permanent.
   Future<void> _stopDriverTracking() async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Stop Driver Tracking'),
-        content: Text(
-          'This will release ${trip.driverName ?? 'the driver'} from this trip so they '
-          'can be assigned to a new trip. You can resume tracking for this trip later, but '
-          'only if this driver has not already been assigned to a new trip by then. Continue?',
-        ),
+        title: Text(l10n.tripCardStopTrackingTitle),
+        content: Text(l10n.tripCardStopTrackingBody(trip.driverName ?? l10n.tripCardTheDriver)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Stop Tracking'),
+            child: Text(l10n.tripCardStopTrackingButton),
           ),
         ],
       ),
@@ -396,7 +397,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       await dio.post('/api/trips/${trip.id}/stop-tracking');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Driver tracking stopped for this trip', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.tripCardTrackingStopped, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _done,
         behavior: SnackBarBehavior.floating,
       ));
@@ -404,7 +405,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Could not stop driver tracking', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.tripCardStopTrackingFailed, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: Colors.red.shade700,
         behavior: SnackBarBehavior.floating,
       ));
@@ -415,12 +416,13 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   // next tracking sync (app open/resume or the 30s poll), no driver-side
   // action needed.
   Future<void> _resumeDriverTracking() async {
+    final l10n = AppLocalizations.of(context);
     try {
       final dio = ref.read(dioProvider);
       await dio.post('/api/trips/${trip.id}/resume-tracking');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Driver tracking resumed for this trip', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.tripCardTrackingResumed, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _done,
         behavior: SnackBarBehavior.floating,
       ));
@@ -433,8 +435,8 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
           isConflict
-              ? 'Can\'t resume — ${trip.driverName ?? 'this driver'} has already been assigned to a new trip'
-              : 'Could not resume driver tracking',
+              ? l10n.tripCardResumeConflict(trip.driverName ?? l10n.tripCardThisDriver)
+              : l10n.tripCardResumeFailed,
           style: _inter(size: 13, color: Colors.white),
         ),
         backgroundColor: Colors.red.shade700,
@@ -445,6 +447,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
 
   Future<void> _showLongPressMenu(BuildContext context, Offset globalPosition) async {
     if (!_canManageRr) return; // FE never gets this menu
+    final l10n = AppLocalizations.of(context);
     final alreadyInRecords = trip.movedToRecordsAt != null;
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
     final selected = await showMenu<String>(
@@ -458,7 +461,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           value: 'move_to_records',
           enabled: !alreadyInRecords,
           child: Text(
-            alreadyInRecords ? 'Already in Records' : 'Move to Records',
+            alreadyInRecords ? l10n.tripCardAlreadyInRecords : l10n.tripCardMoveToRecords,
             style: _inter(size: 13, weight: FontWeight.w600,
                 color: alreadyInRecords ? _secondary : _onSurface),
           ),
@@ -509,6 +512,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   // ── Confirm Booking banner (LP/RR-ops only, shown when RR sync failed) ────────
 
   Widget _buildConfirmBookingBanner() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
@@ -518,7 +522,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           const Icon(Icons.error_outline_rounded, color: Color(0xFFE65100), size: 18),
           const SizedBox(width: 8),
           Expanded(
-            child: Text('Booking needs confirmation',
+            child: Text(l10n.tripCardBookingNeedsConfirm,
                 style: _inter(size: 12, weight: FontWeight.w600, color: const Color(0xFFE65100))),
           ),
           const SizedBox(width: 8),
@@ -536,7 +540,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: Text('Confirm Booking', style: _manrope(size: 12, color: Colors.white)),
+                  child: Text(l10n.tripCardConfirmBooking, style: _manrope(size: 12, color: Colors.white)),
                 ),
         ],
       ),
@@ -546,6 +550,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   // ── Header ──────────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
+    final l10n = AppLocalizations.of(context);
     final rrNum = trip.rrTripNumber;
     return Container(
       width: double.infinity,
@@ -577,7 +582,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           if (_canManageRr && !_isRecordsTrip) ...[
             const SizedBox(width: 6),
             Tooltip(
-              message: 'Edit trip',
+              message: l10n.tripCardEditTrip,
               child: InkWell(
                 onTap: _openEdit,
                 borderRadius: BorderRadius.circular(16),
@@ -612,7 +617,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
         Row(children: [
           Expanded(
             child: Text(
-              'Created ${_fmtCreatedAt(trip.createdAt)}',
+              l10n.tripCardCreated(_fmtCreatedAt(trip.createdAt)),
               style: _inter(size: 12, color: _white.withOpacity(0.8)),
               overflow: TextOverflow.ellipsis,
             ),
@@ -622,7 +627,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
             Icon(Icons.receipt_long_rounded, color: _white.withOpacity(0.8), size: 13),
             const SizedBox(width: 4),
             Text(
-              'Bilty No: ${trip.s4BiltyNumber}',
+              l10n.tripCardBiltyNo(trip.s4BiltyNumber!),
               style: _inter(size: 12, color: _white.withOpacity(0.9), weight: FontWeight.w600),
               overflow: TextOverflow.ellipsis,
             ),
@@ -637,13 +642,14 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   Widget _buildS1ToggleRow() {
     if (_isRecordsTrip || !_canManageRr) return const SizedBox.shrink();
     final required = _s1RequiredOverride ?? trip.s1Required;
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
       child: Row(children: [
         const Icon(Icons.badge_outlined, color: _rrBlue, size: 16),
         const SizedBox(width: 8),
         Expanded(
-          child: Text('Allow FE to fill Stage 1',
+          child: Text(l10n.tripCardAllowFeStage1,
               style: _inter(size: 12, weight: FontWeight.w600, color: _onSurface)),
         ),
         _togglingS1
@@ -663,6 +669,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   // ── Trip info collapsible tile ────────────────────────────────────────────────
 
   Widget _buildStep1Tile() {
+    final l10n = AppLocalizations.of(context);
     return InkWell(
       onTap: () => setState(() => _tripInfoExpanded = !_tripInfoExpanded),
       child: Padding(
@@ -670,7 +677,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
         child: Row(children: [
           const Icon(Icons.receipt_long_outlined, color: _rrBlue, size: 18),
           const SizedBox(width: 10),
-          Expanded(child: Text('Trip Info',
+          Expanded(child: Text(l10n.tripCardTripInfo,
               style: _manrope(size: 13, weight: FontWeight.w700, color: _onSurface))),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -678,7 +685,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
               color: _doneBg,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text('Synced to RR',
+            child: Text(l10n.tripCardSyncedToRr,
                 style: _inter(size: 11, weight: FontWeight.w600, color: _done)),
           ),
           const SizedBox(width: 6),
@@ -697,6 +704,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   // ── Step 1 expanded info ─────────────────────────────────────────────────────
 
   Widget _buildStep1Info() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       color: const Color(0xFFF8FAFB),
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
@@ -715,7 +723,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
                   const Icon(Icons.location_on_outlined, size: 18, color: _rrBlue),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text('Track Driver Location',
+                    child: Text(l10n.tripCardTrackDriver,
                         style: _manrope(size: 13, weight: FontWeight.w700, color: _rrBlue)),
                   ),
                   Icon(Icons.chevron_right_rounded, size: 18, color: _rrBlue.withOpacity(0.7)),
@@ -735,7 +743,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
                     const Icon(Icons.location_on_outlined, size: 18, color: _rrBlue),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text('Resume Driver Tracking for this Trip',
+                      child: Text(l10n.tripCardResumeTracking,
                           style: _manrope(size: 13, weight: FontWeight.w700, color: _rrBlue)),
                     ),
                   ],
@@ -753,7 +761,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
                     const Icon(Icons.location_off_outlined, size: 18, color: Colors.red),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text('Stop Driver Tracking for this Trip',
+                      child: Text(l10n.tripCardStopTracking,
                           style: _manrope(size: 13, weight: FontWeight.w700, color: Colors.red)),
                     ),
                   ],
@@ -762,20 +770,20 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
             ),
           _Divider(),
         ],
-        _InfoRow(icon: Icons.schedule_outlined, label: 'Created At',
+        _InfoRow(icon: Icons.schedule_outlined, label: l10n.tripCardLabelCreatedAt,
             value: _fmtCreatedAt(trip.createdAt)),
         _Divider(),
 
         // Parties
         if (trip.consignorName != null || trip.consigneeName != null) ...[
-          _InfoRow(icon: Icons.business_outlined, label: 'Consignor',
+          _InfoRow(icon: Icons.business_outlined, label: l10n.tripCardLabelConsignor,
               value: trip.consignorName ?? '—'),
           if (trip.consignorGstin != null && trip.consignorGstin!.isNotEmpty)
-            _InfoRow(icon: null, label: 'Consignor GSTIN', value: trip.consignorGstin!),
-          _InfoRow(icon: Icons.business_center_outlined, label: 'Consignee',
+            _InfoRow(icon: null, label: l10n.tripCardLabelConsignorGstin, value: trip.consignorGstin!),
+          _InfoRow(icon: Icons.business_center_outlined, label: l10n.tripCardLabelConsignee,
               value: trip.consigneeName ?? '—'),
           if (trip.consigneeGstin != null && trip.consigneeGstin!.isNotEmpty)
-            _InfoRow(icon: null, label: 'Consignee GSTIN', value: trip.consigneeGstin!),
+            _InfoRow(icon: null, label: l10n.tripCardLabelConsigneeGstin, value: trip.consigneeGstin!),
           _Divider(),
         ],
 
@@ -783,7 +791,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
         if (trip.pickupAddressLine1 != null || trip.pickupPin != null) ...[
           _InfoRow(
             icon: Icons.location_on_outlined,
-            label: 'Pickup Address',
+            label: l10n.tripCardLabelPickupAddress,
             value: [
               trip.pickupAddressLine1,
               trip.pickupAddressLine2,
@@ -794,7 +802,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
         if (trip.unloadAddressLine1 != null || trip.unloadPin != null) ...[
           _InfoRow(
             icon: Icons.flag_outlined,
-            label: 'Unload Address',
+            label: l10n.tripCardLabelUnloadAddress,
             value: [
               trip.unloadAddressLine1,
               trip.unloadAddressLine2,
@@ -803,36 +811,36 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           ),
         ],
         if (trip.depotCode != null && trip.depotCode!.isNotEmpty)
-          _InfoRow(icon: null, label: 'Depot Code', value: trip.depotCode!),
+          _InfoRow(icon: null, label: l10n.tripCardLabelDepotCode, value: trip.depotCode!),
         _Divider(),
 
         // Material
-        _InfoRow(icon: Icons.inventory_2_outlined, label: 'Material',
+        _InfoRow(icon: Icons.inventory_2_outlined, label: l10n.tripCardLabelMaterial,
             value: trip.loadItem),
         if (trip.weight != null && trip.weight!.isNotEmpty)
-          _InfoRow(icon: null, label: 'Weight', value: trip.weight!),
+          _InfoRow(icon: null, label: l10n.tripCardLabelWeight, value: trip.weight!),
         if (trip.parcelDescription != null && trip.parcelDescription!.isNotEmpty)
-          _InfoRow(icon: null, label: 'Description', value: trip.parcelDescription!),
+          _InfoRow(icon: null, label: l10n.tripCardLabelDescription, value: trip.parcelDescription!),
         if (trip.invoiceValue != null)
-          _InfoRow(icon: null, label: 'Total Invoice Value',
+          _InfoRow(icon: null, label: l10n.tripCardLabelTotalInvoiceValue,
               value: '₹${trip.invoiceValue!.toStringAsFixed(0)}'),
         if (trip.partLoad == true)
-          _InfoRow(icon: null, label: 'Part Load', value: 'Yes'),
+          _InfoRow(icon: null, label: l10n.tripCardLabelPartLoad, value: l10n.commonYes),
         _Divider(),
 
         // Vehicle
         if (trip.vehicleNumber != null && trip.vehicleNumber!.isNotEmpty)
-          _InfoRow(icon: Icons.local_shipping_outlined, label: 'Vehicle',
+          _InfoRow(icon: Icons.local_shipping_outlined, label: l10n.tripCardLabelVehicle,
               value: trip.vehicleNumber!),
         if (trip.vehicleBodyType != null && trip.vehicleBodyType!.isNotEmpty)
-          _InfoRow(icon: null, label: 'Body Type', value: trip.vehicleBodyType!),
+          _InfoRow(icon: null, label: l10n.tripCardLabelBodyType, value: trip.vehicleBodyType!),
         if (trip.axleType != null && trip.axleType!.isNotEmpty)
-          _InfoRow(icon: null, label: 'Axle Type', value: trip.axleType!),
+          _InfoRow(icon: null, label: l10n.tripCardLabelAxleType, value: trip.axleType!),
         if (trip.numberOfWheels != null)
-          _InfoRow(icon: null, label: 'Wheels', value: '${trip.numberOfWheels}'),
+          _InfoRow(icon: null, label: l10n.tripCardLabelWheels, value: '${trip.numberOfWheels}'),
         if (trip.s4BiltyNumber != null && trip.s4BiltyNumber!.isNotEmpty) ...[
           _Divider(),
-          _InfoRow(icon: Icons.receipt_long_rounded, label: 'Bilty Number',
+          _InfoRow(icon: Icons.receipt_long_rounded, label: l10n.tripCardLabelBiltyNumber,
               value: trip.s4BiltyNumber!),
         ],
       ]),

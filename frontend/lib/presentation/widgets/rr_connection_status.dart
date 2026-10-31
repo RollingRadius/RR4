@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
@@ -74,17 +75,18 @@ class _RrConnectionStatusState extends ConsumerState<RrConnectionStatus> {
   }
 
   Future<void> _disconnect() async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: Text('Disconnect from RR?', style: _inter(size: 15, weight: FontWeight.w700, color: Colors.black87)),
+        title: Text(l10n.rrConnectionDisconnectTitle, style: _inter(size: 15, weight: FontWeight.w700, color: Colors.black87)),
         content: Text(
-          'Sync and pre-fill will stop working for everyone at your company until someone reconnects.',
+          l10n.rrConnectionDisconnectBody,
           style: _inter(size: 13, color: _disconnectedColor),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Disconnect')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.commonCancel)),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(l10n.rrConnectionDisconnect)),
         ],
       ),
     );
@@ -107,6 +109,7 @@ class _RrConnectionStatusState extends ConsumerState<RrConnectionStatus> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (!_canManageRr) return const SizedBox.shrink();
     if (_loading) {
       return const SizedBox(
@@ -123,11 +126,11 @@ class _RrConnectionStatusState extends ConsumerState<RrConnectionStatus> {
     final IconData icon;
     final String label;
     if (!_connected) {
-      fg = _disconnectedColor; bg = _disconnectedBg; icon = Icons.link_off_rounded; label = 'Disconnected';
+      fg = _disconnectedColor; bg = _disconnectedBg; icon = Icons.link_off_rounded; label = l10n.rrConnectionDisconnected;
     } else if (_expiringSoon) {
-      fg = _warningColor; bg = _warningBg; icon = Icons.warning_amber_rounded; label = 'Expiring Soon';
+      fg = _warningColor; bg = _warningBg; icon = Icons.warning_amber_rounded; label = l10n.rrConnectionExpiringSoon;
     } else {
-      fg = _connectedColor; bg = _connectedBg; icon = Icons.link_rounded; label = 'Connected';
+      fg = _connectedColor; bg = _connectedBg; icon = Icons.link_rounded; label = l10n.rrConnectionConnected;
     }
 
     return GestureDetector(
@@ -146,7 +149,7 @@ class _RrConnectionStatusState extends ConsumerState<RrConnectionStatus> {
             Text(label, style: _inter(color: fg)),
             const SizedBox(width: 4),
             Text(
-              _connected ? '· Disconnect' : '· Connect',
+              _connected ? l10n.rrConnectionActionDisconnect : l10n.rrConnectionActionConnect,
               style: _inter(size: 11, weight: FontWeight.w500, color: fg.withValues(alpha: 0.75)),
             ),
           ],

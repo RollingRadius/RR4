@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_detail_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
@@ -47,6 +48,7 @@ class OngoingTripCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
         color: _surface,
@@ -77,7 +79,7 @@ class OngoingTripCard extends ConsumerWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('TRIP NUMBER',
+                            Text(l10n.ongoingCardTripNumber,
                                 style: _inter(
                                         size: 9,
                                         weight: FontWeight.w700,
@@ -142,7 +144,7 @@ class OngoingTripCard extends ConsumerWidget {
                                 builder: (_) => TripDetailScreen(trip: trip, readOnly: readOnly))),
                         child: _ActionChip(
                           icon: Icons.receipt_long_outlined,
-                          label: 'View Details',
+                          label: l10n.ongoingCardViewDetails,
                           color: _onSurface,
                           bg: const Color(0xFFF2F4F6),
                         ),
@@ -156,7 +158,7 @@ class OngoingTripCard extends ConsumerWidget {
                           ? _LocateBtn(trip: trip)
                           : _ActionChip(
                               icon: Icons.location_off_rounded,
-                              label: 'No Vehicle',
+                              label: l10n.ongoingCardNoVehicle,
                               color: _outline,
                               bg: const Color(0xFFF2F4F6),
                             ),
@@ -205,7 +207,7 @@ class OngoingTripCard extends ConsumerWidget {
                               color: Colors.white, size: 16),
                           const SizedBox(width: 6),
                           Text(
-                            'Go to Stage ${_visualStageLabel(trip)}  ·  ${_stageName(trip)}',
+                            l10n.ongoingCardGoToStage(_visualStageLabel(trip), _stageName(l10n, trip)),
                             style: _inter(
                                 size: 12,
                                 weight: FontWeight.w700,
@@ -244,7 +246,7 @@ class OngoingTripCard extends ConsumerWidget {
                         const Icon(Icons.check_circle_rounded,
                             color: Color(0xFF1B5E20), size: 16),
                         const SizedBox(width: 6),
-                        Text('Trip Completed',
+                        Text(l10n.ongoingCardTripCompleted,
                             style: _inter(
                                 size: 12,
                                 weight: FontWeight.w700,
@@ -290,6 +292,7 @@ class _LocateBtnState extends ConsumerState<_LocateBtn> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: _loading ? null : _go,
       child: Container(
@@ -323,7 +326,7 @@ class _LocateBtnState extends ConsumerState<_LocateBtn> {
                   const Icon(Icons.location_on_rounded,
                       color: Colors.white, size: 15),
                   const SizedBox(width: 6),
-                  Text('Locate Trip',
+                  Text(l10n.ongoingCardLocateTrip,
                       style: _inter(
                           size: 12,
                           weight: FontWeight.w700,
@@ -351,22 +354,22 @@ class _CompleteBtnState extends State<_CompleteBtn> {
 
   Future<void> _confirm() async {
     if (!widget.enabled) return;
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Complete Trip?'),
-        content: const Text(
-            'This will mark the trip as completed and notify the load owner. This action cannot be undone.'),
+        title: Text(l10n.ongoingCardCompleteTitle),
+        content: Text(l10n.ongoingCardCompleteBody),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel')),
+              child: Text(l10n.commonCancel)),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2E7D32)),
-            child: const Text('Confirm',
-                style: TextStyle(color: Colors.white)),
+            child: Text(l10n.ongoingCardConfirm,
+                style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -377,19 +380,20 @@ class _CompleteBtnState extends State<_CompleteBtn> {
     if (!mounted) return;
     setState(() => _loading = false);
     if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Trip marked as completed. Load owner notified.')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(l10n.ongoingCardCompleteDone)));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final canTap = widget.enabled && !_loading;
     final bgColors = widget.enabled
         ? [const Color(0xFF2E7D32), const Color(0xFF388E3C)]
         : [const Color(0xFFBDBDBD), const Color(0xFF9E9E9E)];
     return Tooltip(
-      message: widget.enabled ? '' : 'Complete Trip is only available after Stage 5',
+      message: widget.enabled ? '' : l10n.ongoingCardCompleteLocked,
       child: GestureDetector(
         onTap: canTap ? _confirm : null,
         child: Container(
@@ -431,7 +435,7 @@ class _CompleteBtnState extends State<_CompleteBtn> {
                       size: 16,
                     ),
                     const SizedBox(width: 6),
-                    Text('Complete Trip',
+                    Text(l10n.ongoingCardCompleteTrip,
                         style: _inter(
                             size: 12,
                             weight: FontWeight.w700,
@@ -458,15 +462,16 @@ class OngoingTripsSectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Row(
       children: [
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Ongoing Trips',
+              Text(l10n.ongoingCardOngoingTrips,
                   style: _manrope(size: 17, weight: FontWeight.w800)),
-              Text('$count trip${count == 1 ? '' : 's'} in transit',
+              Text(l10n.ongoingCardInTransitCount(count),
                   style: _inter(size: 12)),
             ],
           ),
@@ -474,7 +479,7 @@ class OngoingTripsSectionHeader extends StatelessWidget {
         if (onViewAll != null)
           GestureDetector(
             onTap: onViewAll,
-            child: Text('View all',
+            child: Text(l10n.ongoingCardViewAll,
                 style: _inter(
                     size: 13,
                     weight: FontWeight.w700,
@@ -549,20 +554,21 @@ class _DetailsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Wrap(
       spacing: 16,
       runSpacing: 8,
       children: [
-        _MiniField(label: 'LOAD ITEM', value: trip.loadItem),
+        _MiniField(label: l10n.ongoingCardLoadItem, value: trip.loadItem),
         if (trip.weight != null)
-          _MiniField(label: 'WEIGHT', value: trip.weight!),
+          _MiniField(label: l10n.ongoingCardWeight, value: trip.weight!),
         if (trip.biltyNumber != null)
-          _MiniField(label: 'BILTY NO.', value: trip.biltyNumber!),
+          _MiniField(label: l10n.ongoingCardBiltyNo, value: trip.biltyNumber!),
         if (trip.invoiceNumber != null)
-          _MiniField(label: 'INVOICE', value: trip.invoiceNumber!),
+          _MiniField(label: l10n.ongoingCardInvoice, value: trip.invoiceNumber!),
         if (trip.tripAmount != null)
           _MiniField(
-            label: 'AMOUNT',
+            label: l10n.ongoingCardAmount,
             value: '₹${trip.tripAmount!.toStringAsFixed(0)}',
             highlight: true,
           ),
@@ -634,7 +640,7 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, bg, fg) = _tripState(trip);
+    final (label, bg, fg) = _tripState(AppLocalizations.of(context), trip);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration:
@@ -647,20 +653,20 @@ class _StatusBadge extends StatelessWidget {
 }
 
 /// Returns (label, background, foreground) for a trip based on the 5-state logic.
-(String, Color, Color) _tripState(TripModel trip) {
+(String, Color, Color) _tripState(AppLocalizations l10n, TripModel trip) {
   if (trip.isCancelled) {
-    return ('CANCELLED', const Color(0xFFFFDAD6), const Color(0xFFBA1A1A));
+    return (l10n.tripStatusCancelled.toUpperCase(), const Color(0xFFFFDAD6), const Color(0xFFBA1A1A));
   }
   if (trip.isCompleted) {
-    return ('COMPLETED', const Color(0xFFECEEF0), const Color(0xFF546067));
+    return (l10n.tripStatusCompleted.toUpperCase(), const Color(0xFFECEEF0), const Color(0xFF546067));
   }
   if (trip.currentStage >= 4) {
-    return ('IN TRANSIT', const Color(0xFFD7F0D9), const Color(0xFF1B5E20));
+    return (l10n.tripStatusInTransit.toUpperCase(), const Color(0xFFD7F0D9), const Color(0xFF1B5E20));
   }
   if (trip.currentStage >= 1) {
-    return ('ONGOING', const Color(0xFFFFE8D5), const Color(0xFFFF6B00));
+    return (l10n.tripStatusOngoing.toUpperCase(), const Color(0xFFFFE8D5), const Color(0xFFFF6B00));
   }
-  return ('PENDING', const Color(0xFFFFF3E0), const Color(0xFFE65100));
+  return (l10n.tripStatusPending.toUpperCase(), const Color(0xFFFFF3E0), const Color(0xFFE65100));
 }
 
 /// Maps a trip to a display label for the current stage (1–5).
@@ -681,14 +687,14 @@ int _visualStageIndex(TripModel trip) {
   return 4;
 }
 
-String _stageName(TripModel trip) {
+String _stageName(AppLocalizations l10n, TripModel trip) {
   return switch (trip.currentStage) {
-    0 => 'Truck Registration',
-    1 => 'Compliance Check',
-    2 => 'Factory Arrival',
-    3 => 'Exit Check',
-    4 => 'Diesel Receipt',
-    _ => 'Unloading',
+    0 => l10n.ongoingCardStageTruckRegistration,
+    1 => l10n.ongoingCardStageComplianceCheck,
+    2 => l10n.ongoingCardStageFactoryArrival,
+    3 => l10n.ongoingCardStageExitCheck,
+    4 => l10n.ongoingCardStageDieselReceipt,
+    _ => l10n.stageNameUnloading,
   };
 }
 
@@ -698,7 +704,6 @@ class _StageStrip extends StatefulWidget {
   final TripModel trip;
   const _StageStrip({required this.trip});
 
-  static const _labels = ['Details', 'Compliance', 'Arrival', 'Exit', 'Unloading'];
   static const _green  = Color(0xFF2E7D32);
 
   @override
@@ -727,6 +732,14 @@ class _StageStripState extends State<_StageStrip>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final labels = [
+      l10n.stageNameDetails,
+      l10n.stageNameCompliance,
+      l10n.stageNameArrival,
+      l10n.stageNameExit,
+      l10n.stageNameUnloading,
+    ];
     final visualIdx = _visualStageIndex(widget.trip);
     const green = _StageStrip._green;
 
@@ -789,7 +802,7 @@ class _StageStripState extends State<_StageStrip>
                   ),
             const SizedBox(height: 3),
             Text(
-              _StageStrip._labels[i],
+              labels[i],
               style: _inter(size: 7, weight: FontWeight.w500, color: textColor),
             ),
           ],
@@ -834,7 +847,6 @@ class _StageSlidingPanel extends StatelessWidget {
   const _StageSlidingPanel({required this.trip, required this.onRefresh});
 
   static const _shortLabels = ['1', '2', '3', '4', '5'];
-  static const _names = ['Details', 'Compliance', 'Arrival', 'Exit', 'Unloading'];
   static const _green = Color(0xFF2E7D32);
 
   /// Maps a visual stage index (0–5) to the relevant submitted-by username.
@@ -851,6 +863,14 @@ class _StageSlidingPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final names = [
+      l10n.stageNameDetails,
+      l10n.stageNameCompliance,
+      l10n.stageNameArrival,
+      l10n.stageNameExit,
+      l10n.stageNameUnloading,
+    ];
     final currentVisual = _visualStageIndex(trip);
 
     return SizedBox(
@@ -906,14 +926,14 @@ class _StageSlidingPanel extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text('RR Sync',
+                    Text(l10n.ongoingCardRrSync,
                         style: _inter(size: 9, weight: FontWeight.w600, color: tileColor),
                         textAlign: TextAlign.center,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 2),
                     Text(
-                      synced ? 'Done' : failed ? 'Failed' : 'Pending',
+                      synced ? l10n.ongoingCardDone : failed ? l10n.ongoingCardFailed : l10n.tripStatusPending,
                       style: _inter(size: 8, weight: FontWeight.w500, color: tileColor),
                     ),
                     if (synced && trip.rrTripNumber != null) ...[
@@ -997,7 +1017,7 @@ class _StageSlidingPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _names[idx],
+                    names[idx],
                     style: _inter(
                         size: 9, weight: FontWeight.w600, color: labelColor),
                     textAlign: TextAlign.center,
@@ -1006,7 +1026,7 @@ class _StageSlidingPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    isDone ? 'Done' : isActive ? 'Active' : 'Pending',
+                    isDone ? l10n.ongoingCardDone : isActive ? l10n.ongoingCardActive : l10n.tripStatusPending,
                     style: _inter(
                         size: 8, weight: FontWeight.w500, color: labelColor),
                   ),
@@ -1041,6 +1061,7 @@ class _RrSyncBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final synced = trip.rrTripId != null;
     final failed = !synced && trip.rrSyncStatus == 'failed';
     const green = Color(0xFF2E7D32);
@@ -1061,22 +1082,22 @@ class _RrSyncBadge extends StatelessWidget {
         if (trip.rrTripNumber != null) trip.rrTripNumber!,
         if (trip.rrBookingId  != null) 'PO ${trip.rrBookingId}',
       ];
-      label = parts.isEmpty ? 'Synced to RR' : parts.join('  ·  ');
+      label = parts.isEmpty ? l10n.tripCardSyncedToRr : parts.join('  ·  ');
     } else if (failed) {
       fg    = red;
       bg    = const Color(0xFFFFEBEE);
       icon  = Icons.error_outline_rounded;
-      label = 'RR sync failed';
+      label = l10n.ongoingCardSyncFailed;
     } else if (trip.currentStage >= 1) {
       fg    = amber;
       bg    = const Color(0xFFFFF3E0);
       icon  = Icons.upload_rounded;
-      label = 'Stage 0 · Not synced to RR';
+      label = l10n.ongoingCardStage0NotSynced;
     } else {
       fg    = grey;
       bg    = const Color(0xFFF5F5F5);
       icon  = Icons.hourglass_top_rounded;
-      label = 'Stage 0 · Complete S1 to sync RR';
+      label = l10n.ongoingCardStage0CompleteS1;
     }
 
     return Container(

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:fleet_management/core/config/app_config.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/data/models/receiving_document_model.dart';
 import 'package:fleet_management/providers/receiving_document_provider.dart';
 
@@ -105,6 +106,7 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -114,20 +116,20 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _onSurface, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Receiving Docs', style: _manrope(size: 17, weight: FontWeight.w800)),
+        title: Text(l10n.recvDocsTitle, style: _manrope(size: 17, weight: FontWeight.w800)),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _openUpload,
         backgroundColor: _primary,
         icon: const Icon(Icons.upload_file_rounded),
-        label: const Text('Upload New'),
+        label: Text(l10n.recvDocsUploadNew),
       ),
       body: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: _DatePickerField(
-              label: 'Search by date',
+              label: l10n.recvDocsSearchByDate,
               value: _searchDate,
               onTap: _pickSearchDate,
               onClear: _searchDate == null ? null : _clearSearchDate,
@@ -140,6 +142,7 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
     if (_loading) return const Center(child: CircularProgressIndicator(color: _primary));
     if (_error != null) {
       return Center(
@@ -148,9 +151,9 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Failed to load: $_error', style: _inter(size: 13), textAlign: TextAlign.center),
+              Text(l10n.recvDocsLoadFailed(_error!), style: _inter(size: 13), textAlign: TextAlign.center),
               const SizedBox(height: 12),
-              TextButton(onPressed: _load, child: const Text('Retry')),
+              TextButton(onPressed: _load, child: Text(l10n.commonRetry)),
             ],
           ),
         ),
@@ -167,8 +170,8 @@ class _ReceivingDocumentsScreenState extends ConsumerState<ReceivingDocumentsScr
               const SizedBox(height: 12),
               Text(
                 _searchDate == null
-                    ? 'No receiving docs uploaded yet'
-                    : 'No receiving docs found for that date',
+                    ? l10n.recvDocsEmpty
+                    : l10n.recvDocsEmptyForDate,
                 style: _inter(size: 13),
                 textAlign: TextAlign.center,
               ),
@@ -271,7 +274,7 @@ class _ReceivingDocCard extends StatelessWidget {
                     style: _manrope(size: 13, weight: FontWeight.w700)),
                 if (doc.uploadedBy != null) ...[
                   const SizedBox(height: 6),
-                  Text('By ${doc.uploadedBy}', style: _inter(size: 11)),
+                  Text(AppLocalizations.of(context).recvDocsBy(doc.uploadedBy!), style: _inter(size: 11)),
                 ],
               ],
             ),
@@ -317,7 +320,7 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
       setState(() => _image = picked);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Could not pick image: $e');
+      setState(() => _error = AppLocalizations.of(context).recvDocsPickImageFailed(e.toString()));
     }
   }
 
@@ -332,12 +335,12 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined, color: _primary),
-              title: const Text('Take Photo'),
+              title: Text(AppLocalizations.of(context).recvDocsTakePhoto),
               onTap: () { Navigator.pop(context); _pickImage(ImageSource.camera); },
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined, color: _primary),
-              title: const Text('Choose from Gallery'),
+              title: Text(AppLocalizations.of(context).recvDocsChooseGallery),
               onTap: () { Navigator.pop(context); _pickImage(ImageSource.gallery); },
             ),
           ],
@@ -359,11 +362,11 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
 
   Future<void> _upload() async {
     if (_image == null && !_isEdit) {
-      setState(() => _error = 'Please attach the receiving sheet image');
+      setState(() => _error = AppLocalizations.of(context).recvDocsAttachImageRequired);
       return;
     }
     if (_docDate == null) {
-      setState(() => _error = 'Please pick the date this receiving sheet is for');
+      setState(() => _error = AppLocalizations.of(context).recvDocsPickDateRequired);
       return;
     }
     setState(() { _uploading = true; _error = null; });
@@ -392,6 +395,7 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -401,7 +405,7 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
           icon: const Icon(Icons.close_rounded, color: _onSurface),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(_isEdit ? 'Edit Receiving Doc' : 'Upload Receiving Doc',
+        title: Text(_isEdit ? l10n.recvDocsEditTitle : l10n.recvDocsUploadTitle,
             style: _manrope(size: 16, weight: FontWeight.w800)),
       ),
       body: ListView(
@@ -434,7 +438,7 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
                       children: [
                         const Icon(Icons.add_a_photo_outlined, size: 32, color: _secondary),
                         const SizedBox(height: 8),
-                        Text('Attach receiving sheet photo', style: _inter(size: 13)),
+                        Text(l10n.recvDocsAttachPhoto, style: _inter(size: 13)),
                       ],
                     )
                   : ClipRRect(
@@ -452,9 +456,9 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
             ),
           ),
           const SizedBox(height: 20),
-          Text('Date this sheet is for', style: _manrope(size: 14, weight: FontWeight.w700)),
+          Text(l10n.recvDocsSheetDate, style: _manrope(size: 14, weight: FontWeight.w700)),
           const SizedBox(height: 10),
-          _DatePickerField(label: 'Pick a date', value: _docDate, onTap: _pickDocDate),
+          _DatePickerField(label: l10n.recvDocsPickDate, value: _docDate, onTap: _pickDocDate),
           if (_error != null) ...[
             const SizedBox(height: 16),
             Text(_error!, style: _inter(size: 12, color: Colors.red.shade700)),
@@ -473,7 +477,7 @@ class _UploadReceivingDocumentScreenState extends ConsumerState<_UploadReceiving
               child: _uploading
                   ? const SizedBox(width: 20, height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : Text(_isEdit ? 'Save Changes' : 'Upload'),
+                  : Text(_isEdit ? l10n.recvDocsSaveChanges : l10n.recvDocsUpload),
             ),
           ),
         ],
@@ -505,17 +509,18 @@ class _ViewReceivingDocumentScreenState extends ConsumerState<_ViewReceivingDocu
   }
 
   Future<void> _delete() async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete receiving doc?'),
-        content: const Text('This permanently removes the image and cannot be undone.'),
+        title: Text(l10n.recvDocsDeleteTitle),
+        content: Text(l10n.recvDocsDeleteBody),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.commonCancel)),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red.shade700),
-            child: const Text('Delete'),
+            child: Text(l10n.commonDelete),
           ),
         ],
       ),
@@ -528,12 +533,13 @@ class _ViewReceivingDocumentScreenState extends ConsumerState<_ViewReceivingDocu
     } catch (e) {
       if (!mounted) return;
       setState(() => _deleting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.recvDocsDeleteFailed(e.toString()))));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final imageUrl = '${AppConfig.apiBaseUrl}${doc.fileUrl}';
     return Scaffold(
       backgroundColor: _bg,
@@ -544,15 +550,15 @@ class _ViewReceivingDocumentScreenState extends ConsumerState<_ViewReceivingDocu
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _onSurface, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Receiving Doc', style: _manrope(size: 16, weight: FontWeight.w800)),
+        title: Text(l10n.recvDocsViewTitle, style: _manrope(size: 16, weight: FontWeight.w800)),
         actions: [
           IconButton(
-            tooltip: 'Edit',
+            tooltip: l10n.commonEdit,
             icon: const Icon(Icons.edit_outlined, color: _onSurface),
             onPressed: _deleting ? null : _edit,
           ),
           IconButton(
-            tooltip: 'Delete',
+            tooltip: l10n.commonDelete,
             icon: Icon(Icons.delete_outline_rounded, color: Colors.red.shade700),
             onPressed: _deleting ? null : _delete,
           ),
@@ -573,12 +579,12 @@ class _ViewReceivingDocumentScreenState extends ConsumerState<_ViewReceivingDocu
             ),
           ),
           const SizedBox(height: 16),
-          Text('Date', style: _inter(size: 12)),
+          Text(l10n.recvDocsDate, style: _inter(size: 12)),
           const SizedBox(height: 2),
           Text(_displayDateFmt.format(DateTime.parse(doc.docDate)), style: _manrope(size: 15, weight: FontWeight.w700)),
           if (doc.uploadedBy != null) ...[
             const SizedBox(height: 14),
-            Text('Uploaded by', style: _inter(size: 12)),
+            Text(l10n.recvDocsUploadedBy, style: _inter(size: 12)),
             const SizedBox(height: 2),
             Text(doc.uploadedBy!, style: _manrope(size: 14, weight: FontWeight.w600)),
           ],
@@ -588,7 +594,7 @@ class _ViewReceivingDocumentScreenState extends ConsumerState<_ViewReceivingDocu
             child: OutlinedButton.icon(
               onPressed: () => launchUrl(Uri.parse(imageUrl), mode: LaunchMode.externalApplication),
               icon: const Icon(Icons.download_rounded, size: 18),
-              label: const Text('Open / Download'),
+              label: Text(l10n.recvDocsOpenDownload),
               style: OutlinedButton.styleFrom(foregroundColor: _primary),
             ),
           ),

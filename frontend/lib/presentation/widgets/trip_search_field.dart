@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/providers/trip_provider.dart' show kLatestTripsShown;
 
 /// Compact search field for filtering an already-loaded trip list by trip
@@ -7,13 +8,13 @@ import 'package:fleet_management/providers/trip_provider.dart' show kLatestTrips
 class TripSearchField extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
-  final String hintText;
+  final String? hintText;
 
   const TripSearchField({
     super.key,
     required this.controller,
     required this.onChanged,
-    this.hintText = 'Search by trip number',
+    this.hintText,
   });
 
   @override
@@ -27,7 +28,7 @@ class TripSearchField extends StatelessWidget {
           textInputAction: TextInputAction.search,
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
-            hintText: hintText,
+            hintText: hintText ?? AppLocalizations.of(context).tripSearchHint,
             hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade500),
             prefixIcon: const Icon(Icons.search_rounded, size: 20),
             suffixIcon: value.text.isEmpty

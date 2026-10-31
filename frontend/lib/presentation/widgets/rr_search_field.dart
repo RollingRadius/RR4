@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 const _secondary = Color(0xFF546067);
 
@@ -109,7 +110,7 @@ class _RrSearchFieldState<T> extends State<RrSearchField<T>> {
         if (_showResults && !_loading && _results.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 6, left: 4),
-            child: Text('No matches found',
+            child: Text(AppLocalizations.of(context).rrSearchNoMatches,
                 style: GoogleFonts.inter(fontSize: 12, color: _secondary)),
           ),
         if (_results.isNotEmpty)

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/data/services/rr_sync_api.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 
@@ -96,8 +97,9 @@ class _RrLoginDialogState extends ConsumerState<RrLoginDialog> {
   Future<void> _submit() async {
     final username = _usernameCtrl.text.trim();
     final password = _passwordCtrl.text;
+    final l10n = AppLocalizations.of(context);
     if (username.isEmpty || password.isEmpty) {
-      setState(() => _errorMsg = 'Enter your RR username and password');
+      setState(() => _errorMsg = l10n.rrLoginEnterCredentials);
       return;
     }
     setState(() {
@@ -113,15 +115,15 @@ class _RrLoginDialogState extends ConsumerState<RrLoginDialog> {
       if (mounted) Navigator.of(context).pop(true);
     } on DioException catch (e) {
       final msg = (e.response?.data is Map)
-          ? (e.response!.data['detail'] ?? 'Login failed')
-          : 'Login failed';
+          ? (e.response!.data['detail'] ?? l10n.rrLoginFailed)
+          : l10n.rrLoginFailed;
       setState(() {
         _errorMsg = msg.toString();
         _loading = false;
       });
     } catch (e) {
       setState(() {
-        _errorMsg = 'Unexpected error: $e';
+        _errorMsg = l10n.rrLoginUnexpectedError(e.toString());
         _loading = false;
       });
     }
@@ -129,21 +131,22 @@ class _RrLoginDialogState extends ConsumerState<RrLoginDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Sign in to RR',
+      title: Text(l10n.rrLoginTitle,
           style: _manrope(size: 16, weight: FontWeight.w800)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Enter your RollingRadius credentials to continue.',
+          Text(l10n.rrLoginSubtitle,
               style: _inter(size: 13)),
           const SizedBox(height: 16),
           TextField(
             controller: _usernameCtrl,
             decoration: InputDecoration(
-              labelText: 'Username / Phone',
+              labelText: l10n.rrLoginUsernameLabel,
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               contentPadding:
@@ -158,7 +161,7 @@ class _RrLoginDialogState extends ConsumerState<RrLoginDialog> {
             controller: _passwordCtrl,
             obscureText: _obscure,
             decoration: InputDecoration(
-              labelText: 'Password',
+              labelText: l10n.authPassword,
               border:
                   OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               contentPadding:
@@ -184,7 +187,7 @@ class _RrLoginDialogState extends ConsumerState<RrLoginDialog> {
       actions: [
         TextButton(
           onPressed: _loading ? null : () => Navigator.of(context).pop(false),
-          child: Text('Cancel', style: _inter(size: 14, color: _secondary)),
+          child: Text(l10n.commonCancel, style: _inter(size: 14, color: _secondary)),
         ),
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: _primary),
@@ -195,7 +198,7 @@ class _RrLoginDialogState extends ConsumerState<RrLoginDialog> {
                   height: 18,
                   child: CircularProgressIndicator(
                       color: Colors.white, strokeWidth: 2))
-              : Text('Sign in',
+              : Text(l10n.rrLoginButton,
                   style: _manrope(size: 14, color: Colors.white)),
         ),
       ],
