@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 
 // ─── Typography helpers ───────────────────────────────────────────────────────
@@ -176,21 +177,21 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
   }
 
   Future<void> _removeWorker(_WorkerInfo worker) async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove From Organization'),
-        content: Text(
-            'Remove ${worker.fullName} from the organization? They will lose access immediately and can request to rejoin later.'),
+        title: Text(l10n.lpWorkersRemoveTitle),
+        content: Text(l10n.lpWorkersRemoveConfirm(worker.fullName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remove'),
+            child: Text(l10n.stageCommonRemove),
           ),
         ],
       ),
@@ -202,13 +203,13 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
       await api.dio.delete('/api/organization/employees/${worker.userOrganizationId}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('${worker.fullName} removed from the organization')),
+        SnackBar(content: Text(l10n.lpWorkersRemoved(worker.fullName))),
       );
       _fetchRecords();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to remove: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.lpWorkersRemoveFailed(e.toString())), backgroundColor: Colors.red),
       );
     }
   }
@@ -240,6 +241,7 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -249,7 +251,7 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _onSurface, size: 20),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text('Employees', style: _m(s: 17, w: FontWeight.w800)),
+        title: Text(l10n.lpWorkersTitle, style: _m(s: 17, w: FontWeight.w800)),
         bottom: TabBar(
           controller: _tabCtrl,
           labelStyle: GoogleFonts.manrope(fontSize: 13, fontWeight: FontWeight.w700),
@@ -258,9 +260,9 @@ class _LpWorkersScreenState extends ConsumerState<LpWorkersScreen>
           unselectedLabelColor: _secondary,
           indicatorColor: _primary,
           indicatorWeight: 3,
-          tabs: const [
-            Tab(text: 'Record'),
-            Tab(text: 'Leaderboard'),
+          tabs: [
+            Tab(text: l10n.lpWorkersTabRecord),
+            Tab(text: l10n.lpWorkersTabLeaderboard),
           ],
         ),
       ),
@@ -309,6 +311,7 @@ class _RecordTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (loading) {
       return const Center(child: CircularProgressIndicator(color: _primary));
     }
@@ -318,8 +321,8 @@ class _RecordTab extends StatelessWidget {
     if (workers.isEmpty) {
       return _EmptyView(
         icon: Icons.people_outline_rounded,
-        title: 'No employees found',
-        subtitle: 'Active employees in your organisation will appear here.',
+        title: l10n.lpWorkersEmptyTitle,
+        subtitle: l10n.lpWorkersEmptyHint,
       );
     }
     return RefreshIndicator(
@@ -347,6 +350,7 @@ class _WorkerInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isOwner = worker.roleKey == 'logistic_partner';
     final accent  = isOwner ? _primary : _success;
     final initials = worker.fullName.trim().split(RegExp(r'\s+')).take(2)
@@ -422,14 +426,14 @@ class _WorkerInfoCard extends StatelessWidget {
               onSelected: (v) {
                 if (v == 'remove') onRemove();
               },
-              itemBuilder: (_) => const [
+              itemBuilder: (_) => [
                 PopupMenuItem(
                   value: 'remove',
                   child: Row(
                     children: [
-                      Icon(Icons.person_remove_outlined, size: 18, color: Colors.red),
-                      SizedBox(width: 10),
-                      Text('Remove From Organization', style: TextStyle(color: Colors.red)),
+                      const Icon(Icons.person_remove_outlined, size: 18, color: Colors.red),
+                      const SizedBox(width: 10),
+                      Text(l10n.lpWorkersRemoveTitle, style: const TextStyle(color: Colors.red)),
                     ],
                   ),
                 ),
@@ -463,6 +467,7 @@ class _LeaderboardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         _PeriodAndDateBar(
@@ -480,8 +485,8 @@ class _LeaderboardTab extends StatelessWidget {
         else if (leaderboard.isEmpty)
           Expanded(child: _EmptyView(
             icon: Icons.leaderboard_outlined,
-            title: 'No activity yet',
-            subtitle: 'No stage submissions recorded for this period.',
+            title: l10n.lpWorkersNoActivityTitle,
+            subtitle: l10n.lpWorkersNoActivityHint,
           ))
         else
           Expanded(
@@ -559,6 +564,7 @@ class _PeriodAndDateBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       color: _surface,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -584,7 +590,7 @@ class _PeriodAndDateBar extends StatelessWidget {
                         borderRadius: BorderRadius.circular(9),
                       ),
                       child: Text(
-                        p[0].toUpperCase() + p.substring(1),
+                        p == 'daily' ? l10n.lpWorkersDaily : l10n.lpWorkersMonthly,
                         textAlign: TextAlign.center,
                         style: _m(s: 13, w: FontWeight.w700,
                             c: active ? Colors.white : _secondary),
@@ -627,6 +633,7 @@ class _Podium extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final first  = entries.isNotEmpty ? entries[0] : null;
     final second = entries.length > 1  ? entries[1] : null;
     final third  = entries.length > 2  ? entries[2] : null;
@@ -640,7 +647,7 @@ class _Podium extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text('Leaderboard', style: _m(s: 15, w: FontWeight.w800)),
+          Text(l10n.lpWorkersTabLeaderboard, style: _m(s: 15, w: FontWeight.w800)),
           const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -674,6 +681,7 @@ class _PodiumSlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         Text(_medal, style: const TextStyle(fontSize: 22)),
@@ -682,7 +690,7 @@ class _PodiumSlot extends StatelessWidget {
             style: _m(s: 11, w: FontWeight.w700),
             maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center),
         const SizedBox(height: 2),
-        Text('${entry.totalStages} pts',
+        Text(l10n.lpWorkersPoints(entry.totalStages),
             style: _m(s: 12, w: FontWeight.w800, c: color), textAlign: TextAlign.center),
         const SizedBox(height: 6),
         Container(
@@ -709,6 +717,7 @@ class _WorkerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final accent = entry.roleKey == 'logistic_partner' ? _primary : _success;
     return Container(
       padding: const EdgeInsets.all(14),
@@ -773,9 +782,9 @@ class _WorkerCard extends StatelessWidget {
             children: [
               Text('${entry.totalStages}',
                   style: _m(s: 18, w: FontWeight.w900, c: _primary)),
-              Text('pts', style: _i(s: 10, w: FontWeight.w600, c: _primary)),
+              Text(l10n.lpWorkersPtsShort, style: _i(s: 10, w: FontWeight.w600, c: _primary)),
               const SizedBox(height: 2),
-              Text('${entry.tripsCompleted} trips', style: _i(s: 11, c: _secondary)),
+              Text(l10n.lpWorkersTripsCount(entry.tripsCompleted), style: _i(s: 11, c: _secondary)),
             ],
           ),
         ],
@@ -850,6 +859,7 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -858,14 +868,14 @@ class _ErrorView extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline_rounded, color: Color(0xFFBA1A1A), size: 48),
             const SizedBox(height: 16),
-            Text('Failed to load', style: _m(s: 16, w: FontWeight.w700)),
+            Text(l10n.lpWorkersLoadFailed, style: _m(s: 16, w: FontWeight.w700)),
             const SizedBox(height: 8),
             Text(error, style: _i(s: 12), textAlign: TextAlign.center),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Retry'),
+              label: Text(l10n.commonRetry),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primary, foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
@@ -98,13 +99,14 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     // while the dashboard is open, with a one-tap way to reconnect.
     _rrExpirySub = ref.read(notificationWsServiceProvider).stream.listen((n) {
       if (n.type != 'rr_session_expiring' || !mounted) return;
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(n.body, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: const Color(0xFFB25E00),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 8),
         action: SnackBarAction(
-          label: 'Reconnect',
+          label: l10n.lpOpsReconnect,
           textColor: Colors.white,
           onPressed: () => ensureRrSession(context, ref),
         ),
@@ -130,6 +132,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
     ref.read(pendingRrTripNumberProvider.notifier).state = null;
     ref.read(pendingCreatedTripIdProvider.notifier).state = null;
     final isFailed = value.startsWith('__failed__:');
+    final l10n = AppLocalizations.of(context);
 
     bool closed = false;
     final popupFuture = showDialog<void>(
@@ -146,9 +149,9 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                   child: const Icon(Icons.error_outline_rounded, color: Color(0xFFD32F2F), size: 32),
                 ),
                 const SizedBox(height: 16),
-                Text('Trip Created', style: _manrope(size: 15, weight: FontWeight.w800)),
+                Text(l10n.lpOpsTripCreated, style: _manrope(size: 15, weight: FontWeight.w800)),
                 const SizedBox(height: 8),
-                Text('RR sync failed: ${value.substring('__failed__:'.length)}',
+                Text(l10n.lpOpsSyncFailedMsg(value.substring('__failed__:'.length)),
                     style: _inter(size: 13), textAlign: TextAlign.center),
               ]),
               actions: [
@@ -159,7 +162,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                         backgroundColor: _rrBlue,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                     onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-                    child: Text('OK', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+                    child: Text(l10n.commonOk, style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
                   ),
                 ),
               ],
@@ -174,17 +177,17 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                   child: const Icon(Icons.check_circle_rounded, color: _doneGreen, size: 32),
                 ),
                 const SizedBox(height: 16),
-                Text('Trip Synced to RR Web',
+                Text(l10n.lpOpsTripSynced,
                     style: _manrope(size: 15, weight: FontWeight.w800),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 8),
-                Text('RR Trip Number', style: _inter(size: 12)),
+                Text(l10n.lpOpsRrTripNumber, style: _inter(size: 12)),
                 const SizedBox(height: 4),
                 GestureDetector(
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: value));
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text('Trip number copied', style: _inter(size: 13, color: Colors.white)),
+                      content: Text(l10n.lpOpsTripNumberCopied, style: _inter(size: 13, color: Colors.white)),
                       backgroundColor: _doneGreen,
                       duration: const Duration(seconds: 2),
                       behavior: SnackBarBehavior.floating,
@@ -213,7 +216,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                         backgroundColor: _rrBlue,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                     onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-                    child: Text('Continue', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+                    child: Text(l10n.commonContinue, style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
                   ),
                 ),
               ],
@@ -231,27 +234,27 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
   }
 
   void _showS1RequiredPopup(String tripId) {
+    final l10n = AppLocalizations.of(context);
     showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Field Executive — Stage 1', style: _manrope(size: 15, weight: FontWeight.w800)),
+        title: Text(l10n.lpOpsS1Title, style: _manrope(size: 15, weight: FontWeight.w800)),
         content: Text(
-          'Allow the Field Executive to fill Stage 1 (Truck Detail Registration) docs for this trip?\n\n'
-          'You can change this later from the trip card.',
+          l10n.lpOpsS1Body,
           style: _inter(size: 13),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context, rootNavigator: true).pop(false),
-            child: Text('No', style: _inter(size: 14, weight: FontWeight.w600)),
+            child: Text(l10n.commonNo, style: _inter(size: 14, weight: FontWeight.w600)),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: _rrBlue,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
             onPressed: () => Navigator.of(context, rootNavigator: true).pop(true),
-            child: Text('Yes', style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
+            child: Text(l10n.commonYes, style: _inter(size: 14, weight: FontWeight.w600, color: Colors.white)),
           ),
         ],
       ),
@@ -288,6 +291,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
       }
     });
 
+    final l10n      = AppLocalizations.of(context);
     final user      = ref.watch(authProvider).user;
     final tripState = ref.watch(tripProvider);
 
@@ -343,8 +347,8 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                       if (mounted) context.go('/login');
                     }
                   },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'logout', child: Text('Logout')),
+                  itemBuilder: (_) => [
+                    PopupMenuItem(value: 'logout', child: Text(l10n.feDashLogout)),
                   ],
                 ),
               ],
@@ -377,7 +381,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              user?.fullName ?? 'RR Operations',
+                              user?.fullName ?? l10n.roleRrOperations,
                               style: _manrope(
                                   size: 17,
                                   weight: FontWeight.w800,
@@ -433,7 +437,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                 padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
                 child: Row(
                   children: [
-                    Text('RR Web Trips',
+                    Text(l10n.lpOpsWebTrips,
                         style: _manrope(
                             size: 15, weight: FontWeight.w700)),
                     const SizedBox(width: 8),
@@ -485,7 +489,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                           child: Row(mainAxisSize: MainAxisSize.min, children: [
                             const Icon(Icons.add_rounded, size: 14, color: Colors.white),
                             const SizedBox(width: 4),
-                            Text('New Trip',
+                            Text(l10n.lpOpsNewTrip,
                                 style: _inter(
                                     size: 11, weight: FontWeight.w700, color: Colors.white)),
                           ]),
@@ -516,7 +520,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                     Expanded(
                       child: TripSearchField(
                         controller: _biltySearchCtrl,
-                        hintText: 'Search by bilty number',
+                        hintText: l10n.feDashSearchBilty,
                         onChanged: (v) {
                           setState(() => _biltyQuery = v);
                           _onSearchChanged();
@@ -579,14 +583,21 @@ class _RrOpsBottomNav extends StatelessWidget {
   // together in the nav rather than one screen being all-orange and
   // this bar being all-blue.
   static const _items = [
-    (icon: Icons.dashboard_rounded, label: 'Dashboard', color: _rrBlue),
-    (icon: Icons.search_rounded, label: 'Loads', color: _rrBlue),
-    (icon: Icons.history_rounded, label: 'Records', color: _rrBlue),
-    (icon: Icons.person_outline_rounded, label: 'Profile', color: _rrOrange),
+    (icon: Icons.dashboard_rounded, color: _rrBlue),
+    (icon: Icons.search_rounded, color: _rrBlue),
+    (icon: Icons.history_rounded, color: _rrBlue),
+    (icon: Icons.person_outline_rounded, color: _rrOrange),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final labels = [
+      l10n.feDashNavDashboard,
+      l10n.lpOpsNavLoads,
+      l10n.feDashNavRecords,
+      l10n.feDashNavProfile,
+    ];
     return Container(
       decoration: BoxDecoration(
         color: _surface,
@@ -607,7 +618,7 @@ class _RrOpsBottomNav extends StatelessWidget {
                 Expanded(
                   child: _RrOpsNavItem(
                     icon: _items[i].icon,
-                    label: _items[i].label,
+                    label: labels[i],
                     color: _items[i].color,
                     selected: selectedIndex == i,
                     onTap: () => onTap(i),
@@ -679,6 +690,7 @@ class _RrOpsRecordsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final state = ref.watch(completedTripsProvider);
     final trips = [...state.trips]
       ..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
@@ -698,9 +710,9 @@ class _RrOpsRecordsTab extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('RR Web Records',
+                        Text(l10n.feDashRecordsTitle,
                             style: _manrope(size: 20, weight: FontWeight.w800)),
-                        Text('Synced trips', style: _inter(size: 12)),
+                        Text(l10n.feDashSyncedTrips, style: _inter(size: 12)),
                       ],
                     ),
                   ),
@@ -712,7 +724,7 @@ class _RrOpsRecordsTab extends ConsumerWidget {
                       border: Border.all(color: _doneGreen.withValues(alpha: 0.25)),
                     ),
                     child: Text(
-                      '${trips.length} synced',
+                      l10n.lpOpsSyncedCount(trips.length),
                       style: _inter(size: 11, weight: FontWeight.w700, color: _doneGreen),
                     ),
                   ),
@@ -734,7 +746,7 @@ class _RrOpsRecordsTab extends ConsumerWidget {
                     const SizedBox(height: 16),
                     TextButton(
                       onPressed: () => ref.read(completedTripsProvider.notifier).loadTrips(rrOnly: true),
-                      child: const Text('Retry'),
+                      child: Text(l10n.commonRetry),
                     ),
                   ],
                 ),
@@ -748,10 +760,10 @@ class _RrOpsRecordsTab extends ConsumerWidget {
                   children: [
                     Icon(Icons.folder_copy_outlined, size: 64, color: _secondary.withValues(alpha: 0.4)),
                     const SizedBox(height: 16),
-                    Text('No synced trips yet',
+                    Text(l10n.lpOpsNoSyncedTitle,
                         style: _manrope(size: 15, weight: FontWeight.w700, color: _secondary)),
                     const SizedBox(height: 6),
-                    Text('Trips synced to RR web will appear here',
+                    Text(l10n.lpOpsNoSyncedHint,
                         style: _inter(size: 13)),
                   ],
                 ),
@@ -789,6 +801,7 @@ class _StatsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n      = AppLocalizations.of(context);
     final total     = trips.length;
     final needsSlip = trips
         .where((t) => t.rrSyncStatus == 'trip_created')
@@ -803,14 +816,14 @@ class _StatsStrip extends StatelessWidget {
 
     return Row(
       children: [
-        _StatChip(label: 'Total', count: total, color: _rrBlue),
+        _StatChip(label: l10n.driverHomeStatTotal, count: total, color: _rrBlue),
         const SizedBox(width: 8),
-        _StatChip(label: 'Needs Slip', count: needsSlip, color: _warnOrange),
+        _StatChip(label: l10n.lpOpsNeedsSlip, count: needsSlip, color: _warnOrange),
         const SizedBox(width: 8),
-        _StatChip(label: 'Slip Done', count: slipDone, color: _doneGreen),
+        _StatChip(label: l10n.lpOpsSlipDone, count: slipDone, color: _doneGreen),
         if (failed > 0) ...[
           const SizedBox(width: 8),
-          _StatChip(label: 'Failed', count: failed, color: Colors.red),
+          _StatChip(label: l10n.ongoingCardFailed, count: failed, color: Colors.red),
         ],
       ],
     );
@@ -863,6 +876,7 @@ class _StatChip extends StatelessWidget {
 class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -880,12 +894,12 @@ class _EmptyState extends StatelessWidget {
                   size: 36, color: _rrBlue),
             ),
             const SizedBox(height: 20),
-            Text('No RR Web trips yet',
+            Text(l10n.lpOpsEmptyTitle,
                 style: _manrope(
                     size: 17, weight: FontWeight.w700)),
             const SizedBox(height: 8),
             Text(
-              'No active RR Web trips yet.\nTap "+ New Trip" above to get started.',
+              l10n.lpOpsEmptyBody,
               style: _inter(size: 13),
               textAlign: TextAlign.center,
             ),
@@ -902,6 +916,7 @@ class _NoSearchMatches extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -919,7 +934,7 @@ class _NoSearchMatches extends StatelessWidget {
                   size: 36, color: _rrBlue),
             ),
             const SizedBox(height: 20),
-            Text('No trips match "$query"',
+            Text(l10n.lpOpsNoMatch(query),
                 style: _manrope(size: 17, weight: FontWeight.w700),
                 textAlign: TextAlign.center),
           ],
@@ -939,6 +954,7 @@ class _RrOpsDrawer extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(authProvider).user;
     final rawPicture = user?.profilePictureUrl;
     final hasPicture = rawPicture != null && rawPicture.isNotEmpty;
@@ -987,7 +1003,7 @@ class _RrOpsDrawer extends ConsumerWidget {
                         Text(
                           user?.fullName.isNotEmpty == true
                               ? user!.fullName
-                              : 'RR Operations',
+                              : l10n.roleRrOperations,
                           style: GoogleFonts.manrope(
                               fontSize: 16,
                               fontWeight: FontWeight.w800,
@@ -1029,7 +1045,7 @@ class _RrOpsDrawer extends ConsumerWidget {
                 children: [
                   _RrOpsDrawerTile(
                     icon: Icons.person_pin_circle_outlined,
-                    label: 'Track',
+                    label: l10n.lpOpsDrawerTrack,
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/track');
@@ -1037,7 +1053,7 @@ class _RrOpsDrawer extends ConsumerWidget {
                   ),
                   _RrOpsDrawerTile(
                     icon: Icons.receipt_long_outlined,
-                    label: 'Receiving Docs',
+                    label: l10n.recvDocsTitle,
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/receiving-documents');
@@ -1045,14 +1061,14 @@ class _RrOpsDrawer extends ConsumerWidget {
                   ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 12, 16, 6),
-                    child: Text('RR QUICK ADD',
+                    child: Text(l10n.lpOpsQuickAdd,
                         style: _inter(
                             size: 10.5, weight: FontWeight.w700, color: _secondary)
                             .copyWith(letterSpacing: 0.6)),
                   ),
                   _RrOpsDrawerTile(
                     icon: Icons.local_shipping_outlined,
-                    label: 'Add Vehicle',
+                    label: l10n.lpOpsAddVehicle,
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/rr/add-vehicle');
@@ -1060,7 +1076,7 @@ class _RrOpsDrawer extends ConsumerWidget {
                   ),
                   _RrOpsDrawerTile(
                     icon: Icons.apartment_outlined,
-                    label: 'Add Company',
+                    label: l10n.lpOpsAddCompany,
                     color: _rrOrange,
                     onTap: () {
                       Navigator.pop(context);
@@ -1069,7 +1085,7 @@ class _RrOpsDrawer extends ConsumerWidget {
                   ),
                   _RrOpsDrawerTile(
                     icon: Icons.person_add_alt_outlined,
-                    label: 'Add Driver',
+                    label: l10n.lpOpsAddDriver,
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/rr/add-user');
@@ -1077,7 +1093,7 @@ class _RrOpsDrawer extends ConsumerWidget {
                   ),
                   _RrOpsDrawerTile(
                     icon: Icons.assignment_turned_in_outlined,
-                    label: 'Vehicle Hire Requests',
+                    label: l10n.lpOpsHireRequests,
                     color: _rrOrange,
                     onTap: () {
                       Navigator.pop(context);
@@ -1086,7 +1102,7 @@ class _RrOpsDrawer extends ConsumerWidget {
                   ),
                   _RrOpsDrawerTile(
                     icon: Icons.storefront_outlined,
-                    label: 'Hire Truck',
+                    label: l10n.lpOpsHireTruck,
                     onTap: () {
                       Navigator.pop(context);
                       context.push('/rr/add-market-vehicle');
