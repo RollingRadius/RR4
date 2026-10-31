@@ -22,5 +22,1699 @@
   "settingsLanguageSubtitle": "Choose English or Hindi",
   "@settingsLanguageSubtitle": {
     "description": "Settings tile subtitle for choosing the app language"
+  },
+  "apiErrorCancelled": "Request cancelled",
+  "apiErrorCannotConnect": "Cannot connect to server. Please check your connection.",
+  "apiErrorNetwork": "Network error. Please check your connection.",
+  "apiErrorServer": "Server error: {code}",
+  "@apiErrorServer": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "apiErrorTimeout": "Connection timeout. Please try again.",
+  "apiErrorUnexpected": "An unexpected error occurred",
+  "authBackToLogin": "Back to Login",
+  "authEmail": "Email",
+  "authFieldRequired": "This field is required",
+  "authPassword": "Password",
+  "authPhoneNumber": "Phone Number",
+  "authPrivacyPolicy": "Privacy Policy",
+  "authSignUp": "Sign Up",
+  "authUnknownError": "An unexpected error occurred. Please try again.",
+  "authUsername": "Username",
+  "authVerifyEmail": "Verify Email",
+  "codeVerifyExpiry": "Code expires in 24 hours",
+  "codeVerifyFailed": "Verification failed",
+  "codeVerifyHeading": "Enter Verification Code",
+  "codeVerifyIncomplete": "Please enter the complete 6-digit code",
+  "codeVerifyInstruction": "Enter the code below to verify your email",
+  "codeVerifySentTo": "We sent a 6-digit code to {email}",
+  "@codeVerifySentTo": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "codeVerifySuccess": "Email verified successfully!",
+  "emailVerifyCodeHint": "Enter the code from your email",
+  "emailVerifyCodeLabel": "Verification Code",
+  "emailVerifyCodeTooShort": "Verification code must be at least 6 characters",
+  "emailVerifyEnterCode": "Please enter the verification code from your email below.",
+  "emailVerifyError": "Error: {error}",
+  "@emailVerifyError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "emailVerifyFailed": "Verification failed. Please try again.",
+  "emailVerifyHeading": "Verify Your Email",
+  "emailVerifyResend": "Didn't receive the code? Resend",
+  "emailVerifyResent": "Verification email resent!",
+  "emailVerifySentTo": "We sent a verification code to:",
+  "emailVerifyVerified": "Email verified successfully! You can now login.",
+  "loginBiometricSoon": "Biometric login coming soon",
+  "loginBiometricTooltip": "Biometric Login",
+  "loginButton": "Login to Fleet",
+  "loginCompleteProfile": "Please complete your profile to continue",
+  "loginCorporateId": "Corporate ID",
+  "loginCorporateSoon": "Corporate SSO coming soon",
+  "loginForgotPassword": "Forgot password?",
+  "loginGoogleSoon": "Google SSO coming soon",
+  "loginHelpCenter": "Help Center",
+  "loginNewToFleet": "New to the fleet? ",
+  "loginOrContinueWith": "Or continue with",
+  "loginPendingMessage": "Wait for acceptance by company owner.\n\nOnce the company owner accepts your request, you will be able to log in.",
+  "loginPendingTitle": "Pending Approval",
+  "loginSubtitle": "Securely access your fleet dashboard",
+  "loginSuccess": "Login successful!",
+  "loginTitle": "Login",
+  "loginUsernameHint": "Enter your username",
+  "loginWelcome": "Welcome back to RR",
+  "signupAcceptTerms": "Please accept the terms and conditions",
+  "signupAlreadyHaveAccount": "Already have an account? ",
+  "signupConfirmPassword": "Confirm Password",
+  "signupConfirmPasswordRequired": "Please confirm your password",
+  "signupCreateAccount": "Create Account",
+  "signupEmailInvalid": "Enter a valid email — e.g. name@company.com",
+  "signupEmailNoAt": "Email must contain \"@\" — e.g. name@company.com",
+  "signupEmailNoDomain": "Email must have a domain ending — e.g. .com or .in",
+  "signupEmailRequired": "Email is required",
+  "signupFullName": "Full Name",
+  "signupFullNameHint": "John Doe",
+  "@signupFullNameHint": {
+    "description": "Example name shown as placeholder"
+  },
+  "signupFullNameNoNumbers": "Do not enter numbers in full name — letters only",
+  "signupFullNameRequired": "Full name is required",
+  "signupFullNameTooShort": "Full name must be at least 2 characters",
+  "signupLogIn": "Log In",
+  "signupPasswordMismatch": "Passwords do not match — please re-enter",
+  "signupPasswordRequired": "Password is required",
+  "signupPasswordTooShort": "Password must be at least 8 characters",
+  "signupPhoneChecking": "Please wait — checking phone number availability",
+  "signupPhoneLength": "Mobile number must be exactly 10 digits",
+  "signupPhoneRequired": "Phone number is required",
+  "signupPhoneTaken": "This phone number is already registered",
+  "signupSecurityQ": "Security Q",
+  "@signupSecurityQ": {
+    "description": "Short label on a toggle button; full form is \"Security Questions\""
+  },
+  "signupSuccessEmail": "Signup successful! Please check your email for verification link.",
+  "signupTermsAnd": " and ",
+  "signupTermsOfService": "Terms of Service",
+  "signupTermsPrefix": "By clicking Create Account, you agree to our ",
+  "@signupTermsPrefix": {
+    "description": "First part of a sentence continued by signupTermsOfService, signupTermsAnd, authPrivacyPolicy and signupTermsSuffix"
+  },
+  "signupTermsSuffix": ".",
+  "@signupTermsSuffix": {
+    "description": "End of the terms sentence; Hindi needs a verb here"
+  },
+  "signupUsernameChecking": "Please wait — checking username availability",
+  "signupUsernameHint": "e.g. johndoe or john99",
+  "signupUsernameInvalid": "Username can only contain letters, numbers, and underscores",
+  "signupUsernameRequired": "Username is required",
+  "signupUsernameTaken": "This username is already taken",
+  "signupUsernameTooShort": "Username must be at least 3 characters",
+  "signupWorkEmail": "Work Email",
+  "authAnswerAllQuestions": "Please answer all security questions",
+  "authAnswerSecurityQuestions": "Answer Your Security Questions",
+  "authEnterAnswer": "Enter your answer",
+  "authNewPassword": "New Password",
+  "authPasswordMismatch": "Passwords do not match",
+  "authPasswordRule": "Password must be at least 8 characters with uppercase, lowercase, and digit",
+  "authQuestionNumber": "Question {n}",
+  "@authQuestionNumber": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "changePwConfirmNew": "Confirm New Password",
+  "changePwFailed": "Failed to change password",
+  "changePwIntro": "Answer your security questions and set a new password. You will be signed out of every device and need to log in again.",
+  "changePwNoUsername": "Could not determine your username. Please try again.",
+  "changePwSuccess": "Password changed. Please log in again.",
+  "changePwTitle": "Change Password",
+  "pwRecoveryComingSoon": "Coming Soon",
+  "pwRecoveryConfirmPassword": "Confirm Password",
+  "pwRecoveryEmailComingSoon": "Email-based password recovery is under development. Please use Security Questions to reset your password for now.",
+  "pwRecoveryEnterUsername": "Please enter your username",
+  "pwRecoveryHeading": "Forgot Your Password?",
+  "pwRecoveryLoadQuestions": "Load Security Questions",
+  "pwRecoveryMethod": "Recovery Method",
+  "pwRecoveryMethodEmail": "Email",
+  "pwRecoveryMethodQuestions": "Security Questions",
+  "pwRecoveryResetButton": "Reset Password",
+  "pwRecoveryResetSuccess": "Password reset successful! Please login with your new password.",
+  "pwRecoverySessionExpired": "Session expired. Please start over.",
+  "pwRecoverySetNewPassword": "Set New Password",
+  "pwRecoverySubtitle": "Reset your password using your security questions",
+  "pwRecoveryTitle": "Password Recovery",
+  "pwRecoveryUseQuestions": "Use Security Questions Instead",
+  "pwRecoveryUsername": "Username",
+  "pwRecoveryUsernameInfo": "Enter your username and we'll show you your security questions.",
+  "pwRecoveryVerifyAnswers": "Verify Answers",
+  "secQuestionsAnswerMin": "Answer must be at least 2 characters",
+  "secQuestionsEncrypted": "END-TO-END ENCRYPTED",
+  "secQuestionsIntro": "Choose three security questions to verify your identity if you lose access to your account.",
+  "secQuestionsSaved": "Security questions saved!",
+  "secQuestionsSelectAll": "Please select all 3 security questions",
+  "secQuestionsSelectDifferent": "Please select 3 different security questions",
+  "secQuestionsSelectError": "Please select a question",
+  "secQuestionsSelectHint": "Select a security question",
+  "secQuestionsStepOf": "Step {step} of 4",
+  "@secQuestionsStepOf": {
+    "placeholders": {
+      "step": {
+        "type": "int"
+      }
+    }
+  },
+  "secQuestionsTitle": "Secure Your Account",
+  "secQuestionsYourAnswer": "Your answer",
+  "userRecoveryAnswerPrompt": "Please answer the following questions to verify your identity",
+  "userRecoveryContinueToLogin": "Continue to Login",
+  "userRecoveryEnterDetails": "Enter Your Details",
+  "userRecoveryFullName": "Full Name",
+  "userRecoveryFullNameHint": "Enter your registered full name",
+  "userRecoveryHeading": "Forgot Your Username?",
+  "userRecoveryInfo": "You will need to answer your security questions to verify your identity.",
+  "userRecoveryPhone": "Phone Number",
+  "userRecoveryPhoneHint": "Enter your registered phone number",
+  "userRecoveryRecovered": "Username Recovered!",
+  "userRecoverySaveNote": "Please save this username for future reference",
+  "userRecoverySubtitle": "We'll help you recover your username by verifying your identity",
+  "userRecoveryTitle": "Username Recovery",
+  "userRecoveryVerifyButton": "Verify & Recover Username",
+  "userRecoveryYourUsernameIs": "Your username is:",
+  "companyCreateAddressLabel": "Address *",
+  "companyCreateBusinessType": "Business Type *",
+  "companyCreateBusinessTypeError": "Please select at least one business type",
+  "companyCreateButton": "Create Company",
+  "companyCreateCityLabel": "City *",
+  "companyCreateCountryLabel": "Country *",
+  "companyCreateEmailInvalid": "Enter a valid email, for example name@company.com",
+  "companyCreateEmailLabel": "Business Email *",
+  "companyCreateEmailNoAt": "Email must contain @, for example name@company.com",
+  "companyCreateEmailNoDomain": "Email must have a domain ending, for example .com or .in",
+  "companyCreateEmailRequired": "Business email is required",
+  "companyCreateFailed": "Company creation failed",
+  "companyCreateGstinHint": "15-character GSTIN",
+  "companyCreateGstinInvalid": "Invalid GSTIN format",
+  "companyCreateGstinLabel": "GSTIN (Optional)",
+  "companyCreateGstinLength": "GSTIN must be exactly 15 characters",
+  "companyCreateHeading": "Register Your Company",
+  "companyCreateHide": "Hide",
+  "companyCreateInvalidDetails": "Invalid company details",
+  "companyCreateLegalHint": "You can add GSTIN and PAN details now or later from company settings",
+  "companyCreateLoDesc": "Posts load requirements and seeks transport",
+  "companyCreateLpDesc": "Manages a fleet and fulfills load requirements",
+  "companyCreateNameLabel": "Company Name *",
+  "companyCreatePanHint": "10-character PAN",
+  "companyCreatePanInvalid": "Invalid PAN format",
+  "companyCreatePanLabel": "PAN Number (Optional)",
+  "companyCreatePanLength": "PAN must be exactly 10 characters",
+  "companyCreatePhoneLabel": "Business Phone *",
+  "companyCreatePhoneLength": "Mobile number must be exactly 10 digits",
+  "companyCreatePhoneRequired": "Business phone is required",
+  "companyCreatePincodeInvalid": "Enter a valid 6-digit Indian pincode",
+  "companyCreatePincodeLabel": "Pincode *",
+  "companyCreateSectionAddress": "Address Information",
+  "companyCreateSectionCompany": "Company Information",
+  "companyCreateSectionLegal": "Legal Information (Optional)",
+  "companyCreateShow": "Show",
+  "companyCreateStateLabel": "State *",
+  "companyCreateSubheading": "You will become the company Owner with full administrative access.",
+  "companyCreateSuccess": "Company created successfully! You are now the Owner.",
+  "companyCreateTitle": "Create Company",
+  "companySearchEmptyHint": "Enter at least 3 characters to search",
+  "companySearchEmptyTitle": "Search for a company",
+  "companySearchError": "Error searching companies",
+  "companySearchHintDefault": "Search by company name (min 3 characters)",
+  "companySearchHintLo": "Search load owner companies...",
+  "companySearchHintLp": "Search logistic partner companies...",
+  "companySearchJoinButton": "Join",
+  "@companySearchJoinButton": {
+    "description": "Button to join the selected company"
+  },
+  "companySearchJoinNotice": "You will be added as a Pending User. The company owner must approve your request.",
+  "companySearchJoinPrompt": "You want to join:",
+  "companySearchJoinTitle": "Join Company",
+  "companySearchKeepTyping": "Keep typing...",
+  "companySearchMinChars": "Minimum 3 characters required",
+  "companySearchNoResults": "No companies found",
+  "companySearchRegisterFailed": "Registration failed",
+  "companySearchRegisterSuccess": "Registration successful! You are now a Pending User. Please wait for approval.",
+  "companySearchTitle": "Search Company",
+  "companySearchTryOther": "Try a different search term",
+  "companySelectCreateDesc": "Register your company and become the Owner. You will have full control over your company and can invite team members.",
+  "companySelectCreateTitle": "Create New Company",
+  "companySelectHeading": "Company Association",
+  "companySelectJoinDesc": "Search and join an existing company. You will be added as a Pending User until approved by the company owner.",
+  "companySelectJoinTitle": "Join Existing Company",
+  "companySelectSkipDesc": "Continue as an Independent User without company affiliation. You can join or create a company later from your profile.",
+  "companySelectSkipDialogBody": "You will be registered as an Independent User. You can join or create a company later from your profile settings.\n\nContinue?",
+  "companySelectSkipDialogTitle": "Skip Company Selection",
+  "companySelectSkipDone": "Registration completed! You can now login as an Independent User.",
+  "companySelectSkipTitle": "Skip for Now",
+  "companySelectSubheading": "Choose how you want to proceed with your account",
+  "companySelectTitle": "Company Selection",
+  "profileCompleteAddress": "Address",
+  "profileCompleteAddressMin": "Address must be at least 5 characters",
+  "profileCompleteBusinessAddressHint": "Your business address",
+  "profileCompleteBusinessEmail": "Business Email",
+  "profileCompleteBusinessPhone": "Business Phone",
+  "profileCompleteButton": "Complete Profile",
+  "profileCompleteCategoryHint": "Select the category that best describes your business",
+  "profileCompleteChooseRole": "Choose Your Role",
+  "@profileCompleteChooseRole": {
+    "description": "Heading: user picks what kind of account they are"
+  },
+  "profileCompleteCity": "City",
+  "profileCompleteComingSoon": "Coming Soon",
+  "profileCompleteCreateCompany": "Create Company",
+  "profileCompleteCreateCompanyDesc": "Register your company and become the Logistic Partner",
+  "profileCompleteDriverDesc": "Register as a driver with license information",
+  "profileCompleteDriverInfo": "Driver Information",
+  "profileCompleteEnterCompanyName": "Please enter company name",
+  "profileCompleteEnterLicense": "Please enter your license number",
+  "profileCompleteEnterLicenseExpiry": "Please enter your license expiry date",
+  "profileCompleteEnterPan": "Please enter your PAN Card Number",
+  "profileCompleteEnterYourCompanyName": "Please enter your company name",
+  "profileCompleteFailed": "Failed to complete profile",
+  "profileCompleteFieldExecutiveDesc": "Manage trip stages and fleet status on the ground",
+  "profileCompleteGstOptional": "GST Number (optional)",
+  "profileCompleteIndependentDesc": "Use basic features without company affiliation",
+  "profileCompleteJoinTransporter": "Join as Transporter",
+  "profileCompleteJoinTransporterDesc": "Register as an independent transporter to upload loading slips for assigned trips",
+  "profileCompleteJoinWorker": "Join as Worker",
+  "profileCompleteJoinWorkerDesc": "Join an existing company as a worker (requires owner approval)",
+  "profileCompleteLicenseExpiry": "License Expiry Date (YYYY-MM-DD) *",
+  "@profileCompleteLicenseExpiry": {
+    "description": "User types the date in this exact format; keep YYYY-MM-DD"
+  },
+  "profileCompleteLicenseNumber": "License Number *",
+  "profileCompleteLoCompany": "Load Owner Company",
+  "profileCompleteLoCompanyWorkDesc": "Work at a cargo/load company",
+  "profileCompleteLoadProviderCompany": "Load Provider Company",
+  "profileCompleteLoadProviderDesc": "You have cargo/goods that need to be transported",
+  "profileCompleteLoadReceiverCompany": "Load Receiver Company",
+  "profileCompleteLoadReceiverDesc": "You receive deliveries — you are the consignee",
+  "profileCompleteLpCompany": "Logistic Partner Company",
+  "profileCompleteLpCompanyCreateDesc": "You manage a fleet of vehicles for transportation — your role: Logistic Partner",
+  "profileCompleteLpCompanyWorkDesc": "Work at a fleet/logistics company (Field Executive or RR Operations)",
+  "profileCompletePanLabel": "PAN Card Number *",
+  "profileCompletePermanentWarning": "This decision is permanent and cannot be changed later.",
+  "profileCompletePincode": "Pincode (6 digits)",
+  "profileCompleteRequestSent": "Request sent! Wait for acceptance by the company owner.",
+  "profileCompleteRrOpsDesc": "Handle RR sync and trip data entry in the RR system",
+  "profileCompleteSearchCompany": "Search Company",
+  "profileCompleteSearchFailed": "Failed to search companies: {error}",
+  "@profileCompleteSearchFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "profileCompleteSearchHint": "Enter at least 3 characters",
+  "profileCompleteSelectCompanyToJoin": "Please select a company to join",
+  "profileCompleteSelectCompanyType": "Please select a company type",
+  "profileCompleteSelectCompanyTypeTitle": "Select Company Type",
+  "profileCompleteSelectRole": "Please select a role type",
+  "profileCompleteSelectWorkerType": "Please select your worker type",
+  "profileCompleteSelectYourRole": "Select Your Role",
+  "profileCompleteSelectedCompany": "Selected: {name}",
+  "@profileCompleteSelectedCompany": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "profileCompleteSessionExpired": "Session expired. Please log in again.",
+  "profileCompleteState": "State",
+  "profileCompleteSuccess": "Profile completed successfully!",
+  "profileCompleteTitle": "Complete Your Profile",
+  "profileCompleteTransporterCompanyHint": "Your transport company name",
+  "profileCompleteTransporterDetails": "Transporter Details",
+  "profileCompleteTransporterSub": "Enter your transport business details",
+  "profileCompleteWhatCompanyType": "What type of company are you registering?",
+  "profileCompleteWhatWillYouDo": "What will you do at the logistics company?",
+  "profileCompleteWorkForWhichType": "Which type of company do you want to work for?",
+  "roleDriver": "Driver",
+  "roleFieldExecutive": "Field Executive",
+  "@roleFieldExecutive": {
+    "description": "Role name: LP worker who handles trips on the ground"
+  },
+  "roleIndependentUser": "Independent User",
+  "@roleIndependentUser": {
+    "description": "Role name: user with no company"
+  },
+  "roleLoadOwner": "Load Owner",
+  "@roleLoadOwner": {
+    "description": "Role name: company that posts loads"
+  },
+  "roleLogisticPartner": "Logistic Partner",
+  "@roleLogisticPartner": {
+    "description": "Role name: company that manages a fleet"
+  },
+  "roleRrOperations": "RR Operations",
+  "@roleRrOperations": {
+    "description": "Role name: LP worker who handles RR sync"
+  },
+  "ongoingCardActive": "Active",
+  "ongoingCardAmount": "AMOUNT",
+  "ongoingCardBiltyNo": "BILTY NO.",
+  "ongoingCardCompleteBody": "This will mark the trip as completed and notify the load owner. This action cannot be undone.",
+  "ongoingCardCompleteDone": "Trip marked as completed. Load owner notified.",
+  "ongoingCardCompleteLocked": "Complete Trip is only available after Stage 5",
+  "ongoingCardCompleteTitle": "Complete Trip?",
+  "ongoingCardCompleteTrip": "Complete Trip",
+  "ongoingCardConfirm": "Confirm",
+  "ongoingCardDone": "Done",
+  "ongoingCardFailed": "Failed",
+  "ongoingCardGoToStage": "Go to Stage {stage}  ·  {name}",
+  "@ongoingCardGoToStage": {
+    "description": "Button: {stage} is a number 1-5, {name} the stage name",
+    "placeholders": {
+      "stage": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "ongoingCardInTransitCount": "{count, plural, =1{1 trip in transit} other{{count} trips in transit}}",
+  "@ongoingCardInTransitCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "ongoingCardInvoice": "INVOICE",
+  "ongoingCardLoadItem": "LOAD ITEM",
+  "ongoingCardLocateTrip": "Locate Trip",
+  "ongoingCardNoVehicle": "No Vehicle",
+  "ongoingCardOngoingTrips": "Ongoing Trips",
+  "ongoingCardRrSync": "RR Sync",
+  "ongoingCardStage0CompleteS1": "Stage 0 · Complete S1 to sync RR",
+  "ongoingCardStage0NotSynced": "Stage 0 · Not synced to RR",
+  "ongoingCardStageComplianceCheck": "Compliance Check",
+  "ongoingCardStageDieselReceipt": "Diesel Receipt",
+  "ongoingCardStageExitCheck": "Exit Check",
+  "ongoingCardStageFactoryArrival": "Factory Arrival",
+  "ongoingCardStageTruckRegistration": "Truck Registration",
+  "ongoingCardSyncFailed": "RR sync failed",
+  "ongoingCardTripCompleted": "Trip Completed",
+  "ongoingCardTripNumber": "TRIP NUMBER",
+  "ongoingCardViewAll": "View all",
+  "ongoingCardViewDetails": "View Details",
+  "ongoingCardWeight": "WEIGHT",
+  "recvDocsAttachImageRequired": "Please attach the receiving sheet image",
+  "recvDocsAttachPhoto": "Attach receiving sheet photo",
+  "recvDocsBy": "By {name}",
+  "@recvDocsBy": {
+    "description": "Card line: who uploaded it",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "recvDocsChooseGallery": "Choose from Gallery",
+  "recvDocsDate": "Date",
+  "recvDocsDeleteBody": "This permanently removes the image and cannot be undone.",
+  "recvDocsDeleteFailed": "Delete failed: {error}",
+  "@recvDocsDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "recvDocsDeleteTitle": "Delete receiving doc?",
+  "recvDocsEditTitle": "Edit Receiving Doc",
+  "recvDocsEmpty": "No receiving docs uploaded yet",
+  "recvDocsEmptyForDate": "No receiving docs found for that date",
+  "recvDocsLoadFailed": "Failed to load: {error}",
+  "@recvDocsLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "recvDocsOpenDownload": "Open / Download",
+  "recvDocsPickDate": "Pick a date",
+  "recvDocsPickDateRequired": "Please pick the date this receiving sheet is for",
+  "recvDocsPickImageFailed": "Could not pick image: {error}",
+  "@recvDocsPickImageFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "recvDocsSaveChanges": "Save Changes",
+  "recvDocsSearchByDate": "Search by date",
+  "recvDocsSheetDate": "Date this sheet is for",
+  "recvDocsTakePhoto": "Take Photo",
+  "recvDocsTitle": "Receiving Docs",
+  "@recvDocsTitle": {
+    "description": "List screen title"
+  },
+  "recvDocsUpload": "Upload",
+  "recvDocsUploadNew": "Upload New",
+  "recvDocsUploadTitle": "Upload Receiving Doc",
+  "recvDocsUploadedBy": "Uploaded by",
+  "recvDocsViewTitle": "Receiving Doc",
+  "@recvDocsViewTitle": {
+    "description": "Detail screen title"
+  },
+  "rrConnectionActionConnect": "· Connect",
+  "@rrConnectionActionConnect": {
+    "description": "Small action text beside the status badge"
+  },
+  "rrConnectionActionDisconnect": "· Disconnect",
+  "@rrConnectionActionDisconnect": {
+    "description": "Small action text beside the status badge"
+  },
+  "rrConnectionConnected": "Connected",
+  "@rrConnectionConnected": {
+    "description": "Status badge"
+  },
+  "rrConnectionDisconnect": "Disconnect",
+  "@rrConnectionDisconnect": {
+    "description": "Dialog confirm button"
+  },
+  "rrConnectionDisconnectBody": "Sync and pre-fill will stop working for everyone at your company until someone reconnects.",
+  "rrConnectionDisconnectTitle": "Disconnect from RR?",
+  "rrConnectionDisconnected": "Disconnected",
+  "@rrConnectionDisconnected": {
+    "description": "Status badge"
+  },
+  "rrConnectionExpiringSoon": "Expiring Soon",
+  "@rrConnectionExpiringSoon": {
+    "description": "Status badge: RR session about to expire"
+  },
+  "rrLoginButton": "Sign in",
+  "rrLoginEnterCredentials": "Enter your RR username and password",
+  "rrLoginFailed": "Login failed",
+  "@rrLoginFailed": {
+    "description": "Fallback when the server gives no reason"
+  },
+  "rrLoginSubtitle": "Enter your RollingRadius credentials to continue.",
+  "rrLoginTitle": "Sign in to RR",
+  "rrLoginUnexpectedError": "Unexpected error: {error}",
+  "@rrLoginUnexpectedError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "rrLoginUsernameLabel": "Username / Phone",
+  "rrSearchNoMatches": "No matches found",
+  "tripCardAllowFeStage1": "Allow FE to fill Stage 1",
+  "@tripCardAllowFeStage1": {
+    "description": "FE = Field Executive"
+  },
+  "tripCardAlreadyInRecords": "Already in Records",
+  "tripCardAwaitCompanyConfirm": "Let this trip get confirmed by your company",
+  "tripCardBiltyNo": "Bilty No: {number}",
+  "@tripCardBiltyNo": {
+    "placeholders": {
+      "number": {
+        "type": "String"
+      }
+    }
+  },
+  "tripCardBookingConfirmFailed": "Could not confirm booking",
+  "tripCardBookingConfirmed": "Booking confirmed",
+  "tripCardBookingNeedsConfirm": "Booking needs confirmation",
+  "tripCardCompletedViewOnly": "Completed trips are view only",
+  "tripCardConfirmBooking": "Confirm Booking",
+  "tripCardCreated": "Created {when}",
+  "@tripCardCreated": {
+    "description": "{when} is a formatted date/time such as \"5 Oct, 3:15 PM\"",
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "tripCardDismiss": "Dismiss",
+  "@tripCardDismiss": {
+    "description": "Accessibility label for the dialog backdrop"
+  },
+  "tripCardEditTrip": "Edit trip",
+  "tripCardLabelAxleType": "Axle Type",
+  "@tripCardLabelAxleType": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelBiltyNumber": "Bilty Number",
+  "@tripCardLabelBiltyNumber": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelBodyType": "Body Type",
+  "@tripCardLabelBodyType": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelConsignee": "Consignee",
+  "@tripCardLabelConsignee": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelConsigneeGstin": "Consignee GSTIN",
+  "@tripCardLabelConsigneeGstin": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelConsignor": "Consignor",
+  "@tripCardLabelConsignor": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelConsignorGstin": "Consignor GSTIN",
+  "@tripCardLabelConsignorGstin": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelCreatedAt": "Created At",
+  "@tripCardLabelCreatedAt": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelDepotCode": "Depot Code",
+  "@tripCardLabelDepotCode": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelDescription": "Description",
+  "@tripCardLabelDescription": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelMaterial": "Material",
+  "@tripCardLabelMaterial": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelPartLoad": "Part Load",
+  "@tripCardLabelPartLoad": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelPickupAddress": "Pickup Address",
+  "@tripCardLabelPickupAddress": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelTotalInvoiceValue": "Total Invoice Value",
+  "@tripCardLabelTotalInvoiceValue": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelUnloadAddress": "Unload Address",
+  "@tripCardLabelUnloadAddress": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelVehicle": "Vehicle",
+  "@tripCardLabelVehicle": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelWeight": "Weight",
+  "@tripCardLabelWeight": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardLabelWheels": "Wheels",
+  "@tripCardLabelWheels": {
+    "description": "Label in the expanded trip info list"
+  },
+  "tripCardMoveToRecords": "Move to Records",
+  "tripCardMoveToRecordsFailed": "Could not move trip to Records",
+  "tripCardMovedToRecords": "Trip moved to Records",
+  "tripCardResumeConflict": "Cannot resume — {driver} has already been assigned to a new trip",
+  "@tripCardResumeConflict": {
+    "placeholders": {
+      "driver": {
+        "type": "String"
+      }
+    }
+  },
+  "tripCardResumeFailed": "Could not resume driver tracking",
+  "tripCardResumeTracking": "Resume Driver Tracking for this Trip",
+  "tripCardRetryBookingFailed": "Could not retry booking — try again",
+  "tripCardStillFailing": "Still failing — check back or try again",
+  "tripCardStillFailingWith": "Still failing: {error}",
+  "@tripCardStillFailingWith": {
+    "description": "{error} is the sync error text from the server",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "tripCardStopTracking": "Stop Driver Tracking for this Trip",
+  "tripCardStopTrackingBody": "This will release {driver} from this trip so they can be assigned to a new trip. You can resume tracking for this trip later, but only if this driver has not already been assigned to a new trip by then. Continue?",
+  "@tripCardStopTrackingBody": {
+    "description": "{driver} is the driver name, or the fallback tripCardTheDriver",
+    "placeholders": {
+      "driver": {
+        "type": "String"
+      }
+    }
+  },
+  "tripCardStopTrackingButton": "Stop Tracking",
+  "tripCardStopTrackingFailed": "Could not stop driver tracking",
+  "tripCardStopTrackingTitle": "Stop Driver Tracking",
+  "tripCardSyncedToRr": "Synced to RR",
+  "tripCardTheDriver": "the driver",
+  "@tripCardTheDriver": {
+    "description": "Fallback when the driver name is missing"
+  },
+  "tripCardThisDriver": "this driver",
+  "@tripCardThisDriver": {
+    "description": "Fallback when the driver name is missing"
+  },
+  "tripCardTrackDriver": "Track Driver Location",
+  "tripCardTrackingResumed": "Driver tracking resumed for this trip",
+  "tripCardTrackingStopped": "Driver tracking stopped for this trip",
+  "tripCardTripInfo": "Trip Info",
+  "tripCardUpdateFailed": "Failed to update — try again",
+  "tripSearchHint": "Search by trip number",
+  "tripStatusCancelled": "Cancelled",
+  "@tripStatusCancelled": {
+    "description": "Trip status badge"
+  },
+  "tripStatusCompleted": "Completed",
+  "@tripStatusCompleted": {
+    "description": "Trip status badge"
+  },
+  "tripStatusInTransit": "In Transit",
+  "@tripStatusInTransit": {
+    "description": "Trip status badge"
+  },
+  "tripStatusOngoing": "Ongoing",
+  "@tripStatusOngoing": {
+    "description": "Trip status badge (trip has started, not yet in transit)"
+  },
+  "tripStatusPending": "Pending",
+  "@tripStatusPending": {
+    "description": "Trip/stage status; not started yet"
+  },
+  "driverAssignedDriver": "DRIVER",
+  "driverAssignedGoToTrip": "Go to Trip Assignment",
+  "driverAssignedHeading": "Vehicle Assigned Successfully",
+  "driverAssignedReturn": "Return to Fleet Overview",
+  "driverAssignedSubtitle": "The driver and vehicle are now linked in the system and ready for dispatch.",
+  "driverAssignedTitle": "Confirmation",
+  "driverAssignedUnitId": "UNIT ID: {id}",
+  "@driverAssignedUnitId": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "driverAssignedVehicle": "VEHICLE",
+  "driverAssignedViewVehicle": "View Vehicle Details",
+  "driverDashBAddress": "Address",
+  "driverDashBAge": "Age",
+  "driverDashBAgeYears": "{years} years",
+  "@driverDashBAgeYears": {
+    "placeholders": {
+      "years": {
+        "type": "int"
+      }
+    }
+  },
+  "driverDashBAssignedBy": "Assigned by",
+  "driverDashBAssignedOn": "Assigned on",
+  "driverDashBAssignedVehicle": "Assigned Vehicle",
+  "driverDashBAuthority": "Authority",
+  "driverDashBClass": "Class",
+  "driverDashBCountry": "Country",
+  "driverDashBDob": "Date of Birth",
+  "driverDashBEmail": "Email",
+  "driverDashBEmergencyContact": "Emergency Contact",
+  "driverDashBEmployeeId": "Employee ID",
+  "driverDashBEmployeeIdShort": "ID: {id}",
+  "@driverDashBEmployeeIdShort": {
+    "placeholders": {
+      "id": {
+        "type": "String"
+      }
+    }
+  },
+  "driverDashBExpired": "Expired",
+  "driverDashBExpiringIn": "Expiring in {days} days",
+  "@driverDashBExpiringIn": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "driverDashBExpiryDate": "Expiry Date",
+  "driverDashBFuel": "Fuel",
+  "driverDashBFuelReceipt": "Fuel\nReceipt",
+  "driverDashBFullName": "Full Name",
+  "driverDashBIssueDate": "Issue Date",
+  "driverDashBIssuingState": "Issuing State",
+  "driverDashBLicenseDetails": "License Details",
+  "driverDashBLicenseExpiredOn": "License expired on {date}",
+  "@driverDashBLicenseExpiredOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "driverDashBLicenseExpiresOn": "License expires on {date} — renew soon",
+  "@driverDashBLicenseExpiresOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "driverDashBLicenseNumber": "License Number",
+  "driverDashBName": "Name",
+  "driverDashBNoEmergency": "No emergency contact on file",
+  "driverDashBNoLicense": "No license on file",
+  "driverDashBNoVehicle": "No vehicle assigned",
+  "driverDashBNotFound": "Driver not found",
+  "driverDashBPersonalInfo": "Personal Information",
+  "driverDashBPhone": "Phone",
+  "driverDashBQuickActions": "QUICK ACTIONS",
+  "driverDashBRegNo": "Reg No",
+  "driverDashBRelationship": "Relationship",
+  "driverDashBReportIssue": "Report\nIssue",
+  "driverDashBSafetyCheck": "Safety\nCheck",
+  "driverDashBStatus": "Status",
+  "driverDashBTitle": "Driver",
+  "driverDashBType": "Type",
+  "driverDashBValidDaysLeft": "Valid ({days} days left)",
+  "@driverDashBValidDaysLeft": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "driverDashBViewVehicle": "View Vehicle Details",
+  "driverOnboardCertDefensive": "Defensive Driving",
+  "driverOnboardCertDetails": "CERTIFICATION DETAILS",
+  "driverOnboardCertFirstAid": "First Aid/CPR",
+  "driverOnboardCertFuel": "Fuel Efficiency Training",
+  "driverOnboardCertHazmat": "HAZMAT Handling",
+  "driverOnboardCompletionDate": "COMPLETION DATE",
+  "driverOnboardCoreCerts": "CORE CERTIFICATIONS",
+  "driverOnboardDoneAssignVehicle": "Assign Vehicle",
+  "driverOnboardDoneDashboard": "Go to Dashboard",
+  "driverOnboardDoneEmployeeId": "EMPLOYEE ID",
+  "driverOnboardDoneHeading": "Driver Added Successfully",
+  "driverOnboardDoneNotified": "Driver has been notified via email and SMS",
+  "driverOnboardDoneReady": "Ready for Assignment",
+  "driverOnboardDoneStatus": "STATUS",
+  "driverOnboardDoneSubtitle": "The driver registration process is complete and verified.",
+  "driverOnboardDoneViewProfile": "View Driver Profile",
+  "driverOnboardExpirationDate": "EXPIRATION DATE",
+  "driverOnboardHeading": "Training & Certifications",
+  "driverOnboardNextReview": "Next: Review",
+  "driverOnboardPercentComplete": "66% Complete",
+  "driverOnboardSelectDate": "Select date",
+  "driverOnboardSkills": "SPECIALIZED SKILLS",
+  "driverOnboardSkillsHelp": "List any other relevant qualifications or equipment experience (e.g., forklift license, refrigerated cargo handling).",
+  "driverOnboardSkillsHint": "Type your additional skills here...",
+  "driverOnboardStep": "STEP 2 OF 3",
+  "driverOnboardSubtitle": "Please provide details of your professional certifications and specialized skills.",
+  "driverOnboardTitle": "Onboarding",
+  "driverOnboardUploadCert": "Upload Certificate (PDF/JPG)",
+  "driverSelectVehicleAssigningTo": "ASSIGNING TO",
+  "driverSelectVehicleAvailableCount": "{count} Available Vehicles",
+  "@driverSelectVehicleAvailableCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "driverSelectVehicleChange": "Change",
+  "driverSelectVehicleFilterAll": "All Units",
+  "driverSelectVehicleFilterHeavy": "Heavy Duty",
+  "driverSelectVehicleFilterLowFuel": "Low Fuel",
+  "driverSelectVehicleFilterMedium": "Medium Duty",
+  "driverSelectVehicleFuelLevel": "FUEL LEVEL",
+  "driverSelectVehicleOdometer": "ODOMETER",
+  "driverSelectVehicleSearchHint": "Search Unit ID, VIN or Model...",
+  "driverSelectVehicleSelect": "Select Vehicle",
+  "driverSelectVehicleSort": "Sort",
+  "driverSelectVehicleStatusAvailable": "Available",
+  "driverSelectVehicleStatusLowFuel": "Low Fuel",
+  "driverSelectVehicleTitle": "Assign Vehicle",
+  "driverDashActiveTripBadge": "ACTIVE TRIP",
+  "@driverDashActiveTripBadge": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashDetails": "Details",
+  "@driverDashDetails": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashFrom": "FROM",
+  "@driverDashFrom": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashGoodAfternoon": "Good afternoon",
+  "@driverDashGoodAfternoon": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashGoodEvening": "Good evening",
+  "@driverDashGoodEvening": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashGoodMorning": "Good morning",
+  "@driverDashGoodMorning": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashNoActiveTrip": "No Active Trip",
+  "@driverDashNoActiveTrip": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashNoOngoingTrips": "You have no ongoing trips right now.",
+  "@driverDashNoOngoingTrips": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashOngoingWarning": "Your trip is still ongoing — please keep location turned on.",
+  "@driverDashOngoingWarning": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashProgress": "Progress",
+  "@driverDashProgress": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashTapToEnable": "Tap to Enable",
+  "@driverDashTapToEnable": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashTo": "TO",
+  "@driverDashTo": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverDashTrackingOn": "Tracking On",
+  "@driverDashTrackingOn": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeCurrentTrip": "Current Trip",
+  "@driverHomeCurrentTrip": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeDropoff": "DROPOFF",
+  "@driverHomeDropoff": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeEta": "ETA: {time}",
+  "@driverHomeEta": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "driverHomeGreeting": "Good morning, {name} 👋",
+  "@driverHomeGreeting": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "driverHomeInProgress": "IN PROGRESS",
+  "@driverHomeInProgress": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeNavigateDropoff": "Navigate to Dropoff",
+  "@driverHomeNavigateDropoff": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeOnDuty": "On Duty",
+  "@driverHomeOnDuty": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomePickup": "PICKUP",
+  "@driverHomePickup": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeScheduled": "Scheduled",
+  "@driverHomeScheduled": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeStatDone": "Done",
+  "@driverHomeStatDone": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeStatLeft": "Left",
+  "@driverHomeStatLeft": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeStatTotal": "Total",
+  "@driverHomeStatTotal": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeTomorrow": "Tomorrow",
+  "@driverHomeTomorrow": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeUpcomingTrips": "Upcoming Trips",
+  "@driverHomeUpcomingTrips": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverHomeViewAll": "View All",
+  "@driverHomeViewAll": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleAssignedUnit": "Assigned Unit",
+  "@driverVehicleAssignedUnit": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleAvailable": "Available",
+  "@driverVehicleAvailable": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleBattery": "Battery",
+  "@driverVehicleBattery": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleBrakeInspection": "Brake Inspection",
+  "@driverVehicleBrakeInspection": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleClassA": "Class A",
+  "@driverVehicleClassA": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleDiesel": "Diesel",
+  "@driverVehicleDiesel": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleEngineTemp": "Engine Temp",
+  "@driverVehicleEngineTemp": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleFuelLevel": "Fuel Level",
+  "@driverVehicleFuelLevel": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleHeavyDuty": "Heavy Duty",
+  "@driverVehicleHeavyDuty": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleLastOilChange": "Last Oil Change",
+  "@driverVehicleLastOilChange": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleLogRefuel": "Log Refuel",
+  "@driverVehicleLogRefuel": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleMaintenanceStatus": "Maintenance Status",
+  "@driverVehicleMaintenanceStatus": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleNextServiceDue": "Next Service Due",
+  "@driverVehicleNextServiceDue": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleNormal": "Normal",
+  "@driverVehicleNormal": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleOdometer": "Odometer",
+  "@driverVehicleOdometer": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehiclePreTripCheck": "Pre-Trip Check",
+  "@driverVehiclePreTripCheck": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleQuickActions": "Quick Actions",
+  "@driverVehicleQuickActions": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleReportIssue": "Report Issue",
+  "@driverVehicleReportIssue": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleTitle": "My Vehicle",
+  "@driverVehicleTitle": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleUpToDate": "UP TO DATE",
+  "@driverVehicleUpToDate": {
+    "description": "Driver/FE dashboard label"
+  },
+  "driverVehicleViewHistory": "View History",
+  "@driverVehicleViewHistory": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashAboutRr": "About RR Logistics",
+  "@feDashAboutRr": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashActiveTrips": "Active Trips",
+  "@feDashActiveTrips": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashActiveTripsCount": "{count, plural, =1{{count} active trip} other{{count} active trips}}",
+  "@feDashActiveTripsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "feDashClearAll": "Clear all",
+  "@feDashClearAll": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashDaysAgo": "{count}d ago",
+  "@feDashDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "feDashHelpComingSoon": "Help & Support coming soon.",
+  "@feDashHelpComingSoon": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashHelpSupport": "Help & Support",
+  "@feDashHelpSupport": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashHoursAgo": "{count}h ago",
+  "@feDashHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "feDashJustNow": "Just now",
+  "@feDashJustNow": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashLive": "LIVE",
+  "@feDashLive": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashLoadTripsFailed": "Could not load trips",
+  "@feDashLoadTripsFailed": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashLogOut": "Log Out",
+  "@feDashLogOut": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashLogout": "Logout",
+  "@feDashLogout": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashMarkAllRead": "Mark all read",
+  "@feDashMarkAllRead": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashMinutesAgo": "{count}m ago",
+  "@feDashMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "feDashMore": "MORE",
+  "@feDashMore": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashNavDashboard": "Dashboard",
+  "@feDashNavDashboard": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashNavProfile": "Profile",
+  "@feDashNavProfile": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashNavRecords": "Records",
+  "@feDashNavRecords": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashNavigation": "NAVIGATION",
+  "@feDashNavigation": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashNoActiveTrips": "No active trips",
+  "@feDashNoActiveTrips": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashNoActiveTripsHint": "You will be notified when a new trip is assigned",
+  "@feDashNoActiveTripsHint": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashNoNotifications": "No notifications",
+  "@feDashNoNotifications": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashNoSyncedTrips": "No synced trips yet",
+  "@feDashNoSyncedTrips": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashNoTripsMatch": "No trips match \"{query}\"",
+  "@feDashNoTripsMatch": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "feDashNotifications": "Notifications",
+  "@feDashNotifications": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashRecordsTitle": "RR Web Records",
+  "@feDashRecordsTitle": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashSearchBilty": "Search by bilty number",
+  "@feDashSearchBilty": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashSettings": "Settings",
+  "@feDashSettings": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashSyncedCount": "{count} synced",
+  "@feDashSyncedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "feDashSyncedTrips": "Synced trips",
+  "@feDashSyncedTrips": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashSyncedTripsHint": "Trips synced to RR web will appear here",
+  "@feDashSyncedTripsHint": {
+    "description": "Driver/FE dashboard label"
+  },
+  "feDashUpdatedAt": "updated {time}",
+  "@feDashUpdatedAt": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "feDashWelcomeBack": "Welcome back, {name}",
+  "@feDashWelcomeBack": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "feDashWorkerFallback": "Worker",
+  "@feDashWorkerFallback": {
+    "description": "Driver/FE dashboard label"
+  },
+  "stageCommonAdd": "Add",
+  "stageCommonAlreadyOnRr": "Already on RR",
+  "stageCommonBackToDashboard": "Back to Dashboard",
+  "stageCommonBrowsePhotos": "Browse photos",
+  "stageCommonCamera": "Camera",
+  "stageCommonCameraDenied": "Permission denied. Enable Camera access for this app in Settings and try again.",
+  "stageCommonCameraFailed": "Could not open camera. Please try again.",
+  "stageCommonCameraOrGallery": "Camera or Gallery",
+  "stageCommonChooseGallery": "Choose from Gallery",
+  "stageCommonCompleteStage": "Complete Stage ✓",
+  "stageCommonConfirmWeight": "Confirm Weight",
+  "stageCommonDraftSaveFailed": "Draft save failed ({status}): {detail}",
+  "@stageCommonDraftSaveFailed": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      },
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "stageCommonDriver": "Driver",
+  "stageCommonEg": "e.g. {value}",
+  "@stageCommonEg": {
+    "description": "Input hint example",
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "stageCommonFailedWith": "Failed: {error}",
+  "@stageCommonFailedWith": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "stageCommonFieldRequired": "{label} is required",
+  "@stageCommonFieldRequired": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "stageCommonFilePickerFailed": "Could not open file picker. Please try again.",
+  "stageCommonFutureNotAllowed": "{label} cannot be a future date/time — using current time instead",
+  "@stageCommonFutureNotAllowed": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "stageCommonGallery": "Gallery",
+  "stageCommonGalleryFailed": "Could not access gallery. Please try again.",
+  "stageCommonHoursAgo": "{hours}h ago",
+  "@stageCommonHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "stageCommonImageLoadFailed": "Could not load image",
+  "stageCommonImageSelected": "Image selected",
+  "stageCommonInsideFactory": "Inside Factory",
+  "stageCommonJustNow": "just now",
+  "stageCommonLastSaved": "Last saved: {time}",
+  "@stageCommonLastSaved": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "stageCommonLoad": "Load",
+  "stageCommonLoadOwner": "Load Owner",
+  "stageCommonLoadOwnerNotified": "Load owner notified successfully!",
+  "stageCommonLoadTripFailed": "Failed to load trip details. Please try again.",
+  "stageCommonLockedSynced": "Locked — already synced to RR",
+  "stageCommonLpTeam": "LP Team",
+  "stageCommonLpTeamNotified": "LP team notified successfully!",
+  "stageCommonMaxChars": "Maximum {count} characters",
+  "@stageCommonMaxChars": {
+    "description": "Validation: input too long",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "stageCommonMinAgo": "{minutes} min ago",
+  "@stageCommonMinAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "stageCommonNotified": "{name} Notified",
+  "@stageCommonNotified": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stageCommonNotify": "Notify {name}",
+  "@stageCommonNotify": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stageCommonNotifyFailed": "Notification failed: {error}",
+  "@stageCommonNotifyFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "stageCommonNumberTooShort": "Too short to be a valid number",
+  "stageCommonOutsideFactory": "Outside Factory",
+  "stageCommonPdfOpenFailed": "Could not open the PDF.",
+  "stageCommonPhone10Digits": "Enter exactly 10 digits",
+  "stageCommonPhoneRequired": "Phone number is required",
+  "stageCommonPhotosDenied": "Permission denied. Enable Photos access for this app in Settings and try again.",
+  "stageCommonPleaseUpload": "Please upload: {docs}",
+  "@stageCommonPleaseUpload": {
+    "description": "Snackbar listing missing required documents",
+    "placeholders": {
+      "docs": {
+        "type": "String"
+      }
+    }
+  },
+  "stageCommonReadOnlyCompleted": "Read-only — Completed Trip",
+  "stageCommonReadyToUpload": "Ready to Upload",
+  "stageCommonRemove": "Remove",
+  "stageCommonReplace": "Replace",
+  "stageCommonRetake": "Retake",
+  "stageCommonSaveContinue": "Save & Continue →",
+  "stageCommonSavingEllipsis": "Saving…",
+  "stageCommonSelectDateTime": "Select date & time",
+  "stageCommonSendingEllipsis": "Sending…",
+  "stageCommonStateCancelled": "CANCELLED",
+  "stageCommonStateCompleted": "COMPLETED",
+  "stageCommonStateInTransit": "IN TRANSIT",
+  "stageCommonStateOngoing": "ONGOING",
+  "stageCommonStatePending": "PENDING",
+  "stageCommonSubmittedBy": "Submitted by @{username}",
+  "@stageCommonSubmittedBy": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "stageCommonSubmittingEllipsis": "Submitting…",
+  "stageCommonTakePhoto": "Take Photo",
+  "stageCommonTapToReplace": "Tap to replace",
+  "stageCommonTapToView": "Tap to view",
+  "stageCommonTrackTruck": "Track Truck",
+  "stageCommonUnknownError": "Unknown error",
+  "stageCommonUploadFailed": "Upload failed",
+  "stageCommonUploadWeighSlip": "Upload Weigh Slip",
+  "stageCommonUploaded": "Uploaded",
+  "stageCommonUploading": "Uploading...",
+  "stageCommonUploadingEllipsis": "Uploading…",
+  "stageCommonUseCamera": "Use camera",
+  "stageCommonVehicle": "Vehicle",
+  "stageCommonWeighSlip": "Weigh Slip",
+  "stageCommonWeight": "Weight",
+  "stageCommonWeightRecorded": "Weight recorded: {weight} {unit}",
+  "@stageCommonWeightRecorded": {
+    "description": "{unit} is kg or tons as stored, not translated",
+    "placeholders": {
+      "weight": {
+        "type": "String"
+      },
+      "unit": {
+        "type": "String"
+      }
+    }
+  },
+  "stageDocAadhaarCard": "Aadhaar Card",
+  "stageDocBackSide": "Back Side",
+  "stageDocBilty": "Bilty",
+  "stageDocCancelledCheque": "Cancelled Cheque (Owner / Transporter)",
+  "stageDocDrivingLicense": "Driving License",
+  "stageDocDrivingLicenseBack": "Driving License (Back)",
+  "stageDocDrivingLicenseFront": "Driving License (Front)",
+  "stageDocEway": "E-way Bill",
+  "stageDocFitness": "Fitness Certificate",
+  "stageDocFrontSide": "Front Side",
+  "stageDocInsurance": "Insurance",
+  "stageDocInvoice": "Invoice",
+  "stageDocLoadingSlip": "Loading Slip",
+  "stageDocPermit": "Permit",
+  "stageDocPollution": "Pollution Certificate",
+  "stageDocRcFull": "RC (Registration Certificate)",
+  "stageDocTaxDeclaration": "Tax Declaration",
+  "stageRrAllStagesCompleteTitle": "All stages complete",
+  "stageRrLater": "Later",
+  "stageRrNotSyncedSub": "Tap retry to push this trip to RR Web",
+  "stageRrNotSyncedTitle": "Not synced to RR",
+  "stageRrSendToRr": "Send to RR",
+  "stageRrSyncComplete": "Sync complete",
+  "stageRrSyncFailed": "Sync failed: {error}",
+  "@stageRrSyncFailed": {
+    "description": "Snackbar when RR sync fails; {error} is the raw error text",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "stageRrSyncFailedShort": "Sync failed",
+  "stageRrSyncFailedTitle": "RR sync failed",
+  "stageRrSyncNow": "Sync Now",
+  "stageRrSyncPromptBody": "This trip is fully completed. Sync all uploads and data to RR web now?",
+  "stageRrSyncToRrWeb": "Sync to RR web",
+  "stageRrSyncTooltip": "Sync to RR",
+  "stageRrSyncedToRrWeb": "Synced to RR web",
+  "stageRrSyncingEllipsis": "Syncing…",
+  "stageRrTripSynced": "Trip synced",
+  "stageS0Intro": "Before proceeding to Stage 1, complete the following steps:",
+  "stageS0Step1Sub": "Tap Stage 1 in the strip above to enter vehicle & driver details.",
+  "stageS0Step1Title": "Fill Stage 1 — Truck Registration",
+  "stageS0Step2Sub": "Once Stage 1 is complete, use the \"Send to RR\" button above to push the trip.",
+  "stageS0Step2Title": "Sync trip to RR",
+  "stageS0Step3Sub": "After RR sync, proceed with Pre-Arrival Compliance Check.",
+  "stageS0Step3Title": "Continue to Stage 2",
+  "stageS0Title": "Stage 0 — RR Sync",
+  "stageS1AadhaarBackPhoto": "Photo of the back of the Aadhaar card",
+  "stageS1AadhaarFrontPhoto": "Photo of the front of the Aadhaar card",
+  "stageS1AadhaarLength": "Aadhaar must be exactly 12 digits",
+  "stageS1AadhaarNumber": "Aadhaar Number (12 digits)",
+  "stageS1AppointNewDriver": "Appoint New Driver",
+  "stageS1DlBackPhoto": "Photo of the back of the driving license",
+  "stageS1DlFormatHint": "New: RJ1420230012345   Old: RJ14/1234/2009",
+  "stageS1DlFrontPhoto": "Photo of the front of the driving license",
+  "stageS1DlInvalid": "Invalid format — e.g. RJ1420230012345 (state+RTO+year+7 digits)",
+  "stageS1DlNumber": "Driving License No.",
+  "stageS1DlRequired": "Driving License is required",
+  "stageS1DriverName": "Driver Name",
+  "stageS1DriverNameRequired": "Driver Name is required",
+  "stageS1DriverReassigned": "Driver reassigned",
+  "stageS1FitnessNumber": "Fitness Number",
+  "stageS1InsuranceNumber": "Insurance Policy Number",
+  "stageS1NotNecessary": "Filling S1 is not necessary for this trip.",
+  "stageS1OnlyAlphabets": "Only alphabets allowed",
+  "stageS1PermitNumber": "Permit Number",
+  "stageS1PucNumber": "PUC Number",
+  "stageS1RcBackPhoto": "Photo of the back of the RC",
+  "stageS1RcFrontPhoto": "Photo of the front of the RC",
+  "stageS1RcInvalid": "Invalid RC number — must contain both letters and digits",
+  "stageS1RcNumber": "RC Number",
+  "stageS1Reassign": "Reassign",
+  "stageS1ReassignBody": "This trip will be reassigned to {name} on RR — the My Trips list and crew records will update to reflect this.",
+  "@stageS1ReassignBody": {
+    "description": "Confirm dialog body; {name} is the selected driver name",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stageS1ReassignFailed": "Could not reassign driver",
+  "stageS1ReassignTitle": "Reassign Driver?",
+  "stageS1ReassignTo": "Reassign to {name}",
+  "@stageS1ReassignTo": {
+    "description": "Button to confirm driver reassignment",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "stageS1Saved": "Stage 1 saved. Proceed to compliance check.",
+  "stageS1SearchDriver": "Search Driver by Name or Phone",
+  "stageS1SecDriver": "Driver Details",
+  "stageS1SecOwnerDocs": "Owner Documents",
+  "stageS1SecOwnerPayment": "Truck Owner Payment Details",
+  "stageS1SecVehicleDocs": "Vehicle Documents",
+  "stageS1SelectedDriver": "the selected driver",
+  "stageS1ThisDriver": "this driver",
+  "stageS1Updated": "Stage 1 updated successfully.",
+  "stageS1UploadCancelledCheque": "Upload a cancelled cheque",
+  "stageS1UploadFitness": "Upload fitness certificate",
+  "stageS1UploadInsurance": "Upload insurance document",
+  "stageS1UploadPan": "Upload PAN card",
+  "stageS1UploadPermit": "Upload permit document",
+  "stageS1UploadPollution": "Upload pollution certificate",
+  "stageS1UploadTaxDeclaration": "Upload tax declaration document",
+  "stageS2AttachSlip": "Attach the loading slip image",
+  "stageS2CheckDocs": "All documents uploaded",
+  "stageS2CheckDriverDocs": "Driver documents valid",
+  "stageS2CheckSpecs": "Truck specifications match requirement",
+  "stageS2ChooseSlipSource": "Choose how to add the slip image",
+  "stageS2DharamKanta": "Dharam Kanta (Weighbridge)",
+  "stageS2DharamKantaWhere": "Is the weighbridge inside or outside the factory?",
+  "stageS2Done": "Entry permission issued. Coordinate truck arrival.",
+  "stageS2EmptyWeightLabel": "Empty Truck Weight Before Loading",
+  "stageS2EmptyWeightNote": "Weight recorded outside factory (before loading).",
+  "stageS2EntryIssued": "Truck Entry Permission Issued",
+  "stageS2EntryIssuedNote": "Factory logistics team receives truck number + driver details.",
+  "stageS2ErrCheckEntry": "Please check \"Truck Entry Permission Issued\" before proceeding.",
+  "stageS2ErrConfirmAll": "Please confirm all verification items before proceeding.",
+  "stageS2ErrEmptyWeight": "Please enter a valid empty truck weight (greater than 0) and confirm it.",
+  "stageS2ErrEntryRequired": "Entry Permission must be issued to proceed.",
+  "stageS2ErrSelectWeighbridge": "Please select weighbridge location (Inside or Outside Factory).",
+  "stageS2IssueEntry": "Issue Entry Permission →",
+  "stageS2SlipOptional": "Optional — tap to attach slip image",
+  "stageS2SlipRequiredBody": "Upload the loading slip before the truck can proceed to the factory.",
+  "stageS2SlipRequiredTitle": "Loading Slip Required",
+  "stageS2SlipUploadedBadge": "Slip Uploaded",
+  "stageS2SlipUploadedByTransporter": "Slip uploaded by transporter. Tap image to replace if needed.",
+  "stageS2SlipUploadedTitle": "Loading Slip Uploaded",
+  "stageS2SubmitSlip": "Submit Loading Slip",
+  "stageS2TapToUploadSlip": "Tap to upload loading slip",
+  "stageS2UploadSlipTitle": "Upload Loading Slip",
+  "stageS2Verifies": "RR Executive verifies:",
+  "stageS2VerifiesNote": "All items must be confirmed before issuing entry permission.",
+  "stageS3ArrivalSteps": "Arrival Steps",
+  "stageS3AttachEway": "Attach the e-way bill document",
+  "stageS3AttachInvoice": "Attach the invoice document",
+  "stageS3Coordinates": "RR Executive coordinates with driver:",
+  "stageS3DharamKanta": "Dharma Kanta (Weigh Bridge)",
+  "stageS3DocsToSecurity": "Documents submitted to security",
+  "stageS3DriverParks": "Driver parks outside factory",
+  "stageS3EmptyWeight": "Empty Truck Weight",
+  "stageS3EmptyWeightNote": "Record the empty truck weight before loading.",
+  "stageS3ErrLoadingCompleted": "Please check \"Loading Completed\" before completing the stage.",
+  "stageS3ErrStepsLoading": "All steps must be completed before marking loading complete.",
+  "stageS3ErrStepsStage": "All steps must be completed before completing the stage.",
+  "stageS3EwayExpiryDate": "E-way Bill Expiry Date",
+  "stageS3EwayIssueDate": "E-way Bill Issue Date",
+  "stageS3EwayNumber": "E-way Bill Number",
+  "stageS3ExitCabin": "Driver must exit cabin",
+  "stageS3ExtraInfo": "Extra info (optional)",
+  "stageS3ExtraInfoHint": "Anything that helps — a close-up of the plate, a visible phone number, etc.",
+  "stageS3ExtraPhoto": "Extra photo",
+  "stageS3InvoiceNumber": "Enter Invoice Number",
+  "stageS3InvoiceValue": "Enter Invoice Value (₹, max 10 digits)",
+  "stageS3LoadedWeight": "Loaded Truck Weight",
+  "stageS3LoadedWeightNote": "Record the truck weight after loading is done.",
+  "stageS3LoadingCompleteBody": "Loading complete. Proceed to factory exit.",
+  "stageS3LoadingCompleteTitle": "Truck Loading Complete!",
+  "stageS3LoadingCompleted": "Loading Completed",
+  "stageS3LoadingTiming": "Loading Timing",
+  "stageS3NextStageExit": "Next Stage — Truck Exit →",
+  "stageS3PhotoBack": "Back",
+  "stageS3PhotoFront": "Front",
+  "stageS3PhotoLeft": "Left Side",
+  "stageS3PhotoRight": "Right Side",
+  "stageS3PhotosAdded": "{count}/4 photos added",
+  "@stageS3PhotosAdded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "stageS3PhotosNeedPhone": "{count}/4 photos · phone number needed",
+  "@stageS3PhotosNeedPhone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "stageS3SafetyGear": "Safety shoes and helmet required",
+  "stageS3SafetyRules": "Driver Safety Rules",
+  "stageS3SecurityVerifies": "Security verifies vehicle requirements",
+  "stageS3SendForId": "Send for Identification",
+  "stageS3SentForId": "Sent for identification",
+  "stageS3TruckPhone": "Phone number on the truck",
+  "stageS3TruckPhotosFailed": "Could not send truck photos: {error}",
+  "@stageS3TruckPhotosFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "stageS3TruckPhotosSent": "Truck photos sent for identification.",
+  "stageS3TruckPictures": "Truck Pictures",
+  "stageS3TruckPicturesSub": "Add photos of all 4 sides of the truck",
+  "stageS3UploadEway": "Upload E-way Bill",
+  "stageS3UploadInvoice": "Upload Invoice",
+  "stageS3VehicleReach": "Vehicle Reach Date And Time",
+  "stageS3WheelStoppers": "Wheel stoppers installed",
+  "stageS4BiltyDate": "Bilty Date And Time (Optional)",
+  "stageS4BiltyNumber": "Bilty Number (4 digits)",
+  "stageS4BiltyNumberError": "Bilty Number must be exactly 4 digits",
+  "stageS4ChecklistDone": "Exit checklist complete. Now upload diesel receipt.",
+  "stageS4ChooseReceiptSource": "Choose how to add the receipt image",
+  "stageS4ConfirmAllItems": "Please confirm all items above before proceeding",
+  "stageS4DieselAndBilty": "Diesel Receipt and Bilty",
+  "stageS4DieselReceipt": "Diesel Receipt",
+  "stageS4DocsChecked": "Documents Checked",
+  "stageS4ExitChecklist": "Exit Checklist",
+  "stageS4ExitProcedure": "Exit Procedure",
+  "stageS4ExitTiming": "Exit Timing",
+  "stageS4HeaderDieselSub": "Upload the diesel receipt to complete Stage 4",
+  "stageS4HeaderExit": "Truck Exit From Factory",
+  "stageS4HeaderExitSub": "Verify all exit procedures before releasing truck",
+  "stageS4LoadedWeightSlip": "Loaded Weight Slip",
+  "stageS4ManualBilty": "Manual Bilty Upload",
+  "stageS4ManualBiltySub": "Upload the physical bilty document",
+  "stageS4MaterialDocs": "Material Documents",
+  "stageS4MaterialVerification": "Material Verification Sheet",
+  "stageS4MaterialVerificationSub": "Upload the material verification sheet",
+  "stageS4SecurityVerifies": "Security verifies documents",
+  "stageS4SubmitDiesel": "Submit Diesel Receipt",
+  "stageS4TapToUploadDiesel": "Tap to upload diesel receipt",
+  "stageS4TruckExits": "Truck Exits Factory",
+  "stageS4TruckMoves": "Truck moves to factory exit gate",
+  "stageS4UploadDiesel": "Upload Diesel Receipt",
+  "stageS4VehicleExit": "Vehicle Exit Date And Time",
+  "stageS5AllCompletedBody": "All stages completed including unloading.",
+  "stageS5AllCompletedTitle": "All Stages Completed!",
+  "stageS5AllStagesDone": "All Stages Done",
+  "stageS5CameraGalleryPdf": "Camera, Gallery, or PDF File",
+  "stageS5ChoosePodSource": "Choose how to add the POD document",
+  "stageS5Complete": "Complete Unloading Stage",
+  "stageS5FilePdf": "File (PDF)",
+  "stageS5HaltingCharge": "Halting Charge (Optional)",
+  "stageS5HaltingHint": "Enter amount in ₹ (e.g. 500)",
+  "stageS5Header": "Unloading Stage",
+  "stageS5HeaderDone": "Unloading Stage Complete",
+  "stageS5HeaderDoneSub": "POD uploaded. Tap to replace if needed.",
+  "stageS5HeaderSub": "Upload POD and enter halting charge if applicable.",
+  "stageS5PodRequired": "Please upload the Proof of Delivery document",
+  "stageS5PodTitle": "Proof of Delivery (POD)",
+  "stageS5PodUploadedBadge": "POD Uploaded",
+  "stageS5TapToUploadPod": "Tap to upload POD document",
+  "stageS5UnloadingEnd": "Unloading End Date And Time",
+  "stageS5UnloadingTiming": "Unloading Timing",
+  "stageS5UploadPod": "Upload Proof of Delivery",
+  "stageNameArrival": "Arrival",
+  "@stageNameArrival": {
+    "description": "Short stage-3 name in the stepper (Truck arrival at factory)"
+  },
+  "stageNameCompliance": "Compliance",
+  "@stageNameCompliance": {
+    "description": "Short stage-2 name in the stepper (Pre-arrival compliance check)"
+  },
+  "stageNameDetails": "Details",
+  "@stageNameDetails": {
+    "description": "Short stage-1 name in the stepper (Truck Details)"
+  },
+  "stageNameExit": "Exit",
+  "@stageNameExit": {
+    "description": "Short stage-4 name in the stepper (Truck exit from factory)"
+  },
+  "stageNameUnloading": "Unloading",
+  "@stageNameUnloading": {
+    "description": "Short stage-5 name in the stepper (Unloading / proof of delivery)"
   }
 }
