@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class DriverOnboardingScreen extends StatefulWidget {
   const DriverOnboardingScreen({super.key});
@@ -26,8 +27,23 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
     super.dispose();
   }
 
+  String _certLabel(AppLocalizations l10n, String id) {
+    switch (id) {
+      case 'defensive':
+        return l10n.driverOnboardCertDefensive;
+      case 'hazmat':
+        return l10n.driverOnboardCertHazmat;
+      case 'firstaid':
+        return l10n.driverOnboardCertFirstAid;
+      case 'fuel':
+        return l10n.driverOnboardCertFuel;
+    }
+    return id;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final checkedCerts = _certifications.where((c) => c['checked'] == true).toList();
 
     return Scaffold(
@@ -50,9 +66,9 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                           icon: const Icon(Icons.arrow_back),
                           onPressed: () => Navigator.pop(context),
                         ),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Onboarding',
+                            l10n.driverOnboardTitle,
                             textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
@@ -69,8 +85,8 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'STEP 2 OF 3',
+                              Text(
+                                l10n.driverOnboardStep,
                                 style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w700,
@@ -78,7 +94,7 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                                   letterSpacing: 1,
                                 ),
                               ),
-                              Text('66% Complete',
+                              Text(l10n.driverOnboardPercentComplete,
                                   style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                             ],
                           ),
@@ -107,25 +123,25 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
               children: [
                 // Section heading
-                const Text(
-                  'Training & Certifications',
+                Text(
+                  l10n.driverOnboardHeading,
                   style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Please provide details of your professional certifications and specialized skills.',
+                  l10n.driverOnboardSubtitle,
                   style: TextStyle(fontSize: 13, color: Colors.grey[500], height: 1.4),
                 ),
                 const SizedBox(height: 24),
 
                 // Core Certifications
-                const _SubHeader(text: 'CORE CERTIFICATIONS'),
+                _SubHeader(text: l10n.driverOnboardCoreCerts),
                 const SizedBox(height: 10),
                 ..._certifications.asMap().entries.map((entry) {
                   final cert = entry.value;
                   final isChecked = cert['checked'] as bool;
                   return _CertCheckbox(
-                    label: cert['label'] as String,
+                    label: _certLabel(l10n, cert['id'] as String),
                     checked: isChecked,
                     onChanged: (val) {
                       setState(() => _certifications[entry.key]['checked'] = val ?? false);
@@ -136,17 +152,17 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
 
                 // Certification Details (shown for checked items)
                 if (checkedCerts.isNotEmpty) ...[
-                  const _SubHeader(text: 'CERTIFICATION DETAILS'),
+                  _SubHeader(text: l10n.driverOnboardCertDetails),
                   const SizedBox(height: 10),
-                  ...checkedCerts.map((cert) => _CertDetailCard(label: cert['label'] as String)),
+                  ...checkedCerts.map((cert) => _CertDetailCard(label: _certLabel(l10n, cert['id'] as String))),
                   const SizedBox(height: 24),
                 ],
 
                 // Specialized Skills
-                const _SubHeader(text: 'SPECIALIZED SKILLS'),
+                _SubHeader(text: l10n.driverOnboardSkills),
                 const SizedBox(height: 8),
                 Text(
-                  'List any other relevant qualifications or equipment experience (e.g., forklift license, refrigerated cargo handling).',
+                  l10n.driverOnboardSkillsHelp,
                   style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                 ),
                 const SizedBox(height: 10),
@@ -162,7 +178,7 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                     decoration: InputDecoration(
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.all(16),
-                      hintText: 'Type your additional skills here...',
+                      hintText: l10n.driverOnboardSkillsHint,
                       hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
                     ),
                   ),
@@ -189,7 +205,7 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   side: BorderSide(color: Colors.grey[300]!),
                 ),
-                child: const Text('Back', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(l10n.commonBack, style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(width: 12),
@@ -203,7 +219,7 @@ class _DriverOnboardingScreenState extends State<DriverOnboardingScreen> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                 ),
-                child: const Text('Next: Review', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(l10n.driverOnboardNextReview, style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ],
@@ -309,7 +325,7 @@ class _CertDetailCardState extends State<_CertDetailCard> {
   }
 
   String _formatDate(DateTime? d) {
-    if (d == null) return 'Select date';
+    if (d == null) return AppLocalizations.of(context).driverOnboardSelectDate;
     return '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
   }
 
@@ -337,14 +353,14 @@ class _CertDetailCardState extends State<_CertDetailCard> {
           Row(
             children: [
               Expanded(child: _MiniDate(
-                label: 'COMPLETION DATE',
+                label: AppLocalizations.of(context).driverOnboardCompletionDate,
                 date: _completionDate,
                 onTap: () => _pickDate(_completionDate, (d) => setState(() => _completionDate = d)),
                 formatDate: _formatDate,
               )),
               const SizedBox(width: 12),
               Expanded(child: _MiniDate(
-                label: 'EXPIRATION DATE',
+                label: AppLocalizations.of(context).driverOnboardExpirationDate,
                 date: _expirationDate,
                 onTap: () => _pickDate(_expirationDate, (d) => setState(() => _expirationDate = d)),
                 formatDate: _formatDate,
@@ -374,7 +390,7 @@ class _CertDetailCardState extends State<_CertDetailCard> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Upload Certificate (PDF/JPG)',
+                    AppLocalizations.of(context).driverOnboardUploadCert,
                     style: TextStyle(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w600),
                   ),
                 ),

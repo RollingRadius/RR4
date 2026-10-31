@@ -11,6 +11,7 @@ import 'package:fleet_management/data/services/location_service.dart' show Locat
 import 'package:geolocator/geolocator.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_detail_screen.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 // NOTE: driver dashboard is intentionally minimal + read-only for now —
 // home, trip details (read-only), and logout only. Map/navigate and the
 // quick-actions/stats/vehicle sections below are commented out, not
@@ -122,10 +123,11 @@ class _DriverHomeDashboardScreenState extends ConsumerState<DriverHomeDashboardS
   }
 
   String _greeting() {
+    final l10n = AppLocalizations.of(context);
     final h = DateTime.now().hour;
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
+    if (h < 12) return l10n.driverDashGoodMorning;
+    if (h < 17) return l10n.driverDashGoodAfternoon;
+    return l10n.driverDashGoodEvening;
   }
 
   String _initials(String? fullName, String? username) {
@@ -138,12 +140,13 @@ class _DriverHomeDashboardScreenState extends ConsumerState<DriverHomeDashboardS
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(authProvider).user;
     final tripState = ref.watch(tripProvider);
     final firstName = ((user?.fullName?.isNotEmpty == true)
             ? user!.fullName!.split(' ').first
             : user?.username) ??
-        'Driver';
+        l10n.roleDriver;
 
     final ongoingTrip =
         tripState.trips.where((t) => t.isOngoing).firstOrNull;
@@ -301,6 +304,7 @@ class _OngoingTripLocationWarning extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
       color: const Color(0xFFFFEBEE),
@@ -312,7 +316,7 @@ class _OngoingTripLocationWarning extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Your trip is still ongoing — please keep location turned on.',
+              l10n.driverDashOngoingWarning,
               style: _inter(
                   size: 12,
                   weight: FontWeight.w600,
@@ -337,6 +341,7 @@ class _OngoingTripLocationWarning extends StatelessWidget {
 class _LocationPermissionToggle extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final status = ref.watch(locationTrackingProvider).permissionStatus;
     final granted = status == LocationPermissionStatus.always ||
         status == LocationPermissionStatus.whileInUse;
@@ -370,7 +375,7 @@ class _LocationPermissionToggle extends ConsumerWidget {
             ),
             const SizedBox(width: 4),
             Text(
-              granted ? 'Tracking On' : 'Tap to Enable',
+              granted ? l10n.driverDashTrackingOn : l10n.driverDashTapToEnable,
               style: _inter(
                 size: 10,
                 weight: FontWeight.w700,
@@ -439,6 +444,7 @@ class _ActiveTripCardState extends ConsumerState<_ActiveTripCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final trip = widget.trip;
     return Container(
       decoration: BoxDecoration(
@@ -488,7 +494,7 @@ class _ActiveTripCardState extends ConsumerState<_ActiveTripCard> {
                               color: _primary,
                               borderRadius: BorderRadius.circular(20),
                             ),
-                            child: Text('ACTIVE TRIP',
+                            child: Text(l10n.driverDashActiveTripBadge,
                                 style: _inter(
                                     size: 9,
                                     weight: FontWeight.w800,
@@ -498,7 +504,7 @@ class _ActiveTripCardState extends ConsumerState<_ActiveTripCard> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text('Progress',
+                              Text(l10n.driverDashProgress,
                                   style: _inter(
                                       size: 10,
                                       color: Colors.white
@@ -557,7 +563,7 @@ class _ActiveTripCardState extends ConsumerState<_ActiveTripCard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('FROM',
+                          Text(l10n.driverDashFrom,
                               style: _inter(
                                   size: 9,
                                   weight: FontWeight.w700,
@@ -578,7 +584,7 @@ class _ActiveTripCardState extends ConsumerState<_ActiveTripCard> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('TO',
+                          Text(l10n.driverDashTo,
                               style: _inter(
                                   size: 9,
                                   weight: FontWeight.w700,
@@ -625,7 +631,7 @@ class _ActiveTripCardState extends ConsumerState<_ActiveTripCard> {
                       ),
                     ),
                     icon: const Icon(Icons.info_outline_rounded, size: 16),
-                    label: const Text('Details'),
+                    label: Text(l10n.driverDashDetails),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _primary,
                       side:
@@ -652,6 +658,7 @@ class _NoActiveTripCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -679,10 +686,10 @@ class _NoActiveTripCard extends StatelessWidget {
                 color: _primary, size: 30),
           ),
           const SizedBox(height: 14),
-          Text('No Active Trip',
+          Text(l10n.driverDashNoActiveTrip,
               style: _manrope(size: 16, weight: FontWeight.w800)),
           const SizedBox(height: 6),
-          Text('You have no ongoing trips right now.',
+          Text(l10n.driverDashNoOngoingTrips,
               style: _inter(size: 13), textAlign: TextAlign.center),
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class OnboardingSuccessScreen extends StatelessWidget {
   final String driverName;
@@ -17,6 +18,7 @@ class OnboardingSuccessScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
@@ -63,14 +65,14 @@ class OnboardingSuccessScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'Driver Added Successfully',
+                  Text(
+                    l10n.driverOnboardDoneHeading,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, height: 1.2),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'The driver registration process is complete and verified.',
+                    l10n.driverOnboardDoneSubtitle,
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: Colors.grey[500]),
                   ),
@@ -155,7 +157,7 @@ class OnboardingSuccessScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'EMPLOYEE ID',
+                                    l10n.driverOnboardDoneEmployeeId,
                                     style: TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w700,
@@ -173,7 +175,7 @@ class OnboardingSuccessScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'STATUS',
+                                    l10n.driverOnboardDoneStatus,
                                     style: TextStyle(
                                       fontSize: 9,
                                       fontWeight: FontWeight.w700,
@@ -182,9 +184,9 @@ class OnboardingSuccessScreen extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(height: 4),
-                                  const Text(
-                                    'Ready for Assignment',
-                                    style: TextStyle(
+                                  Text(
+                                    l10n.driverOnboardDoneReady,
+                                    style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w600,
                                       color: Color(0xFF16A34A),
@@ -205,7 +207,7 @@ class OnboardingSuccessScreen extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: () {},
                       icon: const Icon(Icons.directions_car, size: 18),
-                      label: const Text('Assign Vehicle', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      label: Text(l10n.driverOnboardDoneAssignVehicle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _primary,
                         foregroundColor: Colors.white,
@@ -223,7 +225,7 @@ class OnboardingSuccessScreen extends StatelessWidget {
                       onPressed: () {},
                       icon: Icon(Icons.person, size: 18, color: Colors.grey[800]),
                       label: Text(
-                        'View Driver Profile',
+                        l10n.driverOnboardDoneViewProfile,
                         style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: Colors.grey[800]),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -239,7 +241,7 @@ class OnboardingSuccessScreen extends StatelessWidget {
                   TextButton.icon(
                     onPressed: () => Navigator.pop(context),
                     icon: Icon(Icons.dashboard, size: 14, color: Colors.grey[500]),
-                    label: Text('Go to Dashboard', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                    label: Text(l10n.driverOnboardDoneDashboard, style: TextStyle(color: Colors.grey[500], fontSize: 13)),
                   ),
                   const SizedBox(height: 28),
                   // Footer hint
@@ -249,7 +251,7 @@ class OnboardingSuccessScreen extends StatelessWidget {
                       Icon(Icons.info_outline, size: 12, color: Colors.grey[400]),
                       const SizedBox(width: 6),
                       Text(
-                        'Driver has been notified via email and SMS',
+                        l10n.driverOnboardDoneNotified,
                         style: TextStyle(fontSize: 11, color: Colors.grey[400]),
                       ),
                     ],

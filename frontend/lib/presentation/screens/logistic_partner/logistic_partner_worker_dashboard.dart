@@ -11,6 +11,7 @@ import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:fleet_management/presentation/widgets/rr_trip_card.dart';
 import 'package:fleet_management/presentation/widgets/trip_search_field.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 // ─── Typography ───────────────────────────────────────────────────────────────
 TextStyle _manrope({
@@ -242,6 +243,7 @@ class _WorkerNotificationsSheetState
     extends ConsumerState<_WorkerNotificationsSheet> {
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final items = ref.watch(notificationsProvider).items;
     final newWorkNotifs = items
         .where((n) => n.type == 'new_work' || n.type == 'trip_complete' || n.type == 'trip_cancelled' || n.type == 'load_cancelled')
@@ -272,7 +274,7 @@ class _WorkerNotificationsSheetState
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               child: Row(
                 children: [
-                  Text('Notifications',
+                  Text(l10n.feDashNotifications,
                       style: _manrope(size: 17, weight: FontWeight.w700)),
                   const Spacer(),
                   if (newWorkNotifs.any((n) => !n.isRead))
@@ -280,7 +282,7 @@ class _WorkerNotificationsSheetState
                       onTap: () => ref
                           .read(notificationsProvider.notifier)
                           .markAllRead(),
-                      child: Text('Mark all read',
+                      child: Text(l10n.feDashMarkAllRead,
                           style: _inter(
                               size: 13,
                               weight: FontWeight.w600,
@@ -295,7 +297,7 @@ class _WorkerNotificationsSheetState
                             .clearAll();
                         Navigator.pop(context);
                       },
-                      child: Text('Clear all',
+                      child: Text(l10n.feDashClearAll,
                           style: _inter(
                               size: 13,
                               weight: FontWeight.w600,
@@ -316,7 +318,7 @@ class _WorkerNotificationsSheetState
                               size: 48,
                               color: _secondary.withOpacity(0.4)),
                           const SizedBox(height: 12),
-                          Text('No notifications',
+                          Text(l10n.feDashNoNotifications,
                               style: _inter(size: 14, color: _secondary)),
                         ],
                       ),
@@ -363,6 +365,7 @@ class _WorkerNotifTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Dismissible(
       key: ValueKey(notif.id),
       direction: DismissDirection.endToStart,
@@ -433,7 +436,7 @@ class _WorkerNotifTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis),
                     if (notif.createdAt != null) ...[
                       const SizedBox(height: 4),
-                      Text(_formatTime(notif.createdAt!),
+                      Text(_formatTime(notif.createdAt!, l10n),
                           style: _inter(size: 11, color: _secondary)),
                     ],
                   ],
@@ -482,14 +485,14 @@ class _WorkerNotifTile extends StatelessWidget {
     }
   }
 
-  String _formatTime(String iso) {
+  String _formatTime(String iso, AppLocalizations l10n) {
     try {
       final dt = DateTime.parse(iso).toLocal();
       final diff = DateTime.now().difference(dt);
-      if (diff.inMinutes < 1) return 'Just now';
-      if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-      if (diff.inHours < 24) return '${diff.inHours}h ago';
-      return '${diff.inDays}d ago';
+      if (diff.inMinutes < 1) return l10n.feDashJustNow;
+      if (diff.inMinutes < 60) return l10n.feDashMinutesAgo(diff.inMinutes);
+      if (diff.inHours < 24) return l10n.feDashHoursAgo(diff.inHours);
+      return l10n.feDashDaysAgo(diff.inDays);
     } catch (_) {
       return '';
     }
@@ -504,14 +507,14 @@ class _WorkerBottomNav extends StatelessWidget {
   const _WorkerBottomNav(
       {required this.selectedIndex, required this.onTap});
 
-  static const _items = [
-    (Icons.dashboard_rounded, 'DASHBOARD', 0),
-    (Icons.history_rounded, 'RECORDS', 1),
-    (Icons.person_outline, 'PROFILE', 2),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final navItems = [
+      (Icons.dashboard_rounded, l10n.feDashNavDashboard.toUpperCase(), 0),
+      (Icons.history_rounded, l10n.feDashNavRecords.toUpperCase(), 1),
+      (Icons.person_outline, l10n.feDashNavProfile.toUpperCase(), 2),
+    ];
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       child: BackdropFilter(
@@ -540,7 +543,7 @@ class _WorkerBottomNav extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: _items.map((item) {
+                children: navItems.map((item) {
                   final (icon, label, navIdx) = item;
                   final active = navIdx == selectedIndex;
                   return GestureDetector(
@@ -622,8 +625,9 @@ class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
   @override
   Widget build(BuildContext context) {
     final tripState = ref.watch(tripProvider);
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(authProvider).user;
-    final firstName = user?.fullName.split(' ').first ?? 'Worker';
+    final firstName = user?.fullName.split(' ').first ?? l10n.feDashWorkerFallback;
     // Fleet status: backend (rr_web=true) already scopes this to trips not yet
     // explicitly moved to Records (moved_to_records_at is null) — no extra
     // client-side filtering here. Finishing Stage 5 sync does NOT remove a
@@ -652,11 +656,11 @@ class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Welcome back, $firstName',
+              l10n.feDashWelcomeBack(firstName),
               style: _manrope(size: 22, weight: FontWeight.w800),
             ),
             const SizedBox(height: 2),
-            Text('Field Executive',
+            Text(l10n.roleFieldExecutive,
                 style: _inter(size: 13, color: _secondary)),
             const SizedBox(height: 24),
 
@@ -681,7 +685,7 @@ class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
                 Expanded(
                   child: TripSearchField(
                     controller: _biltySearchCtrl,
-                    hintText: 'Search by bilty number',
+                    hintText: l10n.feDashSearchBilty,
                     onChanged: (v) {
                     setState(() => _biltyQuery = v);
                     _onSearchChanged();
@@ -733,8 +737,9 @@ class _WorkerFleetStatusHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final lastUpdated = ref.watch(tripProvider).lastUpdated;
-    final updatedStr = lastUpdated != null ? _fmt(lastUpdated) : null;
+    final updatedStr = lastUpdated != null ? _fmt(lastUpdated, l10n) : null;
 
     return Row(
       children: [
@@ -742,12 +747,12 @@ class _WorkerFleetStatusHeader extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Active Trips',
+              Text(l10n.feDashActiveTrips,
                   style: _manrope(size: 17, weight: FontWeight.w800)),
               Text(
                 tripCount == 0
-                    ? 'No active trips'
-                    : '$tripCount active trip${tripCount == 1 ? '' : 's'}'
+                    ? l10n.feDashNoActiveTrips
+                    : '${l10n.feDashActiveTripsCount(tripCount)}'
                         '${updatedStr != null ? ' · $updatedStr' : ''}',
                 style: _inter(size: 12),
               ),
@@ -773,7 +778,7 @@ class _WorkerFleetStatusHeader extends ConsumerWidget {
                       shape: BoxShape.circle, color: Color(0xFF22C55E)),
                 ),
                 const SizedBox(width: 5),
-                Text('LIVE',
+                Text(l10n.feDashLive,
                     style: _inter(
                             size: 9,
                             weight: FontWeight.w800,
@@ -787,10 +792,10 @@ class _WorkerFleetStatusHeader extends ConsumerWidget {
   }
 }
 
-String _fmt(DateTime dt) {
+String _fmt(DateTime dt, AppLocalizations l10n) {
   final h = dt.hour.toString().padLeft(2, '0');
   final m = dt.minute.toString().padLeft(2, '0');
-  return 'updated $h:$m';
+  return l10n.feDashUpdatedAt('$h:$m');
 }
 
 // ─── Empty trips ──────────────────────────────────────────────────────────────
@@ -798,6 +803,7 @@ String _fmt(DateTime dt) {
 class _EmptyTrips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 28),
       decoration: BoxDecoration(
@@ -811,13 +817,13 @@ class _EmptyTrips extends StatelessWidget {
           children: [
             const Icon(Icons.route_rounded, color: _secondary, size: 40),
             const SizedBox(height: 8),
-            Text('No active trips',
+            Text(l10n.feDashNoActiveTrips,
                 style: _inter(
                     size: 14,
                     weight: FontWeight.w600,
                     color: _secondary)),
             const SizedBox(height: 4),
-            Text('You will be notified when a new trip is assigned',
+            Text(l10n.feDashNoActiveTripsHint,
                 style: _inter(size: 12)),
           ],
         ),
@@ -834,6 +840,7 @@ class _NoSearchMatches extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 28),
       decoration: BoxDecoration(
@@ -847,7 +854,7 @@ class _NoSearchMatches extends StatelessWidget {
           children: [
             const Icon(Icons.search_off_rounded, color: _secondary, size: 40),
             const SizedBox(height: 8),
-            Text('No trips match "$query"',
+            Text(l10n.feDashNoTripsMatch(query),
                 style: _inter(size: 14, weight: FontWeight.w600, color: _secondary)),
           ],
         ),
@@ -865,6 +872,7 @@ class _TripsError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
       decoration: BoxDecoration(
@@ -878,7 +886,7 @@ class _TripsError extends StatelessWidget {
         children: [
           const Icon(Icons.error_outline_rounded, color: _error, size: 36),
           const SizedBox(height: 8),
-          Text('Could not load trips',
+          Text(l10n.feDashLoadTripsFailed,
               style:
                   _inter(size: 13, weight: FontWeight.w600, color: _error)),
           const SizedBox(height: 4),
@@ -895,7 +903,7 @@ class _TripsError extends StatelessWidget {
                 color: _error,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Text('Retry',
+              child: Text(l10n.commonRetry,
                   style: _inter(
                       size: 13,
                       weight: FontWeight.w600,
@@ -938,6 +946,7 @@ class _WorkerProfileTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(authProvider).user;
 
     return Padding(
@@ -970,7 +979,7 @@ class _WorkerProfileTab extends ConsumerWidget {
               color: _tertiary.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Text('Field Executive',
+            child: Text(l10n.roleFieldExecutive,
                 style: _inter(
                     size: 12,
                     weight: FontWeight.w700,
@@ -981,7 +990,7 @@ class _WorkerProfileTab extends ConsumerWidget {
           const SizedBox(height: 16),
           ListTile(
             leading: const Icon(Icons.settings_outlined, color: _secondary),
-            title: Text('Settings',
+            title: Text(l10n.feDashSettings,
                 style: _inter(
                     size: 15,
                     weight: FontWeight.w600,
@@ -990,14 +999,14 @@ class _WorkerProfileTab extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.help_outline_rounded, color: _secondary),
-            title: Text('Help & Support',
+            title: Text(l10n.feDashHelpSupport,
                 style: _inter(
                     size: 15,
                     weight: FontWeight.w600,
                     color: _onSurface)),
             onTap: () => ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Help & Support coming soon.',
+                content: Text(l10n.feDashHelpComingSoon,
                     style: _inter(size: 13, color: Colors.white)),
                 backgroundColor: _secondary,
                 behavior: SnackBarBehavior.floating,
@@ -1008,7 +1017,7 @@ class _WorkerProfileTab extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.logout, color: _error),
-            title: Text('Logout',
+            title: Text(l10n.feDashLogout,
                 style: _inter(
                     size: 15,
                     weight: FontWeight.w600,
@@ -1031,6 +1040,7 @@ class _WorkerRecordsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final state = ref.watch(completedTripsProvider);
     final trips = [...state.trips]
       ..sort((a, b) => (b.createdAt ?? '').compareTo(a.createdAt ?? ''));
@@ -1052,9 +1062,9 @@ class _WorkerRecordsTab extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('RR Web Records',
+                        Text(l10n.feDashRecordsTitle,
                             style: _manrope(size: 20, weight: FontWeight.w800)),
-                        Text('Synced trips',
+                        Text(l10n.feDashSyncedTrips,
                             style: _inter(size: 12, color: _secondary)),
                       ],
                     ),
@@ -1067,7 +1077,7 @@ class _WorkerRecordsTab extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      '${trips.length} synced',
+                      l10n.feDashSyncedCount(trips.length),
                       style: _inter(
                           size: 11,
                           weight: FontWeight.w700,
@@ -1099,7 +1109,7 @@ class _WorkerRecordsTab extends ConsumerWidget {
                       onPressed: () => ref
                           .read(completedTripsProvider.notifier)
                           .loadTrips(rrOnly: true),
-                      child: const Text('Retry'),
+                      child: Text(l10n.commonRetry),
                     ),
                   ],
                 ),
@@ -1115,13 +1125,13 @@ class _WorkerRecordsTab extends ConsumerWidget {
                         size: 64,
                         color: _secondary.withValues(alpha: 0.4)),
                     const SizedBox(height: 16),
-                    Text('No synced trips yet',
+                    Text(l10n.feDashNoSyncedTrips,
                         style: _manrope(
                             size: 15,
                             weight: FontWeight.w700,
                             color: _secondary)),
                     const SizedBox(height: 6),
-                    Text('Trips synced to RR web will appear here',
+                    Text(l10n.feDashSyncedTripsHint,
                         style: _inter(size: 13, color: _secondary)),
                   ],
                 ),
@@ -1159,15 +1169,15 @@ class _WorkerDrawer extends ConsumerWidget {
     required this.onNavTap,
   });
 
-  static const _navItems = [
-    (Icons.dashboard_rounded, 'Dashboard', 0),
-    (Icons.history_rounded, 'Records', 1),
-    (Icons.person_outline_rounded, 'Profile', 2),
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final name = user?.fullName ?? 'Field Executive';
+    final l10n = AppLocalizations.of(context);
+    final navItems = [
+      (Icons.dashboard_rounded, l10n.feDashNavDashboard, 0),
+      (Icons.history_rounded, l10n.feDashNavRecords, 1),
+      (Icons.person_outline_rounded, l10n.feDashNavProfile, 2),
+    ];
+    final name = user?.fullName ?? l10n.roleFieldExecutive;
     final company = user?.companyName ?? '';
     final username = user?.username ?? '';
 
@@ -1230,7 +1240,7 @@ class _WorkerDrawer extends ConsumerWidget {
                         border: Border.all(
                             color: _tertiaryContainer.withValues(alpha: 0.6)),
                       ),
-                      child: Text('Field Executive',
+                      child: Text(l10n.roleFieldExecutive,
                           style: _inter(
                               size: 10,
                               weight: FontWeight.w700,
@@ -1258,13 +1268,13 @@ class _WorkerDrawer extends ConsumerWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Text('NAVIGATION',
+                  child: Text(l10n.feDashNavigation,
                       style: _inter(
                           size: 10,
                           weight: FontWeight.w700,
                           color: _secondary)),
                 ),
-                ..._navItems.map((item) {
+                ...navItems.map((item) {
                   final (icon, label, index) = item;
                   final isActive = navIndex == index;
                   return _WorkerDrawerNavTile(
@@ -1282,7 +1292,7 @@ class _WorkerDrawer extends ConsumerWidget {
 
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                  child: Text('MORE',
+                  child: Text(l10n.feDashMore,
                       style: _inter(
                           size: 10,
                           weight: FontWeight.w700,
@@ -1290,12 +1300,12 @@ class _WorkerDrawer extends ConsumerWidget {
                 ),
                 _WorkerDrawerActionTile(
                   icon: Icons.help_outline_rounded,
-                  label: 'Help & Support',
+                  label: l10n.feDashHelpSupport,
                   onTap: () {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Help & Support coming soon.',
+                        content: Text(l10n.feDashHelpComingSoon,
                             style:
                                 _inter(size: 13, color: Colors.white)),
                         backgroundColor: _secondary,
@@ -1308,7 +1318,7 @@ class _WorkerDrawer extends ConsumerWidget {
                 ),
                 _WorkerDrawerActionTile(
                   icon: Icons.info_outline_rounded,
-                  label: 'About RR Logistics',
+                  label: l10n.feDashAboutRr,
                   onTap: () {
                     Navigator.pop(context);
                     showAboutDialog(
@@ -1321,7 +1331,7 @@ class _WorkerDrawer extends ConsumerWidget {
                 ),
                 _WorkerDrawerActionTile(
                   icon: Icons.privacy_tip_outlined,
-                  label: 'Privacy Policy',
+                  label: l10n.authPrivacyPolicy,
                   onTap: () => Navigator.pop(context),
                 ),
               ],
@@ -1347,7 +1357,7 @@ class _WorkerDrawer extends ConsumerWidget {
                   const Icon(Icons.logout_rounded,
                       color: Color(0xFFBA1A1A), size: 20),
                   const SizedBox(width: 14),
-                  Text('Log Out',
+                  Text(l10n.feDashLogOut,
                       style: _inter(
                           size: 14,
                           weight: FontWeight.w600,

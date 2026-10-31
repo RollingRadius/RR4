@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class DriverVehicleScreen extends StatelessWidget {
   const DriverVehicleScreen({super.key});
@@ -9,6 +10,7 @@ class DriverVehicleScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
@@ -17,11 +19,11 @@ class DriverVehicleScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
-              _buildVehicleCard(),
-              _buildStatsGrid(),
-              _buildStatusSection(),
-              _buildQuickActions(context),
+              _buildHeader(l10n),
+              _buildVehicleCard(l10n),
+              _buildStatsGrid(l10n),
+              _buildStatusSection(l10n),
+              _buildQuickActions(context, l10n),
             ],
           ),
         ),
@@ -29,21 +31,21 @@ class DriverVehicleScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('My Vehicle', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          Text(l10n.driverVehicleTitle, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
           const SizedBox(height: 3),
-          Text('Assigned Unit', style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+          Text(l10n.driverVehicleAssignedUnit, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
         ],
       ),
     );
   }
 
-  Widget _buildVehicleCard() {
+  Widget _buildVehicleCard(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: Container(
@@ -70,11 +72,11 @@ class DriverVehicleScreen extends StatelessWidget {
                       color: Colors.white.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: const Row(
+                    child: Row(
                       children: [
-                        Icon(Icons.circle, size: 8, color: Color(0xFF86EFAC)),
-                        SizedBox(width: 5),
-                        Text('Available', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                        const Icon(Icons.circle, size: 8, color: Color(0xFF86EFAC)),
+                        const SizedBox(width: 5),
+                        Text(l10n.driverVehicleAvailable, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -88,11 +90,11 @@ class DriverVehicleScreen extends StatelessWidget {
               const SizedBox(height: 20),
               Row(
                 children: [
-                  _VehicleStatChip(label: 'Class A', icon: Icons.badge_outlined),
+                  _VehicleStatChip(label: l10n.driverVehicleClassA, icon: Icons.badge_outlined),
                   const SizedBox(width: 8),
-                  _VehicleStatChip(label: 'Heavy Duty', icon: Icons.settings_outlined),
+                  _VehicleStatChip(label: l10n.driverVehicleHeavyDuty, icon: Icons.settings_outlined),
                   const SizedBox(width: 8),
-                  _VehicleStatChip(label: 'Diesel', icon: Icons.local_gas_station_outlined),
+                  _VehicleStatChip(label: l10n.driverVehicleDiesel, icon: Icons.local_gas_station_outlined),
                 ],
               ),
             ],
@@ -102,7 +104,7 @@ class DriverVehicleScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsGrid() {
+  Widget _buildStatsGrid(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
       child: GridView.count(
@@ -112,17 +114,17 @@ class DriverVehicleScreen extends StatelessWidget {
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
         childAspectRatio: 2.2,
-        children: const [
-          _VehicleStatCard(icon: Icons.local_gas_station_outlined, label: 'Fuel Level', value: '85%', color: Color(0xFF22C55E)),
-          _VehicleStatCard(icon: Icons.speed_outlined, label: 'Odometer', value: '42,300 mi', color: Color(0xFF3B82F6)),
-          _VehicleStatCard(icon: Icons.thermostat_outlined, label: 'Engine Temp', value: 'Normal', color: Color(0xFF22C55E)),
-          _VehicleStatCard(icon: Icons.battery_charging_full_outlined, label: 'Battery', value: '14.2V', color: Color(0xFFEC5B13)),
+        children: [
+          _VehicleStatCard(icon: Icons.local_gas_station_outlined, label: l10n.driverVehicleFuelLevel, value: '85%', color: const Color(0xFF22C55E)),
+          _VehicleStatCard(icon: Icons.speed_outlined, label: l10n.driverVehicleOdometer, value: '42,300 mi', color: const Color(0xFF3B82F6)),
+          _VehicleStatCard(icon: Icons.thermostat_outlined, label: l10n.driverVehicleEngineTemp, value: l10n.driverVehicleNormal, color: const Color(0xFF22C55E)),
+          _VehicleStatCard(icon: Icons.battery_charging_full_outlined, label: l10n.driverVehicleBattery, value: '14.2V', color: const Color(0xFFEC5B13)),
         ],
       ),
     );
   }
 
-  Widget _buildStatusSection() {
+  Widget _buildStatusSection(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Container(
@@ -139,40 +141,40 @@ class DriverVehicleScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Maintenance Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text(l10n.driverVehicleMaintenanceStatus, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(6)),
-                  child: const Text('UP TO DATE', style: TextStyle(color: Color(0xFF15803D), fontSize: 10, fontWeight: FontWeight.bold)),
+                  child: Text(l10n.driverVehicleUpToDate, style: const TextStyle(color: Color(0xFF15803D), fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
             const SizedBox(height: 14),
-            _MaintenanceRow(icon: Icons.oil_barrel_outlined, label: 'Last Oil Change', value: 'Oct 12, 2023', color: Colors.green),
+            _MaintenanceRow(icon: Icons.oil_barrel_outlined, label: l10n.driverVehicleLastOilChange, value: 'Oct 12, 2023', color: Colors.green),
             const SizedBox(height: 10),
-            _MaintenanceRow(icon: Icons.album_outlined, label: 'Brake Inspection', value: 'Nov 4, 2023', color: const Color(0xFFEC5B13)),
+            _MaintenanceRow(icon: Icons.album_outlined, label: l10n.driverVehicleBrakeInspection, value: 'Nov 4, 2023', color: const Color(0xFFEC5B13)),
             const SizedBox(height: 10),
-            _MaintenanceRow(icon: Icons.settings_suggest_outlined, label: 'Next Service Due', value: 'Jan 15, 2024', color: Colors.blue),
+            _MaintenanceRow(icon: Icons.settings_suggest_outlined, label: l10n.driverVehicleNextServiceDue, value: 'Jan 15, 2024', color: Colors.blue),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildQuickActions(BuildContext context) {
+  Widget _buildQuickActions(BuildContext context, AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Quick Actions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          Text(l10n.driverVehicleQuickActions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: _ActionButton(
                   icon: Icons.report_problem_outlined,
-                  label: 'Report Issue',
+                  label: l10n.driverVehicleReportIssue,
                   color: const Color(0xFFEF4444),
                   onTap: () {},
                 ),
@@ -181,7 +183,7 @@ class DriverVehicleScreen extends StatelessWidget {
               Expanded(
                 child: _ActionButton(
                   icon: Icons.history_outlined,
-                  label: 'View History',
+                  label: l10n.driverVehicleViewHistory,
                   color: _primary,
                   onTap: () => context.push('/ms/maintenance-history/TRK-8821-B', extra: {'vehicleName': 'TRK-8821-B', 'vehicleModel': 'Freightliner Cascadia 2024'}),
                 ),
@@ -194,7 +196,7 @@ class DriverVehicleScreen extends StatelessWidget {
               Expanded(
                 child: _ActionButton(
                   icon: Icons.checklist_outlined,
-                  label: 'Pre-Trip Check',
+                  label: l10n.driverVehiclePreTripCheck,
                   color: const Color(0xFF3B82F6),
                   onTap: () => context.push('/maintenance/inspection/TRK-8821-B', extra: {'vehicleName': 'TRK-8821-B'}),
                 ),
@@ -203,7 +205,7 @@ class DriverVehicleScreen extends StatelessWidget {
               Expanded(
                 child: _ActionButton(
                   icon: Icons.local_gas_station_outlined,
-                  label: 'Log Refuel',
+                  label: l10n.driverVehicleLogRefuel,
                   color: const Color(0xFF22C55E),
                   onTap: () {},
                 ),

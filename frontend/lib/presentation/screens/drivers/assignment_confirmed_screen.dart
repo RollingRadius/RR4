@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class AssignmentConfirmedScreen extends StatelessWidget {
   final String driverName;
@@ -20,6 +21,7 @@ class AssignmentConfirmedScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
@@ -34,9 +36,9 @@ class AssignmentConfirmedScreen extends StatelessWidget {
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () => Navigator.pop(context),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Confirmation',
+                      l10n.driverAssignedTitle,
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
@@ -64,14 +66,14 @@ class AssignmentConfirmedScreen extends StatelessWidget {
                         child: const Icon(Icons.check_circle, color: _success, size: 48),
                       ),
                       const SizedBox(height: 18),
-                      const Text(
-                        'Vehicle Assigned Successfully',
+                      Text(
+                        l10n.driverAssignedHeading,
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, height: 1.2),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'The driver and vehicle are now linked in the system and ready for dispatch.',
+                        l10n.driverAssignedSubtitle,
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 14, color: Colors.grey[500], height: 1.4),
                       ),
@@ -108,8 +110,8 @@ class AssignmentConfirmedScreen extends StatelessWidget {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          'DRIVER',
+                                        Text(
+                                          l10n.driverAssignedDriver,
                                           style: TextStyle(
                                             fontSize: 9,
                                             fontWeight: FontWeight.w700,
@@ -171,8 +173,8 @@ class AssignmentConfirmedScreen extends StatelessWidget {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          'VEHICLE',
+                                        Text(
+                                          l10n.driverAssignedVehicle,
                                           style: TextStyle(
                                             fontSize: 9,
                                             fontWeight: FontWeight.w700,
@@ -192,7 +194,7 @@ class AssignmentConfirmedScreen extends StatelessWidget {
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Text(
-                                            'UNIT ID: $vehicleUnitId',
+                                            l10n.driverAssignedUnitId(vehicleUnitId),
                                             style: const TextStyle(
                                               fontSize: 9,
                                               fontWeight: FontWeight.w700,
@@ -231,12 +233,12 @@ class AssignmentConfirmedScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         elevation: 0,
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('Go to Trip Assignment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                          SizedBox(width: 8),
-                          Icon(Icons.arrow_forward, size: 18),
+                          Text(l10n.driverAssignedGoToTrip, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.arrow_forward, size: 18),
                         ],
                       ),
                     ),
@@ -251,14 +253,14 @@ class AssignmentConfirmedScreen extends StatelessWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         side: BorderSide(color: Colors.grey[300]!, width: 2),
                       ),
-                      child: const Text('View Vehicle Details', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: Text(l10n.driverAssignedViewVehicle, style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(height: 2),
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: Text(
-                      'Return to Fleet Overview',
+                      l10n.driverAssignedReturn,
                       style: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.w500),
                     ),
                   ),

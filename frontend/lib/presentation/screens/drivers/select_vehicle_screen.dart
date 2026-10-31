@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class SelectVehicleScreen extends StatefulWidget {
   final String driverName;
@@ -61,6 +62,20 @@ class _SelectVehicleScreenState extends State<SelectVehicleScreen> {
     }).toList();
   }
 
+  String _filterLabel(AppLocalizations l10n, String filter) {
+    switch (filter) {
+      case 'All Units':
+        return l10n.driverSelectVehicleFilterAll;
+      case 'Heavy Duty':
+        return l10n.driverSelectVehicleFilterHeavy;
+      case 'Medium Duty':
+        return l10n.driverSelectVehicleFilterMedium;
+      case 'Low Fuel':
+        return l10n.driverSelectVehicleFilterLowFuel;
+    }
+    return filter;
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -69,6 +84,7 @@ class _SelectVehicleScreenState extends State<SelectVehicleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       body: Column(
@@ -91,9 +107,9 @@ class _SelectVehicleScreenState extends State<SelectVehicleScreen> {
                           icon: const Icon(Icons.arrow_back, color: _primary),
                           onPressed: () => Navigator.pop(context),
                         ),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Assign Vehicle',
+                            l10n.driverSelectVehicleTitle,
                             textAlign: TextAlign.center,
                             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
@@ -144,8 +160,8 @@ class _SelectVehicleScreenState extends State<SelectVehicleScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'ASSIGNING TO',
+                                Text(
+                                  l10n.driverSelectVehicleAssigningTo,
                                   style: TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w700,
@@ -163,9 +179,9 @@ class _SelectVehicleScreenState extends State<SelectVehicleScreen> {
                           TextButton(
                             onPressed: () => Navigator.pop(context),
                             style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                            child: const Text(
-                              'Change',
-                              style: TextStyle(color: _primary, fontWeight: FontWeight.w600),
+                            child: Text(
+                              l10n.driverSelectVehicleChange,
+                              style: const TextStyle(color: _primary, fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],
@@ -187,12 +203,12 @@ class _SelectVehicleScreenState extends State<SelectVehicleScreen> {
                           child: TextField(
                             controller: _searchController,
                             onChanged: (_) => setState(() {}),
-                            decoration: const InputDecoration(
-                              hintText: 'Search Unit ID, VIN or Model...',
-                              hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
-                              prefixIcon: Icon(Icons.search, color: Colors.grey),
+                            decoration: InputDecoration(
+                              hintText: l10n.driverSelectVehicleSearchHint,
+                              hintStyle: const TextStyle(color: Colors.grey, fontSize: 14),
+                              prefixIcon: const Icon(Icons.search, color: Colors.grey),
                               border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(vertical: 13),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 13),
                             ),
                           ),
                         ),
@@ -220,7 +236,7 @@ class _SelectVehicleScreenState extends State<SelectVehicleScreen> {
                                         : null,
                                   ),
                                   child: Text(
-                                    filter,
+                                    _filterLabel(l10n, filter),
                                     style: TextStyle(
                                       color: active ? Colors.white : Colors.grey[700],
                                       fontSize: 13,
@@ -242,7 +258,7 @@ class _SelectVehicleScreenState extends State<SelectVehicleScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '${_filteredVehicles.length} Available Vehicles',
+                          l10n.driverSelectVehicleAvailableCount(_filteredVehicles.length),
                           style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                         ),
                         GestureDetector(
@@ -251,7 +267,7 @@ class _SelectVehicleScreenState extends State<SelectVehicleScreen> {
                             children: [
                               const Icon(Icons.sort, size: 16, color: _primary),
                               const SizedBox(width: 4),
-                              const Text('Sort', style: TextStyle(fontSize: 13, color: _primary, fontWeight: FontWeight.w500)),
+                              Text(l10n.driverSelectVehicleSort, style: const TextStyle(fontSize: 13, color: _primary, fontWeight: FontWeight.w500)),
                             ],
                           ),
                         ),
@@ -289,6 +305,7 @@ class _VehicleCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final isLowFuel = vehicle['status'] == 'Low Fuel';
     final fuel = vehicle['fuel'] as int;
 
@@ -336,7 +353,7 @@ class _VehicleCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              (vehicle['status'] as String).toUpperCase(),
+                              (isLowFuel ? l10n.driverSelectVehicleStatusLowFuel : l10n.driverSelectVehicleStatusAvailable).toUpperCase(),
                               style: TextStyle(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w700,
@@ -371,7 +388,7 @@ class _VehicleCard extends StatelessWidget {
                 Expanded(
                   child: _StatBox(
                     icon: Icons.local_gas_station,
-                    label: 'FUEL LEVEL',
+                    label: l10n.driverSelectVehicleFuelLevel,
                     value: '$fuel%',
                     iconColor: isLowFuel ? Colors.orange : _primary,
                     valueColor: isLowFuel ? Colors.orange[700] : null,
@@ -381,7 +398,7 @@ class _VehicleCard extends StatelessWidget {
                 Expanded(
                   child: _StatBox(
                     icon: Icons.speed,
-                    label: 'ODOMETER',
+                    label: l10n.driverSelectVehicleOdometer,
                     value: vehicle['odometer'] as String,
                     iconColor: _primary,
                   ),
@@ -403,7 +420,7 @@ class _VehicleCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   elevation: 0,
                 ),
-                child: const Text('Select Vehicle', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(l10n.driverSelectVehicleSelect, style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
           ),

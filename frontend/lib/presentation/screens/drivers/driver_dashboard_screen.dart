@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/data/models/driver_model.dart';
@@ -28,6 +29,7 @@ class _DriverDashboardScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final driverState = ref.watch(driverProvider);
     final driver = driverState.selectedDriver;
     final token = ref.watch(authProvider).token;
@@ -51,9 +53,9 @@ class _DriverDashboardScreenState
             onPressed: () => context.pop(),
             icon: const Icon(Icons.arrow_back_rounded, color: AppTheme.textPrimary),
           ),
-          title: const Text('Driver', style: TextStyle(color: AppTheme.textPrimary)),
+          title: Text(l10n.driverDashBTitle, style: const TextStyle(color: AppTheme.textPrimary)),
         ),
-        body: const Center(child: Text('Driver not found')),
+        body: Center(child: Text(l10n.driverDashBNotFound)),
       );
     }
 
@@ -94,6 +96,7 @@ class _DriverDashboardScreenState
 
   SliverAppBar _buildSliverHeader(
       BuildContext context, DriverModel driver, String? token) {
+    final l10n = AppLocalizations.of(context);
     final statusInfo = _statusInfo(driver.status);
 
     return SliverAppBar(
@@ -164,7 +167,7 @@ class _DriverDashboardScreenState
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Text(
-                                    'ID: ${driver.employeeId}',
+                                    l10n.driverDashBEmployeeIdShort(driver.employeeId),
                                     style: const TextStyle(
                                       fontSize: 11,
                                       color: Colors.white,
@@ -253,6 +256,7 @@ class _DriverDashboardScreenState
   Widget _licenseWarningBanner(DriverLicenseModel license) {
     if (!license.isExpired && !license.isExpiringSoon) return const SizedBox();
 
+    final l10n = AppLocalizations.of(context);
     final isExpired = license.isExpired;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -280,8 +284,8 @@ class _DriverDashboardScreenState
           Expanded(
             child: Text(
               isExpired
-                  ? 'License expired on ${_fmtDate(license.expiryDate)}'
-                  : 'License expires on ${_fmtDate(license.expiryDate)} — renew soon',
+                  ? l10n.driverDashBLicenseExpiredOn(_fmtDate(license.expiryDate))
+                  : l10n.driverDashBLicenseExpiresOn(_fmtDate(license.expiryDate)),
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
@@ -299,27 +303,28 @@ class _DriverDashboardScreenState
   // ─── Personal info card ────────────────────────────────────────────────────
 
   Widget _buildInfoCard(DriverModel driver) {
+    final l10n = AppLocalizations.of(context);
     return _Card(
-      title: 'Personal Information',
+      title: l10n.driverDashBPersonalInfo,
       icon: Icons.person_rounded,
       children: [
-        _InfoRow(label: 'Full Name', value: driver.fullName),
-        _InfoRow(label: 'Employee ID', value: driver.employeeId),
-        _InfoRow(label: 'Phone', value: driver.phone),
-        _InfoRow(label: 'Email', value: driver.email ?? '—'),
+        _InfoRow(label: l10n.driverDashBFullName, value: driver.fullName),
+        _InfoRow(label: l10n.driverDashBEmployeeId, value: driver.employeeId),
+        _InfoRow(label: l10n.driverDashBPhone, value: driver.phone),
+        _InfoRow(label: l10n.driverDashBEmail, value: driver.email ?? '—'),
         _InfoRow(
-          label: 'Date of Birth',
+          label: l10n.driverDashBDob,
           value: driver.dateOfBirth != null
               ? _fmtDate(driver.dateOfBirth!)
               : '—',
         ),
         _InfoRow(
-          label: 'Age',
-          value: driver.age != null ? '${driver.age} years' : '—',
+          label: l10n.driverDashBAge,
+          value: driver.age != null ? l10n.driverDashBAgeYears(driver.age!) : '—',
         ),
-        _InfoRow(label: 'Country', value: driver.country),
+        _InfoRow(label: l10n.driverDashBCountry, value: driver.country),
         _InfoRow(
-          label: 'Address',
+          label: l10n.driverDashBAddress,
           value: driver.fullAddress,
           isLast: true,
         ),
@@ -330,12 +335,13 @@ class _DriverDashboardScreenState
   // ─── License card ──────────────────────────────────────────────────────────
 
   Widget _buildLicenseCard(DriverLicenseModel? license) {
+    final l10n = AppLocalizations.of(context);
     if (license == null) {
       return _Card(
-        title: 'License Details',
+        title: l10n.driverDashBLicenseDetails,
         icon: Icons.badge_rounded,
         children: [
-          const _InfoRow(label: 'Status', value: 'No license on file', isLast: true),
+          _InfoRow(label: l10n.driverDashBStatus, value: l10n.driverDashBNoLicense, isLast: true),
         ],
       );
     }
@@ -348,31 +354,31 @@ class _DriverDashboardScreenState
             : const Color(0xFF16A34A);
 
     return _Card(
-      title: 'License Details',
+      title: l10n.driverDashBLicenseDetails,
       icon: Icons.badge_rounded,
       children: [
-        _InfoRow(label: 'License Number', value: license.licenseNumber),
-        _InfoRow(label: 'Type', value: license.licenseTypeDisplay),
-        _InfoRow(label: 'Class', value: license.licenseType),
-        _InfoRow(label: 'Issue Date', value: _fmtDate(license.issueDate)),
+        _InfoRow(label: l10n.driverDashBLicenseNumber, value: license.licenseNumber),
+        _InfoRow(label: l10n.driverDashBType, value: license.licenseTypeDisplay),
+        _InfoRow(label: l10n.driverDashBClass, value: license.licenseType),
+        _InfoRow(label: l10n.driverDashBIssueDate, value: _fmtDate(license.issueDate)),
         _InfoRow(
-          label: 'Expiry Date',
+          label: l10n.driverDashBExpiryDate,
           value: _fmtDate(license.expiryDate),
           valueColor: expiryColor,
         ),
         _InfoRow(
-          label: 'Status',
+          label: l10n.driverDashBStatus,
           value: license.isExpired
-              ? 'Expired'
+              ? l10n.driverDashBExpired
               : license.isExpiringSoon
-                  ? 'Expiring in $daysLeft days'
-                  : 'Valid ($daysLeft days left)',
+                  ? l10n.driverDashBExpiringIn(daysLeft)
+                  : l10n.driverDashBValidDaysLeft(daysLeft),
           valueColor: expiryColor,
         ),
         if (license.issuingAuthority != null)
-          _InfoRow(label: 'Authority', value: license.issuingAuthority!),
+          _InfoRow(label: l10n.driverDashBAuthority, value: license.issuingAuthority!),
         _InfoRow(
-          label: 'Issuing State',
+          label: l10n.driverDashBIssuingState,
           value: license.issuingState ?? '—',
           isLast: true,
         ),
@@ -383,32 +389,33 @@ class _DriverDashboardScreenState
   // ─── Contact / Emergency card ──────────────────────────────────────────────
 
   Widget _buildContactCard(DriverModel driver) {
+    final l10n = AppLocalizations.of(context);
     final hasContact = driver.emergencyContactName != null ||
         driver.emergencyContactPhone != null;
 
     return _Card(
-      title: 'Emergency Contact',
+      title: l10n.driverDashBEmergencyContact,
       icon: Icons.contact_phone_rounded,
       children: hasContact
           ? [
               _InfoRow(
-                label: 'Name',
+                label: l10n.driverDashBName,
                 value: driver.emergencyContactName ?? '—',
               ),
               _InfoRow(
-                label: 'Phone',
+                label: l10n.driverDashBPhone,
                 value: driver.emergencyContactPhone ?? '—',
               ),
               _InfoRow(
-                label: 'Relationship',
+                label: l10n.driverDashBRelationship,
                 value: driver.emergencyContactRelationship ?? '—',
                 isLast: true,
               ),
             ]
           : [
-              const _InfoRow(
-                label: 'Status',
-                value: 'No emergency contact on file',
+              _InfoRow(
+                label: l10n.driverDashBStatus,
+                value: l10n.driverDashBNoEmergency,
                 isLast: true,
               ),
             ],
@@ -418,6 +425,7 @@ class _DriverDashboardScreenState
   // ─── Assigned Vehicle Card ────────────────────────────────────────────────
 
   Widget _buildAssignedVehicleCard(DriverModel driver) {
+    final l10n = AppLocalizations.of(context);
     const primary = Color(0xFFEC5B13);
     final v = driver.assignedVehicle;
     final hasVehicle = v != null;
@@ -451,8 +459,8 @@ class _DriverDashboardScreenState
                     color: primary, size: 18),
               ),
               const SizedBox(width: 10),
-              const Text(
-                'Assigned Vehicle',
+              Text(
+                l10n.driverDashBAssignedVehicle,
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
               ),
             ],
@@ -472,7 +480,7 @@ class _DriverDashboardScreenState
                 ),
                 const SizedBox(width: 14),
                 Text(
-                  'No vehicle assigned',
+                  l10n.driverDashBNoVehicle,
                   style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
                 ),
               ],
@@ -546,7 +554,7 @@ class _DriverDashboardScreenState
                 Expanded(
                   child: _VehicleInfoChip(
                     icon: Icons.pin_rounded,
-                    label: 'Reg No',
+                    label: l10n.driverDashBRegNo,
                     value: v['registration_number'] as String? ?? '—',
                   ),
                 ),
@@ -554,7 +562,7 @@ class _DriverDashboardScreenState
                 Expanded(
                   child: _VehicleInfoChip(
                     icon: Icons.local_gas_station_rounded,
-                    label: 'Fuel',
+                    label: l10n.driverDashBFuel,
                     value: _capitalize(v['fuel_type'] as String? ?? '—'),
                   ),
                 ),
@@ -568,7 +576,7 @@ class _DriverDashboardScreenState
                     Expanded(
                       child: _VehicleInfoChip(
                         icon: Icons.person_add_rounded,
-                        label: 'Assigned by',
+                        label: l10n.driverDashBAssignedBy,
                         value: v['assigned_by_name'] as String,
                       ),
                     ),
@@ -578,7 +586,7 @@ class _DriverDashboardScreenState
                     Expanded(
                       child: _VehicleInfoChip(
                         icon: Icons.schedule_rounded,
-                        label: 'Assigned on',
+                        label: l10n.driverDashBAssignedOn,
                         value: _fmtIso(v['assigned_at'] as String),
                       ),
                     ),
@@ -592,7 +600,7 @@ class _DriverDashboardScreenState
                 onPressed: () => context.push(
                     '/vehicles/${v['vehicle_id']}/analytics'),
                 icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                label: const Text('View Vehicle Details'),
+                label: Text(l10n.driverDashBViewVehicle),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: primary,
                   side: const BorderSide(color: primary),
@@ -651,22 +659,23 @@ class _DriverDashboardScreenState
   // ─── Quick Actions ────────────────────────────────────────────────────────
 
   Widget _buildQuickActions() {
-    const actions = [
+    final l10n = AppLocalizations.of(context);
+    final actions = [
       _ActionData(
         icon: Icons.report_problem_rounded,
-        label: 'Report\nIssue',
+        label: l10n.driverDashBReportIssue,
         bgColor: Color(0xFFFEE2E2),
         iconColor: Color(0xFFDC2626),
       ),
       _ActionData(
         icon: Icons.receipt_long_rounded,
-        label: 'Fuel\nReceipt',
+        label: l10n.driverDashBFuelReceipt,
         bgColor: Color(0xFFFFF3ED),
         iconColor: Color(0xFFEC5B13),
       ),
       _ActionData(
         icon: Icons.checklist_rounded,
-        label: 'Safety\nCheck',
+        label: l10n.driverDashBSafetyCheck,
         bgColor: Color(0xFFEFF6FF),
         iconColor: Color(0xFF3B82F6),
       ),
@@ -675,7 +684,7 @@ class _DriverDashboardScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionLabel(label: 'QUICK ACTIONS'),
+        _SectionLabel(label: l10n.driverDashBQuickActions),
         const SizedBox(height: 10),
         Row(
           children: List.generate(actions.length, (i) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class DriverHomeScreen extends ConsumerWidget {
   const DriverHomeScreen({super.key});
@@ -19,6 +20,7 @@ class DriverHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authProvider).user;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: _bg,
@@ -28,8 +30,8 @@ class DriverHomeScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(user?.username ?? 'Driver'),
-              _buildStatsRow(),
+              _buildHeader(l10n, user?.username ?? l10n.roleDriver),
+              _buildStatsRow(l10n),
               _buildCurrentTrip(context),
               _buildUpcomingTrips(context),
             ],
@@ -39,7 +41,7 @@ class DriverHomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(String name) {
+  Widget _buildHeader(AppLocalizations l10n, String name) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Row(
@@ -49,7 +51,7 @@ class DriverHomeScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Good morning, $name 👋',
+                  l10n.driverHomeGreeting(name),
                   style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 3),
@@ -63,11 +65,11 @@ class DriverHomeScreen extends ConsumerWidget {
               color: const Color(0xFFDCFCE7),
               borderRadius: BorderRadius.circular(20),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.circle, size: 8, color: Color(0xFF16A34A)),
-                SizedBox(width: 5),
-                Text('On Duty', style: TextStyle(color: Color(0xFF15803D), fontSize: 12, fontWeight: FontWeight.w600)),
+                const Icon(Icons.circle, size: 8, color: Color(0xFF16A34A)),
+                const SizedBox(width: 5),
+                Text(l10n.driverHomeOnDuty, style: const TextStyle(color: Color(0xFF15803D), fontSize: 12, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -76,22 +78,23 @@ class DriverHomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsRow() {
+  Widget _buildStatsRow(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
       child: Row(
         children: [
-          Expanded(child: _StatCard(label: 'Total', value: '5', icon: Icons.route_outlined, color: _primary)),
+          Expanded(child: _StatCard(label: l10n.driverHomeStatTotal, value: '5', icon: Icons.route_outlined, color: _primary)),
           const SizedBox(width: 10),
-          Expanded(child: _StatCard(label: 'Done', value: '3', icon: Icons.check_circle_outline, color: const Color(0xFF22C55E))),
+          Expanded(child: _StatCard(label: l10n.driverHomeStatDone, value: '3', icon: Icons.check_circle_outline, color: const Color(0xFF22C55E))),
           const SizedBox(width: 10),
-          Expanded(child: _StatCard(label: 'Left', value: '2', icon: Icons.pending_outlined, color: const Color(0xFFEAB308))),
+          Expanded(child: _StatCard(label: l10n.driverHomeStatLeft, value: '2', icon: Icons.pending_outlined, color: const Color(0xFFEAB308))),
         ],
       ),
     );
   }
 
   Widget _buildCurrentTrip(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
       child: Column(
@@ -107,13 +110,13 @@ class DriverHomeScreen extends ConsumerWidget {
                     decoration: const BoxDecoration(color: _primary, shape: BoxShape.circle),
                   ),
                   const SizedBox(width: 8),
-                  const Text('Current Trip', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  Text(l10n.driverHomeCurrentTrip, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ],
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(color: _primary.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                child: const Text('IN PROGRESS', style: TextStyle(color: _primary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                child: Text(l10n.driverHomeInProgress, style: const TextStyle(color: _primary, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
               ),
             ],
           ),
@@ -146,10 +149,10 @@ class DriverHomeScreen extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('PICKUP', style: TextStyle(color: Colors.grey, fontSize: 10, letterSpacing: 0.5, fontWeight: FontWeight.bold)),
+                                Text(l10n.driverHomePickup, style: const TextStyle(color: Colors.grey, fontSize: 10, letterSpacing: 0.5, fontWeight: FontWeight.bold)),
                                 const Text('Main Depot — Bay 4', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                                 const SizedBox(height: 16),
-                                const Text('DROPOFF', style: TextStyle(color: Colors.grey, fontSize: 10, letterSpacing: 0.5, fontWeight: FontWeight.bold)),
+                                Text(l10n.driverHomeDropoff, style: const TextStyle(color: Colors.grey, fontSize: 10, letterSpacing: 0.5, fontWeight: FontWeight.bold)),
                                 const Text('Central Warehouse, Chicago', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                               ],
                             ),
@@ -162,7 +165,7 @@ class DriverHomeScreen extends ConsumerWidget {
                         children: [
                           _TripChip(icon: Icons.local_shipping_outlined, label: 'TRK-8821-B'),
                           const SizedBox(width: 8),
-                          _TripChip(icon: Icons.access_time_outlined, label: 'ETA: 14:30'),
+                          _TripChip(icon: Icons.access_time_outlined, label: l10n.driverHomeEta('14:30')),
                           const SizedBox(width: 8),
                           _TripChip(icon: Icons.straighten_outlined, label: '42 mi'),
                         ],
@@ -187,7 +190,7 @@ class DriverHomeScreen extends ConsumerWidget {
                         ),
                       ),
                       icon: const Icon(Icons.navigation_outlined, size: 18),
-                      label: const Text('Navigate to Dropoff', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      label: Text(l10n.driverHomeNavigateDropoff, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     ),
                   ),
                 ),
@@ -200,6 +203,7 @@ class DriverHomeScreen extends ConsumerWidget {
   }
 
   Widget _buildUpcomingTrips(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
       child: Column(
@@ -208,18 +212,18 @@ class DriverHomeScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Upcoming Trips', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(l10n.driverHomeUpcomingTrips, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               TextButton(
                 onPressed: () => context.push('/maintenance/schedule'),
                 style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                child: const Text('View All', style: TextStyle(color: _primary, fontSize: 12, fontWeight: FontWeight.bold)),
+                child: Text(l10n.driverHomeViewAll, style: const TextStyle(color: _primary, fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          _UpcomingTripCard(time: '16:00', vehicle: 'TRK-9055-A', route: 'South Hub → North Depot', distance: '68 mi', status: 'Scheduled'),
+          _UpcomingTripCard(time: '16:00', vehicle: 'TRK-9055-A', route: 'South Hub → North Depot', distance: '68 mi', status: l10n.driverHomeScheduled),
           const SizedBox(height: 10),
-          _UpcomingTripCard(time: '09:00', vehicle: 'TRK-8821-B', route: 'Main Depot → Distribution Center', distance: '31 mi', status: 'Tomorrow', statusColor: const Color(0xFF94A3B8)),
+          _UpcomingTripCard(time: '09:00', vehicle: 'TRK-8821-B', route: 'Main Depot → Distribution Center', distance: '31 mi', status: l10n.driverHomeTomorrow, statusColor: const Color(0xFF94A3B8)),
         ],
       ),
     );
