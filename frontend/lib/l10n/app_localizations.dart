@@ -8773,6 +8773,3510 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Transporter Dashboard'**
   String get transporterDashboardTitle;
+
+  /// No description provided for @drvAddAdding.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding Driver...'**
+  String get drvAddAdding;
+
+  /// No description provided for @drvAddButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Driver to Fleet'**
+  String get drvAddButton;
+
+  /// No description provided for @drvAddCancelReturn.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel and return'**
+  String get drvAddCancelReturn;
+
+  /// No description provided for @drvAddDatesRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'License issue date and expiry date are required'**
+  String get drvAddDatesRequired;
+
+  /// No description provided for @drvAddEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email Address'**
+  String get drvAddEmail;
+
+  /// No description provided for @drvAddEmailInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid email address'**
+  String get drvAddEmailInvalid;
+
+  /// No description provided for @drvAddExpiryAfterIssue.
+  ///
+  /// In en, this message translates to:
+  /// **'License expiry date must be after issue date'**
+  String get drvAddExpiryAfterIssue;
+
+  /// No description provided for @drvAddExpiryFuture.
+  ///
+  /// In en, this message translates to:
+  /// **'License expiry date must be in the future'**
+  String get drvAddExpiryFuture;
+
+  /// No description provided for @drvAddFieldRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'{field} is required'**
+  String drvAddFieldRequired(String field);
+
+  /// No description provided for @drvAddFirstName.
+  ///
+  /// In en, this message translates to:
+  /// **'First Name'**
+  String get drvAddFirstName;
+
+  /// No description provided for @drvAddFixErrors.
+  ///
+  /// In en, this message translates to:
+  /// **'Please fix the errors in the form'**
+  String get drvAddFixErrors;
+
+  /// No description provided for @drvAddHintExample.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. {value}'**
+  String drvAddHintExample(String value);
+
+  /// No description provided for @drvAddJoinDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Join Date'**
+  String get drvAddJoinDate;
+
+  /// No description provided for @drvAddJoinFuture.
+  ///
+  /// In en, this message translates to:
+  /// **'Join date cannot be in the future'**
+  String get drvAddJoinFuture;
+
+  /// No description provided for @drvAddLastName.
+  ///
+  /// In en, this message translates to:
+  /// **'Last Name'**
+  String get drvAddLastName;
+
+  /// No description provided for @drvAddLicenseClass.
+  ///
+  /// In en, this message translates to:
+  /// **'License Class'**
+  String get drvAddLicenseClass;
+
+  /// No description provided for @drvAddLicenseFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'License must be 10-50 alphanumeric characters'**
+  String get drvAddLicenseFormat;
+
+  /// No description provided for @drvAddLicenseHmv.
+  ///
+  /// In en, this message translates to:
+  /// **'HMV (Heavy Motor Vehicle)'**
+  String get drvAddLicenseHmv;
+
+  /// No description provided for @drvAddLicenseHpmv.
+  ///
+  /// In en, this message translates to:
+  /// **'HPMV (Heavy Passenger Motor Vehicle)'**
+  String get drvAddLicenseHpmv;
+
+  /// No description provided for @drvAddLicenseLmv.
+  ///
+  /// In en, this message translates to:
+  /// **'LMV (Light Motor Vehicle)'**
+  String get drvAddLicenseLmv;
+
+  /// No description provided for @drvAddLicenseMcwg.
+  ///
+  /// In en, this message translates to:
+  /// **'MCWG (Motorcycle with Gear)'**
+  String get drvAddLicenseMcwg;
+
+  /// No description provided for @drvAddLicenseRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'License number is required'**
+  String get drvAddLicenseRequired;
+
+  /// No description provided for @drvAddLicenseScan.
+  ///
+  /// In en, this message translates to:
+  /// **'License Document Scan'**
+  String get drvAddLicenseScan;
+
+  /// No description provided for @drvAddLicenseScanHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload clear scan or photo'**
+  String get drvAddLicenseScanHint;
+
+  /// No description provided for @drvAddPasswordDigit.
+  ///
+  /// In en, this message translates to:
+  /// **'Must include a digit'**
+  String get drvAddPasswordDigit;
+
+  /// No description provided for @drvAddPasswordHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Min 8 chars, with uppercase & digit'**
+  String get drvAddPasswordHint;
+
+  /// No description provided for @drvAddPasswordLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Password must be at least 8 characters'**
+  String get drvAddPasswordLength;
+
+  /// No description provided for @drvAddPasswordLower.
+  ///
+  /// In en, this message translates to:
+  /// **'Must include a lowercase letter'**
+  String get drvAddPasswordLower;
+
+  /// No description provided for @drvAddPasswordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Password is required'**
+  String get drvAddPasswordRequired;
+
+  /// No description provided for @drvAddPasswordUpper.
+  ///
+  /// In en, this message translates to:
+  /// **'Must include an uppercase letter'**
+  String get drvAddPasswordUpper;
+
+  /// No description provided for @drvAddPhoneDigits.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone must be 10 digits'**
+  String get drvAddPhoneDigits;
+
+  /// No description provided for @drvAddPhoneRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone number is required'**
+  String get drvAddPhoneRequired;
+
+  /// No description provided for @drvAddPhotoFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver added, but photo upload failed: {error}'**
+  String drvAddPhotoFailed(String error);
+
+  /// No description provided for @drvAddPhotoHint.
+  ///
+  /// In en, this message translates to:
+  /// **'PNG, JPG up to 5MB'**
+  String get drvAddPhotoHint;
+
+  /// No description provided for @drvAddPhotoSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Photo selected — tap to change'**
+  String get drvAddPhotoSelected;
+
+  /// No description provided for @drvAddProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'REGISTRATION PROGRESS'**
+  String get drvAddProgress;
+
+  /// No description provided for @drvAddRoleLogistics.
+  ///
+  /// In en, this message translates to:
+  /// **'Logistics'**
+  String get drvAddRoleLogistics;
+
+  /// No description provided for @drvAddRoleSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Support'**
+  String get drvAddRoleSupport;
+
+  /// No description provided for @drvAddSectionLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'Login Credentials'**
+  String get drvAddSectionLogin;
+
+  /// No description provided for @drvAddSectionRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Assignment & Role'**
+  String get drvAddSectionRole;
+
+  /// No description provided for @drvAddSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get drvAddSelect;
+
+  /// No description provided for @drvAddStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Step 1 of 3'**
+  String get drvAddStep;
+
+  /// No description provided for @drvAddSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver added successfully!'**
+  String get drvAddSuccess;
+
+  /// No description provided for @drvAddSystemRole.
+  ///
+  /// In en, this message translates to:
+  /// **'System Role'**
+  String get drvAddSystemRole;
+
+  /// No description provided for @drvAddTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add New Driver'**
+  String get drvAddTitle;
+
+  /// No description provided for @drvAddUploadPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload Profile Photo'**
+  String get drvAddUploadPhoto;
+
+  /// No description provided for @drvAddUsernameFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Username: 3-50 chars (letters, numbers, underscore)'**
+  String get drvAddUsernameFormat;
+
+  /// No description provided for @drvAddUsernameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Username is required'**
+  String get drvAddUsernameRequired;
+
+  /// No description provided for @drvMgmtAddFirstHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap + to add your first driver'**
+  String get drvMgmtAddFirstHint;
+
+  /// No description provided for @drvMgmtCurrentlyOnLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently on leave'**
+  String get drvMgmtCurrentlyOnLeave;
+
+  /// No description provided for @drvMgmtMainDepot.
+  ///
+  /// In en, this message translates to:
+  /// **'Main Depot'**
+  String get drvMgmtMainDepot;
+
+  /// No description provided for @drvMgmtNoDrivers.
+  ///
+  /// In en, this message translates to:
+  /// **'No drivers yet'**
+  String get drvMgmtNoDrivers;
+
+  /// No description provided for @drvMgmtNoMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'No drivers match your filter'**
+  String get drvMgmtNoMatch;
+
+  /// No description provided for @drvMgmtSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search drivers, employee ID...'**
+  String get drvMgmtSearchHint;
+
+  /// No description provided for @drvMgmtStatusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get drvMgmtStatusActive;
+
+  /// No description provided for @drvMgmtStatusAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get drvMgmtStatusAll;
+
+  /// No description provided for @drvMgmtStatusAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Available'**
+  String get drvMgmtStatusAvailable;
+
+  /// No description provided for @drvMgmtStatusOnLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'On Leave'**
+  String get drvMgmtStatusOnLeave;
+
+  /// No description provided for @drvMgmtStatusTerminated.
+  ///
+  /// In en, this message translates to:
+  /// **'Terminated'**
+  String get drvMgmtStatusTerminated;
+
+  /// No description provided for @drvMgmtTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Drivers'**
+  String get drvMgmtTitle;
+
+  /// No description provided for @drvMgmtTotalMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} total fleet members'**
+  String drvMgmtTotalMembers(int count);
+
+  /// No description provided for @helpCenterArticleAddVehicle.
+  ///
+  /// In en, this message translates to:
+  /// **'How to add a new vehicle'**
+  String get helpCenterArticleAddVehicle;
+
+  /// No description provided for @helpCenterArticleAddVehicleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Step-by-step guide to adding vehicles to your fleet'**
+  String get helpCenterArticleAddVehicleDesc;
+
+  /// No description provided for @helpCenterArticleDetailIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'This is a detailed article about: {title}'**
+  String helpCenterArticleDetailIntro(String title);
+
+  /// No description provided for @helpCenterArticleDriverPerms.
+  ///
+  /// In en, this message translates to:
+  /// **'Managing driver permissions'**
+  String get helpCenterArticleDriverPerms;
+
+  /// No description provided for @helpCenterArticleDriverPermsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn how to assign and manage driver roles and permissions'**
+  String get helpCenterArticleDriverPermsDesc;
+
+  /// No description provided for @helpCenterArticleMaintenance.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating maintenance schedules'**
+  String get helpCenterArticleMaintenance;
+
+  /// No description provided for @helpCenterArticleMaintenanceDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep your fleet running smoothly with scheduled maintenance'**
+  String get helpCenterArticleMaintenanceDesc;
+
+  /// No description provided for @helpCenterArticlePlaceholder.
+  ///
+  /// In en, this message translates to:
+  /// **'Article content would go here with step-by-step instructions, screenshots, and helpful tips.'**
+  String get helpCenterArticlePlaceholder;
+
+  /// No description provided for @helpCenterArticleRealtimeTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'Setting up real-time tracking'**
+  String get helpCenterArticleRealtimeTracking;
+
+  /// No description provided for @helpCenterArticleRealtimeTrackingDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure GPS tracking for your fleet vehicles'**
+  String get helpCenterArticleRealtimeTrackingDesc;
+
+  /// No description provided for @helpCenterAvgResponse.
+  ///
+  /// In en, this message translates to:
+  /// **'Average response time: 2 minutes'**
+  String get helpCenterAvgResponse;
+
+  /// No description provided for @helpCenterBrowseByCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse by Category'**
+  String get helpCenterBrowseByCategory;
+
+  /// No description provided for @helpCenterCatDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver Management'**
+  String get helpCenterCatDriver;
+
+  /// No description provided for @helpCenterCatDriverDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver profiles, licenses, and assignments'**
+  String get helpCenterCatDriverDesc;
+
+  /// No description provided for @helpCenterCatFinancial.
+  ///
+  /// In en, this message translates to:
+  /// **'Financial Management'**
+  String get helpCenterCatFinancial;
+
+  /// No description provided for @helpCenterCatFinancialDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Expenses, invoices, and payments'**
+  String get helpCenterCatFinancialDesc;
+
+  /// No description provided for @helpCenterCatMaintenance.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance'**
+  String get helpCenterCatMaintenance;
+
+  /// No description provided for @helpCenterCatMaintenanceDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedules, repairs, and inspections'**
+  String get helpCenterCatMaintenanceDesc;
+
+  /// No description provided for @helpCenterCatReports.
+  ///
+  /// In en, this message translates to:
+  /// **'Reports & Analytics'**
+  String get helpCenterCatReports;
+
+  /// No description provided for @helpCenterCatReportsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating and exporting reports'**
+  String get helpCenterCatReportsDesc;
+
+  /// No description provided for @helpCenterCatRoles.
+  ///
+  /// In en, this message translates to:
+  /// **'Roles & Permissions'**
+  String get helpCenterCatRoles;
+
+  /// No description provided for @helpCenterCatRolesDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'User roles and access control'**
+  String get helpCenterCatRolesDesc;
+
+  /// No description provided for @helpCenterCatTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'Real-time Tracking'**
+  String get helpCenterCatTracking;
+
+  /// No description provided for @helpCenterCatTrackingDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS tracking and location services'**
+  String get helpCenterCatTrackingDesc;
+
+  /// No description provided for @helpCenterCatTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Management'**
+  String get helpCenterCatTrip;
+
+  /// No description provided for @helpCenterCatTripDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating and monitoring trips'**
+  String get helpCenterCatTripDesc;
+
+  /// No description provided for @helpCenterCatVehicle.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Management'**
+  String get helpCenterCatVehicle;
+
+  /// No description provided for @helpCenterCatVehicleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Adding, editing, and managing vehicles'**
+  String get helpCenterCatVehicleDesc;
+
+  /// No description provided for @helpCenterChatWithTeam.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat with our support team'**
+  String get helpCenterChatWithTeam;
+
+  /// No description provided for @helpCenterContactSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact Support'**
+  String get helpCenterContactSupport;
+
+  /// No description provided for @helpCenterEmailSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Email Support'**
+  String get helpCenterEmailSupport;
+
+  /// No description provided for @helpCenterEmailUs.
+  ///
+  /// In en, this message translates to:
+  /// **'Email Us'**
+  String get helpCenterEmailUs;
+
+  /// No description provided for @helpCenterGettingStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting Started'**
+  String get helpCenterGettingStarted;
+
+  /// No description provided for @helpCenterGuideTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Getting Started Guide'**
+  String get helpCenterGuideTitle;
+
+  /// No description provided for @helpCenterIssueDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get helpCenterIssueDescription;
+
+  /// No description provided for @helpCenterIssueReported.
+  ///
+  /// In en, this message translates to:
+  /// **'Issue reported successfully'**
+  String get helpCenterIssueReported;
+
+  /// No description provided for @helpCenterIssueTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Issue Title'**
+  String get helpCenterIssueTitle;
+
+  /// No description provided for @helpCenterLiveChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Chat'**
+  String get helpCenterLiveChat;
+
+  /// No description provided for @helpCenterMarkedHelpful.
+  ///
+  /// In en, this message translates to:
+  /// **'Article marked as helpful'**
+  String get helpCenterMarkedHelpful;
+
+  /// No description provided for @helpCenterNeedMoreHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Need More Help?'**
+  String get helpCenterNeedMoreHelp;
+
+  /// No description provided for @helpCenterNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No results found for \"{query}\"'**
+  String helpCenterNoResults(String query);
+
+  /// No description provided for @helpCenterNoResultsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try different keywords or browse categories below'**
+  String get helpCenterNoResultsHint;
+
+  /// No description provided for @helpCenterOpeningCategory.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening {category} articles...'**
+  String helpCenterOpeningCategory(String category);
+
+  /// No description provided for @helpCenterOpeningChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Opening live chat...'**
+  String get helpCenterOpeningChat;
+
+  /// No description provided for @helpCenterPhoneSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone Support'**
+  String get helpCenterPhoneSupport;
+
+  /// No description provided for @helpCenterPopularArticles.
+  ///
+  /// In en, this message translates to:
+  /// **'Popular Articles'**
+  String get helpCenterPopularArticles;
+
+  /// No description provided for @helpCenterQuickActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Actions'**
+  String get helpCenterQuickActions;
+
+  /// No description provided for @helpCenterReadMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min read'**
+  String helpCenterReadMinutes(int minutes);
+
+  /// No description provided for @helpCenterReportIssue.
+  ///
+  /// In en, this message translates to:
+  /// **'Report Issue'**
+  String get helpCenterReportIssue;
+
+  /// No description provided for @helpCenterReportTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Report an Issue'**
+  String get helpCenterReportTitle;
+
+  /// No description provided for @helpCenterResultsFound.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 result found} other{{count} results found}}'**
+  String helpCenterResultsFound(int count);
+
+  /// No description provided for @helpCenterSearchDriverPermsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn how to assign and manage driver roles'**
+  String get helpCenterSearchDriverPermsDesc;
+
+  /// No description provided for @helpCenterSearchGpsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Configure real-time vehicle tracking'**
+  String get helpCenterSearchGpsDesc;
+
+  /// No description provided for @helpCenterSearchGpsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Setting up GPS tracking'**
+  String get helpCenterSearchGpsTitle;
+
+  /// No description provided for @helpCenterSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search for help articles, guides, FAQs...'**
+  String get helpCenterSearchHint;
+
+  /// No description provided for @helpCenterSearchMaintenanceDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule regular vehicle maintenance'**
+  String get helpCenterSearchMaintenanceDesc;
+
+  /// No description provided for @helpCenterSearchReportsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Create and export financial reports'**
+  String get helpCenterSearchReportsDesc;
+
+  /// No description provided for @helpCenterSearchReportsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Generating financial reports'**
+  String get helpCenterSearchReportsTitle;
+
+  /// No description provided for @helpCenterShowingAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Showing all articles...'**
+  String get helpCenterShowingAll;
+
+  /// No description provided for @helpCenterStep1Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign up with your details'**
+  String get helpCenterStep1Desc;
+
+  /// No description provided for @helpCenterStep1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Your Account'**
+  String get helpCenterStep1Title;
+
+  /// No description provided for @helpCenterStep2Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Create or join an organization'**
+  String get helpCenterStep2Desc;
+
+  /// No description provided for @helpCenterStep2Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Set Up Your Organization'**
+  String get helpCenterStep2Title;
+
+  /// No description provided for @helpCenterStep3Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Add vehicles to the system'**
+  String get helpCenterStep3Desc;
+
+  /// No description provided for @helpCenterStep3Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Your Fleet'**
+  String get helpCenterStep3Title;
+
+  /// No description provided for @helpCenterStep4Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Add drivers and staff'**
+  String get helpCenterStep4Desc;
+
+  /// No description provided for @helpCenterStep4Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite Team Members'**
+  String get helpCenterStep4Title;
+
+  /// No description provided for @helpCenterStep5Desc.
+  ///
+  /// In en, this message translates to:
+  /// **'Begin tracking and managing your fleet'**
+  String get helpCenterStep5Desc;
+
+  /// No description provided for @helpCenterStep5Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Managing'**
+  String get helpCenterStep5Title;
+
+  /// No description provided for @helpCenterSupport247.
+  ///
+  /// In en, this message translates to:
+  /// **'Our support team is available 24/7 to assist you'**
+  String get helpCenterSupport247;
+
+  /// No description provided for @helpCenterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Help Center'**
+  String get helpCenterTitle;
+
+  /// No description provided for @helpCenterVideoComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Video tutorials coming soon!'**
+  String get helpCenterVideoComingSoon;
+
+  /// No description provided for @helpCenterVideoTutorials.
+  ///
+  /// In en, this message translates to:
+  /// **'Video Tutorials'**
+  String get helpCenterVideoTutorials;
+
+  /// No description provided for @helpCenterViewAll.
+  ///
+  /// In en, this message translates to:
+  /// **'View All'**
+  String get helpCenterViewAll;
+
+  /// No description provided for @helpCenterWasHelpful.
+  ///
+  /// In en, this message translates to:
+  /// **'Was this helpful?'**
+  String get helpCenterWasHelpful;
+
+  /// No description provided for @orgCreate10Chars.
+  ///
+  /// In en, this message translates to:
+  /// **'10 characters'**
+  String get orgCreate10Chars;
+
+  /// No description provided for @orgCreate15Chars.
+  ///
+  /// In en, this message translates to:
+  /// **'15 characters'**
+  String get orgCreate15Chars;
+
+  /// No description provided for @orgCreateAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Add'**
+  String get orgCreateAdd;
+
+  /// No description provided for @orgCreateAddressRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Address is required'**
+  String get orgCreateAddressRequired;
+
+  /// No description provided for @orgCreateBusinessEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Business Email'**
+  String get orgCreateBusinessEmail;
+
+  /// No description provided for @orgCreateBusinessPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Business Phone'**
+  String get orgCreateBusinessPhone;
+
+  /// No description provided for @orgCreateBusinessType.
+  ///
+  /// In en, this message translates to:
+  /// **'Business Type'**
+  String get orgCreateBusinessType;
+
+  /// No description provided for @orgCreateBusinessTypeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., Transportation, Logistics'**
+  String get orgCreateBusinessTypeHint;
+
+  /// No description provided for @orgCreateBusinessTypeRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Business type is required'**
+  String get orgCreateBusinessTypeRequired;
+
+  /// No description provided for @orgCreateCity.
+  ///
+  /// In en, this message translates to:
+  /// **'City'**
+  String get orgCreateCity;
+
+  /// No description provided for @orgCreateCompanyName.
+  ///
+  /// In en, this message translates to:
+  /// **'Company Name'**
+  String get orgCreateCompanyName;
+
+  /// No description provided for @orgCreateCompanyNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., Acme Logistics Pvt. Ltd.'**
+  String get orgCreateCompanyNameHint;
+
+  /// No description provided for @orgCreateCompanyNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Company name is required'**
+  String get orgCreateCompanyNameRequired;
+
+  /// No description provided for @orgCreateCountry.
+  ///
+  /// In en, this message translates to:
+  /// **'Country'**
+  String get orgCreateCountry;
+
+  /// No description provided for @orgCreateEmailInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid email format'**
+  String get orgCreateEmailInvalid;
+
+  /// No description provided for @orgCreateEmailRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Business email is required'**
+  String get orgCreateEmailRequired;
+
+  /// No description provided for @orgCreateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create organization: {error}'**
+  String orgCreateFailed(String error);
+
+  /// No description provided for @orgCreateGstinInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid GSTIN format'**
+  String get orgCreateGstinInvalid;
+
+  /// No description provided for @orgCreateGstinLength.
+  ///
+  /// In en, this message translates to:
+  /// **'GSTIN must be exactly 15 characters'**
+  String get orgCreateGstinLength;
+
+  /// No description provided for @orgCreateHeaderSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your fleet workspace'**
+  String get orgCreateHeaderSub;
+
+  /// No description provided for @orgCreateHeaderTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'New Organization'**
+  String get orgCreateHeaderTitle;
+
+  /// No description provided for @orgCreateInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid'**
+  String get orgCreateInvalid;
+
+  /// No description provided for @orgCreateLegalSub.
+  ///
+  /// In en, this message translates to:
+  /// **'GSTIN & PAN — Optional'**
+  String get orgCreateLegalSub;
+
+  /// No description provided for @orgCreateMin10Digits.
+  ///
+  /// In en, this message translates to:
+  /// **'Must be at least 10 digits'**
+  String get orgCreateMin10Digits;
+
+  /// No description provided for @orgCreateMin2Chars.
+  ///
+  /// In en, this message translates to:
+  /// **'Must be at least 2 characters'**
+  String get orgCreateMin2Chars;
+
+  /// No description provided for @orgCreateOptionalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} (Optional)'**
+  String orgCreateOptionalLabel(String label);
+
+  /// No description provided for @orgCreatePanInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid PAN format'**
+  String get orgCreatePanInvalid;
+
+  /// No description provided for @orgCreatePanLength.
+  ///
+  /// In en, this message translates to:
+  /// **'PAN must be exactly 10 characters'**
+  String get orgCreatePanLength;
+
+  /// No description provided for @orgCreatePanNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'PAN Number'**
+  String get orgCreatePanNumber;
+
+  /// No description provided for @orgCreatePhoneRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Business phone is required'**
+  String get orgCreatePhoneRequired;
+
+  /// No description provided for @orgCreatePincode.
+  ///
+  /// In en, this message translates to:
+  /// **'Pincode'**
+  String get orgCreatePincode;
+
+  /// No description provided for @orgCreateRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Required'**
+  String get orgCreateRequired;
+
+  /// No description provided for @orgCreateSecAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Address'**
+  String get orgCreateSecAddress;
+
+  /// No description provided for @orgCreateSecCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Company Information'**
+  String get orgCreateSecCompany;
+
+  /// No description provided for @orgCreateSecContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact Information'**
+  String get orgCreateSecContact;
+
+  /// No description provided for @orgCreateSecLegal.
+  ///
+  /// In en, this message translates to:
+  /// **'Legal Information'**
+  String get orgCreateSecLegal;
+
+  /// No description provided for @orgCreateState.
+  ///
+  /// In en, this message translates to:
+  /// **'State'**
+  String get orgCreateState;
+
+  /// No description provided for @orgCreateStreetAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Street Address'**
+  String get orgCreateStreetAddress;
+
+  /// No description provided for @orgCreateStreetAddressHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Building, street, area…'**
+  String get orgCreateStreetAddressHint;
+
+  /// No description provided for @orgCreateSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Organization \"{name}\" created successfully!'**
+  String orgCreateSuccess(String name);
+
+  /// No description provided for @orgCreateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Organization'**
+  String get orgCreateTitle;
+
+  /// No description provided for @orgManageAllCaughtUp.
+  ///
+  /// In en, this message translates to:
+  /// **'All caught up!'**
+  String get orgManageAllCaughtUp;
+
+  /// No description provided for @orgManageApproveAssign.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve & Assign Role'**
+  String get orgManageApproveAssign;
+
+  /// No description provided for @orgManageApproveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to approve user: {error}'**
+  String orgManageApproveFailed(String error);
+
+  /// No description provided for @orgManageApproveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve {username}'**
+  String orgManageApproveTitle(String username);
+
+  /// No description provided for @orgManageApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'{username} approved successfully'**
+  String orgManageApproved(String username);
+
+  /// No description provided for @orgManageAssignRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign Role'**
+  String get orgManageAssignRole;
+
+  /// No description provided for @orgManageChangeRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Role'**
+  String get orgManageChangeRole;
+
+  /// No description provided for @orgManageHeaderSummary.
+  ///
+  /// In en, this message translates to:
+  /// **'{members} members · {pending} pending'**
+  String orgManageHeaderSummary(int members, int pending);
+
+  /// No description provided for @orgManageLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load organization data.'**
+  String get orgManageLoadFailed;
+
+  /// No description provided for @orgManageMembersHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Members will appear here'**
+  String get orgManageMembersHint;
+
+  /// No description provided for @orgManageMembersTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Members ({count})'**
+  String orgManageMembersTab(int count);
+
+  /// No description provided for @orgManageNewRoleFor.
+  ///
+  /// In en, this message translates to:
+  /// **'New role for {username}'**
+  String orgManageNewRoleFor(String username);
+
+  /// No description provided for @orgManageNoMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'No members yet'**
+  String get orgManageNoMembers;
+
+  /// No description provided for @orgManageNoPending.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending join requests'**
+  String get orgManageNoPending;
+
+  /// No description provided for @orgManageNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No results for \"{query}\"'**
+  String orgManageNoResults(String query);
+
+  /// No description provided for @orgManageNoRole.
+  ///
+  /// In en, this message translates to:
+  /// **'No Role'**
+  String get orgManageNoRole;
+
+  /// No description provided for @orgManageOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner'**
+  String get orgManageOwner;
+
+  /// No description provided for @orgManagePendingBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get orgManagePendingBadge;
+
+  /// No description provided for @orgManagePendingTab.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending ({count})'**
+  String orgManagePendingTab(int count);
+
+  /// No description provided for @orgManageRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get orgManageRefresh;
+
+  /// No description provided for @orgManageReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get orgManageReject;
+
+  /// No description provided for @orgManageRejectConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject {username}\'s request to join?'**
+  String orgManageRejectConfirm(String username);
+
+  /// No description provided for @orgManageRejectFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to reject: {error}'**
+  String orgManageRejectFailed(String error);
+
+  /// No description provided for @orgManageRejectUserTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject User'**
+  String get orgManageRejectUserTitle;
+
+  /// No description provided for @orgManageRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'{username} rejected'**
+  String orgManageRejected(String username);
+
+  /// No description provided for @orgManageRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get orgManageRemove;
+
+  /// No description provided for @orgManageRemoveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {username} from {orgName}? They will lose access immediately.'**
+  String orgManageRemoveConfirm(String username, String orgName);
+
+  /// No description provided for @orgManageRemoveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to remove: {error}'**
+  String orgManageRemoveFailed(String error);
+
+  /// No description provided for @orgManageRemoveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Member'**
+  String get orgManageRemoveTitle;
+
+  /// No description provided for @orgManageRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'{username} removed'**
+  String orgManageRemoved(String username);
+
+  /// No description provided for @orgManageRequestedRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested: {role}'**
+  String orgManageRequestedRole(String role);
+
+  /// No description provided for @orgManageRoleAdmin.
+  ///
+  /// In en, this message translates to:
+  /// **'Admin'**
+  String get orgManageRoleAdmin;
+
+  /// No description provided for @orgManageRoleAdminDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage members & settings'**
+  String get orgManageRoleAdminDesc;
+
+  /// No description provided for @orgManageRoleDispatcher.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispatcher'**
+  String get orgManageRoleDispatcher;
+
+  /// No description provided for @orgManageRoleDispatcherDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage trips & assignments'**
+  String get orgManageRoleDispatcherDesc;
+
+  /// No description provided for @orgManageRoleUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update role: {error}'**
+  String orgManageRoleUpdateFailed(String error);
+
+  /// No description provided for @orgManageRoleUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Role updated successfully'**
+  String get orgManageRoleUpdated;
+
+  /// No description provided for @orgManageRoleUser.
+  ///
+  /// In en, this message translates to:
+  /// **'User'**
+  String get orgManageRoleUser;
+
+  /// No description provided for @orgManageRoleUserDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard access to features'**
+  String get orgManageRoleUserDesc;
+
+  /// No description provided for @orgManageRoleViewer.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewer'**
+  String get orgManageRoleViewer;
+
+  /// No description provided for @orgManageRoleViewerDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Read-only access'**
+  String get orgManageRoleViewerDesc;
+
+  /// No description provided for @orgManageSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search members…'**
+  String get orgManageSearchHint;
+
+  /// No description provided for @orgManageSelectRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a role to assign'**
+  String get orgManageSelectRole;
+
+  /// No description provided for @orgSelectCreate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Organization'**
+  String get orgSelectCreate;
+
+  /// No description provided for @orgSelectCreateNew.
+  ///
+  /// In en, this message translates to:
+  /// **'Create New Organization'**
+  String get orgSelectCreateNew;
+
+  /// No description provided for @orgSelectCreateNewSub.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up your own fleet organization'**
+  String get orgSelectCreateNewSub;
+
+  /// No description provided for @orgSelectNoOrgs.
+  ///
+  /// In en, this message translates to:
+  /// **'No Organizations Yet'**
+  String get orgSelectNoOrgs;
+
+  /// No description provided for @orgSelectNoOrgsBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Create your own or ask an admin to add you to an existing organization.'**
+  String get orgSelectNoOrgsBody;
+
+  /// No description provided for @orgSelectNoRole.
+  ///
+  /// In en, this message translates to:
+  /// **'No Role'**
+  String get orgSelectNoRole;
+
+  /// No description provided for @orgSelectSwitchFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to switch organization'**
+  String get orgSelectSwitchFailed;
+
+  /// No description provided for @orgSelectSwitched.
+  ///
+  /// In en, this message translates to:
+  /// **'Switched to {name}'**
+  String orgSelectSwitched(String name);
+
+  /// No description provided for @orgSelectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Organization'**
+  String get orgSelectTitle;
+
+  /// No description provided for @orgSelectTryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Try again'**
+  String get orgSelectTryAgain;
+
+  /// No description provided for @orgSelectUser.
+  ///
+  /// In en, this message translates to:
+  /// **'User'**
+  String get orgSelectUser;
+
+  /// No description provided for @orgSelectWelcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome back,'**
+  String get orgSelectWelcome;
+
+  /// No description provided for @orgSelectWrong.
+  ///
+  /// In en, this message translates to:
+  /// **'Something went wrong'**
+  String get orgSelectWrong;
+
+  /// No description provided for @orgSelectYourOrgs.
+  ///
+  /// In en, this message translates to:
+  /// **'Your Organizations'**
+  String get orgSelectYourOrgs;
+
+  /// No description provided for @profileAccountStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Account Status'**
+  String get profileAccountStatus;
+
+  /// No description provided for @profileAuthEmailPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Email & Password'**
+  String get profileAuthEmailPassword;
+
+  /// No description provided for @profileAuthMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Auth Method'**
+  String get profileAuthMethod;
+
+  /// No description provided for @profileAuthSecurityQuestions.
+  ///
+  /// In en, this message translates to:
+  /// **'Security Questions'**
+  String get profileAuthSecurityQuestions;
+
+  /// No description provided for @profileBecameDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Role changed to Driver successfully!'**
+  String get profileBecameDriver;
+
+  /// No description provided for @profileBecomeDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Become Driver'**
+  String get profileBecomeDriver;
+
+  /// No description provided for @profileBecomeDriverTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Become a Driver'**
+  String get profileBecomeDriverTitle;
+
+  /// No description provided for @profileCancelPendingMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This will cancel your pending organization request and return you to Independent User status. You can join or create an organization again at any time.'**
+  String get profileCancelPendingMessage;
+
+  /// No description provided for @profileCancelPendingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel Pending Request?'**
+  String get profileCancelPendingTitle;
+
+  /// No description provided for @profileChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get profileChange;
+
+  /// No description provided for @profileChangeOrganization.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Organization'**
+  String get profileChangeOrganization;
+
+  /// No description provided for @profileChangePassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Password'**
+  String get profileChangePassword;
+
+  /// No description provided for @profileChangeRoleChoose.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose how you want to change your role:'**
+  String get profileChangeRoleChoose;
+
+  /// No description provided for @profileChangeRoleFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to change role'**
+  String get profileChangeRoleFailed;
+
+  /// No description provided for @profileChangeRolePending.
+  ///
+  /// In en, this message translates to:
+  /// **'Your request is pending. What would you like to do?'**
+  String get profileChangeRolePending;
+
+  /// No description provided for @profileChangeRoleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Role'**
+  String get profileChangeRoleTitle;
+
+  /// No description provided for @profileCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Company'**
+  String get profileCompany;
+
+  /// No description provided for @profileCreateOrganization.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Organization'**
+  String get profileCreateOrganization;
+
+  /// No description provided for @profileDefaultUser.
+  ///
+  /// In en, this message translates to:
+  /// **'User'**
+  String get profileDefaultUser;
+
+  /// No description provided for @profileDriverLicenseIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter your driver license details:'**
+  String get profileDriverLicenseIntro;
+
+  /// No description provided for @profileEditBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit mode — tap ✓ in the toolbar to save changes'**
+  String get profileEditBanner;
+
+  /// No description provided for @profileEditTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Profile'**
+  String get profileEditTooltip;
+
+  /// No description provided for @profileEmail.
+  ///
+  /// In en, this message translates to:
+  /// **'Email'**
+  String get profileEmail;
+
+  /// No description provided for @profileEnterLicenseExpiry.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter license expiry date'**
+  String get profileEnterLicenseExpiry;
+
+  /// No description provided for @profileEnterLicenseNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter license number'**
+  String get profileEnterLicenseNumber;
+
+  /// No description provided for @profileFullName.
+  ///
+  /// In en, this message translates to:
+  /// **'Full Name'**
+  String get profileFullName;
+
+  /// No description provided for @profileFullNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Full name is required'**
+  String get profileFullNameRequired;
+
+  /// No description provided for @profileGoIndependent.
+  ///
+  /// In en, this message translates to:
+  /// **'Go Independent'**
+  String get profileGoIndependent;
+
+  /// No description provided for @profileImageReadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error reading image: {error}'**
+  String profileImageReadError(String error);
+
+  /// No description provided for @profileImageSelectError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error selecting image: {error}'**
+  String profileImageSelectError(String error);
+
+  /// No description provided for @profileIndependentOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'As an Independent User, you can:'**
+  String get profileIndependentOptions;
+
+  /// No description provided for @profileJoinFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to join organization'**
+  String get profileJoinFailed;
+
+  /// No description provided for @profileJoinOrganization.
+  ///
+  /// In en, this message translates to:
+  /// **'Join Organization'**
+  String get profileJoinOrganization;
+
+  /// No description provided for @profileJoinSubmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'Join request submitted! Awaiting approval.'**
+  String get profileJoinSubmitted;
+
+  /// No description provided for @profileKeepPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep Pending'**
+  String get profileKeepPending;
+
+  /// No description provided for @profileLicenseExpiry.
+  ///
+  /// In en, this message translates to:
+  /// **'License Expiry (YYYY-MM-DD)'**
+  String get profileLicenseExpiry;
+
+  /// No description provided for @profileLicenseNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'License Number'**
+  String get profileLicenseNumber;
+
+  /// No description provided for @profileNewPhotoSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'New photo selected · tap Save to apply'**
+  String get profileNewPhotoSelected;
+
+  /// No description provided for @profileNoPreference.
+  ///
+  /// In en, this message translates to:
+  /// **'No preference'**
+  String get profileNoPreference;
+
+  /// No description provided for @profileNoRole.
+  ///
+  /// In en, this message translates to:
+  /// **'No Role'**
+  String get profileNoRole;
+
+  /// No description provided for @profileNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get profileNone;
+
+  /// No description provided for @profileNotAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'Not assigned'**
+  String get profileNotAssigned;
+
+  /// No description provided for @profileNotAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'N/A'**
+  String get profileNotAvailable;
+
+  /// No description provided for @profileNowIndependent.
+  ///
+  /// In en, this message translates to:
+  /// **'You are now an Independent User.'**
+  String get profileNowIndependent;
+
+  /// No description provided for @profilePendingOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Your request is pending approval. You can:'**
+  String get profilePendingOptions;
+
+  /// No description provided for @profilePersonalInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Personal Information'**
+  String get profilePersonalInfo;
+
+  /// No description provided for @profilePhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone'**
+  String get profilePhone;
+
+  /// No description provided for @profilePhotoAddHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to add a photo'**
+  String get profilePhotoAddHint;
+
+  /// No description provided for @profilePhotoChangeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to change photo · long-press to remove'**
+  String get profilePhotoChangeHint;
+
+  /// No description provided for @profileRemove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get profileRemove;
+
+  /// No description provided for @profileRemovePictureFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to remove profile picture'**
+  String get profileRemovePictureFailed;
+
+  /// No description provided for @profileRemovePictureMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to remove your profile picture?'**
+  String get profileRemovePictureMessage;
+
+  /// No description provided for @profileRemovePictureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Profile Picture'**
+  String get profileRemovePictureTitle;
+
+  /// No description provided for @profileRequestedRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested Role (Optional)'**
+  String get profileRequestedRole;
+
+  /// No description provided for @profileRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Role'**
+  String get profileRole;
+
+  /// No description provided for @profileRoleAccountant.
+  ///
+  /// In en, this message translates to:
+  /// **'Accountant'**
+  String get profileRoleAccountant;
+
+  /// No description provided for @profileRoleComplianceOfficer.
+  ///
+  /// In en, this message translates to:
+  /// **'Compliance Officer'**
+  String get profileRoleComplianceOfficer;
+
+  /// No description provided for @profileRoleCustomerService.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer Service'**
+  String get profileRoleCustomerService;
+
+  /// No description provided for @profileRoleDispatcher.
+  ///
+  /// In en, this message translates to:
+  /// **'Dispatcher'**
+  String get profileRoleDispatcher;
+
+  /// No description provided for @profileRoleFleetManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Fleet Manager'**
+  String get profileRoleFleetManager;
+
+  /// No description provided for @profileRoleMaintenanceManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance Manager'**
+  String get profileRoleMaintenanceManager;
+
+  /// No description provided for @profileRoleMaintenanceTechnician.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance Technician'**
+  String get profileRoleMaintenanceTechnician;
+
+  /// No description provided for @profileRoleManaged.
+  ///
+  /// In en, this message translates to:
+  /// **'Your role is managed by your organization.'**
+  String get profileRoleManaged;
+
+  /// No description provided for @profileRoleOperationsManager.
+  ///
+  /// In en, this message translates to:
+  /// **'Operations Manager'**
+  String get profileRoleOperationsManager;
+
+  /// No description provided for @profileRoleOrg.
+  ///
+  /// In en, this message translates to:
+  /// **'Role & Organization'**
+  String get profileRoleOrg;
+
+  /// No description provided for @profileRoleUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update role'**
+  String get profileRoleUpdateFailed;
+
+  /// No description provided for @profileRoleViewerAnalyst.
+  ///
+  /// In en, this message translates to:
+  /// **'Viewer / Analyst'**
+  String get profileRoleViewerAnalyst;
+
+  /// No description provided for @profileStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile Status'**
+  String get profileStatus;
+
+  /// No description provided for @profileStatusCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get profileStatusCompleted;
+
+  /// No description provided for @profileStatusIncomplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Incomplete'**
+  String get profileStatusIncomplete;
+
+  /// No description provided for @profileStatusLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get profileStatusLabel;
+
+  /// No description provided for @profileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'My Profile'**
+  String get profileTitle;
+
+  /// No description provided for @profileUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get profileUnknown;
+
+  /// No description provided for @profileUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update profile'**
+  String get profileUpdateFailed;
+
+  /// No description provided for @profileUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile updated successfully!'**
+  String get profileUpdated;
+
+  /// No description provided for @profileUploadPictureFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to upload profile picture'**
+  String get profileUploadPictureFailed;
+
+  /// No description provided for @profileUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get profileUsername;
+
+  /// No description provided for @customRoleAfterCreateNote.
+  ///
+  /// In en, this message translates to:
+  /// **'After creation, you\'ll be taken to the role editor to configure capabilities.'**
+  String get customRoleAfterCreateNote;
+
+  /// No description provided for @customRoleCapabilities.
+  ///
+  /// In en, this message translates to:
+  /// **'Capabilities'**
+  String get customRoleCapabilities;
+
+  /// No description provided for @customRoleCapabilityCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 capability} other{{count} capabilities}}'**
+  String customRoleCapabilityCount(int count);
+
+  /// No description provided for @customRoleCatCompliance.
+  ///
+  /// In en, this message translates to:
+  /// **'Compliance & Safety'**
+  String get customRoleCatCompliance;
+
+  /// No description provided for @customRoleCatCustomer.
+  ///
+  /// In en, this message translates to:
+  /// **'Customer Management'**
+  String get customRoleCatCustomer;
+
+  /// No description provided for @customRoleCatDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver Management'**
+  String get customRoleCatDriver;
+
+  /// No description provided for @customRoleCatFinancial.
+  ///
+  /// In en, this message translates to:
+  /// **'Financial Management'**
+  String get customRoleCatFinancial;
+
+  /// No description provided for @customRoleCatMaintenance.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance'**
+  String get customRoleCatMaintenance;
+
+  /// No description provided for @customRoleCatReporting.
+  ///
+  /// In en, this message translates to:
+  /// **'Reporting & Analytics'**
+  String get customRoleCatReporting;
+
+  /// No description provided for @customRoleCatRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Role Management'**
+  String get customRoleCatRole;
+
+  /// No description provided for @customRoleCatSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System Settings'**
+  String get customRoleCatSystem;
+
+  /// No description provided for @customRoleCatTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracking & Monitoring'**
+  String get customRoleCatTracking;
+
+  /// No description provided for @customRoleCatTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Management'**
+  String get customRoleCatTrip;
+
+  /// No description provided for @customRoleCatUser.
+  ///
+  /// In en, this message translates to:
+  /// **'User Management'**
+  String get customRoleCatUser;
+
+  /// No description provided for @customRoleCatVehicle.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Management'**
+  String get customRoleCatVehicle;
+
+  /// No description provided for @customRoleCategoryEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'{enabled} / {total} capabilities enabled'**
+  String customRoleCategoryEnabled(int enabled, int total);
+
+  /// No description provided for @customRoleChooseMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose creation method'**
+  String get customRoleChooseMethod;
+
+  /// No description provided for @customRoleChooseMethodHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Start from a predefined template or build from scratch'**
+  String get customRoleChooseMethodHint;
+
+  /// No description provided for @customRoleCreateButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Role'**
+  String get customRoleCreateButton;
+
+  /// No description provided for @customRoleCreateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create role: {error}'**
+  String customRoleCreateFailed(String error);
+
+  /// No description provided for @customRoleCreateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Custom Role'**
+  String get customRoleCreateTitle;
+
+  /// No description provided for @customRoleCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom role created successfully'**
+  String get customRoleCreated;
+
+  /// No description provided for @customRoleCreating.
+  ///
+  /// In en, this message translates to:
+  /// **'Creating...'**
+  String get customRoleCreating;
+
+  /// No description provided for @customRoleDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get customRoleDescription;
+
+  /// No description provided for @customRoleDescriptionHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe the purpose of this role'**
+  String get customRoleDescriptionHint;
+
+  /// No description provided for @customRoleDescriptionOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (Optional)'**
+  String get customRoleDescriptionOptional;
+
+  /// No description provided for @customRoleDetailsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Give your custom role a name and description'**
+  String get customRoleDetailsHint;
+
+  /// No description provided for @customRoleDetailsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Role Details'**
+  String get customRoleDetailsTitle;
+
+  /// No description provided for @customRoleEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Custom Role'**
+  String get customRoleEditTitle;
+
+  /// No description provided for @customRoleEnabledCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{enabled} / {total} enabled'**
+  String customRoleEnabledCount(int enabled, int total);
+
+  /// No description provided for @customRoleFromScratch.
+  ///
+  /// In en, this message translates to:
+  /// **'From Scratch'**
+  String get customRoleFromScratch;
+
+  /// No description provided for @customRoleFromScratchDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Build a completely custom role with your own capabilities. Configure everything manually.'**
+  String get customRoleFromScratchDesc;
+
+  /// No description provided for @customRoleFromScratchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start from Scratch'**
+  String get customRoleFromScratchTitle;
+
+  /// No description provided for @customRoleFromTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'From Template'**
+  String get customRoleFromTemplate;
+
+  /// No description provided for @customRoleFromTemplateDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Use predefined role templates as a starting point. Inherit capabilities and customize.'**
+  String get customRoleFromTemplateDesc;
+
+  /// No description provided for @customRoleFromTemplateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start from Template'**
+  String get customRoleFromTemplateTitle;
+
+  /// No description provided for @customRoleInfoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Role Information'**
+  String get customRoleInfoTitle;
+
+  /// No description provided for @customRoleIntersection.
+  ///
+  /// In en, this message translates to:
+  /// **'Intersection (Only Common)'**
+  String get customRoleIntersection;
+
+  /// No description provided for @customRoleIntersectionCommon.
+  ///
+  /// In en, this message translates to:
+  /// **'Intersection (Common Only)'**
+  String get customRoleIntersectionCommon;
+
+  /// No description provided for @customRoleIntersectionDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Include only capabilities shared by all selected templates'**
+  String get customRoleIntersectionDesc;
+
+  /// No description provided for @customRoleLeave.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave'**
+  String get customRoleLeave;
+
+  /// No description provided for @customRoleLevelFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get customRoleLevelFull;
+
+  /// No description provided for @customRoleLevelLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'Limited'**
+  String get customRoleLevelLimited;
+
+  /// No description provided for @customRoleLevelNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get customRoleLevelNone;
+
+  /// No description provided for @customRoleLevelView.
+  ///
+  /// In en, this message translates to:
+  /// **'View'**
+  String get customRoleLevelView;
+
+  /// No description provided for @customRoleLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load role'**
+  String get customRoleLoadFailed;
+
+  /// No description provided for @customRoleMergeStrategy.
+  ///
+  /// In en, this message translates to:
+  /// **'Merge Strategy'**
+  String get customRoleMergeStrategy;
+
+  /// No description provided for @customRoleNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., Regional Manager - West Coast'**
+  String get customRoleNameHint;
+
+  /// No description provided for @customRoleNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Role Name'**
+  String get customRoleNameLabel;
+
+  /// No description provided for @customRoleNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a role name'**
+  String get customRoleNameRequired;
+
+  /// No description provided for @customRoleNameRequiredShort.
+  ///
+  /// In en, this message translates to:
+  /// **'Role name required'**
+  String get customRoleNameRequiredShort;
+
+  /// No description provided for @customRoleNoDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'No description'**
+  String get customRoleNoDescription;
+
+  /// No description provided for @customRoleNotSet.
+  ///
+  /// In en, this message translates to:
+  /// **'(not set)'**
+  String get customRoleNotSet;
+
+  /// No description provided for @customRoleQuickAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All'**
+  String get customRoleQuickAll;
+
+  /// No description provided for @customRoleReviewHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your custom role details before creating'**
+  String get customRoleReviewHint;
+
+  /// No description provided for @customRoleReviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Review & Create'**
+  String get customRoleReviewTitle;
+
+  /// No description provided for @customRoleSaveChanges.
+  ///
+  /// In en, this message translates to:
+  /// **'Save Changes'**
+  String get customRoleSaveChanges;
+
+  /// No description provided for @customRoleSaving.
+  ///
+  /// In en, this message translates to:
+  /// **'Saving...'**
+  String get customRoleSaving;
+
+  /// No description provided for @customRoleSelectOneTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select at least one template'**
+  String get customRoleSelectOneTemplate;
+
+  /// No description provided for @customRoleSelectTemplates.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Templates'**
+  String get customRoleSelectTemplates;
+
+  /// No description provided for @customRoleSelectTemplatesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose one or more templates to combine'**
+  String get customRoleSelectTemplatesHint;
+
+  /// No description provided for @customRoleSelectedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} selected'**
+  String customRoleSelectedCount(int count);
+
+  /// No description provided for @customRoleStay.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay'**
+  String get customRoleStay;
+
+  /// No description provided for @customRoleStepDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get customRoleStepDetails;
+
+  /// No description provided for @customRoleStepMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Method'**
+  String get customRoleStepMethod;
+
+  /// No description provided for @customRoleStepReview.
+  ///
+  /// In en, this message translates to:
+  /// **'Review'**
+  String get customRoleStepReview;
+
+  /// No description provided for @customRoleStepTemplates.
+  ///
+  /// In en, this message translates to:
+  /// **'Templates'**
+  String get customRoleStepTemplates;
+
+  /// No description provided for @customRoleSystemCritical.
+  ///
+  /// In en, this message translates to:
+  /// **'System critical – restricted to super admin'**
+  String get customRoleSystemCritical;
+
+  /// No description provided for @customRoleTemplateError.
+  ///
+  /// In en, this message translates to:
+  /// **'Error: {error}'**
+  String customRoleTemplateError(String error);
+
+  /// No description provided for @customRoleTemplatePreselected.
+  ///
+  /// In en, this message translates to:
+  /// **'Template pre-selected: {names}'**
+  String customRoleTemplatePreselected(String names);
+
+  /// No description provided for @customRoleUnion.
+  ///
+  /// In en, this message translates to:
+  /// **'Union (Combine All)'**
+  String get customRoleUnion;
+
+  /// No description provided for @customRoleUnionDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Include all capabilities from all selected templates'**
+  String get customRoleUnionDesc;
+
+  /// No description provided for @customRoleUnsavedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'You have unsaved changes. Do you want to leave without saving?'**
+  String get customRoleUnsavedBody;
+
+  /// No description provided for @customRoleUnsavedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Unsaved Changes'**
+  String get customRoleUnsavedTitle;
+
+  /// No description provided for @customRoleUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update role'**
+  String get customRoleUpdateFailed;
+
+  /// No description provided for @customRoleUpdateFailedWithError.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update role: {error}'**
+  String customRoleUpdateFailedWithError(String error);
+
+  /// No description provided for @customRoleUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Role updated successfully'**
+  String get customRoleUpdated;
+
+  /// No description provided for @customRolesActiveMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 active member} other{{count} active members}}'**
+  String customRolesActiveMembers(int count);
+
+  /// No description provided for @customRolesApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get customRolesApprove;
+
+  /// No description provided for @customRolesApproveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to approve request'**
+  String get customRolesApproveFailed;
+
+  /// No description provided for @customRolesApproveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve Request'**
+  String get customRolesApproveTitle;
+
+  /// No description provided for @customRolesApprovedOk.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} approved successfully!'**
+  String customRolesApprovedOk(String name);
+
+  /// No description provided for @customRolesApprovingFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Approving join request from {name}.'**
+  String customRolesApprovingFrom(String name);
+
+  /// No description provided for @customRolesAssignRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign Role:'**
+  String get customRolesAssignRole;
+
+  /// No description provided for @customRolesCapabilityCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 capability} other{{count} capabilities}}'**
+  String customRolesCapabilityCount(int count);
+
+  /// No description provided for @customRolesChangeRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Role'**
+  String get customRolesChangeRole;
+
+  /// No description provided for @customRolesChangeRoleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Change Member Role'**
+  String get customRolesChangeRoleTitle;
+
+  /// No description provided for @customRolesClone.
+  ///
+  /// In en, this message translates to:
+  /// **'Clone'**
+  String get customRolesClone;
+
+  /// No description provided for @customRolesCloneFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to clone'**
+  String get customRolesCloneFailed;
+
+  /// No description provided for @customRolesCloneTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Clone Role'**
+  String get customRolesCloneTitle;
+
+  /// No description provided for @customRolesCloned.
+  ///
+  /// In en, this message translates to:
+  /// **'Role cloned successfully'**
+  String get customRolesCloned;
+
+  /// No description provided for @customRolesCreateFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Your First Role'**
+  String get customRolesCreateFirst;
+
+  /// No description provided for @customRolesCreateFromTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Custom Role from This Template'**
+  String get customRolesCreateFromTemplate;
+
+  /// No description provided for @customRolesCreateRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Custom Role'**
+  String get customRolesCreateRole;
+
+  /// No description provided for @customRolesCustomBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'custom'**
+  String get customRolesCustomBadge;
+
+  /// No description provided for @customRolesDeleteConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this role? This cannot be undone.'**
+  String get customRolesDeleteConfirm;
+
+  /// No description provided for @customRolesDeleteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to delete role'**
+  String get customRolesDeleteFailed;
+
+  /// No description provided for @customRolesDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete Role'**
+  String get customRolesDeleteTitle;
+
+  /// No description provided for @customRolesDeleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Role deleted successfully'**
+  String get customRolesDeleted;
+
+  /// No description provided for @customRolesDescriptionOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Description (optional)'**
+  String get customRolesDescriptionOptional;
+
+  /// No description provided for @customRolesNewRole.
+  ///
+  /// In en, this message translates to:
+  /// **'New Role:'**
+  String get customRolesNewRole;
+
+  /// No description provided for @customRolesNewRoleName.
+  ///
+  /// In en, this message translates to:
+  /// **'New Role Name'**
+  String get customRolesNewRoleName;
+
+  /// No description provided for @customRolesNoCapabilities.
+  ///
+  /// In en, this message translates to:
+  /// **'No capabilities listed'**
+  String get customRolesNoCapabilities;
+
+  /// No description provided for @customRolesNoCustomSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Create custom roles tailored to your organization'**
+  String get customRolesNoCustomSubtitle;
+
+  /// No description provided for @customRolesNoCustomTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No Custom Roles Yet'**
+  String get customRolesNoCustomTitle;
+
+  /// No description provided for @customRolesNoMembersSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve pending requests to add members to your organization.'**
+  String get customRolesNoMembersSubtitle;
+
+  /// No description provided for @customRolesNoMembersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No Members Yet'**
+  String get customRolesNoMembersTitle;
+
+  /// No description provided for @customRolesNoPendingSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'All join requests have been processed.'**
+  String get customRolesNoPendingSubtitle;
+
+  /// No description provided for @customRolesNoPendingTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No Pending Requests'**
+  String get customRolesNoPendingTitle;
+
+  /// No description provided for @customRolesNoRole.
+  ///
+  /// In en, this message translates to:
+  /// **'No Role'**
+  String get customRolesNoRole;
+
+  /// No description provided for @customRolesNoRoleRequested.
+  ///
+  /// In en, this message translates to:
+  /// **'No role requested'**
+  String get customRolesNoRoleRequested;
+
+  /// No description provided for @customRolesNoTemplates.
+  ///
+  /// In en, this message translates to:
+  /// **'No predefined templates found'**
+  String get customRolesNoTemplates;
+
+  /// No description provided for @customRolesNoTemplatesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Templates are seeded automatically on server startup.'**
+  String get customRolesNoTemplatesHint;
+
+  /// No description provided for @customRolesPendingBanner.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 member waiting to join your organization} other{{count} members waiting to join your organization}}'**
+  String customRolesPendingBanner(int count);
+
+  /// No description provided for @customRolesRefresh.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get customRolesRefresh;
+
+  /// No description provided for @customRolesReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get customRolesReject;
+
+  /// No description provided for @customRolesRejectConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject join request from {name}? They will need to reapply to join.'**
+  String customRolesRejectConfirm(String name);
+
+  /// No description provided for @customRolesRejectFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to reject request'**
+  String get customRolesRejectFailed;
+
+  /// No description provided for @customRolesRejectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject Request'**
+  String get customRolesRejectTitle;
+
+  /// No description provided for @customRolesRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Request rejected.'**
+  String get customRolesRejected;
+
+  /// No description provided for @customRolesRoleUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to update role'**
+  String get customRolesRoleUpdateFailed;
+
+  /// No description provided for @customRolesRoleUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Role updated for {name}'**
+  String customRolesRoleUpdated(String name);
+
+  /// No description provided for @customRolesSaveAsTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Save as Template'**
+  String get customRolesSaveAsTemplate;
+
+  /// No description provided for @customRolesSavedTemplate.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved Template'**
+  String get customRolesSavedTemplate;
+
+  /// No description provided for @customRolesSelectRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Select role'**
+  String get customRolesSelectRole;
+
+  /// No description provided for @customRolesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Manage roles, permissions & team members'**
+  String get customRolesSubtitle;
+
+  /// No description provided for @customRolesTabCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom'**
+  String get customRolesTabCustom;
+
+  /// No description provided for @customRolesTabMembers.
+  ///
+  /// In en, this message translates to:
+  /// **'Members'**
+  String get customRolesTabMembers;
+
+  /// No description provided for @customRolesTabPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get customRolesTabPending;
+
+  /// No description provided for @customRolesTabTemplates.
+  ///
+  /// In en, this message translates to:
+  /// **'Templates'**
+  String get customRolesTabTemplates;
+
+  /// No description provided for @customRolesTemplateName.
+  ///
+  /// In en, this message translates to:
+  /// **'Template Name'**
+  String get customRolesTemplateName;
+
+  /// No description provided for @customRolesTemplateSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to save template'**
+  String get customRolesTemplateSaveFailed;
+
+  /// No description provided for @customRolesTemplateSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved as template'**
+  String get customRolesTemplateSaved;
+
+  /// No description provided for @customRolesTemplatesCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 Template} other{{count} Templates}}'**
+  String customRolesTemplatesCount(int count);
+
+  /// No description provided for @customRolesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Roles & Permissions'**
+  String get customRolesTitle;
+
+  /// No description provided for @customRolesUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get customRolesUnknown;
+
+  /// No description provided for @customRolesUnknownRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown Role'**
+  String get customRolesUnknownRole;
+
+  /// No description provided for @customRolesUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get customRolesUpdate;
+
+  /// No description provided for @customRolesUpdateRoleFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Update role for {name}'**
+  String customRolesUpdateRoleFor(String name);
+
+  /// No description provided for @customRolesUse.
+  ///
+  /// In en, this message translates to:
+  /// **'Use'**
+  String get customRolesUse;
+
+  /// No description provided for @settingsAbout.
+  ///
+  /// In en, this message translates to:
+  /// **'About'**
+  String get settingsAbout;
+
+  /// No description provided for @settingsAppVersion.
+  ///
+  /// In en, this message translates to:
+  /// **'App Version'**
+  String get settingsAppVersion;
+
+  /// No description provided for @settingsAutoSync.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-sync Data'**
+  String get settingsAutoSync;
+
+  /// No description provided for @settingsAutoSyncDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync automatically when online'**
+  String get settingsAutoSyncDesc;
+
+  /// No description provided for @settingsBackgroundTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'Background Tracking'**
+  String get settingsBackgroundTracking;
+
+  /// No description provided for @settingsBackgroundTrackingDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue tracking when app is in background'**
+  String get settingsBackgroundTrackingDesc;
+
+  /// No description provided for @settingsBiometricLock.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric Lock'**
+  String get settingsBiometricLock;
+
+  /// No description provided for @settingsBiometricLockDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Fingerprint or Face ID to unlock'**
+  String get settingsBiometricLockDesc;
+
+  /// No description provided for @settingsCacheCleared.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache cleared successfully'**
+  String get settingsCacheCleared;
+
+  /// No description provided for @settingsClearCache.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Cache'**
+  String get settingsClearCache;
+
+  /// No description provided for @settingsClearCacheDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Free up device storage space'**
+  String get settingsClearCacheDesc;
+
+  /// No description provided for @settingsClearCacheMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This will clear all cached data and free up storage space. Your account data will not be affected.'**
+  String get settingsClearCacheMessage;
+
+  /// No description provided for @settingsCompactView.
+  ///
+  /// In en, this message translates to:
+  /// **'Compact View'**
+  String get settingsCompactView;
+
+  /// No description provided for @settingsCompactViewDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Show more items on screen'**
+  String get settingsCompactViewDesc;
+
+  /// No description provided for @settingsCurrentlyTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently tracking location'**
+  String get settingsCurrentlyTracking;
+
+  /// No description provided for @settingsDangerZone.
+  ///
+  /// In en, this message translates to:
+  /// **'DANGER ZONE'**
+  String get settingsDangerZone;
+
+  /// No description provided for @settingsDataStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'Data & Storage'**
+  String get settingsDataStorage;
+
+  /// No description provided for @settingsDefaultName.
+  ///
+  /// In en, this message translates to:
+  /// **'Fleet Manager'**
+  String get settingsDefaultName;
+
+  /// No description provided for @settingsDisplay.
+  ///
+  /// In en, this message translates to:
+  /// **'Display'**
+  String get settingsDisplay;
+
+  /// No description provided for @settingsDriverUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver Updates'**
+  String get settingsDriverUpdates;
+
+  /// No description provided for @settingsDriverUpdatesDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver assignment alerts'**
+  String get settingsDriverUpdatesDesc;
+
+  /// No description provided for @settingsFreqBalanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Balanced'**
+  String get settingsFreqBalanced;
+
+  /// No description provided for @settingsFreqBattery.
+  ///
+  /// In en, this message translates to:
+  /// **'Battery'**
+  String get settingsFreqBattery;
+
+  /// No description provided for @settingsFreqHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'High'**
+  String get settingsFreqHigh;
+
+  /// No description provided for @settingsFreqLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Low'**
+  String get settingsFreqLow;
+
+  /// No description provided for @settingsGpsTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS Tracking'**
+  String get settingsGpsTracking;
+
+  /// No description provided for @settingsGpsTrackingDescOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact administrator to enable tracking'**
+  String get settingsGpsTrackingDescOff;
+
+  /// No description provided for @settingsGpsTrackingDescOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable location tracking for real-time updates'**
+  String get settingsGpsTrackingDescOn;
+
+  /// No description provided for @settingsGrant.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant'**
+  String get settingsGrant;
+
+  /// No description provided for @settingsHelpSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Help & Support'**
+  String get settingsHelpSupport;
+
+  /// No description provided for @settingsLocationPermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Location permission: {status}'**
+  String settingsLocationPermission(String status);
+
+  /// No description provided for @settingsLocationTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'Location & Tracking'**
+  String get settingsLocationTracking;
+
+  /// No description provided for @settingsMinutesAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}m ago'**
+  String settingsMinutesAgo(int count);
+
+  /// No description provided for @settingsNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Notifications'**
+  String get settingsNotifications;
+
+  /// No description provided for @settingsOfflineMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline Mode'**
+  String get settingsOfflineMode;
+
+  /// No description provided for @settingsOfflineModeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Cache data for offline access'**
+  String get settingsOfflineModeDesc;
+
+  /// No description provided for @settingsPermAlways.
+  ///
+  /// In en, this message translates to:
+  /// **'Always'**
+  String get settingsPermAlways;
+
+  /// No description provided for @settingsPermDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission Denied'**
+  String get settingsPermDenied;
+
+  /// No description provided for @settingsPermDeniedForever.
+  ///
+  /// In en, this message translates to:
+  /// **'Permission Permanently Denied'**
+  String get settingsPermDeniedForever;
+
+  /// No description provided for @settingsPermServiceDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Location Service Disabled'**
+  String get settingsPermServiceDisabled;
+
+  /// No description provided for @settingsPermWhileInUse.
+  ///
+  /// In en, this message translates to:
+  /// **'While In Use'**
+  String get settingsPermWhileInUse;
+
+  /// No description provided for @settingsPrivacyPolicy.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy Policy'**
+  String get settingsPrivacyPolicy;
+
+  /// No description provided for @settingsPrivacySecurity.
+  ///
+  /// In en, this message translates to:
+  /// **'Privacy & Security'**
+  String get settingsPrivacySecurity;
+
+  /// No description provided for @settingsPushNotifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Push Notifications'**
+  String get settingsPushNotifications;
+
+  /// No description provided for @settingsPushNotificationsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Receive important app alerts'**
+  String get settingsPushNotificationsDesc;
+
+  /// No description provided for @settingsResetConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get settingsResetConfirm;
+
+  /// No description provided for @settingsResetDefaults.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to Default Settings'**
+  String get settingsResetDefaults;
+
+  /// No description provided for @settingsResetDefaultsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore all settings to factory defaults'**
+  String get settingsResetDefaultsDesc;
+
+  /// No description provided for @settingsResetDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings reset to defaults'**
+  String get settingsResetDone;
+
+  /// No description provided for @settingsResetMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'This will reset all settings to their default values. Are you sure you want to continue?'**
+  String get settingsResetMessage;
+
+  /// No description provided for @settingsResetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset Settings'**
+  String get settingsResetTitle;
+
+  /// No description provided for @settingsSecondsAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{count}s ago'**
+  String settingsSecondsAgo(int count);
+
+  /// No description provided for @settingsShareAnalytics.
+  ///
+  /// In en, this message translates to:
+  /// **'Share Analytics'**
+  String get settingsShareAnalytics;
+
+  /// No description provided for @settingsShareAnalyticsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Help improve the app anonymously'**
+  String get settingsShareAnalyticsDesc;
+
+  /// No description provided for @settingsSignOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Out'**
+  String get settingsSignOut;
+
+  /// No description provided for @settingsSignOutDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out of your account'**
+  String get settingsSignOutDesc;
+
+  /// No description provided for @settingsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Preferences & Configuration'**
+  String get settingsSubtitle;
+
+  /// No description provided for @settingsTermsOfService.
+  ///
+  /// In en, this message translates to:
+  /// **'Terms of Service'**
+  String get settingsTermsOfService;
+
+  /// No description provided for @settingsTheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Theme'**
+  String get settingsTheme;
+
+  /// No description provided for @settingsThemeDark.
+  ///
+  /// In en, this message translates to:
+  /// **'Dark'**
+  String get settingsThemeDark;
+
+  /// No description provided for @settingsThemeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose app appearance'**
+  String get settingsThemeDesc;
+
+  /// No description provided for @settingsThemeLight.
+  ///
+  /// In en, this message translates to:
+  /// **'Light'**
+  String get settingsThemeLight;
+
+  /// No description provided for @settingsThemeSystem.
+  ///
+  /// In en, this message translates to:
+  /// **'System'**
+  String get settingsThemeSystem;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsTrackingAdminOff.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS tracking disabled — contact administrator'**
+  String get settingsTrackingAdminOff;
+
+  /// No description provided for @settingsTrackingAdminOn.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS tracking enabled by administrator'**
+  String get settingsTrackingAdminOn;
+
+  /// No description provided for @settingsTripUpdates.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Updates'**
+  String get settingsTripUpdates;
+
+  /// No description provided for @settingsTripUpdatesDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip status changes'**
+  String get settingsTripUpdatesDesc;
+
+  /// No description provided for @settingsUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to date'**
+  String get settingsUpToDate;
+
+  /// No description provided for @settingsUpdateFrequency.
+  ///
+  /// In en, this message translates to:
+  /// **'Update Frequency'**
+  String get settingsUpdateFrequency;
+
+  /// No description provided for @settingsUpdateFrequencyDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'How often to update location'**
+  String get settingsUpdateFrequencyDesc;
+
+  /// No description provided for @settingsVehicleAlerts.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Alerts'**
+  String get settingsVehicleAlerts;
+
+  /// No description provided for @settingsVehicleAlertsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance & status alerts'**
+  String get settingsVehicleAlertsDesc;
+
+  /// No description provided for @settingsViewLiveTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'View Live Tracking'**
+  String get settingsViewLiveTracking;
+
+  /// No description provided for @settingsViewLiveTrackingDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'See your current location on map'**
+  String get settingsViewLiveTrackingDesc;
+
+  /// No description provided for @vehAddChooseFile.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose File'**
+  String get vehAddChooseFile;
+
+  /// No description provided for @vehAddChoosePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose Photo'**
+  String get vehAddChoosePhoto;
+
+  /// No description provided for @vehAddFillRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Please fill in all required fields'**
+  String get vehAddFillRequired;
+
+  /// No description provided for @vehAddFuelCng.
+  ///
+  /// In en, this message translates to:
+  /// **'CNG'**
+  String get vehAddFuelCng;
+
+  /// No description provided for @vehAddFuelDiesel.
+  ///
+  /// In en, this message translates to:
+  /// **'Diesel'**
+  String get vehAddFuelDiesel;
+
+  /// No description provided for @vehAddFuelElectric.
+  ///
+  /// In en, this message translates to:
+  /// **'Electric'**
+  String get vehAddFuelElectric;
+
+  /// No description provided for @vehAddFuelHybrid.
+  ///
+  /// In en, this message translates to:
+  /// **'Hybrid'**
+  String get vehAddFuelHybrid;
+
+  /// No description provided for @vehAddFuelLpg.
+  ///
+  /// In en, this message translates to:
+  /// **'LPG'**
+  String get vehAddFuelLpg;
+
+  /// No description provided for @vehAddFuelPetrol.
+  ///
+  /// In en, this message translates to:
+  /// **'Petrol'**
+  String get vehAddFuelPetrol;
+
+  /// No description provided for @vehAddFuelType.
+  ///
+  /// In en, this message translates to:
+  /// **'Fuel Type *'**
+  String get vehAddFuelType;
+
+  /// No description provided for @vehAddHintExample.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. {value}'**
+  String vehAddHintExample(String value);
+
+  /// No description provided for @vehAddInfoNote.
+  ///
+  /// In en, this message translates to:
+  /// **'By adding this vehicle, it will be automatically synchronized with your maintenance schedule and fuel tracking logs. Ensure the VIN is correct to receive automated manufacturer recalls.'**
+  String get vehAddInfoNote;
+
+  /// No description provided for @vehAddInvalidYear.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid year'**
+  String get vehAddInvalidYear;
+
+  /// No description provided for @vehAddLicensePlate.
+  ///
+  /// In en, this message translates to:
+  /// **'License Plate *'**
+  String get vehAddLicensePlate;
+
+  /// No description provided for @vehAddMake.
+  ///
+  /// In en, this message translates to:
+  /// **'Make *'**
+  String get vehAddMake;
+
+  /// No description provided for @vehAddModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Model *'**
+  String get vehAddModel;
+
+  /// No description provided for @vehAddOdometer.
+  ///
+  /// In en, this message translates to:
+  /// **'Initial Odometer (km)'**
+  String get vehAddOdometer;
+
+  /// No description provided for @vehAddPhotoFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle created, but photo upload failed: {error}'**
+  String vehAddPhotoFailed(String error);
+
+  /// No description provided for @vehAddPhotoSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload or take a high-quality photo'**
+  String get vehAddPhotoSubtitle;
+
+  /// No description provided for @vehAddPhotoTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Photo'**
+  String get vehAddPhotoTitle;
+
+  /// No description provided for @vehAddRegister.
+  ///
+  /// In en, this message translates to:
+  /// **'Register Vehicle'**
+  String get vehAddRegister;
+
+  /// No description provided for @vehAddRegistering.
+  ///
+  /// In en, this message translates to:
+  /// **'Registering...'**
+  String get vehAddRegistering;
+
+  /// No description provided for @vehAddRemovePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Photo'**
+  String get vehAddRemovePhoto;
+
+  /// No description provided for @vehAddSectionIdentification.
+  ///
+  /// In en, this message translates to:
+  /// **'Identification'**
+  String get vehAddSectionIdentification;
+
+  /// No description provided for @vehAddSectionSpecifications.
+  ///
+  /// In en, this message translates to:
+  /// **'Specifications'**
+  String get vehAddSectionSpecifications;
+
+  /// No description provided for @vehAddSectionTechnical.
+  ///
+  /// In en, this message translates to:
+  /// **'Technical Details'**
+  String get vehAddSectionTechnical;
+
+  /// No description provided for @vehAddSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle registered successfully!'**
+  String get vehAddSuccess;
+
+  /// No description provided for @vehAddTakePhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Take a Photo'**
+  String get vehAddTakePhoto;
+
+  /// No description provided for @vehAddTypeBus.
+  ///
+  /// In en, this message translates to:
+  /// **'Bus'**
+  String get vehAddTypeBus;
+
+  /// No description provided for @vehAddTypeCar.
+  ///
+  /// In en, this message translates to:
+  /// **'Car'**
+  String get vehAddTypeCar;
+
+  /// No description provided for @vehAddTypeMotorcycle.
+  ///
+  /// In en, this message translates to:
+  /// **'Motorcycle'**
+  String get vehAddTypeMotorcycle;
+
+  /// No description provided for @vehAddTypeOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get vehAddTypeOther;
+
+  /// No description provided for @vehAddTypeSuv.
+  ///
+  /// In en, this message translates to:
+  /// **'SUV'**
+  String get vehAddTypeSuv;
+
+  /// No description provided for @vehAddTypeTruck.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck'**
+  String get vehAddTypeTruck;
+
+  /// No description provided for @vehAddTypeVan.
+  ///
+  /// In en, this message translates to:
+  /// **'Van'**
+  String get vehAddTypeVan;
+
+  /// No description provided for @vehAddVehicleNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Number *'**
+  String get vehAddVehicleNumber;
+
+  /// No description provided for @vehAddVehicleType.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Type *'**
+  String get vehAddVehicleType;
+
+  /// No description provided for @vehAddVin.
+  ///
+  /// In en, this message translates to:
+  /// **'VIN (optional)'**
+  String get vehAddVin;
+
+  /// No description provided for @vehAddVinHint.
+  ///
+  /// In en, this message translates to:
+  /// **'17-character VIN'**
+  String get vehAddVinHint;
+
+  /// No description provided for @vehAddYear.
+  ///
+  /// In en, this message translates to:
+  /// **'Year *'**
+  String get vehAddYear;
+
+  /// No description provided for @vehListClearFilters.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear Filters'**
+  String get vehListClearFilters;
+
+  /// No description provided for @vehListEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add your first vehicle to get started'**
+  String get vehListEmptyHint;
+
+  /// No description provided for @vehListEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No Vehicles Yet'**
+  String get vehListEmptyTitle;
+
+  /// No description provided for @vehListFilterAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All Vehicles'**
+  String get vehListFilterAll;
+
+  /// No description provided for @vehListKm.
+  ///
+  /// In en, this message translates to:
+  /// **'{value} km'**
+  String vehListKm(String value);
+
+  /// No description provided for @vehListNoDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'No driver'**
+  String get vehListNoDriver;
+
+  /// No description provided for @vehListNoDriverAssigned.
+  ///
+  /// In en, this message translates to:
+  /// **'No driver assigned'**
+  String get vehListNoDriverAssigned;
+
+  /// No description provided for @vehListNotFoundHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Try adjusting your search or filters'**
+  String get vehListNotFoundHint;
+
+  /// No description provided for @vehListNotFoundTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No Vehicles Found'**
+  String get vehListNotFoundTitle;
+
+  /// No description provided for @vehListRegisteredCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} vehicle registered} other{{count} vehicles registered}}'**
+  String vehListRegisteredCount(int count);
+
+  /// No description provided for @vehListSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by registration, make, model...'**
+  String get vehListSearchHint;
+
+  /// No description provided for @vehListSortMake.
+  ///
+  /// In en, this message translates to:
+  /// **'Make'**
+  String get vehListSortMake;
+
+  /// No description provided for @vehListSortMileage.
+  ///
+  /// In en, this message translates to:
+  /// **'Mileage'**
+  String get vehListSortMileage;
+
+  /// No description provided for @vehListSortRegistration.
+  ///
+  /// In en, this message translates to:
+  /// **'Registration'**
+  String get vehListSortRegistration;
+
+  /// No description provided for @vehListStatusActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Active'**
+  String get vehListStatusActive;
+
+  /// No description provided for @vehListStatusInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'Inactive'**
+  String get vehListStatusInactive;
+
+  /// No description provided for @vehListStatusMaintenance.
+  ///
+  /// In en, this message translates to:
+  /// **'Maintenance'**
+  String get vehListStatusMaintenance;
+
+  /// No description provided for @vehListTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Fleet Vehicles'**
+  String get vehListTitle;
 }
 
 class _AppLocalizationsDelegate

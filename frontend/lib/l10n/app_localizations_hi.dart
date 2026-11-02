@@ -175,7 +175,7 @@ class AppLocalizationsHi extends AppLocalizations {
       'ईमेल वेरिफ़ाई हो गया! अब आप लॉगिन कर सकते हैं।';
 
   @override
-  String get loginBiometricSoon => 'बायोमेट्रिक लॉगिन जल्द आ रहा है';
+  String get loginBiometricSoon => 'यह फीचर जल्द आ रहा है।';
 
   @override
   String get loginBiometricTooltip => 'बायोमेट्रिक लॉगिन';
@@ -191,13 +191,13 @@ class AppLocalizationsHi extends AppLocalizations {
   String get loginCorporateId => 'कॉर्पोरेट आईडी';
 
   @override
-  String get loginCorporateSoon => 'कॉर्पोरेट SSO जल्द आ रहा है';
+  String get loginCorporateSoon => 'यह फीचर जल्द आ रहा है।';
 
   @override
   String get loginForgotPassword => 'पासवर्ड भूल गए?';
 
   @override
-  String get loginGoogleSoon => 'Google SSO जल्द आ रहा है';
+  String get loginGoogleSoon => 'यह फीचर जल्द आ रहा है।';
 
   @override
   String get loginHelpCenter => 'हेल्प सेंटर';
@@ -1911,7 +1911,7 @@ class AppLocalizationsHi extends AppLocalizations {
   }
 
   @override
-  String get feDashHelpComingSoon => 'सहायता जल्द आ रही है।';
+  String get feDashHelpComingSoon => 'यह फीचर जल्द आ रहा है।';
 
   @override
   String get feDashHelpSupport => 'सहायता';
@@ -4822,4 +4822,1959 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get transporterDashboardTitle => 'ट्रांसपोर्टर डैशबोर्ड';
+
+  @override
+  String get drvAddAdding => 'चालक जोड़ा जा रहा है...';
+
+  @override
+  String get drvAddButton => 'फ्लीट में चालक जोड़ें';
+
+  @override
+  String get drvAddCancelReturn => 'रद्द करें और वापस जाएं';
+
+  @override
+  String get drvAddDatesRequired =>
+      'लाइसेंस जारी होने और समाप्ति की तारीख ज़रूरी है';
+
+  @override
+  String get drvAddEmail => 'ईमेल पता';
+
+  @override
+  String get drvAddEmailInvalid => 'सही ईमेल पता डालें';
+
+  @override
+  String get drvAddExpiryAfterIssue =>
+      'लाइसेंस की समाप्ति की तारीख जारी होने की तारीख के बाद की होनी चाहिए';
+
+  @override
+  String get drvAddExpiryFuture =>
+      'लाइसेंस की समाप्ति की तारीख आगे की होनी चाहिए';
+
+  @override
+  String drvAddFieldRequired(String field) {
+    return '$field ज़रूरी है';
+  }
+
+  @override
+  String get drvAddFirstName => 'पहला नाम';
+
+  @override
+  String get drvAddFixErrors => 'कृपया फ़ॉर्म की गलतियां ठीक करें';
+
+  @override
+  String drvAddHintExample(String value) {
+    return 'जैसे $value';
+  }
+
+  @override
+  String get drvAddJoinDate => 'जॉइनिंग की तारीख';
+
+  @override
+  String get drvAddJoinFuture => 'जॉइनिंग की तारीख आगे की नहीं हो सकती';
+
+  @override
+  String get drvAddLastName => 'सरनेम';
+
+  @override
+  String get drvAddLicenseClass => 'लाइसेंस क्लास';
+
+  @override
+  String get drvAddLicenseFormat =>
+      'लाइसेंस नंबर 10-50 अक्षर या अंक का होना चाहिए';
+
+  @override
+  String get drvAddLicenseHmv => 'HMV (हेवी मोटर व्हीकल)';
+
+  @override
+  String get drvAddLicenseHpmv => 'HPMV (हेवी पैसेंजर मोटर व्हीकल)';
+
+  @override
+  String get drvAddLicenseLmv => 'LMV (लाइट मोटर व्हीकल)';
+
+  @override
+  String get drvAddLicenseMcwg => 'MCWG (गियर वाली मोटरसाइकिल)';
+
+  @override
+  String get drvAddLicenseRequired => 'लाइसेंस नंबर ज़रूरी है';
+
+  @override
+  String get drvAddLicenseScan => 'लाइसेंस दस्तावेज़ का स्कैन';
+
+  @override
+  String get drvAddLicenseScanHint => 'साफ़ स्कैन या फोटो अपलोड करें';
+
+  @override
+  String get drvAddPasswordDigit => 'एक अंक ज़रूर हो';
+
+  @override
+  String get drvAddPasswordHint => 'कम से कम 8 अक्षर, बड़े अक्षर और अंक के साथ';
+
+  @override
+  String get drvAddPasswordLength => 'पासवर्ड कम से कम 8 अक्षर का होना चाहिए';
+
+  @override
+  String get drvAddPasswordLower => 'एक छोटा अक्षर (a-z) ज़रूर हो';
+
+  @override
+  String get drvAddPasswordRequired => 'पासवर्ड ज़रूरी है';
+
+  @override
+  String get drvAddPasswordUpper => 'एक बड़ा अक्षर (A-Z) ज़रूर हो';
+
+  @override
+  String get drvAddPhoneDigits => 'फ़ोन नंबर 10 अंकों का होना चाहिए';
+
+  @override
+  String get drvAddPhoneRequired => 'फ़ोन नंबर ज़रूरी है';
+
+  @override
+  String drvAddPhotoFailed(String error) {
+    return 'चालक जुड़ गया, लेकिन फोटो अपलोड नहीं हो सकी: $error';
+  }
+
+  @override
+  String get drvAddPhotoHint => 'PNG, JPG, 5MB तक';
+
+  @override
+  String get drvAddPhotoSelected => 'फोटो चुन ली गई — बदलने के लिए टैप करें';
+
+  @override
+  String get drvAddProgress => 'रजिस्ट्रेशन की प्रगति';
+
+  @override
+  String get drvAddRoleLogistics => 'लॉजिस्टिक्स';
+
+  @override
+  String get drvAddRoleSupport => 'सपोर्ट';
+
+  @override
+  String get drvAddSectionLogin => 'लॉगिन की जानकारी';
+
+  @override
+  String get drvAddSectionRole => 'असाइनमेंट और भूमिका';
+
+  @override
+  String get drvAddSelect => 'चुनें';
+
+  @override
+  String get drvAddStep => '3 में से स्टेप 1';
+
+  @override
+  String get drvAddSuccess => 'चालक सफलतापूर्वक जुड़ गया!';
+
+  @override
+  String get drvAddSystemRole => 'सिस्टम भूमिका';
+
+  @override
+  String get drvAddTitle => 'नया चालक जोड़ें';
+
+  @override
+  String get drvAddUploadPhoto => 'प्रोफ़ाइल फोटो अपलोड करें';
+
+  @override
+  String get drvAddUsernameFormat =>
+      'यूज़रनेम: 3-50 अक्षर (अक्षर, अंक, अंडरस्कोर)';
+
+  @override
+  String get drvAddUsernameRequired => 'यूज़रनेम ज़रूरी है';
+
+  @override
+  String get drvMgmtAddFirstHint => 'पहला चालक जोड़ने के लिए + दबाएं';
+
+  @override
+  String get drvMgmtCurrentlyOnLeave => 'अभी छुट्टी पर हैं';
+
+  @override
+  String get drvMgmtMainDepot => 'मुख्य डिपो';
+
+  @override
+  String get drvMgmtNoDrivers => 'अभी कोई चालक नहीं';
+
+  @override
+  String get drvMgmtNoMatch => 'आपके फ़िल्टर से कोई चालक नहीं मिला';
+
+  @override
+  String get drvMgmtSearchHint => 'चालक, कर्मचारी ID खोजें...';
+
+  @override
+  String get drvMgmtStatusActive => 'एक्टिव';
+
+  @override
+  String get drvMgmtStatusAll => 'सभी';
+
+  @override
+  String get drvMgmtStatusAvailable => 'उपलब्ध';
+
+  @override
+  String get drvMgmtStatusOnLeave => 'छुट्टी पर';
+
+  @override
+  String get drvMgmtStatusTerminated => 'सेवा समाप्त';
+
+  @override
+  String get drvMgmtTitle => 'चालक';
+
+  @override
+  String drvMgmtTotalMembers(int count) {
+    return 'कुल $count फ्लीट सदस्य';
+  }
+
+  @override
+  String get helpCenterArticleAddVehicle => 'नया वाहन कैसे जोड़ें';
+
+  @override
+  String get helpCenterArticleAddVehicleDesc =>
+      'अपने फ्लीट में वाहन जोड़ने की स्टेप-बाय-स्टेप गाइड';
+
+  @override
+  String helpCenterArticleDetailIntro(String title) {
+    return 'यह इस बारे में विस्तृत आर्टिकल है: $title';
+  }
+
+  @override
+  String get helpCenterArticleDriverPerms => 'चालक की अनुमतियां मैनेज करना';
+
+  @override
+  String get helpCenterArticleDriverPermsDesc =>
+      'चालक की भूमिकाएं और अनुमतियां देना और मैनेज करना सीखें';
+
+  @override
+  String get helpCenterArticleMaintenance => 'मेंटेनेंस शेड्यूल बनाना';
+
+  @override
+  String get helpCenterArticleMaintenanceDesc =>
+      'समय पर मेंटेनेंस करके अपना फ्लीट अच्छे से चलाते रहें';
+
+  @override
+  String get helpCenterArticlePlaceholder =>
+      'यहां आर्टिकल की सामग्री होगी, जिसमें स्टेप-बाय-स्टेप निर्देश, स्क्रीनशॉट और काम की टिप्स होंगी।';
+
+  @override
+  String get helpCenterArticleRealtimeTracking => 'रियल-टाइम ट्रैकिंग सेट करना';
+
+  @override
+  String get helpCenterArticleRealtimeTrackingDesc =>
+      'अपने फ्लीट के वाहनों के लिए GPS ट्रैकिंग सेट करें';
+
+  @override
+  String get helpCenterAvgResponse => 'औसत जवाब का समय: 2 मिनट';
+
+  @override
+  String get helpCenterBrowseByCategory => 'कैटेगरी के हिसाब से देखें';
+
+  @override
+  String get helpCenterCatDriver => 'चालक मैनेजमेंट';
+
+  @override
+  String get helpCenterCatDriverDesc =>
+      'चालक की प्रोफ़ाइल, लाइसेंस और असाइनमेंट';
+
+  @override
+  String get helpCenterCatFinancial => 'फाइनेंशियल मैनेजमेंट';
+
+  @override
+  String get helpCenterCatFinancialDesc => 'खर्चे, इनवॉइस और पेमेंट';
+
+  @override
+  String get helpCenterCatMaintenance => 'मेंटेनेंस';
+
+  @override
+  String get helpCenterCatMaintenanceDesc => 'शेड्यूल, मरम्मत और इंस्पेक्शन';
+
+  @override
+  String get helpCenterCatReports => 'रिपोर्ट और एनालिटिक्स';
+
+  @override
+  String get helpCenterCatReportsDesc => 'रिपोर्ट बनाना और एक्सपोर्ट करना';
+
+  @override
+  String get helpCenterCatRoles => 'भूमिकाएं और अनुमतियां';
+
+  @override
+  String get helpCenterCatRolesDesc => 'यूज़र की भूमिकाएं और एक्सेस कंट्रोल';
+
+  @override
+  String get helpCenterCatTracking => 'रियल-टाइम ट्रैकिंग';
+
+  @override
+  String get helpCenterCatTrackingDesc => 'GPS ट्रैकिंग और लोकेशन सर्विस';
+
+  @override
+  String get helpCenterCatTrip => 'ट्रिप मैनेजमेंट';
+
+  @override
+  String get helpCenterCatTripDesc => 'ट्रिप बनाना और उन पर नज़र रखना';
+
+  @override
+  String get helpCenterCatVehicle => 'वाहन मैनेजमेंट';
+
+  @override
+  String get helpCenterCatVehicleDesc => 'वाहन जोड़ना, एडिट करना और मैनेज करना';
+
+  @override
+  String get helpCenterChatWithTeam => 'हमारी सपोर्ट टीम से चैट करें';
+
+  @override
+  String get helpCenterContactSupport => 'सपोर्ट से संपर्क करें';
+
+  @override
+  String get helpCenterEmailSupport => 'ईमेल सपोर्ट';
+
+  @override
+  String get helpCenterEmailUs => 'हमें ईमेल करें';
+
+  @override
+  String get helpCenterGettingStarted => 'शुरुआत कैसे करें';
+
+  @override
+  String get helpCenterGuideTitle => 'शुरुआत की गाइड';
+
+  @override
+  String get helpCenterIssueDescription => 'विवरण';
+
+  @override
+  String get helpCenterIssueReported => 'समस्या की रिपोर्ट हो गई';
+
+  @override
+  String get helpCenterIssueTitle => 'समस्या का शीर्षक';
+
+  @override
+  String get helpCenterLiveChat => 'लाइव चैट';
+
+  @override
+  String get helpCenterMarkedHelpful => 'आर्टिकल को काम का बताया गया';
+
+  @override
+  String get helpCenterNeedMoreHelp => 'और मदद चाहिए?';
+
+  @override
+  String helpCenterNoResults(String query) {
+    return '\"$query\" के लिए कोई नतीजा नहीं मिला';
+  }
+
+  @override
+  String get helpCenterNoResultsHint =>
+      'दूसरे शब्द आज़माएं या नीचे कैटेगरी देखें';
+
+  @override
+  String helpCenterOpeningCategory(String category) {
+    return '$category के आर्टिकल खोल रहे हैं...';
+  }
+
+  @override
+  String get helpCenterOpeningChat => 'लाइव चैट खोल रहे हैं...';
+
+  @override
+  String get helpCenterPhoneSupport => 'फोन सपोर्ट';
+
+  @override
+  String get helpCenterPopularArticles => 'लोकप्रिय आर्टिकल';
+
+  @override
+  String get helpCenterQuickActions => 'क्विक एक्शन';
+
+  @override
+  String helpCenterReadMinutes(int minutes) {
+    return '$minutes मिनट में पढ़ें';
+  }
+
+  @override
+  String get helpCenterReportIssue => 'समस्या बताएं';
+
+  @override
+  String get helpCenterReportTitle => 'समस्या की रिपोर्ट करें';
+
+  @override
+  String helpCenterResultsFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count नतीजे मिले',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get helpCenterSearchDriverPermsDesc =>
+      'चालक की भूमिकाएं देना और मैनेज करना सीखें';
+
+  @override
+  String get helpCenterSearchGpsDesc => 'वाहन की रियल-टाइम ट्रैकिंग सेट करें';
+
+  @override
+  String get helpCenterSearchGpsTitle => 'GPS ट्रैकिंग सेट करना';
+
+  @override
+  String get helpCenterSearchHint => 'हेल्प आर्टिकल, गाइड, FAQ खोजें...';
+
+  @override
+  String get helpCenterSearchMaintenanceDesc =>
+      'वाहन का नियमित मेंटेनेंस शेड्यूल करें';
+
+  @override
+  String get helpCenterSearchReportsDesc =>
+      'फाइनेंशियल रिपोर्ट बनाएं और एक्सपोर्ट करें';
+
+  @override
+  String get helpCenterSearchReportsTitle => 'फाइनेंशियल रिपोर्ट बनाना';
+
+  @override
+  String get helpCenterShowingAll => 'सभी आर्टिकल दिखा रहे हैं...';
+
+  @override
+  String get helpCenterStep1Desc => 'अपनी जानकारी से साइन अप करें';
+
+  @override
+  String get helpCenterStep1Title => 'अपना अकाउंट बनाएं';
+
+  @override
+  String get helpCenterStep2Desc => 'कंपनी बनाएं या किसी कंपनी से जुड़ें';
+
+  @override
+  String get helpCenterStep2Title => 'अपनी कंपनी सेट करें';
+
+  @override
+  String get helpCenterStep3Desc => 'सिस्टम में वाहन जोड़ें';
+
+  @override
+  String get helpCenterStep3Title => 'अपना फ्लीट जोड़ें';
+
+  @override
+  String get helpCenterStep4Desc => 'चालक और स्टाफ जोड़ें';
+
+  @override
+  String get helpCenterStep4Title => 'टीम के सदस्यों को बुलाएं';
+
+  @override
+  String get helpCenterStep5Desc => 'अपना फ्लीट ट्रैक और मैनेज करना शुरू करें';
+
+  @override
+  String get helpCenterStep5Title => 'मैनेज करना शुरू करें';
+
+  @override
+  String get helpCenterSupport247 =>
+      'हमारी सपोर्ट टीम 24/7 आपकी मदद के लिए मौजूद है';
+
+  @override
+  String get helpCenterTitle => 'हेल्प सेंटर';
+
+  @override
+  String get helpCenterVideoComingSoon => 'यह फीचर जल्द आ रहा है।';
+
+  @override
+  String get helpCenterVideoTutorials => 'वीडियो ट्यूटोरियल';
+
+  @override
+  String get helpCenterViewAll => 'सभी देखें';
+
+  @override
+  String get helpCenterWasHelpful => 'क्या यह काम का था?';
+
+  @override
+  String get orgCreate10Chars => '10 अक्षर';
+
+  @override
+  String get orgCreate15Chars => '15 अक्षर';
+
+  @override
+  String get orgCreateAdd => 'जोड़ें';
+
+  @override
+  String get orgCreateAddressRequired => 'पता ज़रूरी है';
+
+  @override
+  String get orgCreateBusinessEmail => 'बिज़नेस ईमेल';
+
+  @override
+  String get orgCreateBusinessPhone => 'बिज़नेस फ़ोन';
+
+  @override
+  String get orgCreateBusinessType => 'बिज़नेस टाइप';
+
+  @override
+  String get orgCreateBusinessTypeHint => 'जैसे: ट्रांसपोर्टेशन, लॉजिस्टिक्स';
+
+  @override
+  String get orgCreateBusinessTypeRequired => 'बिज़नेस टाइप ज़रूरी है';
+
+  @override
+  String get orgCreateCity => 'शहर';
+
+  @override
+  String get orgCreateCompanyName => 'कंपनी का नाम';
+
+  @override
+  String get orgCreateCompanyNameHint => 'जैसे: Acme Logistics Pvt. Ltd.';
+
+  @override
+  String get orgCreateCompanyNameRequired => 'कंपनी का नाम ज़रूरी है';
+
+  @override
+  String get orgCreateCountry => 'देश';
+
+  @override
+  String get orgCreateEmailInvalid => 'ईमेल का फ़ॉर्मेट सही नहीं है';
+
+  @override
+  String get orgCreateEmailRequired => 'बिज़नेस ईमेल ज़रूरी है';
+
+  @override
+  String orgCreateFailed(String error) {
+    return 'कंपनी नहीं बन सकी: $error';
+  }
+
+  @override
+  String get orgCreateGstinInvalid => 'GSTIN का फ़ॉर्मेट सही नहीं है';
+
+  @override
+  String get orgCreateGstinLength => 'GSTIN ठीक 15 अक्षर का होना चाहिए';
+
+  @override
+  String get orgCreateHeaderSub => 'अपना फ्लीट वर्कस्पेस सेट करें';
+
+  @override
+  String get orgCreateHeaderTitle => 'नई कंपनी';
+
+  @override
+  String get orgCreateInvalid => 'सही नहीं है';
+
+  @override
+  String get orgCreateLegalSub => 'GSTIN और PAN — ज़रूरी नहीं';
+
+  @override
+  String get orgCreateMin10Digits => 'कम से कम 10 अंक होने चाहिए';
+
+  @override
+  String get orgCreateMin2Chars => 'कम से कम 2 अक्षर होने चाहिए';
+
+  @override
+  String orgCreateOptionalLabel(String label) {
+    return '$label (ज़रूरी नहीं)';
+  }
+
+  @override
+  String get orgCreatePanInvalid => 'PAN का फ़ॉर्मेट सही नहीं है';
+
+  @override
+  String get orgCreatePanLength => 'PAN ठीक 10 अक्षर का होना चाहिए';
+
+  @override
+  String get orgCreatePanNumber => 'PAN नंबर';
+
+  @override
+  String get orgCreatePhoneRequired => 'बिज़नेस फ़ोन ज़रूरी है';
+
+  @override
+  String get orgCreatePincode => 'पिनकोड';
+
+  @override
+  String get orgCreateRequired => 'ज़रूरी';
+
+  @override
+  String get orgCreateSecAddress => 'पता';
+
+  @override
+  String get orgCreateSecCompany => 'कंपनी की जानकारी';
+
+  @override
+  String get orgCreateSecContact => 'संपर्क की जानकारी';
+
+  @override
+  String get orgCreateSecLegal => 'कानूनी जानकारी';
+
+  @override
+  String get orgCreateState => 'राज्य';
+
+  @override
+  String get orgCreateStreetAddress => 'पूरा पता';
+
+  @override
+  String get orgCreateStreetAddressHint => 'बिल्डिंग, गली, इलाका…';
+
+  @override
+  String orgCreateSuccess(String name) {
+    return 'कंपनी \"$name\" बन गई!';
+  }
+
+  @override
+  String get orgCreateTitle => 'कंपनी बनाएं';
+
+  @override
+  String get orgManageAllCaughtUp => 'सब निपट गया!';
+
+  @override
+  String get orgManageApproveAssign => 'मंज़ूर करें और भूमिका दें';
+
+  @override
+  String orgManageApproveFailed(String error) {
+    return 'यूज़र को मंज़ूर नहीं किया जा सका: $error';
+  }
+
+  @override
+  String orgManageApproveTitle(String username) {
+    return '$username को मंज़ूर करें';
+  }
+
+  @override
+  String orgManageApproved(String username) {
+    return '$username को मंज़ूर कर दिया गया';
+  }
+
+  @override
+  String get orgManageAssignRole => 'भूमिका दें';
+
+  @override
+  String get orgManageChangeRole => 'भूमिका बदलें';
+
+  @override
+  String orgManageHeaderSummary(int members, int pending) {
+    return '$members सदस्य · $pending पेंडिंग';
+  }
+
+  @override
+  String get orgManageLoadFailed => 'कंपनी का डेटा लोड नहीं हो सका।';
+
+  @override
+  String get orgManageMembersHint => 'सदस्य यहां दिखेंगे';
+
+  @override
+  String orgManageMembersTab(int count) {
+    return 'सदस्य ($count)';
+  }
+
+  @override
+  String orgManageNewRoleFor(String username) {
+    return '$username के लिए नई भूमिका';
+  }
+
+  @override
+  String get orgManageNoMembers => 'अभी कोई सदस्य नहीं है';
+
+  @override
+  String get orgManageNoPending => 'कोई पेंडिंग जुड़ने की रिक्वेस्ट नहीं है';
+
+  @override
+  String orgManageNoResults(String query) {
+    return '\"$query\" के लिए कुछ नहीं मिला';
+  }
+
+  @override
+  String get orgManageNoRole => 'कोई भूमिका नहीं';
+
+  @override
+  String get orgManageOwner => 'ओनर';
+
+  @override
+  String get orgManagePendingBadge => 'पेंडिंग';
+
+  @override
+  String orgManagePendingTab(int count) {
+    return 'पेंडिंग ($count)';
+  }
+
+  @override
+  String get orgManageRefresh => 'रीफ़्रेश करें';
+
+  @override
+  String get orgManageReject => 'अस्वीकार करें';
+
+  @override
+  String orgManageRejectConfirm(String username) {
+    return '$username की जुड़ने की रिक्वेस्ट अस्वीकार करें?';
+  }
+
+  @override
+  String orgManageRejectFailed(String error) {
+    return 'अस्वीकार नहीं हो सका: $error';
+  }
+
+  @override
+  String get orgManageRejectUserTitle => 'यूज़र को अस्वीकार करें';
+
+  @override
+  String orgManageRejected(String username) {
+    return '$username को अस्वीकार कर दिया गया';
+  }
+
+  @override
+  String get orgManageRemove => 'हटाएं';
+
+  @override
+  String orgManageRemoveConfirm(String username, String orgName) {
+    return '$username को $orgName से हटाएं? उनका एक्सेस तुरंत बंद हो जाएगा।';
+  }
+
+  @override
+  String orgManageRemoveFailed(String error) {
+    return 'हटाया नहीं जा सका: $error';
+  }
+
+  @override
+  String get orgManageRemoveTitle => 'सदस्य हटाएं';
+
+  @override
+  String orgManageRemoved(String username) {
+    return '$username को हटा दिया गया';
+  }
+
+  @override
+  String orgManageRequestedRole(String role) {
+    return 'मांगी गई भूमिका: $role';
+  }
+
+  @override
+  String get orgManageRoleAdmin => 'एडमिन';
+
+  @override
+  String get orgManageRoleAdminDesc => 'सदस्य और सेटिंग संभालें';
+
+  @override
+  String get orgManageRoleDispatcher => 'डिस्पैचर';
+
+  @override
+  String get orgManageRoleDispatcherDesc => 'ट्रिप और असाइनमेंट संभालें';
+
+  @override
+  String orgManageRoleUpdateFailed(String error) {
+    return 'भूमिका अपडेट नहीं हो सकी: $error';
+  }
+
+  @override
+  String get orgManageRoleUpdated => 'भूमिका अपडेट हो गई';
+
+  @override
+  String get orgManageRoleUser => 'यूज़र';
+
+  @override
+  String get orgManageRoleUserDesc => 'फ़ीचर का सामान्य एक्सेस';
+
+  @override
+  String get orgManageRoleViewer => 'व्यूअर';
+
+  @override
+  String get orgManageRoleViewerDesc => 'सिर्फ़ देखने का एक्सेस';
+
+  @override
+  String get orgManageSearchHint => 'सदस्य खोजें…';
+
+  @override
+  String get orgManageSelectRole => 'देने के लिए भूमिका चुनें';
+
+  @override
+  String get orgSelectCreate => 'कंपनी बनाएं';
+
+  @override
+  String get orgSelectCreateNew => 'नई कंपनी बनाएं';
+
+  @override
+  String get orgSelectCreateNewSub => 'अपनी खुद की फ्लीट कंपनी सेट करें';
+
+  @override
+  String get orgSelectNoOrgs => 'अभी कोई कंपनी नहीं है';
+
+  @override
+  String get orgSelectNoOrgsBody =>
+      'अपनी कंपनी बनाएं या किसी एडमिन से कहें कि वो आपको किसी मौजूदा कंपनी में जोड़ दें।';
+
+  @override
+  String get orgSelectNoRole => 'कोई भूमिका नहीं';
+
+  @override
+  String get orgSelectSwitchFailed => 'कंपनी स्विच नहीं हो सकी';
+
+  @override
+  String orgSelectSwitched(String name) {
+    return '$name पर स्विच हो गया';
+  }
+
+  @override
+  String get orgSelectTitle => 'कंपनी चुनें';
+
+  @override
+  String get orgSelectTryAgain => 'दोबारा कोशिश करें';
+
+  @override
+  String get orgSelectUser => 'यूज़र';
+
+  @override
+  String get orgSelectWelcome => 'फिर से स्वागत है,';
+
+  @override
+  String get orgSelectWrong => 'कुछ गड़बड़ हो गई';
+
+  @override
+  String get orgSelectYourOrgs => 'आपकी कंपनियां';
+
+  @override
+  String get profileAccountStatus => 'अकाउंट की स्थिति';
+
+  @override
+  String get profileAuthEmailPassword => 'ईमेल और पासवर्ड';
+
+  @override
+  String get profileAuthMethod => 'लॉगिन का तरीका';
+
+  @override
+  String get profileAuthSecurityQuestions => 'सुरक्षा सवाल';
+
+  @override
+  String get profileBecameDriver => 'भूमिका बदलकर चालक हो गई!';
+
+  @override
+  String get profileBecomeDriver => 'चालक बनें';
+
+  @override
+  String get profileBecomeDriverTitle => 'चालक बनें';
+
+  @override
+  String get profileCancelPendingMessage =>
+      'इससे आपकी पेंडिंग रिक्वेस्ट रद्द हो जाएगी और आप फिर से इंडिपेंडेंट यूज़र बन जाएंगे। आप कभी भी दोबारा किसी कंपनी से जुड़ सकते हैं या नई कंपनी बना सकते हैं।';
+
+  @override
+  String get profileCancelPendingTitle => 'पेंडिंग रिक्वेस्ट रद्द करें?';
+
+  @override
+  String get profileChange => 'बदलें';
+
+  @override
+  String get profileChangeOrganization => 'कंपनी बदलें';
+
+  @override
+  String get profileChangePassword => 'पासवर्ड बदलें';
+
+  @override
+  String get profileChangeRoleChoose => 'भूमिका बदलने का तरीका चुनें:';
+
+  @override
+  String get profileChangeRoleFailed => 'भूमिका बदली नहीं जा सकी';
+
+  @override
+  String get profileChangeRolePending =>
+      'आपकी रिक्वेस्ट पेंडिंग है। आप क्या करना चाहेंगे?';
+
+  @override
+  String get profileChangeRoleTitle => 'भूमिका बदलें';
+
+  @override
+  String get profileCompany => 'कंपनी';
+
+  @override
+  String get profileCreateOrganization => 'कंपनी बनाएं';
+
+  @override
+  String get profileDefaultUser => 'यूज़र';
+
+  @override
+  String get profileDriverLicenseIntro =>
+      'अपने ड्राइविंग लाइसेंस की जानकारी भरें:';
+
+  @override
+  String get profileEditBanner =>
+      'एडिट मोड — बदलाव सेव करने के लिए टूलबार में ✓ दबाएं';
+
+  @override
+  String get profileEditTooltip => 'प्रोफ़ाइल एडिट करें';
+
+  @override
+  String get profileEmail => 'ईमेल';
+
+  @override
+  String get profileEnterLicenseExpiry =>
+      'कृपया लाइसेंस एक्सपायरी की तारीख डालें';
+
+  @override
+  String get profileEnterLicenseNumber => 'कृपया लाइसेंस नंबर डालें';
+
+  @override
+  String get profileFullName => 'पूरा नाम';
+
+  @override
+  String get profileFullNameRequired => 'पूरा नाम ज़रूरी है';
+
+  @override
+  String get profileGoIndependent => 'इंडिपेंडेंट बनें';
+
+  @override
+  String profileImageReadError(String error) {
+    return 'फ़ोटो पढ़ने में दिक्कत: $error';
+  }
+
+  @override
+  String profileImageSelectError(String error) {
+    return 'फ़ोटो चुनने में दिक्कत: $error';
+  }
+
+  @override
+  String get profileIndependentOptions =>
+      'इंडिपेंडेंट यूज़र के तौर पर आप ये कर सकते हैं:';
+
+  @override
+  String get profileJoinFailed => 'कंपनी से जुड़ नहीं सके';
+
+  @override
+  String get profileJoinOrganization => 'कंपनी से जुड़ें';
+
+  @override
+  String get profileJoinSubmitted =>
+      'जॉइन रिक्वेस्ट भेज दी गई! मंज़ूरी का इंतज़ार है।';
+
+  @override
+  String get profileKeepPending => 'पेंडिंग रहने दें';
+
+  @override
+  String get profileLicenseExpiry => 'लाइसेंस एक्सपायरी (YYYY-MM-DD)';
+
+  @override
+  String get profileLicenseNumber => 'लाइसेंस नंबर';
+
+  @override
+  String get profileNewPhotoSelected =>
+      'नई फ़ोटो चुनी गई · लागू करने के लिए सेव करें दबाएं';
+
+  @override
+  String get profileNoPreference => 'कोई पसंद नहीं';
+
+  @override
+  String get profileNoRole => 'कोई भूमिका नहीं';
+
+  @override
+  String get profileNone => 'कोई नहीं';
+
+  @override
+  String get profileNotAssigned => 'असाइन नहीं हुई';
+
+  @override
+  String get profileNotAvailable => 'उपलब्ध नहीं';
+
+  @override
+  String get profileNowIndependent => 'अब आप इंडिपेंडेंट यूज़र हैं।';
+
+  @override
+  String get profilePendingOptions =>
+      'आपकी रिक्वेस्ट मंज़ूरी के लिए पेंडिंग है। आप ये कर सकते हैं:';
+
+  @override
+  String get profilePersonalInfo => 'निजी जानकारी';
+
+  @override
+  String get profilePhone => 'फ़ोन';
+
+  @override
+  String get profilePhotoAddHint => 'फ़ोटो जोड़ने के लिए टैप करें';
+
+  @override
+  String get profilePhotoChangeHint =>
+      'फ़ोटो बदलने के लिए टैप करें · हटाने के लिए देर तक दबाएं';
+
+  @override
+  String get profileRemove => 'हटाएं';
+
+  @override
+  String get profileRemovePictureFailed => 'प्रोफ़ाइल फ़ोटो हटाई नहीं जा सकी';
+
+  @override
+  String get profileRemovePictureMessage =>
+      'क्या आप अपनी प्रोफ़ाइल फ़ोटो हटाना चाहते हैं?';
+
+  @override
+  String get profileRemovePictureTitle => 'प्रोफ़ाइल फ़ोटो हटाएं';
+
+  @override
+  String get profileRequestedRole => 'मांगी गई भूमिका (ज़रूरी नहीं)';
+
+  @override
+  String get profileRole => 'भूमिका';
+
+  @override
+  String get profileRoleAccountant => 'अकाउंटेंट';
+
+  @override
+  String get profileRoleComplianceOfficer => 'कंप्लायंस ऑफ़िसर';
+
+  @override
+  String get profileRoleCustomerService => 'कस्टमर सर्विस';
+
+  @override
+  String get profileRoleDispatcher => 'डिस्पैचर';
+
+  @override
+  String get profileRoleFleetManager => 'फ्लीट मैनेजर';
+
+  @override
+  String get profileRoleMaintenanceManager => 'मेंटेनेंस मैनेजर';
+
+  @override
+  String get profileRoleMaintenanceTechnician => 'मेंटेनेंस टेक्नीशियन';
+
+  @override
+  String get profileRoleManaged => 'आपकी भूमिका आपकी कंपनी तय करती है।';
+
+  @override
+  String get profileRoleOperationsManager => 'ऑपरेशंस मैनेजर';
+
+  @override
+  String get profileRoleOrg => 'भूमिका और कंपनी';
+
+  @override
+  String get profileRoleUpdateFailed => 'भूमिका अपडेट नहीं हो सकी';
+
+  @override
+  String get profileRoleViewerAnalyst => 'व्यूअर / एनालिस्ट';
+
+  @override
+  String get profileStatus => 'प्रोफ़ाइल की स्थिति';
+
+  @override
+  String get profileStatusCompleted => 'पूरी हो गई';
+
+  @override
+  String get profileStatusIncomplete => 'अधूरी';
+
+  @override
+  String get profileStatusLabel => 'स्थिति';
+
+  @override
+  String get profileTitle => 'मेरी प्रोफ़ाइल';
+
+  @override
+  String get profileUnknown => 'अज्ञात';
+
+  @override
+  String get profileUpdateFailed => 'प्रोफ़ाइल अपडेट नहीं हो सकी';
+
+  @override
+  String get profileUpdated => 'प्रोफ़ाइल अपडेट हो गई!';
+
+  @override
+  String get profileUploadPictureFailed => 'प्रोफ़ाइल फ़ोटो अपलोड नहीं हो सकी';
+
+  @override
+  String get profileUsername => 'यूज़रनेम';
+
+  @override
+  String get customRoleAfterCreateNote =>
+      'भूमिका बनने के बाद आपको भूमिका एडिटर में ले जाया जाएगा, जहां आप अनुमतियां सेट कर सकते हैं।';
+
+  @override
+  String get customRoleCapabilities => 'अनुमतियां';
+
+  @override
+  String customRoleCapabilityCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count अनुमतियां',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customRoleCatCompliance => 'कंप्लायंस और सेफ्टी';
+
+  @override
+  String get customRoleCatCustomer => 'कस्टमर मैनेजमेंट';
+
+  @override
+  String get customRoleCatDriver => 'चालक मैनेजमेंट';
+
+  @override
+  String get customRoleCatFinancial => 'फाइनेंशियल मैनेजमेंट';
+
+  @override
+  String get customRoleCatMaintenance => 'मेंटेनेंस';
+
+  @override
+  String get customRoleCatReporting => 'रिपोर्टिंग और एनालिटिक्स';
+
+  @override
+  String get customRoleCatRole => 'भूमिका मैनेजमेंट';
+
+  @override
+  String get customRoleCatSystem => 'सिस्टम सेटिंग्स';
+
+  @override
+  String get customRoleCatTracking => 'ट्रैकिंग और मॉनिटरिंग';
+
+  @override
+  String get customRoleCatTrip => 'ट्रिप मैनेजमेंट';
+
+  @override
+  String get customRoleCatUser => 'यूज़र मैनेजमेंट';
+
+  @override
+  String get customRoleCatVehicle => 'वाहन मैनेजमेंट';
+
+  @override
+  String customRoleCategoryEnabled(int enabled, int total) {
+    return '$enabled / $total अनुमतियां चालू';
+  }
+
+  @override
+  String get customRoleChooseMethod => 'बनाने का तरीका चुनें';
+
+  @override
+  String get customRoleChooseMethodHint =>
+      'पहले से बने टेम्पलेट से शुरू करें या शुरू से बनाएं';
+
+  @override
+  String get customRoleCreateButton => 'भूमिका बनाएं';
+
+  @override
+  String customRoleCreateFailed(String error) {
+    return 'भूमिका नहीं बन सकी: $error';
+  }
+
+  @override
+  String get customRoleCreateTitle => 'कस्टम भूमिका बनाएं';
+
+  @override
+  String get customRoleCreated => 'कस्टम भूमिका बन गई';
+
+  @override
+  String get customRoleCreating => 'बना रहे हैं...';
+
+  @override
+  String get customRoleDescription => 'विवरण';
+
+  @override
+  String get customRoleDescriptionHint => 'इस भूमिका का मकसद बताएं';
+
+  @override
+  String get customRoleDescriptionOptional => 'विवरण (ज़रूरी नहीं)';
+
+  @override
+  String get customRoleDetailsHint => 'अपनी कस्टम भूमिका का नाम और विवरण दें';
+
+  @override
+  String get customRoleDetailsTitle => 'भूमिका की जानकारी';
+
+  @override
+  String get customRoleEditTitle => 'कस्टम भूमिका एडिट करें';
+
+  @override
+  String customRoleEnabledCount(int enabled, int total) {
+    return '$enabled / $total चालू';
+  }
+
+  @override
+  String get customRoleFromScratch => 'शुरू से';
+
+  @override
+  String get customRoleFromScratchDesc =>
+      'अपनी अनुमतियों के साथ पूरी तरह कस्टम भूमिका बनाएं। सब कुछ खुद सेट करें।';
+
+  @override
+  String get customRoleFromScratchTitle => 'शुरू से बनाएं';
+
+  @override
+  String get customRoleFromTemplate => 'टेम्पलेट से';
+
+  @override
+  String get customRoleFromTemplateDesc =>
+      'शुरुआत के लिए पहले से बने भूमिका टेम्पलेट इस्तेमाल करें। उनकी अनुमतियां लें और अपने हिसाब से बदलें।';
+
+  @override
+  String get customRoleFromTemplateTitle => 'टेम्पलेट से शुरू करें';
+
+  @override
+  String get customRoleInfoTitle => 'भूमिका की जानकारी';
+
+  @override
+  String get customRoleIntersection => 'इंटरसेक्शन (सिर्फ़ कॉमन)';
+
+  @override
+  String get customRoleIntersectionCommon => 'इंटरसेक्शन (सिर्फ़ कॉमन)';
+
+  @override
+  String get customRoleIntersectionDesc =>
+      'सिर्फ़ वही अनुमतियां शामिल करें जो सभी चुने गए टेम्पलेट में हैं';
+
+  @override
+  String get customRoleLeave => 'बाहर जाएं';
+
+  @override
+  String get customRoleLevelFull => 'पूरा';
+
+  @override
+  String get customRoleLevelLimited => 'सीमित';
+
+  @override
+  String get customRoleLevelNone => 'कोई नहीं';
+
+  @override
+  String get customRoleLevelView => 'देखें';
+
+  @override
+  String get customRoleLoadFailed => 'भूमिका लोड नहीं हो सकी';
+
+  @override
+  String get customRoleMergeStrategy => 'मिलाने का तरीका';
+
+  @override
+  String get customRoleNameHint => 'जैसे, रीजनल मैनेजर - वेस्ट कोस्ट';
+
+  @override
+  String get customRoleNameLabel => 'भूमिका का नाम';
+
+  @override
+  String get customRoleNameRequired => 'कृपया भूमिका का नाम डालें';
+
+  @override
+  String get customRoleNameRequiredShort => 'भूमिका का नाम ज़रूरी है';
+
+  @override
+  String get customRoleNoDescription => 'कोई विवरण नहीं';
+
+  @override
+  String get customRoleNotSet => '(सेट नहीं है)';
+
+  @override
+  String get customRoleQuickAll => 'सभी';
+
+  @override
+  String get customRoleReviewHint =>
+      'बनाने से पहले अपनी कस्टम भूमिका की जानकारी जांच लें';
+
+  @override
+  String get customRoleReviewTitle => 'रिव्यू करें और बनाएं';
+
+  @override
+  String get customRoleSaveChanges => 'बदलाव सेव करें';
+
+  @override
+  String get customRoleSaving => 'सेव हो रहा है...';
+
+  @override
+  String get customRoleSelectOneTemplate => 'कृपया कम से कम एक टेम्पलेट चुनें';
+
+  @override
+  String get customRoleSelectTemplates => 'टेम्पलेट चुनें';
+
+  @override
+  String get customRoleSelectTemplatesHint =>
+      'मिलाने के लिए एक या ज़्यादा टेम्पलेट चुनें';
+
+  @override
+  String customRoleSelectedCount(int count) {
+    return '$count चुने गए';
+  }
+
+  @override
+  String get customRoleStay => 'यहीं रुकें';
+
+  @override
+  String get customRoleStepDetails => 'जानकारी';
+
+  @override
+  String get customRoleStepMethod => 'तरीका';
+
+  @override
+  String get customRoleStepReview => 'रिव्यू';
+
+  @override
+  String get customRoleStepTemplates => 'टेम्पलेट';
+
+  @override
+  String get customRoleSystemCritical =>
+      'सिस्टम के लिए अहम – सिर्फ़ सुपर एडमिन के लिए';
+
+  @override
+  String customRoleTemplateError(String error) {
+    return 'गड़बड़ी: $error';
+  }
+
+  @override
+  String customRoleTemplatePreselected(String names) {
+    return 'टेम्पलेट पहले से चुना गया: $names';
+  }
+
+  @override
+  String get customRoleUnion => 'यूनियन (सब मिलाएं)';
+
+  @override
+  String get customRoleUnionDesc =>
+      'चुने गए सभी टेम्पलेट की सभी अनुमतियां शामिल करें';
+
+  @override
+  String get customRoleUnsavedBody =>
+      'आपके बदलाव सेव नहीं हुए हैं। क्या आप बिना सेव किए बाहर जाना चाहते हैं?';
+
+  @override
+  String get customRoleUnsavedTitle => 'बिना सेव किए बदलाव';
+
+  @override
+  String get customRoleUpdateFailed => 'भूमिका अपडेट नहीं हो सकी';
+
+  @override
+  String customRoleUpdateFailedWithError(String error) {
+    return 'भूमिका अपडेट नहीं हो सकी: $error';
+  }
+
+  @override
+  String get customRoleUpdated => 'भूमिका अपडेट हो गई';
+
+  @override
+  String customRolesActiveMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count एक्टिव सदस्य',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customRolesApprove => 'मंज़ूर करें';
+
+  @override
+  String get customRolesApproveFailed => 'रिक्वेस्ट मंज़ूर नहीं हो सकी';
+
+  @override
+  String get customRolesApproveTitle => 'रिक्वेस्ट मंज़ूर करें';
+
+  @override
+  String customRolesApprovedOk(String name) {
+    return '$name को मंज़ूर कर दिया गया!';
+  }
+
+  @override
+  String customRolesApprovingFrom(String name) {
+    return '$name की जॉइन रिक्वेस्ट मंज़ूर की जा रही है।';
+  }
+
+  @override
+  String get customRolesAssignRole => 'भूमिका दें:';
+
+  @override
+  String customRolesCapabilityCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count अनुमतियां',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customRolesChangeRole => 'भूमिका बदलें';
+
+  @override
+  String get customRolesChangeRoleTitle => 'सदस्य की भूमिका बदलें';
+
+  @override
+  String get customRolesClone => 'क्लोन करें';
+
+  @override
+  String get customRolesCloneFailed => 'क्लोन नहीं हो सका';
+
+  @override
+  String get customRolesCloneTitle => 'भूमिका क्लोन करें';
+
+  @override
+  String get customRolesCloned => 'भूमिका क्लोन हो गई';
+
+  @override
+  String get customRolesCreateFirst => 'अपनी पहली भूमिका बनाएं';
+
+  @override
+  String get customRolesCreateFromTemplate =>
+      'इस टेम्पलेट से कस्टम भूमिका बनाएं';
+
+  @override
+  String get customRolesCreateRole => 'कस्टम भूमिका बनाएं';
+
+  @override
+  String get customRolesCustomBadge => 'कस्टम';
+
+  @override
+  String get customRolesDeleteConfirm =>
+      'क्या आप यह भूमिका हटाना चाहते हैं? इसे वापस नहीं लाया जा सकेगा।';
+
+  @override
+  String get customRolesDeleteFailed => 'भूमिका हटाई नहीं जा सकी';
+
+  @override
+  String get customRolesDeleteTitle => 'भूमिका हटाएं';
+
+  @override
+  String get customRolesDeleted => 'भूमिका हटा दी गई';
+
+  @override
+  String get customRolesDescriptionOptional => 'विवरण (ज़रूरी नहीं)';
+
+  @override
+  String get customRolesNewRole => 'नई भूमिका:';
+
+  @override
+  String get customRolesNewRoleName => 'नई भूमिका का नाम';
+
+  @override
+  String get customRolesNoCapabilities => 'कोई अनुमति नहीं दी गई है';
+
+  @override
+  String get customRolesNoCustomSubtitle =>
+      'अपनी कंपनी के हिसाब से कस्टम भूमिकाएं बनाएं';
+
+  @override
+  String get customRolesNoCustomTitle => 'अभी कोई कस्टम भूमिका नहीं है';
+
+  @override
+  String get customRolesNoMembersSubtitle =>
+      'अपनी कंपनी में सदस्य जोड़ने के लिए पेंडिंग रिक्वेस्ट मंज़ूर करें।';
+
+  @override
+  String get customRolesNoMembersTitle => 'अभी कोई सदस्य नहीं है';
+
+  @override
+  String get customRolesNoPendingSubtitle =>
+      'सभी जॉइन रिक्वेस्ट निपटा दी गई हैं।';
+
+  @override
+  String get customRolesNoPendingTitle => 'कोई पेंडिंग रिक्वेस्ट नहीं';
+
+  @override
+  String get customRolesNoRole => 'कोई भूमिका नहीं';
+
+  @override
+  String get customRolesNoRoleRequested => 'कोई भूमिका नहीं मांगी गई';
+
+  @override
+  String get customRolesNoTemplates => 'पहले से बने कोई टेम्पलेट नहीं मिले';
+
+  @override
+  String get customRolesNoTemplatesHint =>
+      'सर्वर चालू होने पर टेम्पलेट अपने आप जुड़ जाते हैं।';
+
+  @override
+  String customRolesPendingBanner(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count सदस्य आपकी कंपनी से जुड़ने का इंतज़ार कर रहे हैं',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customRolesRefresh => 'रिफ्रेश करें';
+
+  @override
+  String get customRolesReject => 'अस्वीकार करें';
+
+  @override
+  String customRolesRejectConfirm(String name) {
+    return '$name की जॉइन रिक्वेस्ट अस्वीकार करें? जुड़ने के लिए उन्हें दोबारा अप्लाई करना होगा।';
+  }
+
+  @override
+  String get customRolesRejectFailed => 'रिक्वेस्ट अस्वीकार नहीं हो सकी';
+
+  @override
+  String get customRolesRejectTitle => 'रिक्वेस्ट अस्वीकार करें';
+
+  @override
+  String get customRolesRejected => 'रिक्वेस्ट अस्वीकार कर दी गई।';
+
+  @override
+  String get customRolesRoleUpdateFailed => 'भूमिका अपडेट नहीं हो सकी';
+
+  @override
+  String customRolesRoleUpdated(String name) {
+    return '$name की भूमिका अपडेट हो गई';
+  }
+
+  @override
+  String get customRolesSaveAsTemplate => 'टेम्पलेट के रूप में सेव करें';
+
+  @override
+  String get customRolesSavedTemplate => 'सेव किया हुआ टेम्पलेट';
+
+  @override
+  String get customRolesSelectRole => 'भूमिका चुनें';
+
+  @override
+  String get customRolesSubtitle =>
+      'भूमिकाएं, अनुमतियां और टीम के सदस्य मैनेज करें';
+
+  @override
+  String get customRolesTabCustom => 'कस्टम';
+
+  @override
+  String get customRolesTabMembers => 'सदस्य';
+
+  @override
+  String get customRolesTabPending => 'पेंडिंग';
+
+  @override
+  String get customRolesTabTemplates => 'टेम्पलेट';
+
+  @override
+  String get customRolesTemplateName => 'टेम्पलेट का नाम';
+
+  @override
+  String get customRolesTemplateSaveFailed => 'टेम्पलेट सेव नहीं हो सका';
+
+  @override
+  String get customRolesTemplateSaved => 'टेम्पलेट के रूप में सेव हो गया';
+
+  @override
+  String customRolesTemplatesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count टेम्पलेट',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customRolesTitle => 'भूमिकाएं और अनुमतियां';
+
+  @override
+  String get customRolesUnknown => 'अज्ञात';
+
+  @override
+  String get customRolesUnknownRole => 'अज्ञात भूमिका';
+
+  @override
+  String get customRolesUpdate => 'अपडेट करें';
+
+  @override
+  String customRolesUpdateRoleFor(String name) {
+    return '$name की भूमिका अपडेट करें';
+  }
+
+  @override
+  String get customRolesUse => 'इस्तेमाल करें';
+
+  @override
+  String get settingsAbout => 'ऐप के बारे में';
+
+  @override
+  String get settingsAppVersion => 'ऐप वर्ज़न';
+
+  @override
+  String get settingsAutoSync => 'ऑटो-सिंक डेटा';
+
+  @override
+  String get settingsAutoSyncDesc => 'ऑनलाइन होने पर अपने आप सिंक करें';
+
+  @override
+  String get settingsBackgroundTracking => 'बैकग्राउंड ट्रैकिंग';
+
+  @override
+  String get settingsBackgroundTrackingDesc =>
+      'ऐप बैकग्राउंड में हो तब भी ट्रैकिंग जारी रखें';
+
+  @override
+  String get settingsBiometricLock => 'बायोमेट्रिक लॉक';
+
+  @override
+  String get settingsBiometricLockDesc =>
+      'फ़िंगरप्रिंट या Face ID से अनलॉक करें';
+
+  @override
+  String get settingsCacheCleared => 'कैश साफ़ हो गया';
+
+  @override
+  String get settingsClearCache => 'कैश साफ़ करें';
+
+  @override
+  String get settingsClearCacheDesc => 'फ़ोन की स्टोरेज खाली करें';
+
+  @override
+  String get settingsClearCacheMessage =>
+      'इससे सारा कैश्ड डेटा हट जाएगा और स्टोरेज खाली होगी। आपके अकाउंट का डेटा सुरक्षित रहेगा।';
+
+  @override
+  String get settingsCompactView => 'कॉम्पैक्ट व्यू';
+
+  @override
+  String get settingsCompactViewDesc => 'स्क्रीन पर ज़्यादा आइटम दिखाएं';
+
+  @override
+  String get settingsCurrentlyTracking => 'लोकेशन ट्रैक हो रही है';
+
+  @override
+  String get settingsDangerZone => 'ख़तरे का क्षेत्र';
+
+  @override
+  String get settingsDataStorage => 'डेटा और स्टोरेज';
+
+  @override
+  String get settingsDefaultName => 'फ्लीट मैनेजर';
+
+  @override
+  String get settingsDisplay => 'डिस्प्ले';
+
+  @override
+  String get settingsDriverUpdates => 'चालक अपडेट';
+
+  @override
+  String get settingsDriverUpdatesDesc => 'चालक असाइन होने के अलर्ट';
+
+  @override
+  String get settingsFreqBalanced => 'संतुलित';
+
+  @override
+  String get settingsFreqBattery => 'बैटरी';
+
+  @override
+  String get settingsFreqHigh => 'ज़्यादा';
+
+  @override
+  String get settingsFreqLow => 'कम';
+
+  @override
+  String get settingsGpsTracking => 'GPS ट्रैकिंग';
+
+  @override
+  String get settingsGpsTrackingDescOff =>
+      'ट्रैकिंग चालू करने के लिए एडमिनिस्ट्रेटर से संपर्क करें';
+
+  @override
+  String get settingsGpsTrackingDescOn =>
+      'रियल-टाइम अपडेट के लिए लोकेशन ट्रैकिंग चालू करें';
+
+  @override
+  String get settingsGrant => 'अनुमति दें';
+
+  @override
+  String get settingsHelpSupport => 'मदद और सहायता';
+
+  @override
+  String settingsLocationPermission(String status) {
+    return 'लोकेशन की अनुमति: $status';
+  }
+
+  @override
+  String get settingsLocationTracking => 'लोकेशन और ट्रैकिंग';
+
+  @override
+  String settingsMinutesAgo(int count) {
+    return '$count मिनट पहले';
+  }
+
+  @override
+  String get settingsNotifications => 'नोटिफ़िकेशन';
+
+  @override
+  String get settingsOfflineMode => 'ऑफ़लाइन मोड';
+
+  @override
+  String get settingsOfflineModeDesc => 'ऑफ़लाइन इस्तेमाल के लिए डेटा सेव रखें';
+
+  @override
+  String get settingsPermAlways => 'हमेशा';
+
+  @override
+  String get settingsPermDenied => 'अनुमति नहीं मिली';
+
+  @override
+  String get settingsPermDeniedForever => 'अनुमति हमेशा के लिए रोकी गई';
+
+  @override
+  String get settingsPermServiceDisabled => 'लोकेशन सर्विस बंद है';
+
+  @override
+  String get settingsPermWhileInUse => 'ऐप इस्तेमाल के दौरान';
+
+  @override
+  String get settingsPrivacyPolicy => 'प्राइवेसी पॉलिसी';
+
+  @override
+  String get settingsPrivacySecurity => 'प्राइवेसी और सिक्योरिटी';
+
+  @override
+  String get settingsPushNotifications => 'पुश नोटिफ़िकेशन';
+
+  @override
+  String get settingsPushNotificationsDesc => 'ज़रूरी ऐप अलर्ट पाएं';
+
+  @override
+  String get settingsResetConfirm => 'रीसेट करें';
+
+  @override
+  String get settingsResetDefaults => 'डिफ़ॉल्ट सेटिंग्स पर रीसेट करें';
+
+  @override
+  String get settingsResetDefaultsDesc =>
+      'सभी सेटिंग्स फ़ैक्टरी डिफ़ॉल्ट पर लौटाएं';
+
+  @override
+  String get settingsResetDone => 'सेटिंग्स डिफ़ॉल्ट पर रीसेट हो गईं';
+
+  @override
+  String get settingsResetMessage =>
+      'इससे सभी सेटिंग्स अपने डिफ़ॉल्ट पर लौट जाएंगी। क्या आप जारी रखना चाहते हैं?';
+
+  @override
+  String get settingsResetTitle => 'सेटिंग्स रीसेट करें';
+
+  @override
+  String settingsSecondsAgo(int count) {
+    return '$count सेकंड पहले';
+  }
+
+  @override
+  String get settingsShareAnalytics => 'एनालिटिक्स शेयर करें';
+
+  @override
+  String get settingsShareAnalyticsDesc =>
+      'बिना नाम बताए ऐप को बेहतर बनाने में मदद करें';
+
+  @override
+  String get settingsSignOut => 'साइन आउट';
+
+  @override
+  String get settingsSignOutDesc => 'अपने अकाउंट से साइन आउट करें';
+
+  @override
+  String get settingsSubtitle => 'पसंद और कॉन्फ़िगरेशन';
+
+  @override
+  String get settingsTermsOfService => 'सेवा की शर्तें';
+
+  @override
+  String get settingsTheme => 'थीम';
+
+  @override
+  String get settingsThemeDark => 'डार्क';
+
+  @override
+  String get settingsThemeDesc => 'ऐप का रूप चुनें';
+
+  @override
+  String get settingsThemeLight => 'लाइट';
+
+  @override
+  String get settingsThemeSystem => 'सिस्टम';
+
+  @override
+  String get settingsTitle => 'सेटिंग्स';
+
+  @override
+  String get settingsTrackingAdminOff =>
+      'GPS ट्रैकिंग बंद है — एडमिनिस्ट्रेटर से संपर्क करें';
+
+  @override
+  String get settingsTrackingAdminOn =>
+      'एडमिनिस्ट्रेटर ने GPS ट्रैकिंग चालू की है';
+
+  @override
+  String get settingsTripUpdates => 'ट्रिप अपडेट';
+
+  @override
+  String get settingsTripUpdatesDesc => 'ट्रिप की स्थिति में बदलाव';
+
+  @override
+  String get settingsUpToDate => 'अप टू डेट';
+
+  @override
+  String get settingsUpdateFrequency => 'अपडेट कितनी बार';
+
+  @override
+  String get settingsUpdateFrequencyDesc => 'लोकेशन कितनी बार अपडेट हो';
+
+  @override
+  String get settingsVehicleAlerts => 'वाहन अलर्ट';
+
+  @override
+  String get settingsVehicleAlertsDesc => 'मेंटेनेंस और स्थिति के अलर्ट';
+
+  @override
+  String get settingsViewLiveTracking => 'लाइव ट्रैकिंग देखें';
+
+  @override
+  String get settingsViewLiveTrackingDesc =>
+      'नक्शे पर अपनी मौजूदा लोकेशन देखें';
+
+  @override
+  String get vehAddChooseFile => 'फ़ाइल चुनें';
+
+  @override
+  String get vehAddChoosePhoto => 'फोटो चुनें';
+
+  @override
+  String get vehAddFillRequired => 'कृपया सभी ज़रूरी जानकारी भरें';
+
+  @override
+  String get vehAddFuelCng => 'CNG';
+
+  @override
+  String get vehAddFuelDiesel => 'डीज़ल';
+
+  @override
+  String get vehAddFuelElectric => 'इलेक्ट्रिक';
+
+  @override
+  String get vehAddFuelHybrid => 'हाइब्रिड';
+
+  @override
+  String get vehAddFuelLpg => 'LPG';
+
+  @override
+  String get vehAddFuelPetrol => 'पेट्रोल';
+
+  @override
+  String get vehAddFuelType => 'ईंधन का प्रकार *';
+
+  @override
+  String vehAddHintExample(String value) {
+    return 'जैसे $value';
+  }
+
+  @override
+  String get vehAddInfoNote =>
+      'यह वाहन जोड़ने पर वह अपने आप आपके मेंटेनेंस शेड्यूल और ईंधन ट्रैकिंग लॉग से जुड़ जाएगा। निर्माता की ओर से रिकॉल की सूचना पाने के लिए VIN सही डालें।';
+
+  @override
+  String get vehAddInvalidYear => 'कृपया सही साल डालें';
+
+  @override
+  String get vehAddLicensePlate => 'नंबर प्लेट *';
+
+  @override
+  String get vehAddMake => 'मेक *';
+
+  @override
+  String get vehAddModel => 'मॉडल *';
+
+  @override
+  String get vehAddOdometer => 'शुरुआती ओडोमीटर (किमी)';
+
+  @override
+  String vehAddPhotoFailed(String error) {
+    return 'वाहन बन गया, लेकिन फोटो अपलोड नहीं हो सकी: $error';
+  }
+
+  @override
+  String get vehAddPhotoSubtitle =>
+      'अच्छी क्वालिटी की फोटो अपलोड करें या खींचें';
+
+  @override
+  String get vehAddPhotoTitle => 'वाहन की फोटो';
+
+  @override
+  String get vehAddRegister => 'वाहन रजिस्टर करें';
+
+  @override
+  String get vehAddRegistering => 'रजिस्टर हो रहा है...';
+
+  @override
+  String get vehAddRemovePhoto => 'फोटो हटाएं';
+
+  @override
+  String get vehAddSectionIdentification => 'पहचान';
+
+  @override
+  String get vehAddSectionSpecifications => 'स्पेसिफिकेशन';
+
+  @override
+  String get vehAddSectionTechnical => 'तकनीकी जानकारी';
+
+  @override
+  String get vehAddSuccess => 'वाहन सफलतापूर्वक रजिस्टर हो गया!';
+
+  @override
+  String get vehAddTakePhoto => 'फोटो खींचें';
+
+  @override
+  String get vehAddTypeBus => 'बस';
+
+  @override
+  String get vehAddTypeCar => 'कार';
+
+  @override
+  String get vehAddTypeMotorcycle => 'मोटरसाइकिल';
+
+  @override
+  String get vehAddTypeOther => 'अन्य';
+
+  @override
+  String get vehAddTypeSuv => 'SUV';
+
+  @override
+  String get vehAddTypeTruck => 'ट्रक';
+
+  @override
+  String get vehAddTypeVan => 'वैन';
+
+  @override
+  String get vehAddVehicleNumber => 'वाहन नंबर *';
+
+  @override
+  String get vehAddVehicleType => 'वाहन का प्रकार *';
+
+  @override
+  String get vehAddVin => 'VIN (ज़रूरी नहीं)';
+
+  @override
+  String get vehAddVinHint => '17 अक्षर का VIN';
+
+  @override
+  String get vehAddYear => 'साल *';
+
+  @override
+  String get vehListClearFilters => 'फ़िल्टर हटाएं';
+
+  @override
+  String get vehListEmptyHint => 'शुरू करने के लिए अपना पहला वाहन जोड़ें';
+
+  @override
+  String get vehListEmptyTitle => 'अभी कोई वाहन नहीं';
+
+  @override
+  String get vehListFilterAll => 'सभी वाहन';
+
+  @override
+  String vehListKm(String value) {
+    return '$value किमी';
+  }
+
+  @override
+  String get vehListNoDriver => 'कोई चालक नहीं';
+
+  @override
+  String get vehListNoDriverAssigned => 'कोई चालक असाइन नहीं है';
+
+  @override
+  String get vehListNotFoundHint => 'अपनी खोज या फ़िल्टर बदलकर देखें';
+
+  @override
+  String get vehListNotFoundTitle => 'कोई वाहन नहीं मिला';
+
+  @override
+  String vehListRegisteredCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count वाहन रजिस्टर हैं',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vehListSearchHint => 'रजिस्ट्रेशन, मेक, मॉडल से खोजें...';
+
+  @override
+  String get vehListSortMake => 'मेक';
+
+  @override
+  String get vehListSortMileage => 'माइलेज';
+
+  @override
+  String get vehListSortRegistration => 'रजिस्ट्रेशन';
+
+  @override
+  String get vehListStatusActive => 'एक्टिव';
+
+  @override
+  String get vehListStatusInactive => 'इनएक्टिव';
+
+  @override
+  String get vehListStatusMaintenance => 'मेंटेनेंस';
+
+  @override
+  String get vehListTitle => 'फ्लीट वाहन';
 }

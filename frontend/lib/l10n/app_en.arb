@@ -2850,5 +2850,986 @@
   "transporterDashboardTitle": "Transporter Dashboard",
   "@transporterDashboardTitle": {
     "description": "Title of the transporter placeholder dashboard"
-  }
+  },
+  "drvAddAdding": "Adding Driver...",
+  "drvAddButton": "Add Driver to Fleet",
+  "drvAddCancelReturn": "Cancel and return",
+  "drvAddDatesRequired": "License issue date and expiry date are required",
+  "drvAddEmail": "Email Address",
+  "drvAddEmailInvalid": "Enter a valid email address",
+  "drvAddExpiryAfterIssue": "License expiry date must be after issue date",
+  "drvAddExpiryFuture": "License expiry date must be in the future",
+  "drvAddFieldRequired": "{field} is required",
+  "@drvAddFieldRequired": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      }
+    }
+  },
+  "drvAddFirstName": "First Name",
+  "drvAddFixErrors": "Please fix the errors in the form",
+  "drvAddHintExample": "e.g. {value}",
+  "@drvAddHintExample": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "drvAddJoinDate": "Join Date",
+  "drvAddJoinFuture": "Join date cannot be in the future",
+  "drvAddLastName": "Last Name",
+  "drvAddLicenseClass": "License Class",
+  "drvAddLicenseFormat": "License must be 10-50 alphanumeric characters",
+  "drvAddLicenseHmv": "HMV (Heavy Motor Vehicle)",
+  "drvAddLicenseHpmv": "HPMV (Heavy Passenger Motor Vehicle)",
+  "drvAddLicenseLmv": "LMV (Light Motor Vehicle)",
+  "drvAddLicenseMcwg": "MCWG (Motorcycle with Gear)",
+  "drvAddLicenseRequired": "License number is required",
+  "drvAddLicenseScan": "License Document Scan",
+  "drvAddLicenseScanHint": "Upload clear scan or photo",
+  "drvAddPasswordDigit": "Must include a digit",
+  "drvAddPasswordHint": "Min 8 chars, with uppercase & digit",
+  "drvAddPasswordLength": "Password must be at least 8 characters",
+  "drvAddPasswordLower": "Must include a lowercase letter",
+  "drvAddPasswordRequired": "Password is required",
+  "drvAddPasswordUpper": "Must include an uppercase letter",
+  "drvAddPhoneDigits": "Phone must be 10 digits",
+  "drvAddPhoneRequired": "Phone number is required",
+  "drvAddPhotoFailed": "Driver added, but photo upload failed: {error}",
+  "@drvAddPhotoFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "drvAddPhotoHint": "PNG, JPG up to 5MB",
+  "drvAddPhotoSelected": "Photo selected — tap to change",
+  "drvAddProgress": "REGISTRATION PROGRESS",
+  "drvAddRoleLogistics": "Logistics",
+  "drvAddRoleSupport": "Support",
+  "drvAddSectionLogin": "Login Credentials",
+  "drvAddSectionRole": "Assignment & Role",
+  "drvAddSelect": "Select",
+  "drvAddStep": "Step 1 of 3",
+  "drvAddSuccess": "Driver added successfully!",
+  "drvAddSystemRole": "System Role",
+  "drvAddTitle": "Add New Driver",
+  "drvAddUploadPhoto": "Upload Profile Photo",
+  "drvAddUsernameFormat": "Username: 3-50 chars (letters, numbers, underscore)",
+  "drvAddUsernameRequired": "Username is required",
+  "drvMgmtAddFirstHint": "Tap + to add your first driver",
+  "drvMgmtCurrentlyOnLeave": "Currently on leave",
+  "drvMgmtMainDepot": "Main Depot",
+  "drvMgmtNoDrivers": "No drivers yet",
+  "drvMgmtNoMatch": "No drivers match your filter",
+  "drvMgmtSearchHint": "Search drivers, employee ID...",
+  "drvMgmtStatusActive": "Active",
+  "drvMgmtStatusAll": "All",
+  "drvMgmtStatusAvailable": "Available",
+  "drvMgmtStatusOnLeave": "On Leave",
+  "drvMgmtStatusTerminated": "Terminated",
+  "drvMgmtTitle": "Drivers",
+  "drvMgmtTotalMembers": "{count} total fleet members",
+  "@drvMgmtTotalMembers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "helpCenterArticleAddVehicle": "How to add a new vehicle",
+  "helpCenterArticleAddVehicleDesc": "Step-by-step guide to adding vehicles to your fleet",
+  "helpCenterArticleDetailIntro": "This is a detailed article about: {title}",
+  "@helpCenterArticleDetailIntro": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "helpCenterArticleDriverPerms": "Managing driver permissions",
+  "helpCenterArticleDriverPermsDesc": "Learn how to assign and manage driver roles and permissions",
+  "helpCenterArticleMaintenance": "Creating maintenance schedules",
+  "helpCenterArticleMaintenanceDesc": "Keep your fleet running smoothly with scheduled maintenance",
+  "helpCenterArticlePlaceholder": "Article content would go here with step-by-step instructions, screenshots, and helpful tips.",
+  "helpCenterArticleRealtimeTracking": "Setting up real-time tracking",
+  "helpCenterArticleRealtimeTrackingDesc": "Configure GPS tracking for your fleet vehicles",
+  "helpCenterAvgResponse": "Average response time: 2 minutes",
+  "helpCenterBrowseByCategory": "Browse by Category",
+  "helpCenterCatDriver": "Driver Management",
+  "helpCenterCatDriverDesc": "Driver profiles, licenses, and assignments",
+  "helpCenterCatFinancial": "Financial Management",
+  "helpCenterCatFinancialDesc": "Expenses, invoices, and payments",
+  "helpCenterCatMaintenance": "Maintenance",
+  "helpCenterCatMaintenanceDesc": "Schedules, repairs, and inspections",
+  "helpCenterCatReports": "Reports & Analytics",
+  "helpCenterCatReportsDesc": "Generating and exporting reports",
+  "helpCenterCatRoles": "Roles & Permissions",
+  "helpCenterCatRolesDesc": "User roles and access control",
+  "helpCenterCatTracking": "Real-time Tracking",
+  "helpCenterCatTrackingDesc": "GPS tracking and location services",
+  "helpCenterCatTrip": "Trip Management",
+  "helpCenterCatTripDesc": "Creating and monitoring trips",
+  "helpCenterCatVehicle": "Vehicle Management",
+  "helpCenterCatVehicleDesc": "Adding, editing, and managing vehicles",
+  "helpCenterChatWithTeam": "Chat with our support team",
+  "helpCenterContactSupport": "Contact Support",
+  "helpCenterEmailSupport": "Email Support",
+  "helpCenterEmailUs": "Email Us",
+  "helpCenterGettingStarted": "Getting Started",
+  "helpCenterGuideTitle": "Getting Started Guide",
+  "helpCenterIssueDescription": "Description",
+  "helpCenterIssueReported": "Issue reported successfully",
+  "helpCenterIssueTitle": "Issue Title",
+  "helpCenterLiveChat": "Live Chat",
+  "helpCenterMarkedHelpful": "Article marked as helpful",
+  "helpCenterNeedMoreHelp": "Need More Help?",
+  "helpCenterNoResults": "No results found for \"{query}\"",
+  "@helpCenterNoResults": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "helpCenterNoResultsHint": "Try different keywords or browse categories below",
+  "helpCenterOpeningCategory": "Opening {category} articles...",
+  "@helpCenterOpeningCategory": {
+    "placeholders": {
+      "category": {
+        "type": "String"
+      }
+    }
+  },
+  "helpCenterOpeningChat": "Opening live chat...",
+  "helpCenterPhoneSupport": "Phone Support",
+  "helpCenterPopularArticles": "Popular Articles",
+  "helpCenterQuickActions": "Quick Actions",
+  "helpCenterReadMinutes": "{minutes} min read",
+  "@helpCenterReadMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "helpCenterReportIssue": "Report Issue",
+  "helpCenterReportTitle": "Report an Issue",
+  "helpCenterResultsFound": "{count, plural, =1{1 result found} other{{count} results found}}",
+  "@helpCenterResultsFound": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "helpCenterSearchDriverPermsDesc": "Learn how to assign and manage driver roles",
+  "helpCenterSearchGpsDesc": "Configure real-time vehicle tracking",
+  "helpCenterSearchGpsTitle": "Setting up GPS tracking",
+  "helpCenterSearchHint": "Search for help articles, guides, FAQs...",
+  "helpCenterSearchMaintenanceDesc": "Schedule regular vehicle maintenance",
+  "helpCenterSearchReportsDesc": "Create and export financial reports",
+  "helpCenterSearchReportsTitle": "Generating financial reports",
+  "helpCenterShowingAll": "Showing all articles...",
+  "helpCenterStep1Desc": "Sign up with your details",
+  "helpCenterStep1Title": "Create Your Account",
+  "helpCenterStep2Desc": "Create or join an organization",
+  "helpCenterStep2Title": "Set Up Your Organization",
+  "helpCenterStep3Desc": "Add vehicles to the system",
+  "helpCenterStep3Title": "Add Your Fleet",
+  "helpCenterStep4Desc": "Add drivers and staff",
+  "helpCenterStep4Title": "Invite Team Members",
+  "helpCenterStep5Desc": "Begin tracking and managing your fleet",
+  "helpCenterStep5Title": "Start Managing",
+  "helpCenterSupport247": "Our support team is available 24/7 to assist you",
+  "helpCenterTitle": "Help Center",
+  "helpCenterVideoComingSoon": "Video tutorials coming soon!",
+  "helpCenterVideoTutorials": "Video Tutorials",
+  "helpCenterViewAll": "View All",
+  "helpCenterWasHelpful": "Was this helpful?",
+  "orgCreate10Chars": "10 characters",
+  "orgCreate15Chars": "15 characters",
+  "orgCreateAdd": "Add",
+  "orgCreateAddressRequired": "Address is required",
+  "orgCreateBusinessEmail": "Business Email",
+  "orgCreateBusinessPhone": "Business Phone",
+  "orgCreateBusinessType": "Business Type",
+  "orgCreateBusinessTypeHint": "e.g., Transportation, Logistics",
+  "orgCreateBusinessTypeRequired": "Business type is required",
+  "orgCreateCity": "City",
+  "orgCreateCompanyName": "Company Name",
+  "orgCreateCompanyNameHint": "e.g., Acme Logistics Pvt. Ltd.",
+  "orgCreateCompanyNameRequired": "Company name is required",
+  "orgCreateCountry": "Country",
+  "orgCreateEmailInvalid": "Invalid email format",
+  "orgCreateEmailRequired": "Business email is required",
+  "orgCreateFailed": "Failed to create organization: {error}",
+  "@orgCreateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "orgCreateGstinInvalid": "Invalid GSTIN format",
+  "orgCreateGstinLength": "GSTIN must be exactly 15 characters",
+  "orgCreateHeaderSub": "Set up your fleet workspace",
+  "orgCreateHeaderTitle": "New Organization",
+  "orgCreateInvalid": "Invalid",
+  "orgCreateLegalSub": "GSTIN & PAN — Optional",
+  "orgCreateMin10Digits": "Must be at least 10 digits",
+  "orgCreateMin2Chars": "Must be at least 2 characters",
+  "orgCreateOptionalLabel": "{label} (Optional)",
+  "@orgCreateOptionalLabel": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "orgCreatePanInvalid": "Invalid PAN format",
+  "orgCreatePanLength": "PAN must be exactly 10 characters",
+  "orgCreatePanNumber": "PAN Number",
+  "orgCreatePhoneRequired": "Business phone is required",
+  "orgCreatePincode": "Pincode",
+  "orgCreateRequired": "Required",
+  "orgCreateSecAddress": "Address",
+  "orgCreateSecCompany": "Company Information",
+  "orgCreateSecContact": "Contact Information",
+  "orgCreateSecLegal": "Legal Information",
+  "orgCreateState": "State",
+  "orgCreateStreetAddress": "Street Address",
+  "orgCreateStreetAddressHint": "Building, street, area…",
+  "orgCreateSuccess": "Organization \"{name}\" created successfully!",
+  "@orgCreateSuccess": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgCreateTitle": "Create Organization",
+  "orgManageAllCaughtUp": "All caught up!",
+  "orgManageApproveAssign": "Approve & Assign Role",
+  "orgManageApproveFailed": "Failed to approve user: {error}",
+  "@orgManageApproveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageApproveTitle": "Approve {username}",
+  "@orgManageApproveTitle": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageApproved": "{username} approved successfully",
+  "@orgManageApproved": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageAssignRole": "Assign Role",
+  "orgManageChangeRole": "Change Role",
+  "orgManageHeaderSummary": "{members} members · {pending} pending",
+  "@orgManageHeaderSummary": {
+    "placeholders": {
+      "members": {
+        "type": "int"
+      },
+      "pending": {
+        "type": "int"
+      }
+    }
+  },
+  "orgManageLoadFailed": "Failed to load organization data.",
+  "orgManageMembersHint": "Members will appear here",
+  "orgManageMembersTab": "Members ({count})",
+  "@orgManageMembersTab": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "orgManageNewRoleFor": "New role for {username}",
+  "@orgManageNewRoleFor": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageNoMembers": "No members yet",
+  "orgManageNoPending": "No pending join requests",
+  "orgManageNoResults": "No results for \"{query}\"",
+  "@orgManageNoResults": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageNoRole": "No Role",
+  "orgManageOwner": "Owner",
+  "orgManagePendingBadge": "Pending",
+  "orgManagePendingTab": "Pending ({count})",
+  "@orgManagePendingTab": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "orgManageRefresh": "Refresh",
+  "orgManageReject": "Reject",
+  "orgManageRejectConfirm": "Reject {username}'s request to join?",
+  "@orgManageRejectConfirm": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageRejectFailed": "Failed to reject: {error}",
+  "@orgManageRejectFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageRejectUserTitle": "Reject User",
+  "orgManageRejected": "{username} rejected",
+  "@orgManageRejected": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageRemove": "Remove",
+  "orgManageRemoveConfirm": "Remove {username} from {orgName}? They will lose access immediately.",
+  "@orgManageRemoveConfirm": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      },
+      "orgName": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageRemoveFailed": "Failed to remove: {error}",
+  "@orgManageRemoveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageRemoveTitle": "Remove Member",
+  "orgManageRemoved": "{username} removed",
+  "@orgManageRemoved": {
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageRequestedRole": "Requested: {role}",
+  "@orgManageRequestedRole": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageRoleAdmin": "Admin",
+  "orgManageRoleAdminDesc": "Manage members & settings",
+  "orgManageRoleDispatcher": "Dispatcher",
+  "orgManageRoleDispatcherDesc": "Manage trips & assignments",
+  "orgManageRoleUpdateFailed": "Failed to update role: {error}",
+  "@orgManageRoleUpdateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "orgManageRoleUpdated": "Role updated successfully",
+  "orgManageRoleUser": "User",
+  "orgManageRoleUserDesc": "Standard access to features",
+  "orgManageRoleViewer": "Viewer",
+  "orgManageRoleViewerDesc": "Read-only access",
+  "orgManageSearchHint": "Search members…",
+  "orgManageSelectRole": "Select a role to assign",
+  "orgSelectCreate": "Create Organization",
+  "orgSelectCreateNew": "Create New Organization",
+  "orgSelectCreateNewSub": "Set up your own fleet organization",
+  "orgSelectNoOrgs": "No Organizations Yet",
+  "orgSelectNoOrgsBody": "Create your own or ask an admin to add you to an existing organization.",
+  "orgSelectNoRole": "No Role",
+  "orgSelectSwitchFailed": "Failed to switch organization",
+  "orgSelectSwitched": "Switched to {name}",
+  "@orgSelectSwitched": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "orgSelectTitle": "Select Organization",
+  "orgSelectTryAgain": "Try again",
+  "orgSelectUser": "User",
+  "orgSelectWelcome": "Welcome back,",
+  "orgSelectWrong": "Something went wrong",
+  "orgSelectYourOrgs": "Your Organizations",
+  "profileAccountStatus": "Account Status",
+  "profileAuthEmailPassword": "Email & Password",
+  "profileAuthMethod": "Auth Method",
+  "profileAuthSecurityQuestions": "Security Questions",
+  "profileBecameDriver": "Role changed to Driver successfully!",
+  "profileBecomeDriver": "Become Driver",
+  "profileBecomeDriverTitle": "Become a Driver",
+  "profileCancelPendingMessage": "This will cancel your pending organization request and return you to Independent User status. You can join or create an organization again at any time.",
+  "profileCancelPendingTitle": "Cancel Pending Request?",
+  "profileChange": "Change",
+  "profileChangeOrganization": "Change Organization",
+  "profileChangePassword": "Change Password",
+  "profileChangeRoleChoose": "Choose how you want to change your role:",
+  "profileChangeRoleFailed": "Failed to change role",
+  "profileChangeRolePending": "Your request is pending. What would you like to do?",
+  "profileChangeRoleTitle": "Change Role",
+  "profileCompany": "Company",
+  "profileCreateOrganization": "Create Organization",
+  "profileDefaultUser": "User",
+  "profileDriverLicenseIntro": "Enter your driver license details:",
+  "profileEditBanner": "Edit mode — tap ✓ in the toolbar to save changes",
+  "profileEditTooltip": "Edit Profile",
+  "profileEmail": "Email",
+  "profileEnterLicenseExpiry": "Please enter license expiry date",
+  "profileEnterLicenseNumber": "Please enter license number",
+  "profileFullName": "Full Name",
+  "profileFullNameRequired": "Full name is required",
+  "profileGoIndependent": "Go Independent",
+  "profileImageReadError": "Error reading image: {error}",
+  "@profileImageReadError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "profileImageSelectError": "Error selecting image: {error}",
+  "@profileImageSelectError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "profileIndependentOptions": "As an Independent User, you can:",
+  "profileJoinFailed": "Failed to join organization",
+  "profileJoinOrganization": "Join Organization",
+  "profileJoinSubmitted": "Join request submitted! Awaiting approval.",
+  "profileKeepPending": "Keep Pending",
+  "profileLicenseExpiry": "License Expiry (YYYY-MM-DD)",
+  "profileLicenseNumber": "License Number",
+  "profileNewPhotoSelected": "New photo selected · tap Save to apply",
+  "profileNoPreference": "No preference",
+  "profileNoRole": "No Role",
+  "profileNone": "None",
+  "profileNotAssigned": "Not assigned",
+  "profileNotAvailable": "N/A",
+  "profileNowIndependent": "You are now an Independent User.",
+  "profilePendingOptions": "Your request is pending approval. You can:",
+  "profilePersonalInfo": "Personal Information",
+  "profilePhone": "Phone",
+  "profilePhotoAddHint": "Tap to add a photo",
+  "profilePhotoChangeHint": "Tap to change photo · long-press to remove",
+  "profileRemove": "Remove",
+  "profileRemovePictureFailed": "Failed to remove profile picture",
+  "profileRemovePictureMessage": "Are you sure you want to remove your profile picture?",
+  "profileRemovePictureTitle": "Remove Profile Picture",
+  "profileRequestedRole": "Requested Role (Optional)",
+  "profileRole": "Role",
+  "profileRoleAccountant": "Accountant",
+  "profileRoleComplianceOfficer": "Compliance Officer",
+  "profileRoleCustomerService": "Customer Service",
+  "profileRoleDispatcher": "Dispatcher",
+  "profileRoleFleetManager": "Fleet Manager",
+  "profileRoleMaintenanceManager": "Maintenance Manager",
+  "profileRoleMaintenanceTechnician": "Maintenance Technician",
+  "profileRoleManaged": "Your role is managed by your organization.",
+  "profileRoleOperationsManager": "Operations Manager",
+  "profileRoleOrg": "Role & Organization",
+  "profileRoleUpdateFailed": "Failed to update role",
+  "profileRoleViewerAnalyst": "Viewer / Analyst",
+  "profileStatus": "Profile Status",
+  "profileStatusCompleted": "Completed",
+  "profileStatusIncomplete": "Incomplete",
+  "profileStatusLabel": "Status",
+  "profileTitle": "My Profile",
+  "profileUnknown": "Unknown",
+  "profileUpdateFailed": "Failed to update profile",
+  "profileUpdated": "Profile updated successfully!",
+  "profileUploadPictureFailed": "Failed to upload profile picture",
+  "profileUsername": "Username",
+  "customRoleAfterCreateNote": "After creation, you'll be taken to the role editor to configure capabilities.",
+  "customRoleCapabilities": "Capabilities",
+  "customRoleCapabilityCount": "{count, plural, =1{1 capability} other{{count} capabilities}}",
+  "@customRoleCapabilityCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "customRoleCatCompliance": "Compliance & Safety",
+  "customRoleCatCustomer": "Customer Management",
+  "customRoleCatDriver": "Driver Management",
+  "customRoleCatFinancial": "Financial Management",
+  "customRoleCatMaintenance": "Maintenance",
+  "customRoleCatReporting": "Reporting & Analytics",
+  "customRoleCatRole": "Role Management",
+  "customRoleCatSystem": "System Settings",
+  "customRoleCatTracking": "Tracking & Monitoring",
+  "customRoleCatTrip": "Trip Management",
+  "customRoleCatUser": "User Management",
+  "customRoleCatVehicle": "Vehicle Management",
+  "customRoleCategoryEnabled": "{enabled} / {total} capabilities enabled",
+  "@customRoleCategoryEnabled": {
+    "placeholders": {
+      "enabled": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "customRoleChooseMethod": "Choose creation method",
+  "customRoleChooseMethodHint": "Start from a predefined template or build from scratch",
+  "customRoleCreateButton": "Create Role",
+  "customRoleCreateFailed": "Failed to create role: {error}",
+  "@customRoleCreateFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "customRoleCreateTitle": "Create Custom Role",
+  "customRoleCreated": "Custom role created successfully",
+  "customRoleCreating": "Creating...",
+  "customRoleDescription": "Description",
+  "customRoleDescriptionHint": "Describe the purpose of this role",
+  "customRoleDescriptionOptional": "Description (Optional)",
+  "customRoleDetailsHint": "Give your custom role a name and description",
+  "customRoleDetailsTitle": "Role Details",
+  "customRoleEditTitle": "Edit Custom Role",
+  "customRoleEnabledCount": "{enabled} / {total} enabled",
+  "@customRoleEnabledCount": {
+    "placeholders": {
+      "enabled": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "customRoleFromScratch": "From Scratch",
+  "customRoleFromScratchDesc": "Build a completely custom role with your own capabilities. Configure everything manually.",
+  "customRoleFromScratchTitle": "Start from Scratch",
+  "customRoleFromTemplate": "From Template",
+  "customRoleFromTemplateDesc": "Use predefined role templates as a starting point. Inherit capabilities and customize.",
+  "customRoleFromTemplateTitle": "Start from Template",
+  "customRoleInfoTitle": "Role Information",
+  "customRoleIntersection": "Intersection (Only Common)",
+  "customRoleIntersectionCommon": "Intersection (Common Only)",
+  "customRoleIntersectionDesc": "Include only capabilities shared by all selected templates",
+  "customRoleLeave": "Leave",
+  "customRoleLevelFull": "Full",
+  "customRoleLevelLimited": "Limited",
+  "customRoleLevelNone": "None",
+  "customRoleLevelView": "View",
+  "customRoleLoadFailed": "Failed to load role",
+  "customRoleMergeStrategy": "Merge Strategy",
+  "customRoleNameHint": "e.g., Regional Manager - West Coast",
+  "customRoleNameLabel": "Role Name",
+  "customRoleNameRequired": "Please enter a role name",
+  "customRoleNameRequiredShort": "Role name required",
+  "customRoleNoDescription": "No description",
+  "customRoleNotSet": "(not set)",
+  "customRoleQuickAll": "All",
+  "customRoleReviewHint": "Confirm your custom role details before creating",
+  "customRoleReviewTitle": "Review & Create",
+  "customRoleSaveChanges": "Save Changes",
+  "customRoleSaving": "Saving...",
+  "customRoleSelectOneTemplate": "Please select at least one template",
+  "customRoleSelectTemplates": "Select Templates",
+  "customRoleSelectTemplatesHint": "Choose one or more templates to combine",
+  "customRoleSelectedCount": "{count} selected",
+  "@customRoleSelectedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "customRoleStay": "Stay",
+  "customRoleStepDetails": "Details",
+  "customRoleStepMethod": "Method",
+  "customRoleStepReview": "Review",
+  "customRoleStepTemplates": "Templates",
+  "customRoleSystemCritical": "System critical – restricted to super admin",
+  "customRoleTemplateError": "Error: {error}",
+  "@customRoleTemplateError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "customRoleTemplatePreselected": "Template pre-selected: {names}",
+  "@customRoleTemplatePreselected": {
+    "placeholders": {
+      "names": {
+        "type": "String"
+      }
+    }
+  },
+  "customRoleUnion": "Union (Combine All)",
+  "customRoleUnionDesc": "Include all capabilities from all selected templates",
+  "customRoleUnsavedBody": "You have unsaved changes. Do you want to leave without saving?",
+  "customRoleUnsavedTitle": "Unsaved Changes",
+  "customRoleUpdateFailed": "Failed to update role",
+  "customRoleUpdateFailedWithError": "Failed to update role: {error}",
+  "@customRoleUpdateFailedWithError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "customRoleUpdated": "Role updated successfully",
+  "customRolesActiveMembers": "{count, plural, =1{1 active member} other{{count} active members}}",
+  "@customRolesActiveMembers": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "customRolesApprove": "Approve",
+  "customRolesApproveFailed": "Failed to approve request",
+  "customRolesApproveTitle": "Approve Request",
+  "customRolesApprovedOk": "{name} approved successfully!",
+  "@customRolesApprovedOk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "customRolesApprovingFrom": "Approving join request from {name}.",
+  "@customRolesApprovingFrom": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "customRolesAssignRole": "Assign Role:",
+  "customRolesCapabilityCount": "{count, plural, =1{1 capability} other{{count} capabilities}}",
+  "@customRolesCapabilityCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "customRolesChangeRole": "Change Role",
+  "customRolesChangeRoleTitle": "Change Member Role",
+  "customRolesClone": "Clone",
+  "customRolesCloneFailed": "Failed to clone",
+  "customRolesCloneTitle": "Clone Role",
+  "customRolesCloned": "Role cloned successfully",
+  "customRolesCreateFirst": "Create Your First Role",
+  "customRolesCreateFromTemplate": "Create Custom Role from This Template",
+  "customRolesCreateRole": "Create Custom Role",
+  "customRolesCustomBadge": "custom",
+  "customRolesDeleteConfirm": "Are you sure you want to delete this role? This cannot be undone.",
+  "customRolesDeleteFailed": "Failed to delete role",
+  "customRolesDeleteTitle": "Delete Role",
+  "customRolesDeleted": "Role deleted successfully",
+  "customRolesDescriptionOptional": "Description (optional)",
+  "customRolesNewRole": "New Role:",
+  "customRolesNewRoleName": "New Role Name",
+  "customRolesNoCapabilities": "No capabilities listed",
+  "customRolesNoCustomSubtitle": "Create custom roles tailored to your organization",
+  "customRolesNoCustomTitle": "No Custom Roles Yet",
+  "customRolesNoMembersSubtitle": "Approve pending requests to add members to your organization.",
+  "customRolesNoMembersTitle": "No Members Yet",
+  "customRolesNoPendingSubtitle": "All join requests have been processed.",
+  "customRolesNoPendingTitle": "No Pending Requests",
+  "customRolesNoRole": "No Role",
+  "customRolesNoRoleRequested": "No role requested",
+  "customRolesNoTemplates": "No predefined templates found",
+  "customRolesNoTemplatesHint": "Templates are seeded automatically on server startup.",
+  "customRolesPendingBanner": "{count, plural, =1{1 member waiting to join your organization} other{{count} members waiting to join your organization}}",
+  "@customRolesPendingBanner": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "customRolesRefresh": "Refresh",
+  "customRolesReject": "Reject",
+  "customRolesRejectConfirm": "Reject join request from {name}? They will need to reapply to join.",
+  "@customRolesRejectConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "customRolesRejectFailed": "Failed to reject request",
+  "customRolesRejectTitle": "Reject Request",
+  "customRolesRejected": "Request rejected.",
+  "customRolesRoleUpdateFailed": "Failed to update role",
+  "customRolesRoleUpdated": "Role updated for {name}",
+  "@customRolesRoleUpdated": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "customRolesSaveAsTemplate": "Save as Template",
+  "customRolesSavedTemplate": "Saved Template",
+  "customRolesSelectRole": "Select role",
+  "customRolesSubtitle": "Manage roles, permissions & team members",
+  "customRolesTabCustom": "Custom",
+  "customRolesTabMembers": "Members",
+  "customRolesTabPending": "Pending",
+  "customRolesTabTemplates": "Templates",
+  "customRolesTemplateName": "Template Name",
+  "customRolesTemplateSaveFailed": "Failed to save template",
+  "customRolesTemplateSaved": "Saved as template",
+  "customRolesTemplatesCount": "{count, plural, =1{1 Template} other{{count} Templates}}",
+  "@customRolesTemplatesCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "customRolesTitle": "Roles & Permissions",
+  "customRolesUnknown": "Unknown",
+  "customRolesUnknownRole": "Unknown Role",
+  "customRolesUpdate": "Update",
+  "customRolesUpdateRoleFor": "Update role for {name}",
+  "@customRolesUpdateRoleFor": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "customRolesUse": "Use",
+  "settingsAbout": "About",
+  "settingsAppVersion": "App Version",
+  "settingsAutoSync": "Auto-sync Data",
+  "settingsAutoSyncDesc": "Sync automatically when online",
+  "settingsBackgroundTracking": "Background Tracking",
+  "settingsBackgroundTrackingDesc": "Continue tracking when app is in background",
+  "settingsBiometricLock": "Biometric Lock",
+  "settingsBiometricLockDesc": "Fingerprint or Face ID to unlock",
+  "settingsCacheCleared": "Cache cleared successfully",
+  "settingsClearCache": "Clear Cache",
+  "settingsClearCacheDesc": "Free up device storage space",
+  "settingsClearCacheMessage": "This will clear all cached data and free up storage space. Your account data will not be affected.",
+  "settingsCompactView": "Compact View",
+  "settingsCompactViewDesc": "Show more items on screen",
+  "settingsCurrentlyTracking": "Currently tracking location",
+  "settingsDangerZone": "DANGER ZONE",
+  "settingsDataStorage": "Data & Storage",
+  "settingsDefaultName": "Fleet Manager",
+  "settingsDisplay": "Display",
+  "settingsDriverUpdates": "Driver Updates",
+  "settingsDriverUpdatesDesc": "Driver assignment alerts",
+  "settingsFreqBalanced": "Balanced",
+  "settingsFreqBattery": "Battery",
+  "settingsFreqHigh": "High",
+  "settingsFreqLow": "Low",
+  "settingsGpsTracking": "GPS Tracking",
+  "settingsGpsTrackingDescOff": "Contact administrator to enable tracking",
+  "settingsGpsTrackingDescOn": "Enable location tracking for real-time updates",
+  "settingsGrant": "Grant",
+  "settingsHelpSupport": "Help & Support",
+  "settingsLocationPermission": "Location permission: {status}",
+  "@settingsLocationPermission": {
+    "placeholders": {
+      "status": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsLocationTracking": "Location & Tracking",
+  "settingsMinutesAgo": "{count}m ago",
+  "@settingsMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsNotifications": "Notifications",
+  "settingsOfflineMode": "Offline Mode",
+  "settingsOfflineModeDesc": "Cache data for offline access",
+  "settingsPermAlways": "Always",
+  "settingsPermDenied": "Permission Denied",
+  "settingsPermDeniedForever": "Permission Permanently Denied",
+  "settingsPermServiceDisabled": "Location Service Disabled",
+  "settingsPermWhileInUse": "While In Use",
+  "settingsPrivacyPolicy": "Privacy Policy",
+  "settingsPrivacySecurity": "Privacy & Security",
+  "settingsPushNotifications": "Push Notifications",
+  "settingsPushNotificationsDesc": "Receive important app alerts",
+  "settingsResetConfirm": "Reset",
+  "settingsResetDefaults": "Reset to Default Settings",
+  "settingsResetDefaultsDesc": "Restore all settings to factory defaults",
+  "settingsResetDone": "Settings reset to defaults",
+  "settingsResetMessage": "This will reset all settings to their default values. Are you sure you want to continue?",
+  "settingsResetTitle": "Reset Settings",
+  "settingsSecondsAgo": "{count}s ago",
+  "@settingsSecondsAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsShareAnalytics": "Share Analytics",
+  "settingsShareAnalyticsDesc": "Help improve the app anonymously",
+  "settingsSignOut": "Sign Out",
+  "settingsSignOutDesc": "Sign out of your account",
+  "settingsSubtitle": "Preferences & Configuration",
+  "settingsTermsOfService": "Terms of Service",
+  "settingsTheme": "Theme",
+  "settingsThemeDark": "Dark",
+  "settingsThemeDesc": "Choose app appearance",
+  "settingsThemeLight": "Light",
+  "settingsThemeSystem": "System",
+  "settingsTitle": "Settings",
+  "settingsTrackingAdminOff": "GPS tracking disabled — contact administrator",
+  "settingsTrackingAdminOn": "GPS tracking enabled by administrator",
+  "settingsTripUpdates": "Trip Updates",
+  "settingsTripUpdatesDesc": "Trip status changes",
+  "settingsUpToDate": "Up to date",
+  "settingsUpdateFrequency": "Update Frequency",
+  "settingsUpdateFrequencyDesc": "How often to update location",
+  "settingsVehicleAlerts": "Vehicle Alerts",
+  "settingsVehicleAlertsDesc": "Maintenance & status alerts",
+  "settingsViewLiveTracking": "View Live Tracking",
+  "settingsViewLiveTrackingDesc": "See your current location on map",
+  "vehAddChooseFile": "Choose File",
+  "vehAddChoosePhoto": "Choose Photo",
+  "vehAddFillRequired": "Please fill in all required fields",
+  "vehAddFuelCng": "CNG",
+  "vehAddFuelDiesel": "Diesel",
+  "vehAddFuelElectric": "Electric",
+  "vehAddFuelHybrid": "Hybrid",
+  "vehAddFuelLpg": "LPG",
+  "vehAddFuelPetrol": "Petrol",
+  "vehAddFuelType": "Fuel Type *",
+  "vehAddHintExample": "e.g. {value}",
+  "@vehAddHintExample": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "vehAddInfoNote": "By adding this vehicle, it will be automatically synchronized with your maintenance schedule and fuel tracking logs. Ensure the VIN is correct to receive automated manufacturer recalls.",
+  "vehAddInvalidYear": "Please enter a valid year",
+  "vehAddLicensePlate": "License Plate *",
+  "vehAddMake": "Make *",
+  "vehAddModel": "Model *",
+  "vehAddOdometer": "Initial Odometer (km)",
+  "vehAddPhotoFailed": "Vehicle created, but photo upload failed: {error}",
+  "@vehAddPhotoFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "vehAddPhotoSubtitle": "Upload or take a high-quality photo",
+  "vehAddPhotoTitle": "Vehicle Photo",
+  "vehAddRegister": "Register Vehicle",
+  "vehAddRegistering": "Registering...",
+  "vehAddRemovePhoto": "Remove Photo",
+  "vehAddSectionIdentification": "Identification",
+  "vehAddSectionSpecifications": "Specifications",
+  "vehAddSectionTechnical": "Technical Details",
+  "vehAddSuccess": "Vehicle registered successfully!",
+  "vehAddTakePhoto": "Take a Photo",
+  "vehAddTypeBus": "Bus",
+  "vehAddTypeCar": "Car",
+  "vehAddTypeMotorcycle": "Motorcycle",
+  "vehAddTypeOther": "Other",
+  "vehAddTypeSuv": "SUV",
+  "vehAddTypeTruck": "Truck",
+  "vehAddTypeVan": "Van",
+  "vehAddVehicleNumber": "Vehicle Number *",
+  "vehAddVehicleType": "Vehicle Type *",
+  "vehAddVin": "VIN (optional)",
+  "vehAddVinHint": "17-character VIN",
+  "vehAddYear": "Year *",
+  "vehListClearFilters": "Clear Filters",
+  "vehListEmptyHint": "Add your first vehicle to get started",
+  "vehListEmptyTitle": "No Vehicles Yet",
+  "vehListFilterAll": "All Vehicles",
+  "vehListKm": "{value} km",
+  "@vehListKm": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "vehListNoDriver": "No driver",
+  "vehListNoDriverAssigned": "No driver assigned",
+  "vehListNotFoundHint": "Try adjusting your search or filters",
+  "vehListNotFoundTitle": "No Vehicles Found",
+  "vehListRegisteredCount": "{count, plural, =1{{count} vehicle registered} other{{count} vehicles registered}}",
+  "@vehListRegisteredCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "vehListSearchHint": "Search by registration, make, model...",
+  "vehListSortMake": "Make",
+  "vehListSortMileage": "Mileage",
+  "vehListSortRegistration": "Registration",
+  "vehListStatusActive": "Active",
+  "vehListStatusInactive": "Inactive",
+  "vehListStatusMaintenance": "Maintenance",
+  "vehListTitle": "Fleet Vehicles"
 }

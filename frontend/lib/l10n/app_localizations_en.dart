@@ -4842,4 +4842,1963 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get transporterDashboardTitle => 'Transporter Dashboard';
+
+  @override
+  String get drvAddAdding => 'Adding Driver...';
+
+  @override
+  String get drvAddButton => 'Add Driver to Fleet';
+
+  @override
+  String get drvAddCancelReturn => 'Cancel and return';
+
+  @override
+  String get drvAddDatesRequired =>
+      'License issue date and expiry date are required';
+
+  @override
+  String get drvAddEmail => 'Email Address';
+
+  @override
+  String get drvAddEmailInvalid => 'Enter a valid email address';
+
+  @override
+  String get drvAddExpiryAfterIssue =>
+      'License expiry date must be after issue date';
+
+  @override
+  String get drvAddExpiryFuture => 'License expiry date must be in the future';
+
+  @override
+  String drvAddFieldRequired(String field) {
+    return '$field is required';
+  }
+
+  @override
+  String get drvAddFirstName => 'First Name';
+
+  @override
+  String get drvAddFixErrors => 'Please fix the errors in the form';
+
+  @override
+  String drvAddHintExample(String value) {
+    return 'e.g. $value';
+  }
+
+  @override
+  String get drvAddJoinDate => 'Join Date';
+
+  @override
+  String get drvAddJoinFuture => 'Join date cannot be in the future';
+
+  @override
+  String get drvAddLastName => 'Last Name';
+
+  @override
+  String get drvAddLicenseClass => 'License Class';
+
+  @override
+  String get drvAddLicenseFormat =>
+      'License must be 10-50 alphanumeric characters';
+
+  @override
+  String get drvAddLicenseHmv => 'HMV (Heavy Motor Vehicle)';
+
+  @override
+  String get drvAddLicenseHpmv => 'HPMV (Heavy Passenger Motor Vehicle)';
+
+  @override
+  String get drvAddLicenseLmv => 'LMV (Light Motor Vehicle)';
+
+  @override
+  String get drvAddLicenseMcwg => 'MCWG (Motorcycle with Gear)';
+
+  @override
+  String get drvAddLicenseRequired => 'License number is required';
+
+  @override
+  String get drvAddLicenseScan => 'License Document Scan';
+
+  @override
+  String get drvAddLicenseScanHint => 'Upload clear scan or photo';
+
+  @override
+  String get drvAddPasswordDigit => 'Must include a digit';
+
+  @override
+  String get drvAddPasswordHint => 'Min 8 chars, with uppercase & digit';
+
+  @override
+  String get drvAddPasswordLength => 'Password must be at least 8 characters';
+
+  @override
+  String get drvAddPasswordLower => 'Must include a lowercase letter';
+
+  @override
+  String get drvAddPasswordRequired => 'Password is required';
+
+  @override
+  String get drvAddPasswordUpper => 'Must include an uppercase letter';
+
+  @override
+  String get drvAddPhoneDigits => 'Phone must be 10 digits';
+
+  @override
+  String get drvAddPhoneRequired => 'Phone number is required';
+
+  @override
+  String drvAddPhotoFailed(String error) {
+    return 'Driver added, but photo upload failed: $error';
+  }
+
+  @override
+  String get drvAddPhotoHint => 'PNG, JPG up to 5MB';
+
+  @override
+  String get drvAddPhotoSelected => 'Photo selected — tap to change';
+
+  @override
+  String get drvAddProgress => 'REGISTRATION PROGRESS';
+
+  @override
+  String get drvAddRoleLogistics => 'Logistics';
+
+  @override
+  String get drvAddRoleSupport => 'Support';
+
+  @override
+  String get drvAddSectionLogin => 'Login Credentials';
+
+  @override
+  String get drvAddSectionRole => 'Assignment & Role';
+
+  @override
+  String get drvAddSelect => 'Select';
+
+  @override
+  String get drvAddStep => 'Step 1 of 3';
+
+  @override
+  String get drvAddSuccess => 'Driver added successfully!';
+
+  @override
+  String get drvAddSystemRole => 'System Role';
+
+  @override
+  String get drvAddTitle => 'Add New Driver';
+
+  @override
+  String get drvAddUploadPhoto => 'Upload Profile Photo';
+
+  @override
+  String get drvAddUsernameFormat =>
+      'Username: 3-50 chars (letters, numbers, underscore)';
+
+  @override
+  String get drvAddUsernameRequired => 'Username is required';
+
+  @override
+  String get drvMgmtAddFirstHint => 'Tap + to add your first driver';
+
+  @override
+  String get drvMgmtCurrentlyOnLeave => 'Currently on leave';
+
+  @override
+  String get drvMgmtMainDepot => 'Main Depot';
+
+  @override
+  String get drvMgmtNoDrivers => 'No drivers yet';
+
+  @override
+  String get drvMgmtNoMatch => 'No drivers match your filter';
+
+  @override
+  String get drvMgmtSearchHint => 'Search drivers, employee ID...';
+
+  @override
+  String get drvMgmtStatusActive => 'Active';
+
+  @override
+  String get drvMgmtStatusAll => 'All';
+
+  @override
+  String get drvMgmtStatusAvailable => 'Available';
+
+  @override
+  String get drvMgmtStatusOnLeave => 'On Leave';
+
+  @override
+  String get drvMgmtStatusTerminated => 'Terminated';
+
+  @override
+  String get drvMgmtTitle => 'Drivers';
+
+  @override
+  String drvMgmtTotalMembers(int count) {
+    return '$count total fleet members';
+  }
+
+  @override
+  String get helpCenterArticleAddVehicle => 'How to add a new vehicle';
+
+  @override
+  String get helpCenterArticleAddVehicleDesc =>
+      'Step-by-step guide to adding vehicles to your fleet';
+
+  @override
+  String helpCenterArticleDetailIntro(String title) {
+    return 'This is a detailed article about: $title';
+  }
+
+  @override
+  String get helpCenterArticleDriverPerms => 'Managing driver permissions';
+
+  @override
+  String get helpCenterArticleDriverPermsDesc =>
+      'Learn how to assign and manage driver roles and permissions';
+
+  @override
+  String get helpCenterArticleMaintenance => 'Creating maintenance schedules';
+
+  @override
+  String get helpCenterArticleMaintenanceDesc =>
+      'Keep your fleet running smoothly with scheduled maintenance';
+
+  @override
+  String get helpCenterArticlePlaceholder =>
+      'Article content would go here with step-by-step instructions, screenshots, and helpful tips.';
+
+  @override
+  String get helpCenterArticleRealtimeTracking =>
+      'Setting up real-time tracking';
+
+  @override
+  String get helpCenterArticleRealtimeTrackingDesc =>
+      'Configure GPS tracking for your fleet vehicles';
+
+  @override
+  String get helpCenterAvgResponse => 'Average response time: 2 minutes';
+
+  @override
+  String get helpCenterBrowseByCategory => 'Browse by Category';
+
+  @override
+  String get helpCenterCatDriver => 'Driver Management';
+
+  @override
+  String get helpCenterCatDriverDesc =>
+      'Driver profiles, licenses, and assignments';
+
+  @override
+  String get helpCenterCatFinancial => 'Financial Management';
+
+  @override
+  String get helpCenterCatFinancialDesc => 'Expenses, invoices, and payments';
+
+  @override
+  String get helpCenterCatMaintenance => 'Maintenance';
+
+  @override
+  String get helpCenterCatMaintenanceDesc =>
+      'Schedules, repairs, and inspections';
+
+  @override
+  String get helpCenterCatReports => 'Reports & Analytics';
+
+  @override
+  String get helpCenterCatReportsDesc => 'Generating and exporting reports';
+
+  @override
+  String get helpCenterCatRoles => 'Roles & Permissions';
+
+  @override
+  String get helpCenterCatRolesDesc => 'User roles and access control';
+
+  @override
+  String get helpCenterCatTracking => 'Real-time Tracking';
+
+  @override
+  String get helpCenterCatTrackingDesc => 'GPS tracking and location services';
+
+  @override
+  String get helpCenterCatTrip => 'Trip Management';
+
+  @override
+  String get helpCenterCatTripDesc => 'Creating and monitoring trips';
+
+  @override
+  String get helpCenterCatVehicle => 'Vehicle Management';
+
+  @override
+  String get helpCenterCatVehicleDesc =>
+      'Adding, editing, and managing vehicles';
+
+  @override
+  String get helpCenterChatWithTeam => 'Chat with our support team';
+
+  @override
+  String get helpCenterContactSupport => 'Contact Support';
+
+  @override
+  String get helpCenterEmailSupport => 'Email Support';
+
+  @override
+  String get helpCenterEmailUs => 'Email Us';
+
+  @override
+  String get helpCenterGettingStarted => 'Getting Started';
+
+  @override
+  String get helpCenterGuideTitle => 'Getting Started Guide';
+
+  @override
+  String get helpCenterIssueDescription => 'Description';
+
+  @override
+  String get helpCenterIssueReported => 'Issue reported successfully';
+
+  @override
+  String get helpCenterIssueTitle => 'Issue Title';
+
+  @override
+  String get helpCenterLiveChat => 'Live Chat';
+
+  @override
+  String get helpCenterMarkedHelpful => 'Article marked as helpful';
+
+  @override
+  String get helpCenterNeedMoreHelp => 'Need More Help?';
+
+  @override
+  String helpCenterNoResults(String query) {
+    return 'No results found for \"$query\"';
+  }
+
+  @override
+  String get helpCenterNoResultsHint =>
+      'Try different keywords or browse categories below';
+
+  @override
+  String helpCenterOpeningCategory(String category) {
+    return 'Opening $category articles...';
+  }
+
+  @override
+  String get helpCenterOpeningChat => 'Opening live chat...';
+
+  @override
+  String get helpCenterPhoneSupport => 'Phone Support';
+
+  @override
+  String get helpCenterPopularArticles => 'Popular Articles';
+
+  @override
+  String get helpCenterQuickActions => 'Quick Actions';
+
+  @override
+  String helpCenterReadMinutes(int minutes) {
+    return '$minutes min read';
+  }
+
+  @override
+  String get helpCenterReportIssue => 'Report Issue';
+
+  @override
+  String get helpCenterReportTitle => 'Report an Issue';
+
+  @override
+  String helpCenterResultsFound(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count results found',
+      one: '1 result found',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get helpCenterSearchDriverPermsDesc =>
+      'Learn how to assign and manage driver roles';
+
+  @override
+  String get helpCenterSearchGpsDesc => 'Configure real-time vehicle tracking';
+
+  @override
+  String get helpCenterSearchGpsTitle => 'Setting up GPS tracking';
+
+  @override
+  String get helpCenterSearchHint =>
+      'Search for help articles, guides, FAQs...';
+
+  @override
+  String get helpCenterSearchMaintenanceDesc =>
+      'Schedule regular vehicle maintenance';
+
+  @override
+  String get helpCenterSearchReportsDesc =>
+      'Create and export financial reports';
+
+  @override
+  String get helpCenterSearchReportsTitle => 'Generating financial reports';
+
+  @override
+  String get helpCenterShowingAll => 'Showing all articles...';
+
+  @override
+  String get helpCenterStep1Desc => 'Sign up with your details';
+
+  @override
+  String get helpCenterStep1Title => 'Create Your Account';
+
+  @override
+  String get helpCenterStep2Desc => 'Create or join an organization';
+
+  @override
+  String get helpCenterStep2Title => 'Set Up Your Organization';
+
+  @override
+  String get helpCenterStep3Desc => 'Add vehicles to the system';
+
+  @override
+  String get helpCenterStep3Title => 'Add Your Fleet';
+
+  @override
+  String get helpCenterStep4Desc => 'Add drivers and staff';
+
+  @override
+  String get helpCenterStep4Title => 'Invite Team Members';
+
+  @override
+  String get helpCenterStep5Desc => 'Begin tracking and managing your fleet';
+
+  @override
+  String get helpCenterStep5Title => 'Start Managing';
+
+  @override
+  String get helpCenterSupport247 =>
+      'Our support team is available 24/7 to assist you';
+
+  @override
+  String get helpCenterTitle => 'Help Center';
+
+  @override
+  String get helpCenterVideoComingSoon => 'Video tutorials coming soon!';
+
+  @override
+  String get helpCenterVideoTutorials => 'Video Tutorials';
+
+  @override
+  String get helpCenterViewAll => 'View All';
+
+  @override
+  String get helpCenterWasHelpful => 'Was this helpful?';
+
+  @override
+  String get orgCreate10Chars => '10 characters';
+
+  @override
+  String get orgCreate15Chars => '15 characters';
+
+  @override
+  String get orgCreateAdd => 'Add';
+
+  @override
+  String get orgCreateAddressRequired => 'Address is required';
+
+  @override
+  String get orgCreateBusinessEmail => 'Business Email';
+
+  @override
+  String get orgCreateBusinessPhone => 'Business Phone';
+
+  @override
+  String get orgCreateBusinessType => 'Business Type';
+
+  @override
+  String get orgCreateBusinessTypeHint => 'e.g., Transportation, Logistics';
+
+  @override
+  String get orgCreateBusinessTypeRequired => 'Business type is required';
+
+  @override
+  String get orgCreateCity => 'City';
+
+  @override
+  String get orgCreateCompanyName => 'Company Name';
+
+  @override
+  String get orgCreateCompanyNameHint => 'e.g., Acme Logistics Pvt. Ltd.';
+
+  @override
+  String get orgCreateCompanyNameRequired => 'Company name is required';
+
+  @override
+  String get orgCreateCountry => 'Country';
+
+  @override
+  String get orgCreateEmailInvalid => 'Invalid email format';
+
+  @override
+  String get orgCreateEmailRequired => 'Business email is required';
+
+  @override
+  String orgCreateFailed(String error) {
+    return 'Failed to create organization: $error';
+  }
+
+  @override
+  String get orgCreateGstinInvalid => 'Invalid GSTIN format';
+
+  @override
+  String get orgCreateGstinLength => 'GSTIN must be exactly 15 characters';
+
+  @override
+  String get orgCreateHeaderSub => 'Set up your fleet workspace';
+
+  @override
+  String get orgCreateHeaderTitle => 'New Organization';
+
+  @override
+  String get orgCreateInvalid => 'Invalid';
+
+  @override
+  String get orgCreateLegalSub => 'GSTIN & PAN — Optional';
+
+  @override
+  String get orgCreateMin10Digits => 'Must be at least 10 digits';
+
+  @override
+  String get orgCreateMin2Chars => 'Must be at least 2 characters';
+
+  @override
+  String orgCreateOptionalLabel(String label) {
+    return '$label (Optional)';
+  }
+
+  @override
+  String get orgCreatePanInvalid => 'Invalid PAN format';
+
+  @override
+  String get orgCreatePanLength => 'PAN must be exactly 10 characters';
+
+  @override
+  String get orgCreatePanNumber => 'PAN Number';
+
+  @override
+  String get orgCreatePhoneRequired => 'Business phone is required';
+
+  @override
+  String get orgCreatePincode => 'Pincode';
+
+  @override
+  String get orgCreateRequired => 'Required';
+
+  @override
+  String get orgCreateSecAddress => 'Address';
+
+  @override
+  String get orgCreateSecCompany => 'Company Information';
+
+  @override
+  String get orgCreateSecContact => 'Contact Information';
+
+  @override
+  String get orgCreateSecLegal => 'Legal Information';
+
+  @override
+  String get orgCreateState => 'State';
+
+  @override
+  String get orgCreateStreetAddress => 'Street Address';
+
+  @override
+  String get orgCreateStreetAddressHint => 'Building, street, area…';
+
+  @override
+  String orgCreateSuccess(String name) {
+    return 'Organization \"$name\" created successfully!';
+  }
+
+  @override
+  String get orgCreateTitle => 'Create Organization';
+
+  @override
+  String get orgManageAllCaughtUp => 'All caught up!';
+
+  @override
+  String get orgManageApproveAssign => 'Approve & Assign Role';
+
+  @override
+  String orgManageApproveFailed(String error) {
+    return 'Failed to approve user: $error';
+  }
+
+  @override
+  String orgManageApproveTitle(String username) {
+    return 'Approve $username';
+  }
+
+  @override
+  String orgManageApproved(String username) {
+    return '$username approved successfully';
+  }
+
+  @override
+  String get orgManageAssignRole => 'Assign Role';
+
+  @override
+  String get orgManageChangeRole => 'Change Role';
+
+  @override
+  String orgManageHeaderSummary(int members, int pending) {
+    return '$members members · $pending pending';
+  }
+
+  @override
+  String get orgManageLoadFailed => 'Failed to load organization data.';
+
+  @override
+  String get orgManageMembersHint => 'Members will appear here';
+
+  @override
+  String orgManageMembersTab(int count) {
+    return 'Members ($count)';
+  }
+
+  @override
+  String orgManageNewRoleFor(String username) {
+    return 'New role for $username';
+  }
+
+  @override
+  String get orgManageNoMembers => 'No members yet';
+
+  @override
+  String get orgManageNoPending => 'No pending join requests';
+
+  @override
+  String orgManageNoResults(String query) {
+    return 'No results for \"$query\"';
+  }
+
+  @override
+  String get orgManageNoRole => 'No Role';
+
+  @override
+  String get orgManageOwner => 'Owner';
+
+  @override
+  String get orgManagePendingBadge => 'Pending';
+
+  @override
+  String orgManagePendingTab(int count) {
+    return 'Pending ($count)';
+  }
+
+  @override
+  String get orgManageRefresh => 'Refresh';
+
+  @override
+  String get orgManageReject => 'Reject';
+
+  @override
+  String orgManageRejectConfirm(String username) {
+    return 'Reject $username\'s request to join?';
+  }
+
+  @override
+  String orgManageRejectFailed(String error) {
+    return 'Failed to reject: $error';
+  }
+
+  @override
+  String get orgManageRejectUserTitle => 'Reject User';
+
+  @override
+  String orgManageRejected(String username) {
+    return '$username rejected';
+  }
+
+  @override
+  String get orgManageRemove => 'Remove';
+
+  @override
+  String orgManageRemoveConfirm(String username, String orgName) {
+    return 'Remove $username from $orgName? They will lose access immediately.';
+  }
+
+  @override
+  String orgManageRemoveFailed(String error) {
+    return 'Failed to remove: $error';
+  }
+
+  @override
+  String get orgManageRemoveTitle => 'Remove Member';
+
+  @override
+  String orgManageRemoved(String username) {
+    return '$username removed';
+  }
+
+  @override
+  String orgManageRequestedRole(String role) {
+    return 'Requested: $role';
+  }
+
+  @override
+  String get orgManageRoleAdmin => 'Admin';
+
+  @override
+  String get orgManageRoleAdminDesc => 'Manage members & settings';
+
+  @override
+  String get orgManageRoleDispatcher => 'Dispatcher';
+
+  @override
+  String get orgManageRoleDispatcherDesc => 'Manage trips & assignments';
+
+  @override
+  String orgManageRoleUpdateFailed(String error) {
+    return 'Failed to update role: $error';
+  }
+
+  @override
+  String get orgManageRoleUpdated => 'Role updated successfully';
+
+  @override
+  String get orgManageRoleUser => 'User';
+
+  @override
+  String get orgManageRoleUserDesc => 'Standard access to features';
+
+  @override
+  String get orgManageRoleViewer => 'Viewer';
+
+  @override
+  String get orgManageRoleViewerDesc => 'Read-only access';
+
+  @override
+  String get orgManageSearchHint => 'Search members…';
+
+  @override
+  String get orgManageSelectRole => 'Select a role to assign';
+
+  @override
+  String get orgSelectCreate => 'Create Organization';
+
+  @override
+  String get orgSelectCreateNew => 'Create New Organization';
+
+  @override
+  String get orgSelectCreateNewSub => 'Set up your own fleet organization';
+
+  @override
+  String get orgSelectNoOrgs => 'No Organizations Yet';
+
+  @override
+  String get orgSelectNoOrgsBody =>
+      'Create your own or ask an admin to add you to an existing organization.';
+
+  @override
+  String get orgSelectNoRole => 'No Role';
+
+  @override
+  String get orgSelectSwitchFailed => 'Failed to switch organization';
+
+  @override
+  String orgSelectSwitched(String name) {
+    return 'Switched to $name';
+  }
+
+  @override
+  String get orgSelectTitle => 'Select Organization';
+
+  @override
+  String get orgSelectTryAgain => 'Try again';
+
+  @override
+  String get orgSelectUser => 'User';
+
+  @override
+  String get orgSelectWelcome => 'Welcome back,';
+
+  @override
+  String get orgSelectWrong => 'Something went wrong';
+
+  @override
+  String get orgSelectYourOrgs => 'Your Organizations';
+
+  @override
+  String get profileAccountStatus => 'Account Status';
+
+  @override
+  String get profileAuthEmailPassword => 'Email & Password';
+
+  @override
+  String get profileAuthMethod => 'Auth Method';
+
+  @override
+  String get profileAuthSecurityQuestions => 'Security Questions';
+
+  @override
+  String get profileBecameDriver => 'Role changed to Driver successfully!';
+
+  @override
+  String get profileBecomeDriver => 'Become Driver';
+
+  @override
+  String get profileBecomeDriverTitle => 'Become a Driver';
+
+  @override
+  String get profileCancelPendingMessage =>
+      'This will cancel your pending organization request and return you to Independent User status. You can join or create an organization again at any time.';
+
+  @override
+  String get profileCancelPendingTitle => 'Cancel Pending Request?';
+
+  @override
+  String get profileChange => 'Change';
+
+  @override
+  String get profileChangeOrganization => 'Change Organization';
+
+  @override
+  String get profileChangePassword => 'Change Password';
+
+  @override
+  String get profileChangeRoleChoose =>
+      'Choose how you want to change your role:';
+
+  @override
+  String get profileChangeRoleFailed => 'Failed to change role';
+
+  @override
+  String get profileChangeRolePending =>
+      'Your request is pending. What would you like to do?';
+
+  @override
+  String get profileChangeRoleTitle => 'Change Role';
+
+  @override
+  String get profileCompany => 'Company';
+
+  @override
+  String get profileCreateOrganization => 'Create Organization';
+
+  @override
+  String get profileDefaultUser => 'User';
+
+  @override
+  String get profileDriverLicenseIntro => 'Enter your driver license details:';
+
+  @override
+  String get profileEditBanner =>
+      'Edit mode — tap ✓ in the toolbar to save changes';
+
+  @override
+  String get profileEditTooltip => 'Edit Profile';
+
+  @override
+  String get profileEmail => 'Email';
+
+  @override
+  String get profileEnterLicenseExpiry => 'Please enter license expiry date';
+
+  @override
+  String get profileEnterLicenseNumber => 'Please enter license number';
+
+  @override
+  String get profileFullName => 'Full Name';
+
+  @override
+  String get profileFullNameRequired => 'Full name is required';
+
+  @override
+  String get profileGoIndependent => 'Go Independent';
+
+  @override
+  String profileImageReadError(String error) {
+    return 'Error reading image: $error';
+  }
+
+  @override
+  String profileImageSelectError(String error) {
+    return 'Error selecting image: $error';
+  }
+
+  @override
+  String get profileIndependentOptions => 'As an Independent User, you can:';
+
+  @override
+  String get profileJoinFailed => 'Failed to join organization';
+
+  @override
+  String get profileJoinOrganization => 'Join Organization';
+
+  @override
+  String get profileJoinSubmitted =>
+      'Join request submitted! Awaiting approval.';
+
+  @override
+  String get profileKeepPending => 'Keep Pending';
+
+  @override
+  String get profileLicenseExpiry => 'License Expiry (YYYY-MM-DD)';
+
+  @override
+  String get profileLicenseNumber => 'License Number';
+
+  @override
+  String get profileNewPhotoSelected =>
+      'New photo selected · tap Save to apply';
+
+  @override
+  String get profileNoPreference => 'No preference';
+
+  @override
+  String get profileNoRole => 'No Role';
+
+  @override
+  String get profileNone => 'None';
+
+  @override
+  String get profileNotAssigned => 'Not assigned';
+
+  @override
+  String get profileNotAvailable => 'N/A';
+
+  @override
+  String get profileNowIndependent => 'You are now an Independent User.';
+
+  @override
+  String get profilePendingOptions =>
+      'Your request is pending approval. You can:';
+
+  @override
+  String get profilePersonalInfo => 'Personal Information';
+
+  @override
+  String get profilePhone => 'Phone';
+
+  @override
+  String get profilePhotoAddHint => 'Tap to add a photo';
+
+  @override
+  String get profilePhotoChangeHint =>
+      'Tap to change photo · long-press to remove';
+
+  @override
+  String get profileRemove => 'Remove';
+
+  @override
+  String get profileRemovePictureFailed => 'Failed to remove profile picture';
+
+  @override
+  String get profileRemovePictureMessage =>
+      'Are you sure you want to remove your profile picture?';
+
+  @override
+  String get profileRemovePictureTitle => 'Remove Profile Picture';
+
+  @override
+  String get profileRequestedRole => 'Requested Role (Optional)';
+
+  @override
+  String get profileRole => 'Role';
+
+  @override
+  String get profileRoleAccountant => 'Accountant';
+
+  @override
+  String get profileRoleComplianceOfficer => 'Compliance Officer';
+
+  @override
+  String get profileRoleCustomerService => 'Customer Service';
+
+  @override
+  String get profileRoleDispatcher => 'Dispatcher';
+
+  @override
+  String get profileRoleFleetManager => 'Fleet Manager';
+
+  @override
+  String get profileRoleMaintenanceManager => 'Maintenance Manager';
+
+  @override
+  String get profileRoleMaintenanceTechnician => 'Maintenance Technician';
+
+  @override
+  String get profileRoleManaged => 'Your role is managed by your organization.';
+
+  @override
+  String get profileRoleOperationsManager => 'Operations Manager';
+
+  @override
+  String get profileRoleOrg => 'Role & Organization';
+
+  @override
+  String get profileRoleUpdateFailed => 'Failed to update role';
+
+  @override
+  String get profileRoleViewerAnalyst => 'Viewer / Analyst';
+
+  @override
+  String get profileStatus => 'Profile Status';
+
+  @override
+  String get profileStatusCompleted => 'Completed';
+
+  @override
+  String get profileStatusIncomplete => 'Incomplete';
+
+  @override
+  String get profileStatusLabel => 'Status';
+
+  @override
+  String get profileTitle => 'My Profile';
+
+  @override
+  String get profileUnknown => 'Unknown';
+
+  @override
+  String get profileUpdateFailed => 'Failed to update profile';
+
+  @override
+  String get profileUpdated => 'Profile updated successfully!';
+
+  @override
+  String get profileUploadPictureFailed => 'Failed to upload profile picture';
+
+  @override
+  String get profileUsername => 'Username';
+
+  @override
+  String get customRoleAfterCreateNote =>
+      'After creation, you\'ll be taken to the role editor to configure capabilities.';
+
+  @override
+  String get customRoleCapabilities => 'Capabilities';
+
+  @override
+  String customRoleCapabilityCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count capabilities',
+      one: '1 capability',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customRoleCatCompliance => 'Compliance & Safety';
+
+  @override
+  String get customRoleCatCustomer => 'Customer Management';
+
+  @override
+  String get customRoleCatDriver => 'Driver Management';
+
+  @override
+  String get customRoleCatFinancial => 'Financial Management';
+
+  @override
+  String get customRoleCatMaintenance => 'Maintenance';
+
+  @override
+  String get customRoleCatReporting => 'Reporting & Analytics';
+
+  @override
+  String get customRoleCatRole => 'Role Management';
+
+  @override
+  String get customRoleCatSystem => 'System Settings';
+
+  @override
+  String get customRoleCatTracking => 'Tracking & Monitoring';
+
+  @override
+  String get customRoleCatTrip => 'Trip Management';
+
+  @override
+  String get customRoleCatUser => 'User Management';
+
+  @override
+  String get customRoleCatVehicle => 'Vehicle Management';
+
+  @override
+  String customRoleCategoryEnabled(int enabled, int total) {
+    return '$enabled / $total capabilities enabled';
+  }
+
+  @override
+  String get customRoleChooseMethod => 'Choose creation method';
+
+  @override
+  String get customRoleChooseMethodHint =>
+      'Start from a predefined template or build from scratch';
+
+  @override
+  String get customRoleCreateButton => 'Create Role';
+
+  @override
+  String customRoleCreateFailed(String error) {
+    return 'Failed to create role: $error';
+  }
+
+  @override
+  String get customRoleCreateTitle => 'Create Custom Role';
+
+  @override
+  String get customRoleCreated => 'Custom role created successfully';
+
+  @override
+  String get customRoleCreating => 'Creating...';
+
+  @override
+  String get customRoleDescription => 'Description';
+
+  @override
+  String get customRoleDescriptionHint => 'Describe the purpose of this role';
+
+  @override
+  String get customRoleDescriptionOptional => 'Description (Optional)';
+
+  @override
+  String get customRoleDetailsHint =>
+      'Give your custom role a name and description';
+
+  @override
+  String get customRoleDetailsTitle => 'Role Details';
+
+  @override
+  String get customRoleEditTitle => 'Edit Custom Role';
+
+  @override
+  String customRoleEnabledCount(int enabled, int total) {
+    return '$enabled / $total enabled';
+  }
+
+  @override
+  String get customRoleFromScratch => 'From Scratch';
+
+  @override
+  String get customRoleFromScratchDesc =>
+      'Build a completely custom role with your own capabilities. Configure everything manually.';
+
+  @override
+  String get customRoleFromScratchTitle => 'Start from Scratch';
+
+  @override
+  String get customRoleFromTemplate => 'From Template';
+
+  @override
+  String get customRoleFromTemplateDesc =>
+      'Use predefined role templates as a starting point. Inherit capabilities and customize.';
+
+  @override
+  String get customRoleFromTemplateTitle => 'Start from Template';
+
+  @override
+  String get customRoleInfoTitle => 'Role Information';
+
+  @override
+  String get customRoleIntersection => 'Intersection (Only Common)';
+
+  @override
+  String get customRoleIntersectionCommon => 'Intersection (Common Only)';
+
+  @override
+  String get customRoleIntersectionDesc =>
+      'Include only capabilities shared by all selected templates';
+
+  @override
+  String get customRoleLeave => 'Leave';
+
+  @override
+  String get customRoleLevelFull => 'Full';
+
+  @override
+  String get customRoleLevelLimited => 'Limited';
+
+  @override
+  String get customRoleLevelNone => 'None';
+
+  @override
+  String get customRoleLevelView => 'View';
+
+  @override
+  String get customRoleLoadFailed => 'Failed to load role';
+
+  @override
+  String get customRoleMergeStrategy => 'Merge Strategy';
+
+  @override
+  String get customRoleNameHint => 'e.g., Regional Manager - West Coast';
+
+  @override
+  String get customRoleNameLabel => 'Role Name';
+
+  @override
+  String get customRoleNameRequired => 'Please enter a role name';
+
+  @override
+  String get customRoleNameRequiredShort => 'Role name required';
+
+  @override
+  String get customRoleNoDescription => 'No description';
+
+  @override
+  String get customRoleNotSet => '(not set)';
+
+  @override
+  String get customRoleQuickAll => 'All';
+
+  @override
+  String get customRoleReviewHint =>
+      'Confirm your custom role details before creating';
+
+  @override
+  String get customRoleReviewTitle => 'Review & Create';
+
+  @override
+  String get customRoleSaveChanges => 'Save Changes';
+
+  @override
+  String get customRoleSaving => 'Saving...';
+
+  @override
+  String get customRoleSelectOneTemplate =>
+      'Please select at least one template';
+
+  @override
+  String get customRoleSelectTemplates => 'Select Templates';
+
+  @override
+  String get customRoleSelectTemplatesHint =>
+      'Choose one or more templates to combine';
+
+  @override
+  String customRoleSelectedCount(int count) {
+    return '$count selected';
+  }
+
+  @override
+  String get customRoleStay => 'Stay';
+
+  @override
+  String get customRoleStepDetails => 'Details';
+
+  @override
+  String get customRoleStepMethod => 'Method';
+
+  @override
+  String get customRoleStepReview => 'Review';
+
+  @override
+  String get customRoleStepTemplates => 'Templates';
+
+  @override
+  String get customRoleSystemCritical =>
+      'System critical – restricted to super admin';
+
+  @override
+  String customRoleTemplateError(String error) {
+    return 'Error: $error';
+  }
+
+  @override
+  String customRoleTemplatePreselected(String names) {
+    return 'Template pre-selected: $names';
+  }
+
+  @override
+  String get customRoleUnion => 'Union (Combine All)';
+
+  @override
+  String get customRoleUnionDesc =>
+      'Include all capabilities from all selected templates';
+
+  @override
+  String get customRoleUnsavedBody =>
+      'You have unsaved changes. Do you want to leave without saving?';
+
+  @override
+  String get customRoleUnsavedTitle => 'Unsaved Changes';
+
+  @override
+  String get customRoleUpdateFailed => 'Failed to update role';
+
+  @override
+  String customRoleUpdateFailedWithError(String error) {
+    return 'Failed to update role: $error';
+  }
+
+  @override
+  String get customRoleUpdated => 'Role updated successfully';
+
+  @override
+  String customRolesActiveMembers(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count active members',
+      one: '1 active member',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customRolesApprove => 'Approve';
+
+  @override
+  String get customRolesApproveFailed => 'Failed to approve request';
+
+  @override
+  String get customRolesApproveTitle => 'Approve Request';
+
+  @override
+  String customRolesApprovedOk(String name) {
+    return '$name approved successfully!';
+  }
+
+  @override
+  String customRolesApprovingFrom(String name) {
+    return 'Approving join request from $name.';
+  }
+
+  @override
+  String get customRolesAssignRole => 'Assign Role:';
+
+  @override
+  String customRolesCapabilityCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count capabilities',
+      one: '1 capability',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customRolesChangeRole => 'Change Role';
+
+  @override
+  String get customRolesChangeRoleTitle => 'Change Member Role';
+
+  @override
+  String get customRolesClone => 'Clone';
+
+  @override
+  String get customRolesCloneFailed => 'Failed to clone';
+
+  @override
+  String get customRolesCloneTitle => 'Clone Role';
+
+  @override
+  String get customRolesCloned => 'Role cloned successfully';
+
+  @override
+  String get customRolesCreateFirst => 'Create Your First Role';
+
+  @override
+  String get customRolesCreateFromTemplate =>
+      'Create Custom Role from This Template';
+
+  @override
+  String get customRolesCreateRole => 'Create Custom Role';
+
+  @override
+  String get customRolesCustomBadge => 'custom';
+
+  @override
+  String get customRolesDeleteConfirm =>
+      'Are you sure you want to delete this role? This cannot be undone.';
+
+  @override
+  String get customRolesDeleteFailed => 'Failed to delete role';
+
+  @override
+  String get customRolesDeleteTitle => 'Delete Role';
+
+  @override
+  String get customRolesDeleted => 'Role deleted successfully';
+
+  @override
+  String get customRolesDescriptionOptional => 'Description (optional)';
+
+  @override
+  String get customRolesNewRole => 'New Role:';
+
+  @override
+  String get customRolesNewRoleName => 'New Role Name';
+
+  @override
+  String get customRolesNoCapabilities => 'No capabilities listed';
+
+  @override
+  String get customRolesNoCustomSubtitle =>
+      'Create custom roles tailored to your organization';
+
+  @override
+  String get customRolesNoCustomTitle => 'No Custom Roles Yet';
+
+  @override
+  String get customRolesNoMembersSubtitle =>
+      'Approve pending requests to add members to your organization.';
+
+  @override
+  String get customRolesNoMembersTitle => 'No Members Yet';
+
+  @override
+  String get customRolesNoPendingSubtitle =>
+      'All join requests have been processed.';
+
+  @override
+  String get customRolesNoPendingTitle => 'No Pending Requests';
+
+  @override
+  String get customRolesNoRole => 'No Role';
+
+  @override
+  String get customRolesNoRoleRequested => 'No role requested';
+
+  @override
+  String get customRolesNoTemplates => 'No predefined templates found';
+
+  @override
+  String get customRolesNoTemplatesHint =>
+      'Templates are seeded automatically on server startup.';
+
+  @override
+  String customRolesPendingBanner(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count members waiting to join your organization',
+      one: '1 member waiting to join your organization',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customRolesRefresh => 'Refresh';
+
+  @override
+  String get customRolesReject => 'Reject';
+
+  @override
+  String customRolesRejectConfirm(String name) {
+    return 'Reject join request from $name? They will need to reapply to join.';
+  }
+
+  @override
+  String get customRolesRejectFailed => 'Failed to reject request';
+
+  @override
+  String get customRolesRejectTitle => 'Reject Request';
+
+  @override
+  String get customRolesRejected => 'Request rejected.';
+
+  @override
+  String get customRolesRoleUpdateFailed => 'Failed to update role';
+
+  @override
+  String customRolesRoleUpdated(String name) {
+    return 'Role updated for $name';
+  }
+
+  @override
+  String get customRolesSaveAsTemplate => 'Save as Template';
+
+  @override
+  String get customRolesSavedTemplate => 'Saved Template';
+
+  @override
+  String get customRolesSelectRole => 'Select role';
+
+  @override
+  String get customRolesSubtitle => 'Manage roles, permissions & team members';
+
+  @override
+  String get customRolesTabCustom => 'Custom';
+
+  @override
+  String get customRolesTabMembers => 'Members';
+
+  @override
+  String get customRolesTabPending => 'Pending';
+
+  @override
+  String get customRolesTabTemplates => 'Templates';
+
+  @override
+  String get customRolesTemplateName => 'Template Name';
+
+  @override
+  String get customRolesTemplateSaveFailed => 'Failed to save template';
+
+  @override
+  String get customRolesTemplateSaved => 'Saved as template';
+
+  @override
+  String customRolesTemplatesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Templates',
+      one: '1 Template',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get customRolesTitle => 'Roles & Permissions';
+
+  @override
+  String get customRolesUnknown => 'Unknown';
+
+  @override
+  String get customRolesUnknownRole => 'Unknown Role';
+
+  @override
+  String get customRolesUpdate => 'Update';
+
+  @override
+  String customRolesUpdateRoleFor(String name) {
+    return 'Update role for $name';
+  }
+
+  @override
+  String get customRolesUse => 'Use';
+
+  @override
+  String get settingsAbout => 'About';
+
+  @override
+  String get settingsAppVersion => 'App Version';
+
+  @override
+  String get settingsAutoSync => 'Auto-sync Data';
+
+  @override
+  String get settingsAutoSyncDesc => 'Sync automatically when online';
+
+  @override
+  String get settingsBackgroundTracking => 'Background Tracking';
+
+  @override
+  String get settingsBackgroundTrackingDesc =>
+      'Continue tracking when app is in background';
+
+  @override
+  String get settingsBiometricLock => 'Biometric Lock';
+
+  @override
+  String get settingsBiometricLockDesc => 'Fingerprint or Face ID to unlock';
+
+  @override
+  String get settingsCacheCleared => 'Cache cleared successfully';
+
+  @override
+  String get settingsClearCache => 'Clear Cache';
+
+  @override
+  String get settingsClearCacheDesc => 'Free up device storage space';
+
+  @override
+  String get settingsClearCacheMessage =>
+      'This will clear all cached data and free up storage space. Your account data will not be affected.';
+
+  @override
+  String get settingsCompactView => 'Compact View';
+
+  @override
+  String get settingsCompactViewDesc => 'Show more items on screen';
+
+  @override
+  String get settingsCurrentlyTracking => 'Currently tracking location';
+
+  @override
+  String get settingsDangerZone => 'DANGER ZONE';
+
+  @override
+  String get settingsDataStorage => 'Data & Storage';
+
+  @override
+  String get settingsDefaultName => 'Fleet Manager';
+
+  @override
+  String get settingsDisplay => 'Display';
+
+  @override
+  String get settingsDriverUpdates => 'Driver Updates';
+
+  @override
+  String get settingsDriverUpdatesDesc => 'Driver assignment alerts';
+
+  @override
+  String get settingsFreqBalanced => 'Balanced';
+
+  @override
+  String get settingsFreqBattery => 'Battery';
+
+  @override
+  String get settingsFreqHigh => 'High';
+
+  @override
+  String get settingsFreqLow => 'Low';
+
+  @override
+  String get settingsGpsTracking => 'GPS Tracking';
+
+  @override
+  String get settingsGpsTrackingDescOff =>
+      'Contact administrator to enable tracking';
+
+  @override
+  String get settingsGpsTrackingDescOn =>
+      'Enable location tracking for real-time updates';
+
+  @override
+  String get settingsGrant => 'Grant';
+
+  @override
+  String get settingsHelpSupport => 'Help & Support';
+
+  @override
+  String settingsLocationPermission(String status) {
+    return 'Location permission: $status';
+  }
+
+  @override
+  String get settingsLocationTracking => 'Location & Tracking';
+
+  @override
+  String settingsMinutesAgo(int count) {
+    return '${count}m ago';
+  }
+
+  @override
+  String get settingsNotifications => 'Notifications';
+
+  @override
+  String get settingsOfflineMode => 'Offline Mode';
+
+  @override
+  String get settingsOfflineModeDesc => 'Cache data for offline access';
+
+  @override
+  String get settingsPermAlways => 'Always';
+
+  @override
+  String get settingsPermDenied => 'Permission Denied';
+
+  @override
+  String get settingsPermDeniedForever => 'Permission Permanently Denied';
+
+  @override
+  String get settingsPermServiceDisabled => 'Location Service Disabled';
+
+  @override
+  String get settingsPermWhileInUse => 'While In Use';
+
+  @override
+  String get settingsPrivacyPolicy => 'Privacy Policy';
+
+  @override
+  String get settingsPrivacySecurity => 'Privacy & Security';
+
+  @override
+  String get settingsPushNotifications => 'Push Notifications';
+
+  @override
+  String get settingsPushNotificationsDesc => 'Receive important app alerts';
+
+  @override
+  String get settingsResetConfirm => 'Reset';
+
+  @override
+  String get settingsResetDefaults => 'Reset to Default Settings';
+
+  @override
+  String get settingsResetDefaultsDesc =>
+      'Restore all settings to factory defaults';
+
+  @override
+  String get settingsResetDone => 'Settings reset to defaults';
+
+  @override
+  String get settingsResetMessage =>
+      'This will reset all settings to their default values. Are you sure you want to continue?';
+
+  @override
+  String get settingsResetTitle => 'Reset Settings';
+
+  @override
+  String settingsSecondsAgo(int count) {
+    return '${count}s ago';
+  }
+
+  @override
+  String get settingsShareAnalytics => 'Share Analytics';
+
+  @override
+  String get settingsShareAnalyticsDesc => 'Help improve the app anonymously';
+
+  @override
+  String get settingsSignOut => 'Sign Out';
+
+  @override
+  String get settingsSignOutDesc => 'Sign out of your account';
+
+  @override
+  String get settingsSubtitle => 'Preferences & Configuration';
+
+  @override
+  String get settingsTermsOfService => 'Terms of Service';
+
+  @override
+  String get settingsTheme => 'Theme';
+
+  @override
+  String get settingsThemeDark => 'Dark';
+
+  @override
+  String get settingsThemeDesc => 'Choose app appearance';
+
+  @override
+  String get settingsThemeLight => 'Light';
+
+  @override
+  String get settingsThemeSystem => 'System';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsTrackingAdminOff =>
+      'GPS tracking disabled — contact administrator';
+
+  @override
+  String get settingsTrackingAdminOn => 'GPS tracking enabled by administrator';
+
+  @override
+  String get settingsTripUpdates => 'Trip Updates';
+
+  @override
+  String get settingsTripUpdatesDesc => 'Trip status changes';
+
+  @override
+  String get settingsUpToDate => 'Up to date';
+
+  @override
+  String get settingsUpdateFrequency => 'Update Frequency';
+
+  @override
+  String get settingsUpdateFrequencyDesc => 'How often to update location';
+
+  @override
+  String get settingsVehicleAlerts => 'Vehicle Alerts';
+
+  @override
+  String get settingsVehicleAlertsDesc => 'Maintenance & status alerts';
+
+  @override
+  String get settingsViewLiveTracking => 'View Live Tracking';
+
+  @override
+  String get settingsViewLiveTrackingDesc => 'See your current location on map';
+
+  @override
+  String get vehAddChooseFile => 'Choose File';
+
+  @override
+  String get vehAddChoosePhoto => 'Choose Photo';
+
+  @override
+  String get vehAddFillRequired => 'Please fill in all required fields';
+
+  @override
+  String get vehAddFuelCng => 'CNG';
+
+  @override
+  String get vehAddFuelDiesel => 'Diesel';
+
+  @override
+  String get vehAddFuelElectric => 'Electric';
+
+  @override
+  String get vehAddFuelHybrid => 'Hybrid';
+
+  @override
+  String get vehAddFuelLpg => 'LPG';
+
+  @override
+  String get vehAddFuelPetrol => 'Petrol';
+
+  @override
+  String get vehAddFuelType => 'Fuel Type *';
+
+  @override
+  String vehAddHintExample(String value) {
+    return 'e.g. $value';
+  }
+
+  @override
+  String get vehAddInfoNote =>
+      'By adding this vehicle, it will be automatically synchronized with your maintenance schedule and fuel tracking logs. Ensure the VIN is correct to receive automated manufacturer recalls.';
+
+  @override
+  String get vehAddInvalidYear => 'Please enter a valid year';
+
+  @override
+  String get vehAddLicensePlate => 'License Plate *';
+
+  @override
+  String get vehAddMake => 'Make *';
+
+  @override
+  String get vehAddModel => 'Model *';
+
+  @override
+  String get vehAddOdometer => 'Initial Odometer (km)';
+
+  @override
+  String vehAddPhotoFailed(String error) {
+    return 'Vehicle created, but photo upload failed: $error';
+  }
+
+  @override
+  String get vehAddPhotoSubtitle => 'Upload or take a high-quality photo';
+
+  @override
+  String get vehAddPhotoTitle => 'Vehicle Photo';
+
+  @override
+  String get vehAddRegister => 'Register Vehicle';
+
+  @override
+  String get vehAddRegistering => 'Registering...';
+
+  @override
+  String get vehAddRemovePhoto => 'Remove Photo';
+
+  @override
+  String get vehAddSectionIdentification => 'Identification';
+
+  @override
+  String get vehAddSectionSpecifications => 'Specifications';
+
+  @override
+  String get vehAddSectionTechnical => 'Technical Details';
+
+  @override
+  String get vehAddSuccess => 'Vehicle registered successfully!';
+
+  @override
+  String get vehAddTakePhoto => 'Take a Photo';
+
+  @override
+  String get vehAddTypeBus => 'Bus';
+
+  @override
+  String get vehAddTypeCar => 'Car';
+
+  @override
+  String get vehAddTypeMotorcycle => 'Motorcycle';
+
+  @override
+  String get vehAddTypeOther => 'Other';
+
+  @override
+  String get vehAddTypeSuv => 'SUV';
+
+  @override
+  String get vehAddTypeTruck => 'Truck';
+
+  @override
+  String get vehAddTypeVan => 'Van';
+
+  @override
+  String get vehAddVehicleNumber => 'Vehicle Number *';
+
+  @override
+  String get vehAddVehicleType => 'Vehicle Type *';
+
+  @override
+  String get vehAddVin => 'VIN (optional)';
+
+  @override
+  String get vehAddVinHint => '17-character VIN';
+
+  @override
+  String get vehAddYear => 'Year *';
+
+  @override
+  String get vehListClearFilters => 'Clear Filters';
+
+  @override
+  String get vehListEmptyHint => 'Add your first vehicle to get started';
+
+  @override
+  String get vehListEmptyTitle => 'No Vehicles Yet';
+
+  @override
+  String get vehListFilterAll => 'All Vehicles';
+
+  @override
+  String vehListKm(String value) {
+    return '$value km';
+  }
+
+  @override
+  String get vehListNoDriver => 'No driver';
+
+  @override
+  String get vehListNoDriverAssigned => 'No driver assigned';
+
+  @override
+  String get vehListNotFoundHint => 'Try adjusting your search or filters';
+
+  @override
+  String get vehListNotFoundTitle => 'No Vehicles Found';
+
+  @override
+  String vehListRegisteredCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count vehicles registered',
+      one: '$count vehicle registered',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get vehListSearchHint => 'Search by registration, make, model...';
+
+  @override
+  String get vehListSortMake => 'Make';
+
+  @override
+  String get vehListSortMileage => 'Mileage';
+
+  @override
+  String get vehListSortRegistration => 'Registration';
+
+  @override
+  String get vehListStatusActive => 'Active';
+
+  @override
+  String get vehListStatusInactive => 'Inactive';
+
+  @override
+  String get vehListStatusMaintenance => 'Maintenance';
+
+  @override
+  String get vehListTitle => 'Fleet Vehicles';
 }
