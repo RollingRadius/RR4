@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 
 // ─── Provider: pending worker count (watched by drawers for badge) ────────────
@@ -143,7 +144,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
       _fetchAll();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Worker accepted!',
+          content: Text(AppLocalizations.of(context).workerReqAccepted,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _success,
           behavior: SnackBarBehavior.floating,
@@ -155,7 +156,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content:
-              Text('Error: $e', style: _inter(size: 13, color: Colors.white)),
+              Text(AppLocalizations.of(context).emailVerifyError(e.toString()), style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -190,7 +191,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content:
-              Text('Error: $e', style: _inter(size: 13, color: Colors.white)),
+              Text(AppLocalizations.of(context).emailVerifyError(e.toString()), style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -205,13 +206,13 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Reject Request', style: _manrope(size: 16)),
-        content: Text('Are you sure you want to reject this worker request?',
+        title: Text(AppLocalizations.of(ctx).workerReqRejectTitle, style: _manrope(size: 16)),
+        content: Text(AppLocalizations.of(ctx).workerReqRejectConfirm,
             style: _inter(size: 14)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(AppLocalizations.of(ctx).commonCancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -221,7 +222,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
                   borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Reject'),
+            child: Text(AppLocalizations.of(ctx).workerReqReject),
           ),
         ],
       ),
@@ -235,7 +236,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
       _fetchAll();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Request rejected.',
+          content: Text(AppLocalizations.of(context).workerReqRejected,
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _secondary,
           behavior: SnackBarBehavior.floating,
@@ -247,7 +248,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content:
-              Text('Error: $e', style: _inter(size: 13, color: Colors.white)),
+              Text(AppLocalizations.of(context).emailVerifyError(e.toString()), style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           behavior: SnackBarBehavior.floating,
           shape:
@@ -259,6 +260,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -269,7 +271,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
               color: _onSurface, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('Employee Requests',
+        title: Text(l10n.workerReqTitle,
             style: _manrope(size: 18, weight: FontWeight.w800)),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(48),
@@ -289,7 +291,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Pending'),
+                      Text(l10n.workerReqTabPending),
                       if (_pending.isNotEmpty) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -313,7 +315,7 @@ class _WorkerRequestsScreenState extends ConsumerState<WorkerRequestsScreen>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Accepted'),
+                      Text(l10n.workerReqTabAccepted),
                       if (_accepted.isNotEmpty) ...[
                         const SizedBox(width: 6),
                         Container(
@@ -386,6 +388,7 @@ class _PendingTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (requests.isEmpty) {
       return Center(
         child: Column(
@@ -401,10 +404,10 @@ class _PendingTab extends StatelessWidget {
               child: const Icon(Icons.inbox_rounded, color: _primary, size: 40),
             ),
             const SizedBox(height: 16),
-            Text('No pending requests',
+            Text(l10n.workerReqNoPending,
                 style: _manrope(size: 16, weight: FontWeight.w700)),
             const SizedBox(height: 8),
-            Text('Worker requests will appear here.', style: _inter(size: 13)),
+            Text(l10n.workerReqNoPendingHint, style: _inter(size: 13)),
           ],
         ),
       );
@@ -446,8 +449,9 @@ class _PendingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final userOrgId = request['user_organization_id'] as String;
-    final name = request['full_name'] as String? ?? 'Unknown';
+    final name = request['full_name'] as String? ?? l10n.workerReqUnknown;
     final username = request['username'] as String? ?? '';
     final phone = request['phone'] as String? ?? '';
     final joinedAt = request['joined_at'] as String? ?? '';
@@ -590,7 +594,7 @@ class _PendingCard extends StatelessWidget {
                               ],
                               Text(
                                 roleUnknown
-                                    ? 'Role not set — tap to assign'
+                                    ? l10n.workerReqRoleNotSet
                                     : roleName!,
                                 style: _inter(
                                     size: 12,
@@ -615,7 +619,7 @@ class _PendingCard extends StatelessWidget {
                                 size: 12, color: _secondary),
                             const SizedBox(width: 4),
                             Flexible(
-                              child: Text('Requested: $dateStr',
+                              child: Text(l10n.workerReqRequestedOn(dateStr),
                                   style: _inter(size: 11),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis),
@@ -647,7 +651,7 @@ class _PendingCard extends StatelessWidget {
                   child: OutlinedButton.icon(
                     onPressed: () => onReject(userOrgId),
                     icon: const Icon(Icons.close_rounded, size: 16),
-                    label: const Text('Reject'),
+                    label: Text(l10n.workerReqReject),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _error,
                       side: const BorderSide(color: _error, width: 1.2),
@@ -665,7 +669,7 @@ class _PendingCard extends StatelessWidget {
                     onPressed: () => onAccept(userOrgId,
                         requestedRoleKey: roleKey, requestedRoleName: roleName),
                     icon: const Icon(Icons.check_rounded, size: 16),
-                    label: const Text('Accept'),
+                    label: Text(l10n.workerReqAccept),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _success,
                       foregroundColor: Colors.white,
@@ -697,6 +701,7 @@ class _AcceptedTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     if (workers.isEmpty) {
       return Center(
         child: Column(
@@ -712,10 +717,10 @@ class _AcceptedTab extends StatelessWidget {
               child: const Icon(Icons.group_rounded, color: _success, size: 40),
             ),
             const SizedBox(height: 16),
-            Text('No accepted employees yet',
+            Text(l10n.workerReqNoAccepted,
                 style: _manrope(size: 16, weight: FontWeight.w700)),
             const SizedBox(height: 8),
-            Text('Accepted employees will appear here.',
+            Text(l10n.workerReqNoAcceptedHint,
                 style: _inter(size: 13)),
           ],
         ),
@@ -736,11 +741,12 @@ class _AcceptedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final name = worker['full_name'] as String? ?? 'Unknown';
+    final l10n = AppLocalizations.of(context);
+    final name = worker['full_name'] as String? ?? l10n.workerReqUnknown;
     final username = worker['username'] as String? ?? '';
     final phone = worker['phone'] as String? ?? '';
     final role = worker['role'] as Map<String, dynamic>?;
-    final roleName = role?['name'] as String? ?? 'Worker';
+    final roleName = role?['name'] as String? ?? l10n.feDashWorkerFallback;
     final approvedAt = worker['approved_at'] as String?;
     final approvedBy = worker['approved_by'] as String?;
 
@@ -847,8 +853,8 @@ class _AcceptedCard extends StatelessWidget {
                       Flexible(
                         child: Text(
                           approvedBy != null && approvedBy.isNotEmpty
-                              ? 'Joined $approvedDateStr by $approvedBy'
-                              : 'Joined $approvedDateStr',
+                              ? l10n.workerReqJoinedBy(approvedDateStr, approvedBy)
+                              : l10n.workerReqJoined(approvedDateStr),
                           style: _inter(size: 11),
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -876,7 +882,7 @@ class _AcceptedCard extends StatelessWidget {
                       color: _success, shape: BoxShape.circle),
                 ),
                 const SizedBox(width: 4),
-                Text('Active',
+                Text(l10n.ongoingCardActive,
                     style: _inter(
                         size: 10, weight: FontWeight.w700, color: _success)),
               ],
@@ -897,6 +903,7 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -905,7 +912,7 @@ class _ErrorView extends StatelessWidget {
           children: [
             const Icon(Icons.error_outline, color: _error, size: 48),
             const SizedBox(height: 12),
-            Text('Failed to load requests',
+            Text(l10n.workerReqLoadFailed,
                 style: _manrope(size: 16, weight: FontWeight.w700)),
             const SizedBox(height: 8),
             Text(error, style: _inter(size: 12), textAlign: TextAlign.center),
@@ -913,7 +920,7 @@ class _ErrorView extends StatelessWidget {
             ElevatedButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
+              label: Text(l10n.commonRetry),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _primary,
                 foregroundColor: Colors.white,
@@ -932,14 +939,10 @@ class _ErrorView extends StatelessWidget {
 
 class _RoleOption {
   final String key;
-  final String label;
-  final String description;
   final IconData icon;
   final Color color;
   const _RoleOption({
     required this.key,
-    required this.label,
-    required this.description,
     required this.icon,
     required this.color,
   });
@@ -978,15 +981,11 @@ class _RoleOverrideDialogState extends State<_RoleOverrideDialog> {
   static const _lpRoles = [
     _RoleOption(
       key: 'logistic_partner_worker',
-      label: 'Field Executive',
-      description: 'Manages trip stages and fleet status on the ground',
       icon: Icons.badge_outlined,
       color: Color(0xFFFF6B00),
     ),
     _RoleOption(
       key: 'lp_rr_operations',
-      label: 'RR Operations',
-      description: 'Handles RR sync and trip data entry in the RR system',
       icon: Icons.sync_alt_rounded,
       color: Color(0xFF1B6CA8),
     ),
@@ -994,8 +993,6 @@ class _RoleOverrideDialogState extends State<_RoleOverrideDialog> {
   static const _loadOwnerRoles = [
     _RoleOption(
       key: 'load_owner_worker',
-      label: 'Load Owner Worker',
-      description: 'Manages load postings and shipment tracking',
       icon: Icons.inventory_2_outlined,
       color: Color(0xFF6A4FB6),
     ),
@@ -1012,8 +1009,23 @@ class _RoleOverrideDialogState extends State<_RoleOverrideDialog> {
         : _roles.first.key;
   }
 
+  // Display text for a role option; the option's key is the stored value.
+  static String _roleLabel(String key, AppLocalizations l10n) => switch (key) {
+        'logistic_partner_worker' => l10n.roleFieldExecutive,
+        'lp_rr_operations' => l10n.roleRrOperations,
+        _ => l10n.workerReqRoleLoadOwnerWorker,
+      };
+
+  static String _roleDescription(String key, AppLocalizations l10n) =>
+      switch (key) {
+        'logistic_partner_worker' => l10n.workerReqRoleFeDesc,
+        'lp_rr_operations' => l10n.workerReqRoleRrOpsDesc,
+        _ => l10n.workerReqRoleLoadOwnerWorkerDesc,
+      };
+
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final roleUnknown = widget.requestedRoleKey == null;
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -1040,12 +1052,12 @@ class _RoleOverrideDialogState extends State<_RoleOverrideDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Assign Role', style: _manrope(size: 16)),
+                      Text(l10n.workerReqAssignRole, style: _manrope(size: 16)),
                       const SizedBox(height: 2),
                       Text(
                         roleUnknown
-                            ? 'No role requested yet'
-                            : 'Currently: ${widget.requestedRoleName}',
+                            ? l10n.workerReqNoRoleRequested
+                            : l10n.workerReqCurrentRole(widget.requestedRoleName ?? ''),
                         style: _inter(
                             size: 12, color: roleUnknown ? _error : _secondary),
                       ),
@@ -1072,7 +1084,7 @@ class _RoleOverrideDialogState extends State<_RoleOverrideDialog> {
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
-                        'This worker didn\'t pick a role at signup — choose one below.',
+                        l10n.workerReqNoRolePicked,
                         style: _inter(size: 12, color: _error),
                       ),
                     ),
@@ -1115,13 +1127,13 @@ class _RoleOverrideDialogState extends State<_RoleOverrideDialog> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(r.label,
+                              Text(_roleLabel(r.key, l10n),
                                   style: _inter(
                                       size: 13.5,
                                       weight: FontWeight.w700,
                                       color: _onSurface)),
                               const SizedBox(height: 2),
-                              Text(r.description,
+                              Text(_roleDescription(r.key, l10n),
                                   style: _inter(size: 11.5, color: _secondary)),
                             ],
                           ),
@@ -1148,7 +1160,7 @@ class _RoleOverrideDialogState extends State<_RoleOverrideDialog> {
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: Text('Cancel',
+                    child: Text(l10n.commonCancel,
                         style: _inter(size: 13.5, color: _secondary)),
                   ),
                 ),
@@ -1164,7 +1176,7 @@ class _RoleOverrideDialogState extends State<_RoleOverrideDialog> {
                     ),
                     onPressed: () => Navigator.pop(context, _selectedRole),
                     icon: const Icon(Icons.check_rounded, size: 16),
-                    label: Text('Save',
+                    label: Text(l10n.commonSave,
                         style: _inter(
                             size: 13.5,
                             weight: FontWeight.w700,

@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 
@@ -142,57 +143,64 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
   }
 
   (String, String) _gapText(TrailGap gap) {
+    final l10n = AppLocalizations.of(context);
     final time = _formatMinutes(gap.minutes);
     switch (gap.status) {
       case 'released':
         return (
-          'No tracking for this trip · $time',
-          'Tracking was paused for this trip or the driver changed. No route is drawn.'
+          l10n.tripLocateGapNoTracking(time),
+          l10n.tripLocateGapReleasedDetail
         );
       case 'ok':
+        final km = gap.distanceKm?.toStringAsFixed(1) ?? '-';
+        final mode = _modeLabel(gap.mode, l10n);
         return (
-          'Location off · $time',
-          'About ${gap.distanceKm?.toStringAsFixed(1)} km by road. '
-              'Approximate route, minimum distance'
-              '${_modeLabel(gap.mode)}.'
+          l10n.tripLocateGapLocationOff(time),
+          mode == null
+              ? l10n.tripLocateGapOkDetail(km)
+              : l10n.tripLocateGapOkDetailMode(km, mode)
         );
       case 'near':
         return (
-          'Location off · $time',
-          'The vehicle stayed in the same area.'
+          l10n.tripLocateGapLocationOff(time),
+          l10n.tripLocateGapNearDetail
         );
       case 'suspicious':
         return (
-          'Location off · $time',
-          'The vehicle moved ${gap.straightKm.toStringAsFixed(1)} km in a straight line, '
-              'which is too far for this time. No route is drawn.'
+          l10n.tripLocateGapLocationOff(time),
+          l10n.tripLocateGapSuspiciousDetail(
+              gap.straightKm.toStringAsFixed(1))
         );
       default:
-        return ('Location off · $time', 'Route not available yet.');
+        return (
+          l10n.tripLocateGapLocationOff(time),
+          l10n.tripLocateGapUnavailable
+        );
     }
   }
 
-  String _modeLabel(String? mode) {
+  String? _modeLabel(String? mode, AppLocalizations l10n) {
     switch (mode) {
       case 'drive':
-        return ' (car route)';
+        return l10n.tripLocateModeCar;
       case 'light_truck':
-        return ' (light truck route)';
+        return l10n.tripLocateModeLightTruck;
       case 'medium_truck':
-        return ' (medium truck route)';
+        return l10n.tripLocateModeMediumTruck;
       case 'truck':
-        return ' (truck route)';
+        return l10n.tripLocateModeTruck;
       case 'heavy_truck':
-        return ' (heavy truck route)';
+        return l10n.tripLocateModeHeavyTruck;
       default:
-        return '';
+        return null;
     }
   }
 
   String _formatMinutes(double minutes) {
+    final l10n = AppLocalizations.of(context);
     final total = minutes.round();
-    if (total < 60) return '$total min';
-    return '${total ~/ 60} h ${total % 60} min';
+    if (total < 60) return l10n.tripLocateMinutes(total);
+    return l10n.tripLocateHoursMinutes(total ~/ 60, total % 60);
   }
 
   TrailGap? get _selectedGap {
@@ -254,6 +262,7 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final hasGps = _currentLocation?.hasLocation == true;
     final isStale = hasGps && _isStale;
 
@@ -495,12 +504,12 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
                     const Icon(Icons.location_off_rounded,
                         size: 48, color: _secondary),
                     const SizedBox(height: 12),
-                    Text('No GPS Location Available',
+                    Text(l10n.tripLocateNoGpsTitle,
                         style: _manrope(size: 15, weight: FontWeight.w800)),
                     const SizedBox(height: 6),
                     Text(
                       _currentLocation?.message ??
-                          'The driver app has not shared a location yet for this trip.',
+                          l10n.tripLocateNoGpsMessage,
                       style: _inter(size: 13),
                       textAlign: TextAlign.center,
                     ),
@@ -508,7 +517,7 @@ class _TripLocateScreenState extends ConsumerState<TripLocateScreen> {
                     TextButton.icon(
                       onPressed: _refresh,
                       icon: const Icon(Icons.refresh_rounded, color: _primary),
-                      label: Text('Try Again',
+                      label: Text(l10n.tripLocateTryAgain,
                           style: _inter(
                               size: 13,
                               weight: FontWeight.w700,
@@ -540,11 +549,12 @@ class _GapBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Semantics(
       button: true,
       label: released
-          ? 'No tracking for this trip for $label. Tap for details.'
-          : 'Location off for $label. Tap for details.',
+          ? l10n.tripLocateGapSemanticsReleased(label)
+          : l10n.tripLocateGapSemanticsOff(label),
       child: ExcludeSemantics(
         child: Center(
           child: Container(
@@ -654,7 +664,7 @@ class _GapInfoCard extends StatelessWidget {
             ),
           ),
           IconButton(
-            tooltip: 'Close',
+            tooltip: AppLocalizations.of(context).commonClose,
             onPressed: onClose,
             icon: const Icon(Icons.close_rounded, size: 18, color: _secondary),
           ),
@@ -691,7 +701,7 @@ class _TrailLoadingChip extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2, color: _primary),
           ),
           const SizedBox(width: 8),
-          Text('Loading trail…', style: _inter(size: 12)),
+          Text(AppLocalizations.of(context).tripLocateLoadingTrail, style: _inter(size: 12)),
         ],
       ),
     );
@@ -704,14 +714,14 @@ class _TrailLegend extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Semantics(
-      label:
-          'Map key. Orange line: tracked route. Grey dotted line: location was off.',
-      child: ExcludeSemantics(child: _legendBody()),
+      label: l10n.tripLocateLegendSemantics,
+      child: ExcludeSemantics(child: _legendBody(l10n)),
     );
   }
 
-  Widget _legendBody() {
+  Widget _legendBody(AppLocalizations l10n) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
@@ -736,7 +746,7 @@ class _TrailLegend extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 5),
-          Text('Tracked', style: _inter(size: 10, weight: FontWeight.w600)),
+          Text(l10n.tripLocateLegendTracked, style: _inter(size: 10, weight: FontWeight.w600)),
           const SizedBox(width: 12),
           for (var i = 0; i < 4; i++)
             Container(
@@ -749,7 +759,7 @@ class _TrailLegend extends StatelessWidget {
               ),
             ),
           const SizedBox(width: 3),
-          Text('Location off',
+          Text(l10n.tripLocateLegendLocationOff,
               style: _inter(size: 10, weight: FontWeight.w600)),
         ],
       ),
@@ -820,7 +830,7 @@ class _TopBar extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Locating $tripNumber',
+                        AppLocalizations.of(context).tripLocateLocating(tripNumber),
                         style: _manrope(size: 13, weight: FontWeight.w700),
                       ),
                     ),
@@ -831,7 +841,7 @@ class _TopBar extends StatelessWidget {
                           shape: BoxShape.circle, color: Color(0xFF22C55E)),
                     ),
                     const SizedBox(width: 5),
-                    Text('LIVE',
+                    Text(AppLocalizations.of(context).feDashLive,
                         style: _inter(
                             size: 10,
                             weight: FontWeight.w700,
@@ -902,7 +912,7 @@ class _VehicleMarker extends StatelessWidget {
             ],
           ),
           child: Text(
-            vehiclePlate ?? 'VEHICLE',
+            vehiclePlate ?? AppLocalizations.of(context).tripLocateVehicleFallback,
             softWrap: false,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -993,6 +1003,7 @@ class _BottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       decoration: BoxDecoration(
@@ -1080,8 +1091,8 @@ class _BottomSheet extends StatelessWidget {
           if (location?.timestamp != null) ...[
             const SizedBox(height: 12),
             Text(
-              'Last updated: ${_relativeTime(location!.timestamp!)} '
-              '(${_formatTime(location!.timestamp!)})',
+              l10n.tripLocateLastUpdated(_relativeTime(location!.timestamp!, l10n),
+                  _formatTime(location!.timestamp!)),
               style: _inter(
                 size: 11,
                 weight: isStale ? FontWeight.w700 : FontWeight.w400,
@@ -1102,7 +1113,7 @@ class _BottomSheet extends StatelessWidget {
                   mode: LaunchMode.externalApplication,
                 ),
                 icon: const Icon(Icons.map_outlined, size: 18),
-                label: const Text('Open in Google Maps'),
+                label: Text(l10n.tripLocateOpenMaps),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: _primary,
                   side: const BorderSide(color: _primary),
@@ -1128,17 +1139,17 @@ class _BottomSheet extends StatelessWidget {
     }
   }
 
-  String _relativeTime(String iso) {
+  String _relativeTime(String iso, AppLocalizations l10n) {
     try {
       final age = DateTime.now().toUtc().difference(DateTime.parse(iso).toUtc());
       // A negative age (timestamp appears to be in the future) means the
       // data is corrupted/mis-timezoned, not genuinely fresh — treating it
       // as "just now" would mask exactly that kind of bug.
-      if (age.isNegative) return 'time mismatch';
-      if (age.inSeconds < 60) return 'just now';
-      if (age.inMinutes < 60) return '${age.inMinutes}m ago';
-      if (age.inHours < 24) return '${age.inHours}h ago';
-      return '${age.inDays}d ago';
+      if (age.isNegative) return l10n.tripLocateTimeMismatch;
+      if (age.inSeconds < 60) return l10n.tripLocateJustNow;
+      if (age.inMinutes < 60) return l10n.tripLocateMinutesAgo(age.inMinutes);
+      if (age.inHours < 24) return l10n.tripLocateHoursAgo(age.inHours);
+      return l10n.tripLocateDaysAgo(age.inDays);
     } catch (_) {
       return iso;
     }
@@ -1152,7 +1163,10 @@ class _GpsStatusDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = !hasGps ? 'No Signal' : (isStale ? 'Stale' : 'GPS Active');
+    final l10n = AppLocalizations.of(context);
+    final label = !hasGps
+        ? l10n.tripLocateNoSignal
+        : (isStale ? l10n.tripLocateStale : l10n.tripLocateGpsActive);
     final color = !hasGps
         ? const Color(0xFFE53935)
         : (isStale ? const Color(0xFF9E9E9E) : const Color(0xFF22C55E));

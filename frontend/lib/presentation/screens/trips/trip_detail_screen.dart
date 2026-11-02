@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
@@ -60,6 +61,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final trip = ref.watch(tripProvider).trips
             .where((t) => t.id == widget.trip.id)
             .firstOrNull ??
@@ -84,7 +86,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
               children: [
                 Text(trip.tripNumber,
                     style: _manrope(size: 15, weight: FontWeight.w800)),
-                Text('Trip Details',
+                Text(l10n.tripDetailTitle,
                     style: _inter(size: 11)),
               ],
             ),
@@ -118,27 +120,27 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
 
                   // ── Cargo details ────────────────────────────────────────────
                   _SectionCard(
-                    title: 'Cargo Details',
+                    title: l10n.tripDetailSectionCargo,
                     icon: Icons.inventory_2_outlined,
                     children: [
-                      _InfoRow(label: 'Load Item', value: trip.loadItem),
+                      _InfoRow(label: l10n.tripDetailLoadItem, value: trip.loadItem),
                       if (trip.weight != null)
-                        _InfoRow(label: 'Weight', value: trip.weight!),
+                        _InfoRow(label: l10n.tripCardLabelWeight, value: trip.weight!),
                       if (trip.biltyNumber != null)
                         _InfoRow(
-                            label: 'Bilty Number', value: trip.biltyNumber!),
+                            label: l10n.tripCardLabelBiltyNumber, value: trip.biltyNumber!),
                     ],
                   ),
                   const SizedBox(height: 14),
 
                   // ── Financial details ─────────────────────────────────────────
                   _SectionCard(
-                    title: 'Financial Details',
+                    title: l10n.tripDetailSectionFinancial,
                     icon: Icons.receipt_long_outlined,
                     children: [
                       if (trip.tripAmount != null)
                         _InfoRow(
-                          label: 'Trip Amount',
+                          label: l10n.tripDetailTripAmount,
                           value:
                               '₹ ${trip.tripAmount!.toStringAsFixed(2)}',
                           valueStyle: _manrope(
@@ -148,7 +150,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                         ),
                       if (trip.invoiceNumber != null)
                         _InfoRow(
-                            label: 'Invoice Number',
+                            label: l10n.tripDetailInvoiceNumber,
                             value: trip.invoiceNumber!),
                     ],
                   ),
@@ -156,40 +158,40 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
 
                   // ── Logistics ────────────────────────────────────────────────
                   _SectionCard(
-                    title: 'Logistics',
+                    title: l10n.tripDetailSectionLogistics,
                     icon: Icons.local_shipping_outlined,
                     children: [
                       if (trip.vehiclePlate != null)
                         _InfoRow(
-                            label: 'Vehicle',
+                            label: l10n.tripCardLabelVehicle,
                             value:
                                 '${trip.vehiclePlate!}${trip.vehicleModel != null ? ' — ${trip.vehicleModel}' : ''}'),
                       if (trip.driverName != null)
                         _InfoRow(
-                            label: 'Driver', value: trip.driverName!),
+                            label: l10n.stageCommonDriver, value: trip.driverName!),
                       if (trip.startDate != null)
                         _InfoRow(
-                            label: 'Start Date', value: trip.startDate!),
+                            label: l10n.tripDetailStartDate, value: trip.startDate!),
                       if (trip.endDate != null)
                         _InfoRow(
-                            label: 'End Date', value: trip.endDate!),
+                            label: l10n.tripDetailEndDate, value: trip.endDate!),
                     ],
                   ),
                   const SizedBox(height: 14),
 
                   // ── Identifiers ──────────────────────────────────────────────
                   _SectionCard(
-                    title: 'Identifiers',
+                    title: l10n.tripDetailSectionIdentifiers,
                     icon: Icons.tag_rounded,
                     children: [
-                      _InfoRow(label: 'Trip Number', value: trip.tripNumber),
+                      _InfoRow(label: l10n.tripDetailTripNumber, value: trip.tripNumber),
                       if (trip.biltyNumber != null)
                         _InfoRow(
-                            label: 'Bilty Number', value: trip.biltyNumber!),
-                      _InfoRow(label: 'Status', value: trip.status.toUpperCase()),
+                            label: l10n.tripCardLabelBiltyNumber, value: trip.biltyNumber!),
+                      _InfoRow(label: l10n.driverDashBStatus, value: trip.status.toUpperCase()),
                       if (trip.createdAt != null)
                         _InfoRow(
-                          label: 'Created',
+                          label: l10n.tripDetailCreated,
                           value: trip.createdAt!.split('T').first,
                         ),
                     ],
@@ -210,17 +212,18 @@ class _GoToStageButton extends ConsumerWidget {
   final TripModel trip;
   const _GoToStageButton({required this.trip});
 
-  static String _stageName(int stage) => switch (stage) {
-        0 => 'Truck Registration',
-        1 => 'Compliance Check',
-        2 => 'Factory Arrival',
-        3 => 'Exit Check',
-        4 => 'Diesel Receipt',
-        _ => 'Unloading',
+  static String _stageName(int stage, AppLocalizations l10n) => switch (stage) {
+        0 => l10n.ongoingCardStageTruckRegistration,
+        1 => l10n.ongoingCardStageComplianceCheck,
+        2 => l10n.ongoingCardStageFactoryArrival,
+        3 => l10n.ongoingCardStageExitCheck,
+        4 => l10n.ongoingCardStageDieselReceipt,
+        _ => l10n.stageNameUnloading,
       };
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final stage = trip.currentStage;
     return GestureDetector(
       onTap: () => Navigator.of(context)
@@ -264,7 +267,7 @@ class _GoToStageButton extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'GO TO PRESENT STAGE',
+                    l10n.tripDetailGoToStage,
                     style: _inter(
                             size: 9,
                             weight: FontWeight.w700,
@@ -273,7 +276,7 @@ class _GoToStageButton extends ConsumerWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Stage ${stage + 1}: ${_stageName(stage)}',
+                    l10n.tripDetailStageLine(stage + 1, _stageName(stage, l10n)),
                     style: _manrope(
                         size: 14,
                         weight: FontWeight.w800,
@@ -315,7 +318,7 @@ class _RouteCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('ROUTE',
+          Text(AppLocalizations.of(context).tripDetailRoute,
               style: _inter(size: 10, weight: FontWeight.w700,
                   color: _secondary)
                   .copyWith(letterSpacing: 1.4)),
@@ -404,6 +407,7 @@ class _LocateTripButtonState extends ConsumerState<_LocateTripButton> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: _loading ? null : _locate,
       child: Container(
@@ -445,13 +449,13 @@ class _LocateTripButtonState extends ConsumerState<_LocateTripButton> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Locate Trip',
+                  Text(l10n.ongoingCardLocateTrip,
                       style: _manrope(
                           size: 15,
                           weight: FontWeight.w800,
                           color: Colors.white)),
                   Text(
-                    _loading ? 'Fetching GPS location…' : 'View vehicle on live map',
+                    _loading ? l10n.tripDetailFetchingGps : l10n.tripDetailViewOnMap,
                     style: _inter(
                         size: 12,
                         color: Colors.white.withValues(alpha: 0.80)),

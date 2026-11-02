@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/data/models/load_requirement_model.dart';
 import 'package:fleet_management/providers/available_loads_provider.dart';
 
@@ -96,9 +97,7 @@ class _AvailableLoadsBrowserState extends ConsumerState<AvailableLoadsBrowser> {
     if (selected.isEmpty) return;
     Clipboard.setData(ClipboardData(text: _buildCombinedMessage(selected)));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(selected.length == 1
-          ? 'Load requirement copied to clipboard'
-          : '${selected.length} load requirements copied to clipboard'),
+      content: Text(AppLocalizations.of(context).loadsBrowserCopiedCount(selected.length)),
       duration: const Duration(seconds: 2),
       behavior: SnackBarBehavior.floating,
     ));
@@ -108,6 +107,7 @@ class _AvailableLoadsBrowserState extends ConsumerState<AvailableLoadsBrowser> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(availableLoadsProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       children: [
@@ -118,18 +118,18 @@ class _AvailableLoadsBrowserState extends ConsumerState<AvailableLoadsBrowser> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Search Loads', style: _manrope(size: 20, weight: FontWeight.w800)),
+              Text(l10n.loadsBrowserTitle, style: _manrope(size: 20, weight: FontWeight.w800)),
               const SizedBox(height: 2),
-              Text('Browse pending requirements from load owners', style: _inter(size: 12, color: _secondary)),
+              Text(l10n.loadsBrowserSubtitle, style: _inter(size: 12, color: _secondary)),
               const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
-                    child: _SearchField(controller: _pickupCtrl, hint: 'Pickup city…', icon: Icons.trip_origin_rounded),
+                    child: _SearchField(controller: _pickupCtrl, hint: l10n.loadsBrowserPickupHint, icon: Icons.trip_origin_rounded),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _SearchField(controller: _dropCtrl, hint: 'Drop city…', icon: Icons.location_on_outlined),
+                    child: _SearchField(controller: _dropCtrl, hint: l10n.loadsBrowserDropHint, icon: Icons.location_on_outlined),
                   ),
                   const SizedBox(width: 8),
                   GestureDetector(
@@ -197,7 +197,7 @@ class _AvailableLoadsBrowserState extends ConsumerState<AvailableLoadsBrowser> {
                   children: [
                     const Icon(Icons.copy_rounded, color: Colors.white, size: 16),
                     const SizedBox(width: 8),
-                    Text('Copy Selected (${_selectedIds.length})',
+                    Text(l10n.loadsBrowserCopySelected(_selectedIds.length),
                         style: _manrope(size: 14, color: Colors.white)),
                   ],
                 ),
@@ -247,6 +247,7 @@ class _LoadCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
@@ -278,9 +279,9 @@ class _LoadCard extends StatelessWidget {
                                 children: [
                                   Text(load.refId, style: _manrope(size: 13, weight: FontWeight.w800, color: const Color(0xFF001e40))),
                                   if (load.companyName != null)
-                                    Text('Company: ${load.companyName}', style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
+                                    Text(l10n.loadsBrowserCompany(load.companyName!), style: _inter(size: 12, weight: FontWeight.w600, color: _secondary)),
                                   if (load.targetPartnerName != null)
-                                    Text('Logistic Partner: ${load.targetPartnerName}', style: _inter(size: 11, color: _secondary)),
+                                    Text(l10n.loadsBrowserLogisticPartner(load.targetPartnerName!), style: _inter(size: 11, color: _secondary)),
                                 ],
                               ),
                             ),
@@ -302,9 +303,9 @@ class _LoadCard extends StatelessWidget {
                             children: [
                               const Icon(Icons.local_shipping_outlined, size: 15, color: _primary),
                               const SizedBox(width: 7),
-                              Text('Trucks Needed: ', style: _inter(size: 12, weight: FontWeight.w500, color: const Color(0xFF7A3200))),
+                              Text('${l10n.loadsBrowserTrucksNeeded} ', style: _inter(size: 12, weight: FontWeight.w500, color: const Color(0xFF7A3200))),
                               Text('${load.truckCount}', style: _manrope(size: 14, weight: FontWeight.w800, color: _primary)),
-                              Text(' truck${load.truckCount == 1 ? '' : 's'}', style: _inter(size: 12, weight: FontWeight.w600, color: const Color(0xFF7A3200))),
+                              Text(' ${l10n.loadsBrowserTruckUnit(load.truckCount)}', style: _inter(size: 12, weight: FontWeight.w600, color: const Color(0xFF7A3200))),
                             ],
                           ),
                         ),
@@ -315,8 +316,8 @@ class _LoadCard extends StatelessWidget {
                           children: [
                             if (load.entryDate != null) _SpecChip(icon: Icons.calendar_today_outlined, label: load.entryDate!),
                             if (load.materialType != null) _SpecChip(icon: Icons.inventory_2_outlined, label: load.materialType!),
-                            if (load.materialWeightDisplay != null) _SpecChip(icon: Icons.scale_outlined, label: 'Material: ${load.materialWeightDisplay!}'),
-                            if (load.requiredWeightDisplay != null) _SpecChip(icon: Icons.local_shipping_outlined, label: 'Truck: ${load.requiredWeightDisplay!}'),
+                            if (load.materialWeightDisplay != null) _SpecChip(icon: Icons.scale_outlined, label: l10n.loadsBrowserMaterialWeight(load.materialWeightDisplay!)),
+                            if (load.requiredWeightDisplay != null) _SpecChip(icon: Icons.local_shipping_outlined, label: l10n.loadsBrowserTruckWeight(load.requiredWeightDisplay!)),
                           ],
                         ),
                       ],
@@ -345,7 +346,7 @@ class _LoadCard extends StatelessWidget {
                           children: [
                             const Icon(Icons.copy_rounded, size: 14, color: Color(0xFF001E40)),
                             const SizedBox(width: 6),
-                            Text('Copy Details', style: _manrope(size: 12, weight: FontWeight.w700, color: const Color(0xFF001E40))),
+                            Text(l10n.loadsBrowserCopyDetails, style: _manrope(size: 12, weight: FontWeight.w700, color: const Color(0xFF001E40))),
                           ],
                         ),
                       ),
@@ -372,7 +373,7 @@ class _LoadCard extends StatelessWidget {
                               child: const Icon(Icons.chat_rounded, size: 9, color: Colors.white),
                             ),
                             const SizedBox(width: 6),
-                            Text('WhatsApp', style: _manrope(size: 12, weight: FontWeight.w700, color: const Color(0xFF128C7E))),
+                            Text(l10n.loadsBrowserWhatsApp, style: _manrope(size: 12, weight: FontWeight.w700, color: const Color(0xFF128C7E))),
                           ],
                         ),
                       ),
@@ -389,9 +390,9 @@ class _LoadCard extends StatelessWidget {
 
   void _copyDetails(BuildContext context, LoadRequirementModel load) {
     Clipboard.setData(ClipboardData(text: _buildMessage(load)));
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Load details copied to clipboard'),
-      duration: Duration(seconds: 2),
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(AppLocalizations.of(context).loadsBrowserDetailsCopied),
+      duration: const Duration(seconds: 2),
       behavior: SnackBarBehavior.floating,
     ));
   }
@@ -403,8 +404,8 @@ class _LoadCard extends StatelessWidget {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Could not open WhatsApp'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppLocalizations.of(context).loadsBrowserWhatsAppFailed),
           behavior: SnackBarBehavior.floating,
         ));
       }
@@ -518,7 +519,7 @@ class _LoadsEmpty extends StatelessWidget {
           children: [
             const Icon(Icons.inventory_2_outlined, size: 44, color: _secondary),
             const SizedBox(height: 12),
-            Text('No pending load requirements', style: _inter(size: 13, color: _secondary)),
+            Text(AppLocalizations.of(context).loadsBrowserEmpty, style: _inter(size: 13, color: _secondary)),
           ],
         ),
       ),
