@@ -7,6 +7,7 @@ import 'package:fleet_management/providers/role_provider.dart';
 import 'package:fleet_management/providers/org_members_provider.dart';
 import 'package:fleet_management/data/models/role_model.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 // ─── Shared role styling ──────────────────────────────────────────────────────
 
@@ -77,6 +78,7 @@ class _CustomRolesScreenState extends ConsumerState<CustomRolesScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final pendingCount =
         ref.watch(rolesProvider).pendingRequests.length;
 
@@ -107,7 +109,7 @@ class _CustomRolesScreenState extends ConsumerState<CustomRolesScreen>
             backgroundColor: AppTheme.primaryBlue,
             foregroundColor: Colors.white,
             icon: const Icon(Icons.add),
-            label: const Text('Create Custom Role'),
+            label: Text(l10n.customRolesCreateRole),
           );
         },
       ),
@@ -115,6 +117,7 @@ class _CustomRolesScreenState extends ConsumerState<CustomRolesScreen>
   }
 
   Widget _buildHeader(int pendingCount) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       color: Colors.white,
       child: SafeArea(
@@ -162,12 +165,12 @@ class _CustomRolesScreenState extends ConsumerState<CustomRolesScreen>
                         color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Roles & Permissions',
+                          l10n.customRolesTitle,
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -176,7 +179,7 @@ class _CustomRolesScreenState extends ConsumerState<CustomRolesScreen>
                           ),
                         ),
                         Text(
-                          'Manage roles, permissions & team members',
+                          l10n.customRolesSubtitle,
                           style: TextStyle(
                               fontSize: 12, color: AppTheme.textSecondary),
                         ),
@@ -186,7 +189,7 @@ class _CustomRolesScreenState extends ConsumerState<CustomRolesScreen>
                   IconButton(
                     icon: const Icon(Icons.refresh_rounded,
                         color: AppTheme.textSecondary, size: 20),
-                    tooltip: 'Refresh',
+                    tooltip: l10n.customRolesRefresh,
                     onPressed: () {
                       ref.read(templateProvider.notifier).loadPredefinedTemplates();
                       ref.read(customRoleProvider.notifier).loadCustomRoles();
@@ -207,20 +210,20 @@ class _CustomRolesScreenState extends ConsumerState<CustomRolesScreen>
               indicatorSize: TabBarIndicatorSize.tab,
               labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
               tabs: [
-                const Tab(icon: Icon(Icons.library_books_rounded, size: 16), text: 'Templates'),
-                const Tab(icon: Icon(Icons.admin_panel_settings_rounded, size: 16), text: 'Custom'),
+                Tab(icon: const Icon(Icons.library_books_rounded, size: 16), text: l10n.customRolesTabTemplates),
+                Tab(icon: const Icon(Icons.admin_panel_settings_rounded, size: 16), text: l10n.customRolesTabCustom),
                 Tab(
                   child: Stack(
                     clipBehavior: Clip.none,
                     alignment: Alignment.center,
                     children: [
-                      const Column(
+                      Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.pending_actions_rounded, size: 16),
-                          SizedBox(height: 2),
-                          Text('Pending',
-                              style: TextStyle(
+                          const Icon(Icons.pending_actions_rounded, size: 16),
+                          const SizedBox(height: 2),
+                          Text(l10n.customRolesTabPending,
+                              style: const TextStyle(
                                   fontSize: 11, fontWeight: FontWeight.w600)),
                         ],
                       ),
@@ -247,8 +250,8 @@ class _CustomRolesScreenState extends ConsumerState<CustomRolesScreen>
                     ],
                   ),
                 ),
-                const Tab(
-                    icon: Icon(Icons.group_rounded, size: 16), text: 'Members'),
+                Tab(
+                    icon: const Icon(Icons.group_rounded, size: 16), text: l10n.customRolesTabMembers),
               ],
             ),
           ],
@@ -265,6 +268,7 @@ class _PredefinedTemplatesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final state = ref.watch(templateProvider);
 
     if (state.isLoading) {
@@ -280,10 +284,10 @@ class _PredefinedTemplatesTab extends ConsumerWidget {
     }
 
     if (state.predefinedTemplates.isEmpty) {
-      return const _EmptyState(
+      return _EmptyState(
         icon: Icons.library_books,
-        title: 'No predefined templates found',
-        subtitle: 'Templates are seeded automatically on server startup.',
+        title: l10n.customRolesNoTemplates,
+        subtitle: l10n.customRolesNoTemplatesHint,
       );
     }
 
@@ -343,7 +347,7 @@ class _PredefinedTemplatesTab extends ConsumerWidget {
                                 size: 14, color: color.withOpacity(0.8)),
                             const SizedBox(width: 4),
                             Text(
-                              '${template['capability_count'] ?? 0} capabilities',
+                              l10n.customRolesCapabilityCount(template['capability_count'] as int? ?? 0),
                               style: TextStyle(
                                   fontSize: 12,
                                   color: color,
@@ -361,7 +365,7 @@ class _PredefinedTemplatesTab extends ConsumerWidget {
                       foregroundColor: color,
                       side: BorderSide(color: color.withOpacity(0.5)),
                     ),
-                    child: const Text('Use'),
+                    child: Text(l10n.customRolesUse),
                   ),
                 ],
               ),
@@ -374,6 +378,7 @@ class _PredefinedTemplatesTab extends ConsumerWidget {
 
   void _showTemplateDetails(
       BuildContext context, Map<String, dynamic> template) {
+    final l10n = AppLocalizations.of(context);
     final roleKey = template['role_key'] as String? ?? '';
     final color = _roleColor(roleKey);
     final capabilities = template['capabilities'] as List<dynamic>? ?? [];
@@ -418,7 +423,7 @@ class _PredefinedTemplatesTab extends ConsumerWidget {
                                   fontSize: 20, fontWeight: FontWeight.bold),
                             ),
                             Text(
-                              '${capabilities.length} capabilities',
+                              l10n.customRolesCapabilityCount(capabilities.length),
                               style: TextStyle(
                                   color: color, fontWeight: FontWeight.w500),
                             ),
@@ -442,7 +447,7 @@ class _PredefinedTemplatesTab extends ConsumerWidget {
             Expanded(
               child: capabilities.isEmpty
                   ? Center(
-                      child: Text('No capabilities listed',
+                      child: Text(l10n.customRolesNoCapabilities,
                           style: TextStyle(color: Colors.grey[500])))
                   : ListView.builder(
                       controller: scrollController,
@@ -477,8 +482,8 @@ class _PredefinedTemplatesTab extends ConsumerWidget {
                   },
                   style: ElevatedButton.styleFrom(backgroundColor: color),
                   icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text('Create Custom Role from This Template',
-                      style: TextStyle(color: Colors.white)),
+                  label: Text(l10n.customRolesCreateFromTemplate,
+                      style: const TextStyle(color: Colors.white)),
                 ),
               ),
             ),
@@ -501,6 +506,7 @@ class _CustomRolesTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final roleState = ref.watch(customRoleProvider);
 
     if (roleState.isLoading) {
@@ -517,12 +523,12 @@ class _CustomRolesTab extends ConsumerWidget {
     if (roleState.customRoles.isEmpty) {
       return _EmptyState(
         icon: Icons.admin_panel_settings,
-        title: 'No Custom Roles Yet',
-        subtitle: 'Create custom roles tailored to your organization',
+        title: l10n.customRolesNoCustomTitle,
+        subtitle: l10n.customRolesNoCustomSubtitle,
         action: ElevatedButton.icon(
           onPressed: () => context.push('/roles/custom/create'),
           icon: const Icon(Icons.add),
-          label: const Text('Create Your First Role'),
+          label: Text(l10n.customRolesCreateFirst),
         ),
       );
     }
@@ -545,6 +551,7 @@ class _PendingRequestsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final state = ref.watch(rolesProvider);
 
     if (state.isLoading) {
@@ -559,10 +566,10 @@ class _PendingRequestsTab extends ConsumerWidget {
     }
 
     if (state.pendingRequests.isEmpty) {
-      return const _EmptyState(
+      return _EmptyState(
         icon: Icons.how_to_reg_rounded,
-        title: 'No Pending Requests',
-        subtitle: 'All join requests have been processed.',
+        title: l10n.customRolesNoPendingTitle,
+        subtitle: l10n.customRolesNoPendingSubtitle,
       );
     }
 
@@ -583,7 +590,7 @@ class _PendingRequestsTab extends ConsumerWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '${state.pendingRequests.length} member${state.pendingRequests.length == 1 ? '' : 's'} waiting to join your organization',
+                  l10n.customRolesPendingBanner(state.pendingRequests.length),
                   style: TextStyle(
                       color: Colors.orange.shade900,
                       fontSize: 13,
@@ -606,6 +613,7 @@ class _PendingRequestCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final name = request.userName;
     final username = request.username;
     final email = request.email ?? '';
@@ -674,8 +682,8 @@ class _PendingRequestCard extends ConsumerWidget {
                     highlighted: true,
                   )
                 else
-                  const Text('No role requested',
-                      style: TextStyle(
+                  Text(l10n.customRolesNoRoleRequested,
+                      style: const TextStyle(
                           color: AppTheme.textTertiary, fontSize: 12)),
               ],
             ),
@@ -689,8 +697,8 @@ class _PendingRequestCard extends ConsumerWidget {
                     onPressed: () => _showRejectDialog(context, ref, userOrgId, name),
                     icon: const Icon(Icons.close_rounded, size: 16,
                         color: AppTheme.errorColor),
-                    label: const Text('Reject',
-                        style: TextStyle(color: AppTheme.errorColor)),
+                    label: Text(l10n.customRolesReject,
+                        style: const TextStyle(color: AppTheme.errorColor)),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppTheme.errorColor),
                       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -704,7 +712,7 @@ class _PendingRequestCard extends ConsumerWidget {
                     onPressed: () => _showApproveDialog(
                         context, ref, userOrgId, name, requestedRole),
                     icon: const Icon(Icons.check_rounded, size: 16),
-                    label: const Text('Approve'),
+                    label: Text(l10n.customRolesApprove),
                     style: FilledButton.styleFrom(
                       backgroundColor: AppTheme.successColor,
                       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -726,6 +734,7 @@ class _PendingRequestCard extends ConsumerWidget {
     String userName,
     RoleInfo? requestedRole,
   ) {
+    final l10n = AppLocalizations.of(context);
     final availableRoles = ref.read(rolesProvider).roles;
     String? selectedRoleId = requestedRole?.id;
 
@@ -733,15 +742,15 @@ class _PendingRequestCard extends ConsumerWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (_, setDialogState) => AlertDialog(
-          title: const Text('Approve Request'),
+          title: Text(l10n.customRolesApproveTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Approving join request from $userName.'),
+              Text(l10n.customRolesApprovingFrom(userName)),
               const SizedBox(height: 16),
-              const Text('Assign Role:',
-                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              Text(l10n.customRolesAssignRole,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 value: selectedRoleId,
@@ -750,7 +759,7 @@ class _PendingRequestCard extends ConsumerWidget {
                   contentPadding:
                       EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
-                hint: const Text('Select role'),
+                hint: Text(l10n.customRolesSelectRole),
                 items: availableRoles
                     .where((r) => r.roleKey != 'logistic_partner' && r.roleKey != 'load_owner')
                     .map((r) => DropdownMenuItem(
@@ -766,7 +775,7 @@ class _PendingRequestCard extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(l10n.commonCancel),
             ),
             FilledButton(
               onPressed: selectedRoleId == null
@@ -780,8 +789,8 @@ class _PendingRequestCard extends ConsumerWidget {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text(ok
-                              ? '$userName approved successfully!'
-                              : 'Failed to approve request'),
+                              ? l10n.customRolesApprovedOk(userName)
+                              : l10n.customRolesApproveFailed),
                           backgroundColor:
                               ok ? AppTheme.successColor : AppTheme.errorColor,
                           behavior: SnackBarBehavior.floating,
@@ -792,7 +801,7 @@ class _PendingRequestCard extends ConsumerWidget {
                     },
               style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.successColor),
-              child: const Text('Approve'),
+              child: Text(l10n.customRolesApprove),
             ),
           ],
         ),
@@ -802,16 +811,16 @@ class _PendingRequestCard extends ConsumerWidget {
 
   void _showRejectDialog(
       BuildContext context, WidgetRef ref, String userOrgId, String name) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Reject Request'),
-        content: Text(
-            'Reject join request from $name? They will need to reapply to join.'),
+        title: Text(l10n.customRolesRejectTitle),
+        content: Text(l10n.customRolesRejectConfirm(name)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: AppTheme.errorColor),
@@ -822,7 +831,7 @@ class _PendingRequestCard extends ConsumerWidget {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text(
-                      ok ? 'Request rejected.' : 'Failed to reject request'),
+                      ok ? l10n.customRolesRejected : l10n.customRolesRejectFailed),
                   backgroundColor:
                       ok ? AppTheme.statusWarning : AppTheme.errorColor,
                   behavior: SnackBarBehavior.floating,
@@ -831,7 +840,7 @@ class _PendingRequestCard extends ConsumerWidget {
                 ));
               }
             },
-            child: const Text('Reject'),
+            child: Text(l10n.customRolesReject),
           ),
         ],
       ),
@@ -846,6 +855,7 @@ class _MembersTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final state = ref.watch(orgMembersProvider);
 
     if (state.isLoading) {
@@ -860,10 +870,10 @@ class _MembersTab extends ConsumerWidget {
     }
 
     if (state.members.isEmpty) {
-      return const _EmptyState(
+      return _EmptyState(
         icon: Icons.group_rounded,
-        title: 'No Members Yet',
-        subtitle: 'Approve pending requests to add members to your organization.',
+        title: l10n.customRolesNoMembersTitle,
+        subtitle: l10n.customRolesNoMembersSubtitle,
       );
     }
 
@@ -875,7 +885,7 @@ class _MembersTab extends ConsumerWidget {
             Icon(Icons.group_rounded, size: 16, color: AppTheme.textSecondary),
             const SizedBox(width: 6),
             Text(
-              '${state.members.length} active member${state.members.length == 1 ? '' : 's'}',
+              l10n.customRolesActiveMembers(state.members.length),
               style: const TextStyle(
                   fontSize: 13,
                   color: AppTheme.textSecondary,
@@ -896,13 +906,14 @@ class _MemberCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final name = member['full_name'] as String? ?? 'Unknown';
+    final l10n = AppLocalizations.of(context);
+    final name = member['full_name'] as String? ?? l10n.customRolesUnknown;
     final username = member['username'] as String? ?? '';
     final email = member['email'] as String? ?? '';
     final userOrgId = member['user_organization_id'] as String? ?? '';
     final role = member['role'] as Map<String, dynamic>?;
     final roleKey = role?['key'] as String? ?? '';
-    final roleName = role?['name'] as String? ?? 'No Role';
+    final roleName = role?['name'] as String? ?? l10n.customRolesNoRole;
     final initials = name.isNotEmpty
         ? name.split(' ').take(2).map((w) => w[0]).join().toUpperCase()
         : '?';
@@ -956,8 +967,8 @@ class _MemberCard extends ConsumerWidget {
                             color: Colors.purple.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text('custom',
-                              style: TextStyle(
+                          child: Text(l10n.customRolesCustomBadge,
+                              style: const TextStyle(
                                   fontSize: 9,
                                   color: Colors.purple,
                                   fontWeight: FontWeight.w600)),
@@ -973,7 +984,7 @@ class _MemberCard extends ConsumerWidget {
               IconButton(
                 icon: const Icon(Icons.edit_rounded,
                     size: 18, color: AppTheme.textSecondary),
-                tooltip: 'Change Role',
+                tooltip: l10n.customRolesChangeRole,
                 onPressed: () =>
                     _showChangeRoleDialog(context, ref, userOrgId, name, role),
               ),
@@ -990,6 +1001,7 @@ class _MemberCard extends ConsumerWidget {
     String memberName,
     Map<String, dynamic>? currentRole,
   ) {
+    final l10n = AppLocalizations.of(context);
     final availableRoles = ref.read(rolesProvider).roles;
     String? selectedRoleId = currentRole?['id'] as String?;
 
@@ -997,17 +1009,17 @@ class _MemberCard extends ConsumerWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (_, setDialogState) => AlertDialog(
-          title: const Text('Change Member Role'),
+          title: Text(l10n.customRolesChangeRoleTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Update role for $memberName',
+              Text(l10n.customRolesUpdateRoleFor(memberName),
                   style: const TextStyle(color: AppTheme.textSecondary)),
               const SizedBox(height: 16),
-              const Text('New Role:',
+              Text(l10n.customRolesNewRole,
                   style:
-                      TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                      const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
                 value: selectedRoleId,
@@ -1031,7 +1043,7 @@ class _MemberCard extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(l10n.commonCancel),
             ),
             FilledButton(
               onPressed: selectedRoleId == null ||
@@ -1045,8 +1057,8 @@ class _MemberCard extends ConsumerWidget {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                           content: Text(ok
-                              ? 'Role updated for $memberName'
-                              : 'Failed to update role'),
+                              ? l10n.customRolesRoleUpdated(memberName)
+                              : l10n.customRolesRoleUpdateFailed),
                           backgroundColor: ok
                               ? AppTheme.successColor
                               : AppTheme.errorColor,
@@ -1056,7 +1068,7 @@ class _MemberCard extends ConsumerWidget {
                         ));
                       }
                     },
-              child: const Text('Update'),
+              child: Text(l10n.customRolesUpdate),
             ),
           ],
         ),
@@ -1073,7 +1085,8 @@ class _CustomRoleCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final roleName = role['role_name'] as String? ?? 'Unknown Role';
+    final l10n = AppLocalizations.of(context);
+    final roleName = role['role_name'] as String? ?? l10n.customRolesUnknownRole;
     final description = role['description'] as String? ?? '';
     final capabilityCount = role['capability_count'] as int? ?? 0;
     final templateSources = role['template_sources'] as List<dynamic>? ?? [];
@@ -1124,36 +1137,36 @@ class _CustomRoleCard extends ConsumerWidget {
                     onSelected: (v) =>
                         _handleAction(context, ref, v, id, isTemplate),
                     itemBuilder: (_) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                           value: 'edit',
                           child: Row(children: [
-                            Icon(Icons.edit, size: 20),
-                            SizedBox(width: 12),
-                            Text('Edit')
+                            const Icon(Icons.edit, size: 20),
+                            const SizedBox(width: 12),
+                            Text(l10n.commonEdit)
                           ])),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                           value: 'clone',
                           child: Row(children: [
-                            Icon(Icons.content_copy, size: 20),
-                            SizedBox(width: 12),
-                            Text('Clone')
+                            const Icon(Icons.content_copy, size: 20),
+                            const SizedBox(width: 12),
+                            Text(l10n.customRolesClone)
                           ])),
                       if (!isTemplate)
-                        const PopupMenuItem(
+                        PopupMenuItem(
                             value: 'template',
                             child: Row(children: [
-                              Icon(Icons.bookmark_add, size: 20),
-                              SizedBox(width: 12),
-                              Text('Save as Template')
+                              const Icon(Icons.bookmark_add, size: 20),
+                              const SizedBox(width: 12),
+                              Text(l10n.customRolesSaveAsTemplate)
                             ])),
                       const PopupMenuDivider(),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                           value: 'delete',
                           child: Row(children: [
-                            Icon(Icons.delete, size: 20, color: Colors.red),
-                            SizedBox(width: 12),
-                            Text('Delete',
-                                style: TextStyle(color: Colors.red))
+                            const Icon(Icons.delete, size: 20, color: Colors.red),
+                            const SizedBox(width: 12),
+                            Text(l10n.commonDelete,
+                                style: const TextStyle(color: Colors.red))
                           ])),
                     ],
                   ),
@@ -1165,17 +1178,17 @@ class _CustomRoleCard extends ConsumerWidget {
                 children: [
                   _InfoChip(
                       icon: Icons.verified_user,
-                      label: '$capabilityCount Capabilities',
+                      label: l10n.customRolesCapabilityCount(capabilityCount),
                       color: Colors.green),
                   if (templateSources.isNotEmpty)
                     _InfoChip(
                         icon: Icons.layers,
-                        label: '${templateSources.length} Templates',
+                        label: l10n.customRolesTemplatesCount(templateSources.length),
                         color: Colors.orange),
                   if (isTemplate)
-                    const _InfoChip(
+                    _InfoChip(
                         icon: Icons.bookmark,
-                        label: 'Saved Template',
+                        label: l10n.customRolesSavedTemplate,
                         color: Colors.purple),
                 ],
               ),
@@ -1201,21 +1214,22 @@ class _CustomRoleCard extends ConsumerWidget {
   }
 
   void _cloneDialog(BuildContext context, WidgetRef ref, String id) {
+    final l10n = AppLocalizations.of(context);
     final ctrl = TextEditingController();
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Clone Role'),
+        title: Text(l10n.customRolesCloneTitle),
         content: TextField(
           controller: ctrl,
-          decoration: const InputDecoration(
-              labelText: 'New Role Name', border: OutlineInputBorder()),
+          decoration: InputDecoration(
+              labelText: l10n.customRolesNewRoleName, border: const OutlineInputBorder()),
           autofocus: true,
         ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+              child: Text(l10n.commonCancel)),
           ElevatedButton(
             onPressed: () async {
               if (ctrl.text.trim().isEmpty) return;
@@ -1226,12 +1240,12 @@ class _CustomRoleCard extends ConsumerWidget {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text(
-                      ok ? 'Role cloned successfully' : 'Failed to clone'),
+                      ok ? l10n.customRolesCloned : l10n.customRolesCloneFailed),
                   backgroundColor: ok ? Colors.green : Colors.red,
                 ));
               }
             },
-            child: const Text('Clone'),
+            child: Text(l10n.customRolesClone),
           ),
         ],
       ),
@@ -1239,26 +1253,27 @@ class _CustomRoleCard extends ConsumerWidget {
   }
 
   void _saveTemplateDialog(BuildContext context, WidgetRef ref, String id) {
+    final l10n = AppLocalizations.of(context);
     final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Save as Template'),
+        title: Text(l10n.customRolesSaveAsTemplate),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Template Name', border: OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: l10n.customRolesTemplateName, border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: descCtrl,
-              decoration: const InputDecoration(
-                  labelText: 'Description (optional)',
-                  border: OutlineInputBorder()),
+              decoration: InputDecoration(
+                  labelText: l10n.customRolesDescriptionOptional,
+                  border: const OutlineInputBorder()),
               maxLines: 2,
             ),
           ],
@@ -1266,7 +1281,7 @@ class _CustomRoleCard extends ConsumerWidget {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+              child: Text(l10n.commonCancel)),
           ElevatedButton(
             onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
@@ -1281,12 +1296,12 @@ class _CustomRoleCard extends ConsumerWidget {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text(
-                      ok ? 'Saved as template' : 'Failed to save template'),
+                      ok ? l10n.customRolesTemplateSaved : l10n.customRolesTemplateSaveFailed),
                   backgroundColor: ok ? Colors.green : Colors.red,
                 ));
               }
             },
-            child: const Text('Save'),
+            child: Text(l10n.commonSave),
           ),
         ],
       ),
@@ -1294,16 +1309,16 @@ class _CustomRoleCard extends ConsumerWidget {
   }
 
   void _deleteDialog(BuildContext context, WidgetRef ref, String id) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete Role'),
-        content: const Text(
-            'Are you sure you want to delete this role? This cannot be undone.'),
+        title: Text(l10n.customRolesDeleteTitle),
+        content: Text(l10n.customRolesDeleteConfirm),
         actions: [
           TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel')),
+              child: Text(l10n.commonCancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
@@ -1314,13 +1329,13 @@ class _CustomRoleCard extends ConsumerWidget {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text(ok
-                      ? 'Role deleted successfully'
-                      : 'Failed to delete role'),
+                      ? l10n.customRolesDeleted
+                      : l10n.customRolesDeleteFailed),
                   backgroundColor: ok ? Colors.green : Colors.red,
                 ));
               }
             },
-            child: const Text('Delete'),
+            child: Text(l10n.commonDelete),
           ),
         ],
       ),
@@ -1390,6 +1405,21 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
+String _accessLevelLabel(AppLocalizations l10n, String level) {
+  switch (level) {
+    case 'full':
+      return l10n.customRoleLevelFull;
+    case 'limited':
+      return l10n.customRoleLevelLimited;
+    case 'view':
+      return l10n.customRoleLevelView;
+    case 'none':
+      return l10n.customRoleLevelNone;
+    default:
+      return level;
+  }
+}
+
 class _AccessLevelChip extends StatelessWidget {
   final String level;
   const _AccessLevelChip({required this.level});
@@ -1403,6 +1433,7 @@ class _AccessLevelChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final color = _colors[level] ?? Colors.grey;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -1412,7 +1443,7 @@ class _AccessLevelChip extends StatelessWidget {
         border: Border.all(color: color.withOpacity(0.4)),
       ),
       child: Text(
-        level.toUpperCase(),
+        _accessLevelLabel(l10n, level).toUpperCase(),
         style: TextStyle(
             fontSize: 10, color: color, fontWeight: FontWeight.bold),
       ),
@@ -1427,6 +1458,7 @@ class _ErrorRetry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1445,7 +1477,7 @@ class _ErrorRetry extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh),
-            label: const Text('Retry'),
+            label: Text(l10n.commonRetry),
           ),
         ],
       ),

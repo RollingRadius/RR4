@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/custom_role_provider.dart';
 import 'package:fleet_management/providers/capability_provider.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 // ─── Category display configuration ───────────────────────────────────────────
 class _CategoryInfo {
@@ -35,12 +36,51 @@ const _levelColors = {
   'full': Color(0xFF66BB6A),
 };
 
-const _levelLabels = {
-  'none': 'None',
-  'view': 'View',
-  'limited': 'Limited',
-  'full': 'Full',
-};
+String _levelLabel(AppLocalizations l10n, String level) {
+  switch (level) {
+    case 'none':
+      return l10n.customRoleLevelNone;
+    case 'view':
+      return l10n.customRoleLevelView;
+    case 'limited':
+      return l10n.customRoleLevelLimited;
+    case 'full':
+      return l10n.customRoleLevelFull;
+    default:
+      return level;
+  }
+}
+
+String? _categoryLabelFor(AppLocalizations l10n, String category) {
+  switch (category) {
+    case 'user_management':
+      return l10n.customRoleCatUser;
+    case 'role_management':
+      return l10n.customRoleCatRole;
+    case 'vehicle_management':
+      return l10n.customRoleCatVehicle;
+    case 'driver_management':
+      return l10n.customRoleCatDriver;
+    case 'trip_management':
+      return l10n.customRoleCatTrip;
+    case 'tracking':
+      return l10n.customRoleCatTracking;
+    case 'financial':
+      return l10n.customRoleCatFinancial;
+    case 'maintenance':
+      return l10n.customRoleCatMaintenance;
+    case 'compliance':
+      return l10n.customRoleCatCompliance;
+    case 'customer':
+      return l10n.customRoleCatCustomer;
+    case 'reporting':
+      return l10n.customRoleCatReporting;
+    case 'system':
+      return l10n.customRoleCatSystem;
+    default:
+      return null;
+  }
+}
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 class EditCustomRoleScreen extends ConsumerStatefulWidget {
@@ -181,6 +221,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
   }
 
   Future<void> _save() async {
+    final l10n = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _saving = true);
@@ -213,8 +254,8 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
         setState(() => _hasChanges = false);
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Role updated successfully'),
+          SnackBar(
+            content: Text(l10n.customRoleUpdated),
             backgroundColor: Colors.green,
           ),
         );
@@ -223,7 +264,9 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
         final err = ref.read(customRoleProvider).error;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update role${err != null ? ': $err' : ''}'),
+            content: Text(err != null
+                ? l10n.customRoleUpdateFailedWithError(err)
+                : l10n.customRoleUpdateFailed),
             backgroundColor: Colors.red,
           ),
         );
@@ -235,6 +278,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
         appBar: AppBar(
           leading: IconButton(
@@ -248,13 +292,13 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
               }
             },
           ),
-          title: const Text('Edit Custom Role'),
+          title: Text(l10n.customRoleEditTitle),
           actions: [
             if (_hasChanges && !_saving)
               TextButton.icon(
                 onPressed: _save,
                 icon: const Icon(Icons.check),
-                label: const Text('Save'),
+                label: Text(l10n.commonSave),
                 style: TextButton.styleFrom(
                   foregroundColor: Theme.of(context).colorScheme.primary,
                 ),
@@ -282,6 +326,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
   }
 
   Widget _buildErrorState() {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -291,7 +336,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
             const Icon(Icons.error_outline, size: 64, color: Colors.red),
             const SizedBox(height: 16),
             Text(
-              'Failed to load role',
+              l10n.customRoleLoadFailed,
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 8),
@@ -304,7 +349,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
             ElevatedButton.icon(
               onPressed: _loadData,
               icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              label: Text(l10n.commonRetry),
             ),
           ],
         ),
@@ -313,6 +358,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
   }
 
   Widget _buildBody() {
+    final l10n = AppLocalizations.of(context);
     return CustomScrollView(
       slivers: [
         // Role Info Card
@@ -328,7 +374,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
                     size: 20, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(width: 8),
                 Text(
-                  'Capabilities',
+                  l10n.customRoleCapabilities,
                   style: Theme.of(context)
                       .textTheme
                       .titleMedium
@@ -336,7 +382,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
                 ),
                 const Spacer(),
                 Text(
-                  '${_capabilityLevels.values.where((v) => v != 'none').length} / ${_capabilityLevels.length} enabled',
+                  l10n.customRoleEnabledCount(_capabilityLevels.values.where((v) => v != 'none').length, _capabilityLevels.length),
                   style: TextStyle(color: Colors.grey[600], fontSize: 12),
                 ),
               ],
@@ -368,6 +414,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
   }
 
   Widget _buildRoleInfoCard() {
+    final l10n = AppLocalizations.of(context);
     return Card(
       margin: const EdgeInsets.all(16),
       child: Padding(
@@ -378,7 +425,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Role Information',
+                l10n.customRoleInfoTitle,
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
@@ -387,22 +434,22 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Role Name',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.label),
+                decoration: InputDecoration(
+                  labelText: l10n.customRoleNameLabel,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.label),
                 ),
                 onChanged: (_) => setState(() => _hasChanges = _detectChanges()),
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Role name required' : null,
+                    (v == null || v.trim().isEmpty) ? l10n.customRoleNameRequiredShort : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descController,
-                decoration: const InputDecoration(
-                  labelText: 'Description (optional)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.description),
+                decoration: InputDecoration(
+                  labelText: l10n.customRoleDescriptionOptional,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.description),
                 ),
                 maxLines: 2,
                 onChanged: (_) => setState(() => _hasChanges = _detectChanges()),
@@ -415,6 +462,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
   }
 
   Widget _buildBottomBar() {
+    final l10n = AppLocalizations.of(context);
     return BottomAppBar(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -423,7 +471,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
             Expanded(
               child: OutlinedButton(
                 onPressed: _saving ? null : () => context.pop(),
-                child: const Text('Cancel'),
+                child: Text(l10n.commonCancel),
               ),
             ),
             const SizedBox(width: 16),
@@ -441,7 +489,7 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
                         ),
                       )
                     : const Icon(Icons.save),
-                label: Text(_saving ? 'Saving...' : 'Save Changes'),
+                label: Text(_saving ? l10n.customRoleSaving : l10n.customRoleSaveChanges),
               ),
             ),
           ],
@@ -451,21 +499,21 @@ class _EditCustomRoleScreenState extends ConsumerState<EditCustomRoleScreen> {
   }
 
   Future<bool> _showUnsavedDialog() async {
+    final l10n = AppLocalizations.of(context);
     return await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Unsaved Changes'),
-            content: const Text(
-                'You have unsaved changes. Do you want to leave without saving?'),
+            title: Text(l10n.customRoleUnsavedTitle),
+            content: Text(l10n.customRoleUnsavedBody),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Stay'),
+                child: Text(l10n.customRoleStay),
               ),
               FilledButton(
                 onPressed: () => Navigator.pop(ctx, true),
                 style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text('Leave'),
+                child: Text(l10n.customRoleLeave),
               ),
             ],
           ),
@@ -497,7 +545,8 @@ class _CategorySection extends StatefulWidget {
 class _CategorySectionState extends State<_CategorySection> {
   bool _expanded = false;
 
-  String get _categoryLabel =>
+  String _categoryLabel(AppLocalizations l10n) =>
+      _categoryLabelFor(l10n, widget.category) ??
       _categoryMeta[widget.category]?.label ??
       widget.category.replaceAll('_', ' ');
 
@@ -512,6 +561,7 @@ class _CategorySectionState extends State<_CategorySection> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final colorScheme = Theme.of(context).colorScheme;
     final enabled = _enabledCount;
     final total = widget.capabilities.length;
@@ -531,11 +581,11 @@ class _CategorySectionState extends State<_CategorySection> {
           child: Icon(_categoryIcon, color: colorScheme.onPrimaryContainer, size: 20),
         ),
         title: Text(
-          _categoryLabel,
+          _categoryLabel(l10n),
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
         subtitle: Text(
-          '$enabled / $total capabilities enabled',
+          l10n.customRoleCategoryEnabled(enabled, total),
           style: TextStyle(
             fontSize: 12,
             color: enabled > 0 ? Colors.green[700] : Colors.grey[600],
@@ -547,14 +597,14 @@ class _CategorySectionState extends State<_CategorySection> {
             // Quick action buttons
             if (_expanded) ...[
               _QuickActionButton(
-                label: 'None',
+                label: l10n.customRoleLevelNone,
                 active: noneEnabled,
                 onTap: () => widget.onSetAll('none'),
                 color: _levelColors['none']!,
               ),
               const SizedBox(width: 4),
               _QuickActionButton(
-                label: 'All',
+                label: l10n.customRoleQuickAll,
                 active: allEnabled,
                 onTap: () => widget.onSetAll('full'),
                 color: _levelColors['full']!,
@@ -594,6 +644,7 @@ class _CapabilityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final name = capability['capability_name'] as String? ?? '';
     final description = capability['description'] as String? ?? '';
     final isSystemCritical = capability['is_system_critical'] as bool? ?? false;
@@ -629,9 +680,9 @@ class _CapabilityRow extends StatelessWidget {
                     ),
                     if (isSystemCritical) ...[
                       const SizedBox(width: 6),
-                      const Tooltip(
-                        message: 'System critical – restricted to super admin',
-                        child: Icon(Icons.lock, size: 14, color: Colors.red),
+                      Tooltip(
+                        message: l10n.customRoleSystemCritical,
+                        child: const Icon(Icons.lock, size: 14, color: Colors.red),
                       ),
                     ],
                   ],
@@ -670,6 +721,7 @@ class _LevelSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -701,7 +753,7 @@ class _LevelSelector extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    _levelLabels[level] ?? level,
+                    _levelLabel(l10n, level),
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/template_provider.dart';
 import 'package:fleet_management/providers/custom_role_provider.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class CreateCustomRoleScreen extends ConsumerStatefulWidget {
   const CreateCustomRoleScreen({super.key});
@@ -89,9 +90,18 @@ class _CreateCustomRoleScreenState
 
   // ─── Computed helpers ────────────────────────────────────────────────────────
 
-  List<String> get _stepTitles => _creationType == 'template'
-      ? ['Method', 'Details', 'Templates', 'Review']
-      : ['Method', 'Details', 'Review'];
+  List<String> _stepTitles(AppLocalizations l10n) => _creationType == 'template'
+      ? [
+          l10n.customRoleStepMethod,
+          l10n.customRoleStepDetails,
+          l10n.customRoleStepTemplates,
+          l10n.customRoleStepReview
+        ]
+      : [
+          l10n.customRoleStepMethod,
+          l10n.customRoleStepDetails,
+          l10n.customRoleStepReview
+        ];
 
   bool get _isLastStep =>
       _currentStep == (_creationType == 'template' ? 3 : 2);
@@ -121,8 +131,10 @@ class _CreateCustomRoleScreenState
   // ─── Header ──────────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
+    final l10n = AppLocalizations.of(context);
+    final stepTitles = _stepTitles(l10n);
     final stepLabel =
-        _stepTitles[_currentStep.clamp(0, _stepTitles.length - 1)];
+        stepTitles[_currentStep.clamp(0, stepTitles.length - 1)];
 
     return Container(
       color: Colors.white,
@@ -152,8 +164,8 @@ class _CreateCustomRoleScreenState
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Create Custom Role',
+                      Text(
+                        l10n.customRoleCreateTitle,
                         style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -195,7 +207,7 @@ class _CreateCustomRoleScreenState
   // ─── Step indicator ──────────────────────────────────────────────────────────
 
   Widget _buildStepIndicator() {
-    final steps = _stepTitles;
+    final steps = _stepTitles(AppLocalizations.of(context));
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -252,11 +264,12 @@ class _CreateCustomRoleScreenState
   // ─── Step 0: Method ──────────────────────────────────────────────────────────
 
   Widget _buildMethodStep() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Choose creation method',
+        Text(
+          l10n.customRoleChooseMethod,
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -264,25 +277,23 @@ class _CreateCustomRoleScreenState
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Start from a predefined template or build from scratch',
-          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        Text(
+          l10n.customRoleChooseMethodHint,
+          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         const SizedBox(height: 24),
         _MethodCard(
           icon: Icons.layers_rounded,
-          title: 'Start from Template',
-          subtitle:
-              'Use predefined role templates as a starting point. Inherit capabilities and customize.',
+          title: l10n.customRoleFromTemplateTitle,
+          subtitle: l10n.customRoleFromTemplateDesc,
           isSelected: _creationType == 'template',
           onTap: () => setState(() => _creationType = 'template'),
         ),
         const SizedBox(height: 12),
         _MethodCard(
           icon: Icons.draw_rounded,
-          title: 'Start from Scratch',
-          subtitle:
-              'Build a completely custom role with your own capabilities. Configure everything manually.',
+          title: l10n.customRoleFromScratchTitle,
+          subtitle: l10n.customRoleFromScratchDesc,
           isSelected: _creationType == 'scratch',
           onTap: () => setState(() {
             _creationType = 'scratch';
@@ -296,13 +307,14 @@ class _CreateCustomRoleScreenState
   // ─── Step 1: Basic info ──────────────────────────────────────────────────────
 
   Widget _buildBasicInfoStep() {
+    final l10n = AppLocalizations.of(context);
     return Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Role Details',
+          Text(
+            l10n.customRoleDetailsTitle,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -310,21 +322,21 @@ class _CreateCustomRoleScreenState
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            'Give your custom role a name and description',
-            style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+          Text(
+            l10n.customRoleDetailsHint,
+            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
           ),
           const SizedBox(height: 24),
           TextFormField(
             controller: _nameController,
-            decoration: const InputDecoration(
-              labelText: 'Role Name',
-              hintText: 'e.g., Regional Manager - West Coast',
-              prefixIcon: Icon(Icons.badge_rounded, size: 20),
+            decoration: InputDecoration(
+              labelText: l10n.customRoleNameLabel,
+              hintText: l10n.customRoleNameHint,
+              prefixIcon: const Icon(Icons.badge_rounded, size: 20),
             ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
-                return 'Please enter a role name';
+                return l10n.customRoleNameRequired;
               }
               return null;
             },
@@ -332,10 +344,10 @@ class _CreateCustomRoleScreenState
           const SizedBox(height: 16),
           TextFormField(
             controller: _descriptionController,
-            decoration: const InputDecoration(
-              labelText: 'Description (Optional)',
-              hintText: 'Describe the purpose of this role',
-              prefixIcon: Icon(Icons.notes_rounded, size: 20),
+            decoration: InputDecoration(
+              labelText: l10n.customRoleDescriptionOptional,
+              hintText: l10n.customRoleDescriptionHint,
+              prefixIcon: const Icon(Icons.notes_rounded, size: 20),
             ),
             maxLines: 3,
           ),
@@ -356,7 +368,7 @@ class _CreateCustomRoleScreenState
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Template pre-selected: ${_selectedTemplates.join(', ')}',
+                      l10n.customRoleTemplatePreselected(_selectedTemplates.join(', ')),
                       style: TextStyle(
                         fontSize: 12,
                         color: AppTheme.primaryBlue,
@@ -376,6 +388,7 @@ class _CreateCustomRoleScreenState
   // ─── Step 2: Template selection ──────────────────────────────────────────────
 
   Widget _buildTemplateSelectionStep() {
+    final l10n = AppLocalizations.of(context);
     final templateState = ref.watch(templateProvider);
 
     if (templateState.isLoading) {
@@ -389,7 +402,7 @@ class _CreateCustomRoleScreenState
 
     if (templateState.error != null) {
       return Center(
-        child: Text('Error: ${templateState.error}',
+        child: Text(l10n.customRoleTemplateError('${templateState.error}'),
             style: const TextStyle(color: AppTheme.textSecondary)),
       );
     }
@@ -401,22 +414,22 @@ class _CreateCustomRoleScreenState
       children: [
         Row(
           children: [
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Select Templates',
-                    style: TextStyle(
+                    l10n.customRoleSelectTemplates,
+                    style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textPrimary,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
-                    'Choose one or more templates to combine',
-                    style: TextStyle(
+                    l10n.customRoleSelectTemplatesHint,
+                    style: const TextStyle(
                         fontSize: 13, color: AppTheme.textSecondary),
                   ),
                 ],
@@ -430,7 +443,7 @@ class _CreateCustomRoleScreenState
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '${_selectedTemplates.length} selected',
+                l10n.customRoleSelectedCount(_selectedTemplates.length),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -474,9 +487,9 @@ class _CreateCustomRoleScreenState
         }).toList(),
         if (_selectedTemplates.length > 1) ...[
           const SizedBox(height: 20),
-          const Text(
-            'Merge Strategy',
-            style: TextStyle(
+          Text(
+            l10n.customRoleMergeStrategy,
+            style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
               color: AppTheme.textPrimary,
@@ -485,18 +498,16 @@ class _CreateCustomRoleScreenState
           const SizedBox(height: 10),
           _MethodCard(
             icon: Icons.merge_rounded,
-            title: 'Union (Combine All)',
-            subtitle:
-                'Include all capabilities from all selected templates',
+            title: l10n.customRoleUnion,
+            subtitle: l10n.customRoleUnionDesc,
             isSelected: _mergeStrategy == 'union',
             onTap: () => setState(() => _mergeStrategy = 'union'),
           ),
           const SizedBox(height: 8),
           _MethodCard(
             icon: Icons.join_inner_rounded,
-            title: 'Intersection (Only Common)',
-            subtitle:
-                'Include only capabilities shared by all selected templates',
+            title: l10n.customRoleIntersection,
+            subtitle: l10n.customRoleIntersectionDesc,
             isSelected: _mergeStrategy == 'intersection',
             onTap: () => setState(() => _mergeStrategy = 'intersection'),
           ),
@@ -508,11 +519,12 @@ class _CreateCustomRoleScreenState
   // ─── Step 3 (or 2 for scratch): Review ──────────────────────────────────────
 
   Widget _buildReviewStep() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Review & Create',
+        Text(
+          l10n.customRoleReviewTitle,
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -520,9 +532,9 @@ class _CreateCustomRoleScreenState
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'Confirm your custom role details before creating',
-          style: TextStyle(fontSize: 13, color: AppTheme.textSecondary),
+        Text(
+          l10n.customRoleReviewHint,
+          style: const TextStyle(fontSize: 13, color: AppTheme.textSecondary),
         ),
         const SizedBox(height: 20),
         Container(
@@ -542,9 +554,9 @@ class _CreateCustomRoleScreenState
             children: [
               _ReviewRow(
                 icon: Icons.badge_rounded,
-                label: 'Role Name',
+                label: l10n.customRoleNameLabel,
                 value: _nameController.text.isEmpty
-                    ? '(not set)'
+                    ? l10n.customRoleNotSet
                     : _nameController.text,
                 color: AppTheme.primaryBlue,
               ),
@@ -552,9 +564,9 @@ class _CreateCustomRoleScreenState
                   height: 1, indent: 16, color: Color(0xFFF1F0F0)),
               _ReviewRow(
                 icon: Icons.notes_rounded,
-                label: 'Description',
+                label: l10n.customRoleDescription,
                 value: _descriptionController.text.isEmpty
-                    ? 'No description'
+                    ? l10n.customRoleNoDescription
                     : _descriptionController.text,
                 color: AppTheme.textSecondary,
               ),
@@ -564,10 +576,10 @@ class _CreateCustomRoleScreenState
                 icon: _creationType == 'template'
                     ? Icons.layers_rounded
                     : Icons.draw_rounded,
-                label: 'Method',
+                label: l10n.customRoleStepMethod,
                 value: _creationType == 'template'
-                    ? 'From Template'
-                    : 'From Scratch',
+                    ? l10n.customRoleFromTemplate
+                    : l10n.customRoleFromScratch,
                 color: _creationType == 'template'
                     ? const Color(0xFF7C3AED)
                     : const Color(0xFF059669),
@@ -578,7 +590,7 @@ class _CreateCustomRoleScreenState
                     height: 1, indent: 16, color: Color(0xFFF1F0F0)),
                 _ReviewRow(
                   icon: Icons.library_books_rounded,
-                  label: 'Templates',
+                  label: l10n.customRoleStepTemplates,
                   value: _selectedTemplates.join(', '),
                   color: AppTheme.primaryBlue,
                 ),
@@ -587,10 +599,10 @@ class _CreateCustomRoleScreenState
                       height: 1, indent: 16, color: Color(0xFFF1F0F0)),
                   _ReviewRow(
                     icon: Icons.merge_rounded,
-                    label: 'Merge Strategy',
+                    label: l10n.customRoleMergeStrategy,
                     value: _mergeStrategy == 'union'
-                        ? 'Union (Combine All)'
-                        : 'Intersection (Common Only)',
+                        ? l10n.customRoleUnion
+                        : l10n.customRoleIntersectionCommon,
                     color: AppTheme.textSecondary,
                   ),
                 ],
@@ -613,10 +625,10 @@ class _CreateCustomRoleScreenState
                 Icon(Icons.info_outline_rounded,
                     color: AppTheme.primaryBlue, size: 18),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'After creation, you\'ll be taken to the role editor to configure capabilities.',
-                    style: TextStyle(
+                    l10n.customRoleAfterCreateNote,
+                    style: const TextStyle(
                         fontSize: 12, color: AppTheme.textSecondary),
                   ),
                 ),
@@ -631,6 +643,7 @@ class _CreateCustomRoleScreenState
   // ─── Navigation bar ──────────────────────────────────────────────────────────
 
   Widget _buildNavBar() {
+    final l10n = AppLocalizations.of(context);
     final isLoading = ref.watch(customRoleProvider).isLoading;
 
     return Container(
@@ -655,15 +668,15 @@ class _CreateCustomRoleScreenState
                     border: Border.all(color: const Color(0xFFE2E0E0)),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: const Row(
+                  child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.arrow_back_rounded,
+                      const Icon(Icons.arrow_back_rounded,
                           color: AppTheme.textPrimary, size: 18),
-                      SizedBox(width: 6),
+                      const SizedBox(width: 6),
                       Text(
-                        'Back',
-                        style: TextStyle(
+                        l10n.commonBack,
+                        style: const TextStyle(
                           color: AppTheme.textPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 15,
@@ -688,6 +701,7 @@ class _CreateCustomRoleScreenState
   }
 
   Widget _buildContinueButton(bool isLoading) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: _onContinue,
       child: Container(
@@ -707,19 +721,19 @@ class _CreateCustomRoleScreenState
             ),
           ],
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Continue',
-              style: TextStyle(
+              l10n.commonContinue,
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
             ),
-            SizedBox(width: 6),
-            Icon(Icons.arrow_forward_rounded,
+            const SizedBox(width: 6),
+            const Icon(Icons.arrow_forward_rounded,
                 color: Colors.white, size: 18),
           ],
         ),
@@ -728,6 +742,7 @@ class _CreateCustomRoleScreenState
   }
 
   Widget _buildCreateButton(bool isLoading) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: isLoading ? null : _createRole,
       child: Container(
@@ -766,7 +781,7 @@ class _CreateCustomRoleScreenState
               const Icon(Icons.check_rounded, color: Colors.white, size: 20),
             const SizedBox(width: 8),
             Text(
-              isLoading ? 'Creating...' : 'Create Role',
+              isLoading ? l10n.customRoleCreating : l10n.customRoleCreateButton,
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 15,
@@ -783,6 +798,7 @@ class _CreateCustomRoleScreenState
   // ─── Step navigation ─────────────────────────────────────────────────────────
 
   void _onContinue() {
+    final l10n = AppLocalizations.of(context);
     if (_currentStep == 0) {
       setState(() => _currentStep++);
     } else if (_currentStep == 1) {
@@ -792,8 +808,8 @@ class _CreateCustomRoleScreenState
     } else if (_currentStep == 2 && _creationType == 'template') {
       if (_selectedTemplates.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select at least one template'),
+          SnackBar(
+            content: Text(l10n.customRoleSelectOneTemplate),
             backgroundColor: Colors.orange,
           ),
         );
@@ -806,6 +822,7 @@ class _CreateCustomRoleScreenState
   // ─── Create role ─────────────────────────────────────────────────────────────
 
   Future<void> _createRole() async {
+    final l10n = AppLocalizations.of(context);
     final roleNotifier = ref.read(customRoleProvider.notifier);
     bool success = false;
 
@@ -831,8 +848,8 @@ class _CreateCustomRoleScreenState
     if (mounted) {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Custom role created successfully'),
+          SnackBar(
+            content: Text(l10n.customRoleCreated),
             backgroundColor: Colors.green,
           ),
         );
@@ -848,8 +865,8 @@ class _CreateCustomRoleScreenState
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'Failed to create role: ${ref.read(customRoleProvider).error}'),
+            content: Text(l10n.customRoleCreateFailed(
+                ref.read(customRoleProvider).error ?? '')),
             backgroundColor: Colors.red,
           ),
         );
@@ -1052,6 +1069,7 @@ class _TemplateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -1112,7 +1130,7 @@ class _TemplateCard extends StatelessWidget {
                           size: 11, color: color.withOpacity(0.8)),
                       const SizedBox(width: 3),
                       Text(
-                        '$capCount capabilities',
+                        l10n.customRoleCapabilityCount(capCount),
                         style: TextStyle(
                           fontSize: 11,
                           color: color,
