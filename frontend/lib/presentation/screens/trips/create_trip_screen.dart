@@ -14,6 +14,7 @@ import 'package:fleet_management/providers/rr_sync_provider.dart';
 import 'package:fleet_management/providers/settings_provider.dart' show sharedPreferencesProvider;
 import 'package:fleet_management/data/models/last_trip_data.dart';
 import 'package:fleet_management/data/models/trip_model.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'dart:convert';
 
 // ─── Typography & Colours ─────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ class CreateTripScreen extends ConsumerStatefulWidget {
 
 class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
     with SingleTickerProviderStateMixin {
+  AppLocalizations get l10n => AppLocalizations.of(context);
 
   // ── City search ───────────────────────────────────────────────────────────
   final _pickupCtrl       = TextEditingController();
@@ -179,6 +181,17 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
 
   static const _axleTypes    = ['Single', 'Double', 'Triple', 'Multiple'];
   static const _wheelOptions = [4, 6, 8, 10, 12, 14, 16, 18, 22];
+
+  // Display label only - the English value is what gets stored and sent to RR.
+  String _axleLabel(String value) {
+    switch (value) {
+      case 'Single':   return l10n.createTripAxleSingle;
+      case 'Double':   return l10n.createTripAxleDouble;
+      case 'Triple':   return l10n.createTripAxleTriple;
+      case 'Multiple': return l10n.createTripAxleMultiple;
+      default:         return value;
+    }
+  }
 
   // ── Ops worker (Trip Handled By) ──────────────────────────────────────────
   List<Map<String, dynamic>> _opsWorkers     = [];
@@ -655,7 +668,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
       if (!mounted) return;
       setState(() {
         _vpLookingUp = false;
-        _vpLookupError = 'No user found for this number';
+        _vpLookupError = l10n.createTripErrNoUserFound;
       });
     }
   }
@@ -770,7 +783,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
       setState(() => _assigningDriverToVehicle = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
-          'Could not attach driver to vehicle on RR: ${ref.read(apiServiceProvider).handleError(e)}',
+          l10n.createTripErrAttachDriver(ref.read(apiServiceProvider).handleError(e)),
           style: _inter(size: 13, color: Colors.white),
         ),
         backgroundColor: _errorClr,
@@ -793,11 +806,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
       final busyElsewhere = resp.data['driver_busy_elsewhere'] as bool?;
       setState(() {
         if (hasAccount == false) {
-          _driverTrackingWarning = "This driver hasn't set up the RR4 app yet — "
-              "tracking won't be available for this trip until they do.";
+          _driverTrackingWarning = l10n.createTripWarnNoApp;
         } else if (busyElsewhere == true) {
-          _driverTrackingWarning = "This driver is already on another open trip — "
-              "tracking won't link to this trip until that one is finished.";
+          _driverTrackingWarning = l10n.createTripWarnBusy;
         } else {
           _driverTrackingWarning = null;
         }
@@ -887,49 +898,49 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
   bool _validateStep0() {
     if (_consignorNameCtrl.text.trim().isEmpty) {
       _failField(0, _keyConsignorName, 'consignorName',
-          'Consignor Name is required — pick a partner above or type it in');
+          l10n.createTripValConsignorName);
       return false;
     }
     if (_consignorRrCompanyId == null) {
       _failField(0, _keyConsignorCompany, 'consignorCompany',
-          'Must select company from dropdown');
+          l10n.createTripValConsignorCompany);
       return false;
     }
     if (_pickupCityId == null) {
       _failField(0, _keyPickupCity, 'pickupCity',
-          'Pickup City is required — search and select from the list');
+          l10n.createTripValPickupCity);
       return false;
     }
     if (_dropCityId == null) {
       _failField(0, _keyUnloadCity, 'unloadCity',
-          'Unload City is required — search and select from the list');
+          l10n.createTripValUnloadCity);
       return false;
     }
     if (_materialRrId == null) {
       _failField(0, _keyMaterial, 'material',
-          'Material / Product Type is required — search and select from the list');
+          l10n.createTripValMaterial);
       return false;
     }
     final w = _weightCtrl.text.trim();
     if (w.isEmpty || double.tryParse(w) == null) {
-      _failField(0, _keyWeight, 'weight', 'Total Weight / Quantity is required');
+      _failField(0, _keyWeight, 'weight', l10n.createTripValWeight);
       return false;
     }
     final iv = _invoiceValueCtrl.text.trim();
     if (iv.isEmpty || double.tryParse(iv) == null) {
       _failField(0, _keyInvoiceValue, 'invoiceValue',
-          'Total Invoice Value (₹) is required — used as parcel cost in RR');
+          l10n.createTripValInvoiceValue);
       return false;
     }
     if (!_isEdit && _selectedOpsWorkerId == null) {
       _failField(0, _keyOpsWorker, 'opsWorker',
-          'Select the RR Ops worker handling this trip');
+          l10n.createTripValOpsWorker);
       return false;
     }
     final ef = _expectedFreightCtrl.text.trim();
     if (!_isEdit && (ef.isEmpty || double.tryParse(ef) == null)) {
       _failField(0, _keyExpectedFreight, 'expectedFreight',
-          'Expected Freight Amount (₹) is required by RR create trip');
+          l10n.createTripValExpectedFreight);
       return false;
     }
     return true;
@@ -938,20 +949,20 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
   bool _validateStep1() {
     if (_vpUser == null) {
       _failField(1, _keyVpPhone, 'vpPhone',
-          'Enter Vehicle Provider phone number and tap the result to select');
+          l10n.createTripValVpPhone);
       return false;
     }
     if (_vpSelectedCompanyId == null) {
       _failField(1, _keyVpCompany, 'vpCompany',
-          'Vehicle Provider Company is required — select a company');
+          l10n.createTripValVpCompany);
       return false;
     }
     if (_vpSelectedVehicleRrId == null) {
-      _failField(1, _keyVehicle, 'vehicle', 'Select a Vehicle');
+      _failField(1, _keyVehicle, 'vehicle', l10n.createTripValVehicle);
       return false;
     }
     if (_selectedDriverRrId == null || _selectedDriverRrId!.isEmpty) {
-      _failField(1, _keyDriver, 'driver', 'Select a Driver');
+      _failField(1, _keyDriver, 'driver', l10n.createTripValDriver);
       return false;
     }
     return true;
@@ -964,7 +975,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
     final ba = double.tryParse(_bookingAmountCtrl.text.trim());
     if (ba == null || ba <= 0) {
       _failField(2, _keyBookingAmount, 'bookingAmount',
-          'Booking Amount (₹) is required and must be greater than 0');
+          l10n.createTripValBookingAmount);
       return false;
     }
     return true;
@@ -1094,7 +1105,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
     if (trip == null) {
       setState(() {
         _submitting  = false;
-        _submitError = ref.read(tripProvider).error ?? 'Failed to create trip';
+        _submitError = ref.read(tripProvider).error ?? l10n.createTripErrCreateFailed;
       });
       return;
     }
@@ -1108,7 +1119,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
       ref.read(pendingCreatedTripIdProvider.notifier).state = trip.id;
     } else if (syncStatus == 'failed') {
       ref.read(pendingRrTripNumberProvider.notifier).state =
-          '__failed__:${trip.rrSyncError ?? 'unknown error'}';
+          '__failed__:${trip.rrSyncError ?? l10n.createTripUnknownError}';
       ref.read(pendingCreatedTripIdProvider.notifier).state = trip.id;
     }
 
@@ -1238,10 +1249,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
       }
       if (e.type == DioExceptionType.receiveTimeout ||
           e.type == DioExceptionType.connectionTimeout) {
-        return 'RR is taking too long to respond — please try again';
+        return l10n.createTripErrRrSlow;
       }
     }
-    return 'Could not save the changes — please try again';
+    return l10n.createTripErrSaveFailed;
   }
 
   Future<void> _submitEdit() async {
@@ -1251,7 +1262,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
 
     final changes = _editChanges();
     if (changes.isEmpty) {
-      setState(() => _submitError = 'Nothing has been changed');
+      setState(() => _submitError = l10n.createTripNothingChanged);
       return;
     }
 
@@ -1273,7 +1284,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
         // The save already succeeded; the card refreshes on its own next load.
       }
       messenger.showSnackBar(SnackBar(
-        content: Text('Trip updated', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.createTripUpdated, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _successClr,
         behavior: SnackBarBehavior.floating,
       ));
@@ -1288,14 +1299,15 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
   Future<void> _requestClose() async {
     if (_submitting) return;
     if (_isDirty) {
+      final l10n = AppLocalizations.of(context);
       final discard = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Discard changes?'),
-          content: const Text('Your edits to this trip have not been saved.'),
+          title: Text(l10n.createTripDiscardTitle),
+          content: Text(l10n.createTripDiscardBody),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Keep editing')),
-            TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Discard')),
+            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: Text(l10n.createTripKeepEditing)),
+            TextButton(onPressed: () => Navigator.of(ctx).pop(true), child: Text(l10n.createTripDiscard)),
           ],
         ),
       );
@@ -1351,7 +1363,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                     ),
                     const SizedBox(width: 4),
                     Expanded(
-                      child: Text('Edit Trip · $ident',
+                      child: Text(l10n.createTripEditTitle(ident),
                           style: _manrope(size: 16, weight: FontWeight.w800),
                           overflow: TextOverflow.ellipsis),
                     ),
@@ -1366,7 +1378,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                   indicatorColor: const Color(0xFF1B6CA8),
                   labelStyle: _manrope(size: 13, weight: FontWeight.w700),
                   unselectedLabelStyle: _manrope(size: 13, weight: FontWeight.w600, color: _secondary),
-                  tabs: [tab('Consignor', 0), tab('Consignee', 1), tab('Load Info', 2)],
+                  tabs: [tab(l10n.tripCardLabelConsignor, 0), tab(l10n.tripCardLabelConsignee, 1), tab(l10n.createTripTabLoadInfo, 2)],
                 ),
                 const Divider(height: 1, color: _border),
                 if (!booked)
@@ -1375,7 +1387,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                     color: const Color(0xFFFFF3E0),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Text(
-                      'Not booked on RR yet — changes are saved here and sent to RR when you Confirm Booking.',
+                      l10n.createTripNotBookedNotice,
                       style: _inter(size: 12, weight: FontWeight.w600, color: const Color(0xFFE65100)),
                     ),
                   ),
@@ -1423,7 +1435,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                             side: const BorderSide(color: _border),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          child: Text('Cancel', style: _manrope(size: 14, color: _onSurface)),
+                          child: Text(l10n.commonCancel, style: _manrope(size: 14, color: _onSurface)),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1441,7 +1453,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                                   width: 20, height: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                 )
-                              : Text(booked ? 'Update' : 'Save', style: _manrope(size: 14, color: Colors.white)),
+                              : Text(booked ? l10n.createTripUpdate : l10n.commonSave, style: _manrope(size: 14, color: Colors.white)),
                         ),
                       ),
                     ]),
@@ -1462,19 +1474,19 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
   List<Widget> _consignorPickupChildren() => [
       // ─── 1 · CONSIGNOR
       // ═══════════════════════════════════════════════════════════
-      _SectionHeader(label: 'Consignor Info'),
+      _SectionHeader(label: l10n.createTripSectionConsignor),
       const SizedBox(height: 4),
-      Text('Select from Partners to auto fill Consignor details',
+      Text(l10n.createTripConsignorHint,
           style: _inter(size: 12, color: _secondary)),
       const SizedBox(height: 12),
 
-      _FieldLabel(label: 'Select from Partners (optional)'),
+      _FieldLabel(label: l10n.createTripSelectFromPartners),
       const SizedBox(height: 6),
       _partnersLoading
-          ? const _LoadingChip(label: 'Loading partners…')
+          ? _LoadingChip(label: l10n.createTripLoadingPartners)
           : _DropdownField<String>(
               value: _consignorPartner?['partner_id'] as String?,
-              hint: 'Select partner',
+              hint: l10n.createTripSelectPartner,
               items: _partners.map((p) => DropdownMenuItem<String>(
                 value: p['partner_id'] as String?,
                 child: Text(p['name'] as String? ?? '—',
@@ -1500,26 +1512,26 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
 
       if (_consignorPhone != null) ...[
         const SizedBox(height: 10),
-        _FieldLabel(label: 'Phone Number'),
+        _FieldLabel(label: l10n.authPhoneNumber),
         const SizedBox(height: 6),
         _ReadOnlyField(value: _consignorPhone!, icon: Icons.phone_outlined),
       ],
 
       const SizedBox(height: 10),
-      _FieldLabel(key: _keyConsignorName, label: 'Consignor Name *'),
+      _FieldLabel(key: _keyConsignorName, label: l10n.createTripConsignorName),
       const SizedBox(height: 6),
       _TextInput(
         controller: _consignorNameCtrl,
-        hint: 'e.g. Tata Steel Ltd',
+        hint: l10n.createTripConsignorNameHint,
         hasError: _fieldErr['consignorName'] == true,
       ),
       _inlineErr('consignorName'),
 
       const SizedBox(height: 10),
-      _FieldLabel(key: _keyConsignorCompany, label: 'Select Consignor Company *'),
+      _FieldLabel(key: _keyConsignorCompany, label: l10n.createTripSelectConsignorCompany),
       const SizedBox(height: 6),
       _consignorCompaniesLoading
-          ? const _LoadingChip(label: 'Loading companies…')
+          ? _LoadingChip(label: l10n.createTripLoadingCompanies)
           : _consignorCompanies.isEmpty && _consignorRrCompanyId != null
               ? _SelectedChip(
                   label: _consignorCompanyName ?? '',
@@ -1532,7 +1544,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
               : _DropdownField<String>(
                   hasError: _fieldErr['consignorCompany'] == true,
                   value: _consignorRrCompanyId,
-                  hint: _consignorPartner == null ? 'Select a partner above first' : 'Select company',
+                  hint: _consignorPartner == null ? l10n.createTripSelectPartnerFirst : l10n.createTripSelectCompany,
                   items: _consignorCompanies.map((c) => DropdownMenuItem<String>(
                     value: c['rr_company_id'] as String,
                     child: Text(c['name'] as String? ?? '—',
@@ -1568,33 +1580,33 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
       _inlineErr('consignorCompany'),
 
       const SizedBox(height: 10),
-      _FieldLabel(label: 'Consignor GSTIN'),
+      _FieldLabel(label: l10n.createTripConsignorGstin),
       const SizedBox(height: 6),
-      _TextInput(controller: _consignorGstinCtrl, hint: 'Auto-filled or enter manually'),
+      _TextInput(controller: _consignorGstinCtrl, hint: l10n.createTripAutoFilledHint),
 
       // ═══════════════════════════════════════════════════════════
       // 2 · PICKUP LOCATION
       // ═══════════════════════════════════════════════════════════
       const SizedBox(height: 24),
-      _SectionHeader(label: 'Pickup Location'),
+      _SectionHeader(label: l10n.createTripSectionPickup),
       const SizedBox(height: 4),
-      Text('Select consignor address to auto fill',
+      Text(l10n.createTripPickupHint,
           style: _inter(size: 12, color: _secondary)),
       const SizedBox(height: 12),
 
       if (_consignorAddresses.isNotEmpty) ...[
-        _FieldLabel(label: 'Select consignor address (optional)'),
+        _FieldLabel(label: l10n.createTripSelectConsignorAddress),
         const SizedBox(height: 6),
         _DropdownField<int>(
           value: null,
-          hint: 'Select to auto-fill address fields',
+          hint: l10n.createTripSelectToAutoFill,
           items: List.generate(_consignorAddresses.length, (i) {
             final a = _consignorAddresses[i];
             final parts = <String>[
               if ((a['city_name'] as String? ?? '').isNotEmpty) a['city_name'] as String,
               if ((a['address_line_1'] as String? ?? '').isNotEmpty) a['address_line_1'] as String,
             ];
-            final label = parts.isNotEmpty ? parts.join(' — ') : 'Address ${i + 1}';
+            final label = parts.isNotEmpty ? parts.join(' — ') : l10n.createTripAddressN(i + 1);
             return DropdownMenuItem<int>(
               value: i,
               child: Text(label, style: _inter(size: 13, color: _onSurface), overflow: TextOverflow.ellipsis),
@@ -1605,22 +1617,22 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
         const SizedBox(height: 10),
       ],
 
-      _FieldLabel(label: 'Address Line 1'),
+      _FieldLabel(label: l10n.createTripAddressLine1),
       const SizedBox(height: 6),
-      _CountedTextInput(controller: _pickupLine1Ctrl, hint: 'Street / area', maxLength: 200),
+      _CountedTextInput(controller: _pickupLine1Ctrl, hint: l10n.createTripStreetArea, maxLength: 200),
 
       const SizedBox(height: 10),
-      _FieldLabel(label: 'Address Line 2'),
+      _FieldLabel(label: l10n.createTripAddressLine2),
       const SizedBox(height: 6),
-      _CountedTextInput(controller: _pickupLine2Ctrl, hint: 'Landmark / locality', maxLength: 200),
+      _CountedTextInput(controller: _pickupLine2Ctrl, hint: l10n.createTripLandmark, maxLength: 200),
 
       const SizedBox(height: 10),
-      _FieldLabel(key: _keyPickupCity, label: 'Pickup City Name *'),
+      _FieldLabel(key: _keyPickupCity, label: l10n.createTripPickupCityName),
       const SizedBox(height: 6),
       _SearchField(
         hasError: _fieldErr['pickupCity'] == true,
         controller: _pickupCtrl,
-        hint: 'Search city…',
+        hint: l10n.createTripSearchCity,
         loading: _pickupLoading,
         confirmed: _pickupCityId != null,
         onChanged: _onPickupTyped,
@@ -1631,13 +1643,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
         _ResultsCard(items: _pickupResults, labelKey: 'name', onSelect: _selectPickup),
 
       const SizedBox(height: 10),
-      _FieldLabel(label: 'Pin / Zip Code'),
+      _FieldLabel(label: l10n.createTripPinZip),
       const SizedBox(height: 6),
-      _TextInput(controller: _pickupPinCtrl, hint: '6-digit PIN', inputType: TextInputType.number),
+      _TextInput(controller: _pickupPinCtrl, hint: l10n.createTripPinHint, inputType: TextInputType.number),
 
       const SizedBox(height: 10),
       _CheckboxRow(
-        label: 'No Entry Zone',
+        label: l10n.createTripNoEntryZone,
         value: _pickupNoEntryZone,
         onChanged: (v) => setState(() => _pickupNoEntryZone = v ?? false),
       ),
@@ -1645,19 +1657,19 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
 
   /// Consignee Info + Unload Location.
   List<Widget> _consigneeUnloadChildren() => [
-      _SectionHeader(label: 'Consignee Info'),
+      _SectionHeader(label: l10n.createTripSectionConsignee),
       const SizedBox(height: 4),
-      Text('Select from Partners to auto fill Consignee details',
+      Text(l10n.createTripConsigneeHint,
           style: _inter(size: 12, color: _secondary)),
       const SizedBox(height: 12),
 
-      _FieldLabel(label: 'Select from Partners (optional)'),
+      _FieldLabel(label: l10n.createTripSelectFromPartners),
       const SizedBox(height: 6),
       _partnersLoading
-          ? const _LoadingChip(label: 'Loading partners…')
+          ? _LoadingChip(label: l10n.createTripLoadingPartners)
           : _DropdownField<String>(
               value: _consigneePartner?['partner_id'] as String?,
-              hint: 'Select partner',
+              hint: l10n.createTripSelectPartner,
               items: _partners.map((p) => DropdownMenuItem<String>(
                 value: p['partner_id'] as String?,
                 child: Text(p['name'] as String? ?? '—',
@@ -1683,21 +1695,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
 
       if (_consigneePhone != null) ...[
         const SizedBox(height: 10),
-        _FieldLabel(label: 'Phone Number'),
+        _FieldLabel(label: l10n.authPhoneNumber),
         const SizedBox(height: 6),
         _ReadOnlyField(value: _consigneePhone!, icon: Icons.phone_outlined),
       ],
 
       const SizedBox(height: 10),
-      _FieldLabel(label: 'Consignee Name'),
+      _FieldLabel(label: l10n.createTripConsigneeName),
       const SizedBox(height: 6),
-      _TextInput(controller: _consigneeNameCtrl, hint: 'e.g. JSW Steel Ltd'),
+      _TextInput(controller: _consigneeNameCtrl, hint: l10n.createTripConsigneeNameHint),
 
       const SizedBox(height: 10),
-      _FieldLabel(label: 'Select Consignee Company'),
+      _FieldLabel(label: l10n.createTripSelectConsigneeCompany),
       const SizedBox(height: 6),
       _consigneeCompaniesLoading
-          ? const _LoadingChip(label: 'Loading companies…')
+          ? _LoadingChip(label: l10n.createTripLoadingCompanies)
           : _consigneeCompanies.isEmpty && _consigneeRrCompanyId != null
               ? _SelectedChip(
                   label: _consigneeCompanyName ?? '',
@@ -1709,7 +1721,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                 )
               : _DropdownField<String>(
                   value: _consigneeRrCompanyId,
-                  hint: _consigneePartner == null ? 'Select a partner above first' : 'Select company',
+                  hint: _consigneePartner == null ? l10n.createTripSelectPartnerFirst : l10n.createTripSelectCompany,
                   items: _consigneeCompanies.map((c) => DropdownMenuItem<String>(
                     value: c['rr_company_id'] as String,
                     child: Text(c['name'] as String? ?? '—',
@@ -1730,33 +1742,33 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                 ),
 
       const SizedBox(height: 10),
-      _FieldLabel(label: 'Consignee GSTIN'),
+      _FieldLabel(label: l10n.createTripConsigneeGstin),
       const SizedBox(height: 6),
-      _TextInput(controller: _consigneeGstinCtrl, hint: 'Auto-filled or enter manually'),
+      _TextInput(controller: _consigneeGstinCtrl, hint: l10n.createTripAutoFilledHint),
 
       // ═══════════════════════════════════════════════════════════
       // 4 · UNLOAD LOCATION
       // ═══════════════════════════════════════════════════════════
       const SizedBox(height: 24),
-      _SectionHeader(label: 'Unload Location'),
+      _SectionHeader(label: l10n.createTripSectionUnload),
       const SizedBox(height: 4),
-      Text('Select consignee address to auto fill',
+      Text(l10n.createTripUnloadHint,
           style: _inter(size: 12, color: _secondary)),
       const SizedBox(height: 12),
 
       if (_consigneeAddresses.isNotEmpty) ...[
-        _FieldLabel(label: 'Select consignee address (optional)'),
+        _FieldLabel(label: l10n.createTripSelectConsigneeAddress),
         const SizedBox(height: 6),
         _DropdownField<int>(
           value: null,
-          hint: 'Select to auto-fill address fields',
+          hint: l10n.createTripSelectToAutoFill,
           items: List.generate(_consigneeAddresses.length, (i) {
             final a = _consigneeAddresses[i];
             final parts = <String>[
               if ((a['city_name'] as String? ?? '').isNotEmpty) a['city_name'] as String,
               if ((a['address_line_1'] as String? ?? '').isNotEmpty) a['address_line_1'] as String,
             ];
-            final label = parts.isNotEmpty ? parts.join(' — ') : 'Address ${i + 1}';
+            final label = parts.isNotEmpty ? parts.join(' — ') : l10n.createTripAddressN(i + 1);
             return DropdownMenuItem<int>(
               value: i,
               child: Text(label, style: _inter(size: 13, color: _onSurface), overflow: TextOverflow.ellipsis),
@@ -1767,22 +1779,22 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
         const SizedBox(height: 10),
       ],
 
-      _FieldLabel(label: 'Address Line 1'),
+      _FieldLabel(label: l10n.createTripAddressLine1),
       const SizedBox(height: 6),
-      _CountedTextInput(controller: _unloadLine1Ctrl, hint: 'Street / area', maxLength: 200),
+      _CountedTextInput(controller: _unloadLine1Ctrl, hint: l10n.createTripStreetArea, maxLength: 200),
 
       const SizedBox(height: 10),
-      _FieldLabel(label: 'Address Line 2'),
+      _FieldLabel(label: l10n.createTripAddressLine2),
       const SizedBox(height: 6),
-      _CountedTextInput(controller: _unloadLine2Ctrl, hint: 'Landmark / locality', maxLength: 200),
+      _CountedTextInput(controller: _unloadLine2Ctrl, hint: l10n.createTripLandmark, maxLength: 200),
 
       const SizedBox(height: 10),
-      _FieldLabel(key: _keyUnloadCity, label: 'Unload City Name *'),
+      _FieldLabel(key: _keyUnloadCity, label: l10n.createTripUnloadCityName),
       const SizedBox(height: 6),
       _SearchField(
         hasError: _fieldErr['unloadCity'] == true,
         controller: _dropCtrl,
-        hint: 'Search city…',
+        hint: l10n.createTripSearchCity,
         loading: _dropLoading,
         confirmed: _dropCityId != null,
         onChanged: _onDropTyped,
@@ -1793,18 +1805,18 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
         _ResultsCard(items: _dropResults, labelKey: 'name', onSelect: _selectDrop),
 
       const SizedBox(height: 10),
-      _FieldLabel(label: 'Pin / Zip Code'),
+      _FieldLabel(label: l10n.createTripPinZip),
       const SizedBox(height: 6),
-      _TextInput(controller: _unloadPinCtrl, hint: '6-digit PIN', inputType: TextInputType.number),
+      _TextInput(controller: _unloadPinCtrl, hint: l10n.createTripPinHint, inputType: TextInputType.number),
 
       const SizedBox(height: 10),
-      _FieldLabel(label: 'Depot Code'),
+      _FieldLabel(label: l10n.tripCardLabelDepotCode),
       const SizedBox(height: 6),
-      _TextInput(controller: _depotCodeCtrl, hint: 'e.g. KNP01'),
+      _TextInput(controller: _depotCodeCtrl, hint: l10n.createTripDepotHint),
 
       const SizedBox(height: 10),
       _CheckboxRow(
-        label: 'No Entry Zone',
+        label: l10n.createTripNoEntryZone,
         value: _unloadNoEntryZone,
         onChanged: (v) => setState(() => _unloadNoEntryZone = v ?? false),
       ),
@@ -1812,10 +1824,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
 
   /// Parcel / Load Information.
   List<Widget> _parcelChildren() => [
-      _SectionHeader(label: 'Parcel / Load Information'),
+      _SectionHeader(label: l10n.createTripSectionParcel),
       const SizedBox(height: 12),
 
-      _FieldLabel(key: _keyMaterial, label: 'Material / Product Type *'),
+      _FieldLabel(key: _keyMaterial, label: l10n.createTripMaterialType),
       const SizedBox(height: 6),
       Focus(
         onFocusChange: (focused) {
@@ -1824,7 +1836,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
         child: _SearchField(
           hasError: _fieldErr['material'] == true,
           controller: _materialCtrl,
-          hint: 'Search material…',
+          hint: l10n.createTripSearchMaterial,
           loading: _materialLoading,
           confirmed: _materialRrId != null,
           onChanged: _onMaterialTyped,
@@ -1836,7 +1848,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
         _ResultsCard(items: _materialResults, labelKey: 'name', onSelect: _selectMaterial),
 
       const SizedBox(height: 10),
-      _FieldLabel(key: _keyWeight, label: 'Total Weight / Quantity *'),
+      _FieldLabel(key: _keyWeight, label: l10n.createTripTotalWeight),
       const SizedBox(height: 6),
       _WeightRow(
         hasError: _fieldErr['weight'] == true,
@@ -1848,24 +1860,24 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
       _inlineErr('weight'),
 
       const SizedBox(height: 10),
-      _FieldLabel(key: _keyInvoiceValue, label: 'Total Invoice Value (₹) *'),
+      _FieldLabel(key: _keyInvoiceValue, label: l10n.createTripInvoiceValue),
       const SizedBox(height: 6),
       _TextInput(
         hasError: _fieldErr['invoiceValue'] == true,
         controller: _invoiceValueCtrl,
-        hint: 'e.g. 150000',
+        hint: l10n.createTripInvoiceHint,
         inputType: TextInputType.number,
       ),
       _inlineErr('invoiceValue'),
 
       const SizedBox(height: 10),
-      _FieldLabel(label: 'Description of Parcel'),
+      _FieldLabel(label: l10n.createTripParcelDesc),
       const SizedBox(height: 6),
-      _CountedTextInput(controller: _parcelDescCtrl, hint: 'e.g. Steel coils', maxLength: 100),
+      _CountedTextInput(controller: _parcelDescCtrl, hint: l10n.createTripParcelDescHint, maxLength: 100),
 
       const SizedBox(height: 10),
       _CheckboxRow(
-        label: 'Part Load',
+        label: l10n.tripCardLabelPartLoad,
         value: _partLoad,
         onChanged: (v) => setState(() => _partLoad = v ?? false),
       ),
@@ -1888,7 +1900,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
             icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _onSurface, size: 20),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          title: Text('New Trip', style: _manrope(size: 16, weight: FontWeight.w800)),
+          title: Text(l10n.createTripNewTrip, style: _manrope(size: 16, weight: FontWeight.w800)),
         ),
         body: Column(
           children: [
@@ -1913,17 +1925,17 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
 
             // ── Trip Handled By (step 0) ──────────────────────────────
             const SizedBox(height: 24),
-            _SectionHeader(label: 'Trip Handled By'),
+            _SectionHeader(label: l10n.createTripSectionHandledBy),
             const SizedBox(height: 12),
 
-            _FieldLabel(key: _keyOpsWorker, label: 'Handled by Person *'),
+            _FieldLabel(key: _keyOpsWorker, label: l10n.createTripHandledByPerson),
             const SizedBox(height: 6),
             _opsWorkersLoading
-                ? const _LoadingChip(label: 'Loading workers…')
+                ? _LoadingChip(label: l10n.createTripLoadingWorkers)
                 : _DropdownField<String>(
                     hasError: _fieldErr['opsWorker'] == true,
                     value: _selectedOpsWorkerId,
-                    hint: 'Select RR Ops worker',
+                    hint: l10n.createTripSelectOpsWorker,
                     items: _opsWorkers.map((w) => DropdownMenuItem<String>(
                       value: w['rr_user_id'] as String,
                       child: Text(
@@ -1946,12 +1958,12 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
             _inlineErr('opsWorker'),
 
             const SizedBox(height: 16),
-            _FieldLabel(key: _keyExpectedFreight, label: 'Expected Freight Amount (₹) *'),
+            _FieldLabel(key: _keyExpectedFreight, label: l10n.createTripExpectedFreight),
             const SizedBox(height: 6),
             _TextInput(
               hasError: _fieldErr['expectedFreight'] == true,
               controller: _expectedFreightCtrl,
-              hint: 'e.g. 45000',
+              hint: l10n.createTripFreightHint,
               inputType: TextInputType.number,
             ),
             _inlineErr('expectedFreight'),
@@ -1966,24 +1978,24 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               children: [
 
-            _SectionHeader(label: 'Vehicle Provider'),
+            _SectionHeader(label: l10n.createTripSectionVehicleProvider),
             const SizedBox(height: 4),
-            Text('Enter provider phone → select user → select company → select vehicle',
+            Text(l10n.createTripVpSteps,
                 style: _inter(size: 12, color: _secondary)),
             const SizedBox(height: 12),
 
-            _FieldLabel(key: _keyVpPhone, label: 'Vehicle Provider Phone *'),
+            _FieldLabel(key: _keyVpPhone, label: l10n.createTripVpPhone),
             const SizedBox(height: 6),
             _TextInput(
               hasError: _fieldErr['vpPhone'] == true,
               controller: _vpPhoneCtrl,
-              hint: 'e.g. 8960281816 — auto-searches at 10 digits',
+              hint: l10n.createTripVpPhoneHint,
               inputType: TextInputType.phone,
             ),
             _inlineErr('vpPhone'),
             if (_vpLookingUp) ...[
               const SizedBox(height: 8),
-              const _LoadingChip(label: 'Looking up…'),
+              _LoadingChip(label: l10n.createTripLookingUp),
             ],
             if (_vpLookupError != null) ...[
               const SizedBox(height: 8),
@@ -2008,10 +2020,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                     const Icon(Icons.person_outline_rounded, color: Color(0xFF388E3C), size: 18),
                     const SizedBox(width: 10),
                     Expanded(child: Text(
-                      _vpFoundUser!['name'] as String? ?? 'Unknown',
+                      _vpFoundUser!['name'] as String? ?? l10n.createTripUnknown,
                       style: _inter(size: 13, weight: FontWeight.w600, color: const Color(0xFF1B5E20)),
                     )),
-                    Text('Tap to select', style: _inter(size: 11, color: const Color(0xFF388E3C))),
+                    Text(l10n.createTripTapToSelect, style: _inter(size: 11, color: const Color(0xFF388E3C))),
                     const SizedBox(width: 4),
                     const Icon(Icons.chevron_right_rounded, color: Color(0xFF388E3C), size: 18),
                   ]),
@@ -2022,21 +2034,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
             if (_vpUser != null) ...[
               const SizedBox(height: 10),
               _ReadOnlyField(
-                value: _vpUser!['name'] as String? ?? 'Unknown',
+                value: _vpUser!['name'] as String? ?? l10n.createTripUnknown,
                 icon: Icons.person_outline_rounded,
               ),
               const SizedBox(height: 12),
-              _FieldLabel(key: _keyVpCompany, label: 'Select Provider Company *'),
+              _FieldLabel(key: _keyVpCompany, label: l10n.createTripSelectProviderCompany),
               const SizedBox(height: 6),
               _vpCompaniesLoading
-                  ? const _LoadingChip(label: 'Loading companies…')
+                  ? _LoadingChip(label: l10n.createTripLoadingCompanies)
                   : _vpCompanies.isEmpty
-                      ? Text('No companies — vehicle from personal fleet below',
+                      ? Text(l10n.createTripNoCompanies,
                             style: _inter(size: 12, color: _secondary))
                       : _DropdownField<String>(
                           hasError: _fieldErr['vpCompany'] == true,
                           value: _vpSelectedCompanyId,
-                          hint: 'Select company',
+                          hint: l10n.createTripSelectCompany,
                           items: _vpCompanies.map((c) => DropdownMenuItem<String>(
                             value: c['rr_company_id'] as String,
                             child: Text(c['name'] as String? ?? '', style: _inter(size: 13, color: _onSurface)),
@@ -2057,10 +2069,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                         ),
               _inlineErr('vpCompany'),
               const SizedBox(height: 12),
-              _FieldLabel(key: _keyVehicle, label: 'Select Vehicle *'),
+              _FieldLabel(key: _keyVehicle, label: l10n.createTripSelectVehicle),
               const SizedBox(height: 6),
               _vpVehiclesLoading
-                  ? const _LoadingChip(label: 'Loading vehicles…')
+                  ? _LoadingChip(label: l10n.createTripLoadingVehicles)
                   : () {
                       // Personal + company vehicle lists come from two independent RR
                       // endpoints and can both return the same vehicle (e.g. a vehicle
@@ -2078,25 +2090,25 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                       if (all.isEmpty) {
                         return Text(
                           _vpSelectedCompanyId == null
-                              ? 'Select a company above to load vehicles'
-                              : 'No vehicles found',
+                              ? l10n.createTripSelectCompanyFirst
+                              : l10n.createTripNoVehicles,
                           style: _inter(size: 12, color: _secondary),
                         );
                       }
                       String vehicleLabel(Map<String, dynamic> v) {
-                        final num        = v['number'] as String? ?? 'Unknown';
+                        final num        = v['number'] as String? ?? l10n.createTripUnknown;
                         final btype      = v['body_type'] as String? ?? '';
                         final src        = v['source'] as String? ?? '';
                         final driverName = v['driver_name'] as String? ?? '';
                         final label = btype.isNotEmpty ? '$num · $btype' : num;
-                        final badge = src == 'market_vehicles' ? ' (market)' : '';
+                        final badge = src == 'market_vehicles' ? ' (${l10n.createTripMarketShort})' : '';
                         final driverSuffix = driverName.isNotEmpty ? '  — $driverName' : '';
                         return '$label$badge$driverSuffix';
                       }
                       return _DropdownField<String>(
                         hasError: _fieldErr['vehicle'] == true,
                         value: _vpSelectedVehicleRrId,
-                        hint: 'Select a vehicle',
+                        hint: l10n.createTripSelectVehicleHint,
                         items: all.map((v) {
                           final hasDriver = (v['driver_id'] as String? ?? '').isNotEmpty;
                           return DropdownMenuItem<String>(
@@ -2152,7 +2164,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
             ],
 
             const SizedBox(height: 20),
-            _FieldLabel(key: _keyDriver, label: 'Driver *'),
+            _FieldLabel(key: _keyDriver, label: l10n.createTripDriverLabel),
             if (_vehicleHasNoDriver) ...[
               const SizedBox(height: 6),
               Container(
@@ -2167,7 +2179,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'This vehicle has no driver assigned on RR — search for one below or add a new driver.',
+                      l10n.createTripNoDriverOnRr,
                       style: _inter(size: 12, color: const Color(0xFFE65100)),
                     ),
                   ),
@@ -2176,8 +2188,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
             ],
             const SizedBox(height: 6),
             RrSearchField<Map<String, dynamic>>(
-              label: 'Driver Name or Phone Number',
-              hintText: 'Full 10-digit phone, or part of the name',
+              label: l10n.createTripDriverSearchLabel,
+              hintText: l10n.createTripDriverSearchHint,
               controller: _driverPhoneCtrl,
               keyboardType: TextInputType.text,
               search: (q) async {
@@ -2243,7 +2255,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
             ],
             if (_assigningDriverToVehicle) ...[
               const SizedBox(height: 8),
-              const _LoadingChip(label: 'Attaching driver to vehicle on RR…'),
+              _LoadingChip(label: l10n.createTripAttachingDriver),
             ],
             const SizedBox(height: 8),
             TextButton.icon(
@@ -2271,20 +2283,20 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                 }
               },
               icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-              label: const Text('Add New Driver'),
+              label: Text(l10n.createTripAddNewDriver),
             ),
 
             const SizedBox(height: 20),
-            _SectionHeader(label: 'Vehicle Specs'),
+            _SectionHeader(label: l10n.createTripSectionVehicleSpecs),
             const SizedBox(height: 12),
 
-            _FieldLabel(label: 'Vehicle Body Type'),
+            _FieldLabel(label: l10n.createTripBodyType),
             const SizedBox(height: 6),
             _vehicleBodyTypes.isEmpty
-                ? const _LoadingChip(label: 'Loading body types…')
+                ? _LoadingChip(label: l10n.createTripLoadingBodyTypes)
                 : _DropdownField<String>(
                     value: _vehicleBodyType,
-                    hint: 'Select vehicle body type',
+                    hint: l10n.createTripSelectBodyType,
                     items: _vehicleBodyTypes.map((t) => DropdownMenuItem<String>(
                       value: t,
                       child: Text(t, style: _inter(size: 13, color: _onSurface)),
@@ -2293,27 +2305,27 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                   ),
 
             const SizedBox(height: 10),
-            _FieldLabel(label: 'Axle Type'),
+            _FieldLabel(label: l10n.tripCardLabelAxleType),
             const SizedBox(height: 6),
             _DropdownField<String>(
               value: _axleType,
-              hint: 'Select axle type',
+              hint: l10n.createTripSelectAxle,
               items: _axleTypes.map((t) => DropdownMenuItem<String>(
                 value: t,
-                child: Text(t, style: _inter(size: 13, color: _onSurface)),
+                child: Text(_axleLabel(t), style: _inter(size: 13, color: _onSurface)),
               )).toList(),
               onChanged: (v) => setState(() => _axleType = v),
             ),
 
             const SizedBox(height: 10),
-            _FieldLabel(label: 'Wheels'),
+            _FieldLabel(label: l10n.tripCardLabelWheels),
             const SizedBox(height: 6),
             _DropdownField<int>(
               value: _numberOfWheels,
-              hint: 'Select number of wheels',
+              hint: l10n.createTripSelectWheels,
               items: _wheelOptions.map((w) => DropdownMenuItem<int>(
                 value: w,
-                child: Text('$w wheels', style: _inter(size: 13, color: _onSurface)),
+                child: Text(l10n.createTripWheelsCount(w), style: _inter(size: 13, color: _onSurface)),
               )).toList(),
               onChanged: (v) => setState(() => _numberOfWheels = v),
             ),
@@ -2328,18 +2340,18 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               children: [
 
-            _SectionHeader(label: 'Bidding Amount'),
+            _SectionHeader(label: l10n.createTripSectionBidding),
             const SizedBox(height: 4),
-            Text('Set your offline bid / booking amount to the vehicle provider',
+            Text(l10n.createTripBiddingHint,
                 style: _inter(size: 12, color: _secondary)),
             const SizedBox(height: 20),
 
-            _FieldLabel(key: _keyBookingAmount, label: 'Vehicle Provider Booking Amount (₹) *'),
+            _FieldLabel(key: _keyBookingAmount, label: l10n.createTripBookingAmount),
             const SizedBox(height: 6),
             _TextInput(
               hasError: _fieldErr['bookingAmount'] == true,
               controller: _bookingAmountCtrl,
-              hint: 'e.g. 42000  (offline bid sent to vehicle provider)',
+              hint: l10n.createTripBookingHint,
               inputType: TextInputType.number,
             ),
             _inlineErr('bookingAmount'),
@@ -2562,12 +2574,13 @@ class _WeightRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Row(children: [
       Expanded(
         child: _TextInput(
           hasError: hasError,
           controller: controller,
-          hint: 'e.g. 20',
+          hint: l10n.createTripWeightHint,
           inputType: const TextInputType.numberWithOptions(decimal: true),
         ),
       ),
@@ -2672,6 +2685,7 @@ class _CountedTextInputState extends State<_CountedTextInput> {
   @override
   Widget build(BuildContext context) {
     final count = widget.controller.text.length;
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -2698,7 +2712,7 @@ class _CountedTextInputState extends State<_CountedTextInput> {
         ),
         const SizedBox(height: 3),
         Text(
-          'Max ${widget.maxLength} characters   $count/${widget.maxLength}',
+          l10n.createTripMaxChars(widget.maxLength, count),
           style: _inter(size: 11, color: _secondary),
         ),
       ],
@@ -2784,10 +2798,10 @@ class _StepIndicator extends StatelessWidget {
   final int current;
   const _StepIndicator({required this.current});
 
-  static const _labels = ['Trip Info', 'Vehicle', 'Bidding'];
-
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final labels = [l10n.tripCardTripInfo, l10n.createTripStepVehicle, l10n.createTripStepBidding];
     return Row(
       children: List.generate(3, (i) {
         final done    = i < current;
@@ -2812,7 +2826,7 @@ class _StepIndicator extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(_labels[i], style: _inter(size: 11, weight: FontWeight.w500, color: labelColor)),
+              Text(labels[i], style: _inter(size: 11, weight: FontWeight.w500, color: labelColor)),
             ]),
             if (i < 2)
               Expanded(
@@ -2849,6 +2863,7 @@ class _StepBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).padding.bottom;
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottom),
       decoration: const BoxDecoration(
@@ -2867,7 +2882,7 @@ class _StepBottomBar extends StatelessWidget {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.arrow_back_ios_new_rounded, size: 14, color: _secondary),
               const SizedBox(width: 6),
-              Text('Back', style: _inter(size: 14, weight: FontWeight.w500, color: _secondary)),
+              Text(l10n.commonBack, style: _inter(size: 14, weight: FontWeight.w500, color: _secondary)),
             ]),
           ),
           const SizedBox(width: 12),
@@ -2886,7 +2901,7 @@ class _StepBottomBar extends StatelessWidget {
                       child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : Row(mainAxisSize: MainAxisSize.min, children: [
                       Text(
-                        currentStep < 2 ? 'Next' : 'Create Trip',
+                        currentStep < 2 ? l10n.commonNext : l10n.createTripCreateButton,
                         style: _manrope(size: 15, weight: FontWeight.w700, color: Colors.white),
                       ),
                       if (currentStep < 2) ...[
