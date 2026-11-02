@@ -86,6 +86,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   Widget build(BuildContext context) {
     final settings = ref.watch(settingsProvider);
     final user = ref.watch(authProvider).user;
+    final l10n = AppLocalizations.of(context);
 
     if (settings.isLoading) {
       return const Scaffold(
@@ -110,13 +111,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 _buildSection(
                   icon: Icons.notifications_rounded,
                   color: _primary,
-                  title: 'Notifications',
+                  title: l10n.settingsNotifications,
                   children: [
                     _SettingSwitch(
                       icon: Icons.notifications_active_rounded,
                       iconColor: _primary,
-                      title: 'Push Notifications',
-                      subtitle: 'Receive important app alerts',
+                      title: l10n.settingsPushNotifications,
+                      subtitle: l10n.settingsPushNotificationsDesc,
                       value: settings.settings.notificationsEnabled,
                       onChanged: (v) => ref
                           .read(settingsProvider.notifier)
@@ -127,8 +128,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       _SettingSwitch(
                         icon: Icons.local_shipping_rounded,
                         iconColor: const Color(0xFF6366F1),
-                        title: 'Trip Updates',
-                        subtitle: 'Trip status changes',
+                        title: l10n.settingsTripUpdates,
+                        subtitle: l10n.settingsTripUpdatesDesc,
                         value: settings.settings.tripNotifications,
                         onChanged: (v) => ref
                             .read(settingsProvider.notifier)
@@ -139,8 +140,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       _SettingSwitch(
                         icon: Icons.person_rounded,
                         iconColor: const Color(0xFF06B6D4),
-                        title: 'Driver Updates',
-                        subtitle: 'Driver assignment alerts',
+                        title: l10n.settingsDriverUpdates,
+                        subtitle: l10n.settingsDriverUpdatesDesc,
                         value: settings.settings.driverNotifications,
                         onChanged: (v) => ref
                             .read(settingsProvider.notifier)
@@ -151,8 +152,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       _SettingSwitch(
                         icon: Icons.directions_car_rounded,
                         iconColor: const Color(0xFF10B981),
-                        title: 'Vehicle Alerts',
-                        subtitle: 'Maintenance & status alerts',
+                        title: l10n.settingsVehicleAlerts,
+                        subtitle: l10n.settingsVehicleAlertsDesc,
                         value: settings.settings.vehicleNotifications,
                         onChanged: (v) => ref
                             .read(settingsProvider.notifier)
@@ -172,7 +173,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 _buildSection(
                   icon: Icons.location_on_rounded,
                   color: const Color(0xFF10B981),
-                  title: 'Location & Tracking',
+                  title: l10n.settingsLocationTracking,
                   children: [
                     _buildTrackingContent(settings),
                   ],
@@ -187,7 +188,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 _buildSection(
                   icon: Icons.palette_rounded,
                   color: const Color(0xFF6366F1),
-                  title: 'Display',
+                  title: l10n.settingsDisplay,
                   children: [
                     _SettingTile(
                       icon: Icons.language_rounded,
@@ -209,8 +210,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     _SettingSwitch(
                       icon: Icons.view_compact_rounded,
                       iconColor: const Color(0xFF6366F1),
-                      title: 'Compact View',
-                      subtitle: 'Show more items on screen',
+                      title: l10n.settingsCompactView,
+                      subtitle: l10n.settingsCompactViewDesc,
                       value: settings.settings.compactView,
                       onChanged: (v) => ref
                           .read(settingsProvider.notifier)
@@ -228,13 +229,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 _buildSection(
                   icon: Icons.storage_rounded,
                   color: const Color(0xFF06B6D4),
-                  title: 'Data & Storage',
+                  title: l10n.settingsDataStorage,
                   children: [
                     _SettingSwitch(
                       icon: Icons.sync_rounded,
                       iconColor: const Color(0xFF06B6D4),
-                      title: 'Auto-sync Data',
-                      subtitle: 'Sync automatically when online',
+                      title: l10n.settingsAutoSync,
+                      subtitle: l10n.settingsAutoSyncDesc,
                       value: settings.settings.autoSync,
                       onChanged: (v) => ref
                           .read(settingsProvider.notifier)
@@ -244,8 +245,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     _SettingSwitch(
                       icon: Icons.cloud_off_rounded,
                       iconColor: const Color(0xFF64748B),
-                      title: 'Offline Mode',
-                      subtitle: 'Cache data for offline access',
+                      title: l10n.settingsOfflineMode,
+                      subtitle: l10n.settingsOfflineModeDesc,
                       value: settings.settings.offlineMode,
                       onChanged: (v) => ref
                           .read(settingsProvider.notifier)
@@ -255,8 +256,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     _SettingTile(
                       icon: Icons.delete_sweep_rounded,
                       iconColor: const Color(0xFFEF4444),
-                      title: 'Clear Cache',
-                      subtitle: 'Free up device storage space',
+                      title: l10n.settingsClearCache,
+                      subtitle: l10n.settingsClearCacheDesc,
                       showArrow: true,
                       onTap: () => _showClearCacheDialog(context),
                     ),
@@ -272,13 +273,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 _buildSection(
                   icon: Icons.shield_rounded,
                   color: const Color(0xFFF59E0B),
-                  title: 'Privacy & Security',
+                  title: l10n.settingsPrivacySecurity,
                   children: [
                     _SettingSwitch(
                       icon: Icons.fingerprint_rounded,
                       iconColor: const Color(0xFFF59E0B),
-                      title: 'Biometric Lock',
-                      subtitle: 'Fingerprint or Face ID to unlock',
+                      title: l10n.settingsBiometricLock,
+                      subtitle: l10n.settingsBiometricLockDesc,
                       value: settings.settings.biometricLock,
                       onChanged: (v) => ref
                           .read(settingsProvider.notifier)
@@ -288,8 +289,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     _SettingSwitch(
                       icon: Icons.bar_chart_rounded,
                       iconColor: const Color(0xFF6366F1),
-                      title: 'Share Analytics',
-                      subtitle: 'Help improve the app anonymously',
+                      title: l10n.settingsShareAnalytics,
+                      subtitle: l10n.settingsShareAnalyticsDesc,
                       value: settings.settings.shareAnalytics,
                       onChanged: (v) => ref
                           .read(settingsProvider.notifier)
@@ -307,12 +308,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 _buildSection(
                   icon: Icons.info_rounded,
                   color: const Color(0xFF64748B),
-                  title: 'About',
+                  title: l10n.settingsAbout,
                   children: [
                     _SettingTile(
                       icon: Icons.verified_rounded,
                       iconColor: const Color(0xFF10B981),
-                      title: 'App Version',
+                      title: l10n.settingsAppVersion,
                       subtitle: '1.0.0 (Build 100)',
                       trailing: Container(
                         padding: const EdgeInsets.symmetric(
@@ -321,7 +322,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                           color: const Color(0xFFDCFCE7),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Text('Up to date',
+                        child: Text(l10n.settingsUpToDate,
                             style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
@@ -332,30 +333,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     _SettingTile(
                       icon: Icons.description_rounded,
                       iconColor: const Color(0xFF6366F1),
-                      title: 'Terms of Service',
+                      title: l10n.settingsTermsOfService,
                       showArrow: true,
                       onTap: () =>
                           ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                            content: Text('Terms of Service')),
+                        SnackBar(
+                            content: Text(l10n.settingsTermsOfService)),
                       ),
                     ),
                     _div(),
                     _SettingTile(
                       icon: Icons.privacy_tip_rounded,
                       iconColor: const Color(0xFF06B6D4),
-                      title: 'Privacy Policy',
+                      title: l10n.settingsPrivacyPolicy,
                       showArrow: true,
                       onTap: () =>
                           ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Privacy Policy')),
+                        SnackBar(content: Text(l10n.settingsPrivacyPolicy)),
                       ),
                     ),
                     _div(),
                     _SettingTile(
                       icon: Icons.help_rounded,
                       iconColor: _primary,
-                      title: 'Help & Support',
+                      title: l10n.settingsHelpSupport,
                       showArrow: true,
                       onTap: () => context.push('/help'),
                     ),
@@ -378,6 +379,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   // ─── Header ───────────────────────────────────────────────────────────────────
 
   Widget _buildHeader() {
+    final l10n = AppLocalizations.of(context);
     return _a(
       _fadeHdr,
       _slideHdr,
@@ -408,15 +410,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     color: Colors.white, size: 22),
               ),
               const SizedBox(width: 12),
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Settings',
+                  Text(l10n.settingsTitle,
                       style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                           letterSpacing: -0.3)),
-                  Text('Preferences & Configuration',
+                  Text(l10n.settingsSubtitle,
                       style: TextStyle(
                           fontSize: 12, color: Color(0xFF64748B))),
                 ],
@@ -431,7 +433,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   // ─── Profile card ─────────────────────────────────────────────────────────────
 
   Widget _buildProfileCard(dynamic user) {
-    final name = (user?.fullName as String?) ?? 'Fleet Manager';
+    final l10n = AppLocalizations.of(context);
+    final name = (user?.fullName as String?) ?? l10n.settingsDefaultName;
     final email = (user?.email as String?) ?? '';
     final role = (user?.role as String?) ?? 'Admin';
     final company = (user?.companyName as String?) ?? '';
@@ -498,7 +501,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                         color: _primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text(_capitalize(role),
+                      child: Text(_roleLabel(l10n, role),
                           style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
@@ -535,7 +538,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                   Icon(Icons.edit_rounded,
                       size: 13, color: Colors.grey.shade600),
                   const SizedBox(width: 4),
-                  Text('Edit',
+                  Text(l10n.commonEdit,
                       style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey.shade600,
@@ -603,6 +606,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   Widget _buildTrackingContent(dynamic settingsState) {
     final trackingState = ref.watch(locationTrackingProvider);
     final isAdminEnabled = trackingState.trackingEnabled == true;
+    final l10n = AppLocalizations.of(context);
 
     return Column(
       children: [
@@ -643,8 +647,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 Expanded(
                   child: Text(
                     isAdminEnabled
-                        ? 'GPS tracking enabled by administrator'
-                        : 'GPS tracking disabled — contact administrator',
+                        ? l10n.settingsTrackingAdminOn
+                        : l10n.settingsTrackingAdminOff,
                     style: TextStyle(
                         fontSize: 12,
                         color: isAdminEnabled
@@ -673,7 +677,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                       shape: BoxShape.circle),
                 ),
                 const SizedBox(width: 8),
-                const Text('Currently tracking location',
+                Text(l10n.settingsCurrentlyTracking,
                     style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
@@ -694,10 +698,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         _SettingSwitch(
           icon: Icons.location_on_rounded,
           iconColor: const Color(0xFF10B981),
-          title: 'GPS Tracking',
+          title: l10n.settingsGpsTracking,
           subtitle: isAdminEnabled
-              ? 'Enable location tracking for real-time updates'
-              : 'Contact administrator to enable tracking',
+              ? l10n.settingsGpsTrackingDescOn
+              : l10n.settingsGpsTrackingDescOff,
           value: settingsState.settings.gpsTrackingEnabled &&
               isAdminEnabled,
           onChanged: isAdminEnabled
@@ -725,8 +729,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           _SettingSwitch(
             icon: Icons.gps_fixed_rounded,
             iconColor: const Color(0xFF06B6D4),
-            title: 'Background Tracking',
-            subtitle: 'Continue tracking when app is in background',
+            title: l10n.settingsBackgroundTracking,
+            subtitle: l10n.settingsBackgroundTrackingDesc,
             value: settingsState.settings.backgroundTracking,
             onChanged: (v) => ref
                 .read(settingsProvider.notifier)
@@ -748,8 +752,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
           _SettingTile(
             icon: Icons.map_rounded,
             iconColor: const Color(0xFF6366F1),
-            title: 'View Live Tracking',
-            subtitle: 'See your current location on map',
+            title: l10n.settingsViewLiveTracking,
+            subtitle: l10n.settingsViewLiveTrackingDesc,
             showArrow: true,
             indented: true,
             onTap: () => context.push('/tracking/live'),
@@ -784,7 +788,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Location permission: ${trackingState.permissionStatus!.displayName}',
+                    l10n.settingsLocationPermission(_permissionLabel(l10n, trackingState.permissionStatus!)),
                     style: const TextStyle(fontSize: 12),
                   ),
                 ),
@@ -793,7 +797,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     onTap: () => ref
                         .read(locationTrackingProvider.notifier)
                         .requestPermission(),
-                    child: const Text('Grant',
+                    child: Text(l10n.settingsGrant,
                         style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -836,17 +840,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   // ─── Danger zone ──────────────────────────────────────────────────────────────
 
   Widget _buildDangerZone(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 2, bottom: 9),
+        Padding(
+          padding: const EdgeInsets.only(left: 2, bottom: 9),
           child: Row(
             children: [
-              Icon(Icons.warning_rounded,
+              const Icon(Icons.warning_rounded,
                   size: 13, color: Color(0xFFEF4444)),
-              SizedBox(width: 7),
-              Text('DANGER ZONE',
+              const SizedBox(width: 7),
+              Text(l10n.settingsDangerZone,
                   style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
@@ -871,8 +876,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               _SettingTile(
                 icon: Icons.restart_alt_rounded,
                 iconColor: const Color(0xFFEF4444),
-                title: 'Reset to Default Settings',
-                subtitle: 'Restore all settings to factory defaults',
+                title: l10n.settingsResetDefaults,
+                subtitle: l10n.settingsResetDefaultsDesc,
                 showArrow: true,
                 onTap: () => _showResetDialog(context),
               ),
@@ -880,8 +885,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
               _SettingTile(
                 icon: Icons.logout_rounded,
                 iconColor: const Color(0xFFEF4444),
-                title: 'Sign Out',
-                subtitle: 'Sign out of your account',
+                title: l10n.settingsSignOut,
+                subtitle: l10n.settingsSignOutDesc,
                 showArrow: true,
                 onTap: () {
                   // TODO: sign out
@@ -904,34 +909,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
     return s[0].toUpperCase() + s.substring(1).replaceAll('_', ' ');
   }
 
+  String _roleLabel(AppLocalizations l10n, String role) => switch (role) {
+        'logistic_partner' => l10n.roleLogisticPartner,
+        'load_owner' => l10n.roleLoadOwner,
+        'driver' => l10n.roleDriver,
+        'logistic_partner_worker' => l10n.roleFieldExecutive,
+        'lp_rr_operations' => l10n.roleRrOperations,
+        'independent_user' => l10n.roleIndependentUser,
+        _ => _capitalize(role),
+      };
+
+  String _permissionLabel(AppLocalizations l10n, LocationPermissionStatus s) =>
+      switch (s) {
+        LocationPermissionStatus.denied => l10n.settingsPermDenied,
+        LocationPermissionStatus.deniedForever => l10n.settingsPermDeniedForever,
+        LocationPermissionStatus.whileInUse => l10n.settingsPermWhileInUse,
+        LocationPermissionStatus.always => l10n.settingsPermAlways,
+        LocationPermissionStatus.serviceDisabled => l10n.settingsPermServiceDisabled,
+      };
+
   String _formatTime(DateTime time) {
+    final l10n = AppLocalizations.of(context);
     final diff = DateTime.now().difference(time);
-    if (diff.inSeconds < 60) return '${diff.inSeconds}s ago';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inSeconds < 60) return l10n.settingsSecondsAgo(diff.inSeconds);
+    if (diff.inMinutes < 60) return l10n.settingsMinutesAgo(diff.inMinutes);
     return '${time.hour}:${time.minute.toString().padLeft(2, '0')}';
   }
 
   // ─── Dialogs ──────────────────────────────────────────────────────────────────
 
   void _showClearCacheDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (_) => _ActionDialog(
         icon: Icons.delete_sweep_rounded,
         iconColor: const Color(0xFFEF4444),
-        title: 'Clear Cache',
-        message:
-            'This will clear all cached data and free up storage space. Your account data will not be affected.',
-        confirmLabel: 'Clear Cache',
+        title: l10n.settingsClearCache,
+        message: l10n.settingsClearCacheMessage,
+        confirmLabel: l10n.settingsClearCache,
         confirmColor: const Color(0xFFEF4444),
         onConfirm: () async {
           await ref.read(settingsProvider.notifier).clearCache();
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: const Row(children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('Cache cleared successfully'),
+              content: Row(children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Text(l10n.settingsCacheCleared),
               ]),
               backgroundColor: AppTheme.successColor,
             ));
@@ -942,24 +967,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
   }
 
   void _showResetDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (_) => _ActionDialog(
         icon: Icons.restart_alt_rounded,
         iconColor: const Color(0xFFEF4444),
-        title: 'Reset Settings',
-        message:
-            'This will reset all settings to their default values. Are you sure you want to continue?',
-        confirmLabel: 'Reset',
+        title: l10n.settingsResetTitle,
+        message: l10n.settingsResetMessage,
+        confirmLabel: l10n.settingsResetConfirm,
         confirmColor: const Color(0xFFEF4444),
         onConfirm: () async {
           await ref.read(settingsProvider.notifier).resetToDefaults();
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: const Row(children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('Settings reset to defaults'),
+              content: Row(children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Text(l10n.settingsResetDone),
               ]),
               backgroundColor: AppTheme.successColor,
             ));
@@ -1162,14 +1187,15 @@ class _ThemeSelector extends StatelessWidget {
 
   const _ThemeSelector({required this.value, required this.onChanged});
 
-  static const _options = [
-    ('system', 'System', Icons.brightness_auto_rounded),
-    ('light', 'Light', Icons.wb_sunny_rounded),
-    ('dark', 'Dark', Icons.nightlight_round),
-  ];
+  List<(String, String, IconData)> _options(AppLocalizations l10n) => [
+        ('system', l10n.settingsThemeSystem, Icons.brightness_auto_rounded),
+        ('light', l10n.settingsThemeLight, Icons.wb_sunny_rounded),
+        ('dark', l10n.settingsThemeDark, Icons.nightlight_round),
+      ];
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Column(
@@ -1188,13 +1214,13 @@ class _ThemeSelector extends StatelessWidget {
                     color: Color(0xFF6366F1), size: 18),
               ),
               const SizedBox(width: 12),
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Theme',
+                  Text(l10n.settingsTheme,
                       style: TextStyle(
                           fontSize: 14, fontWeight: FontWeight.w600)),
-                  Text('Choose app appearance',
+                  Text(l10n.settingsThemeDesc,
                       style: TextStyle(
                           fontSize: 11, color: Color(0xFF94A3B8))),
                 ],
@@ -1203,7 +1229,7 @@ class _ThemeSelector extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Row(
-            children: _options.map((opt) {
+            children: _options(l10n).map((opt) {
               final (key, label, icon) = opt;
               final sel = value == key;
               return Expanded(
@@ -1271,15 +1297,16 @@ class _UpdateFrequencySelector extends StatelessWidget {
   const _UpdateFrequencySelector(
       {required this.value, required this.onChanged});
 
-  static const _options = [
-    (15, '15s', 'High'),
-    (30, '30s', 'Balanced'),
-    (60, '1m', 'Battery'),
-    (120, '2m', 'Low'),
-  ];
+  List<(int, String, String)> _options(AppLocalizations l10n) => [
+        (15, '15s', l10n.settingsFreqHigh),
+        (30, '30s', l10n.settingsFreqBalanced),
+        (60, '1m', l10n.settingsFreqBattery),
+        (120, '2m', l10n.settingsFreqLow),
+      ];
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(32, 10, 16, 10),
       child: Column(
@@ -1298,13 +1325,13 @@ class _UpdateFrequencySelector extends StatelessWidget {
                     color: Color(0xFF06B6D4), size: 18),
               ),
               const SizedBox(width: 12),
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Update Frequency',
+                  Text(l10n.settingsUpdateFrequency,
                       style: TextStyle(
                           fontSize: 13, fontWeight: FontWeight.w600)),
-                  Text('How often to update location',
+                  Text(l10n.settingsUpdateFrequencyDesc,
                       style: TextStyle(
                           fontSize: 11, color: Color(0xFF94A3B8))),
                 ],
@@ -1313,7 +1340,7 @@ class _UpdateFrequencySelector extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Row(
-            children: _options.map((opt) {
+            children: _options(l10n).map((opt) {
               final (secs, label, desc) = opt;
               final sel = value == secs;
               return Expanded(
@@ -1428,7 +1455,7 @@ class _ActionDialog extends StatelessWidget {
             padding:
                 const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           ),
-          child: const Text('Cancel'),
+          child: Text(AppLocalizations.of(context).commonCancel),
         ),
         FilledButton(
           onPressed: () {

@@ -10,6 +10,7 @@ import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
 import 'package:fleet_management/core/config/app_config.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -69,8 +70,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
+    final l10n = AppLocalizations.of(context);
     if (_fullNameController.text.trim().isEmpty) {
-      _showError('Full name is required');
+      _showError(l10n.profileFullNameRequired);
       return;
     }
 
@@ -85,7 +87,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         if (mounted) {
           setState(() => _isSaving = false);
           final error = ref.read(profileProvider).error;
-          _showError(error ?? 'Failed to upload profile picture');
+          _showError(error ?? l10n.profileUploadPictureFailed);
         }
         return;
       }
@@ -102,10 +104,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(children: [
-              Icon(Icons.check_circle_rounded, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Profile updated successfully!'),
+            content: Row(children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white),
+              const SizedBox(width: 12),
+              Text(l10n.profileUpdated),
             ]),
             backgroundColor: AppTheme.successColor,
             behavior: SnackBarBehavior.floating,
@@ -117,7 +119,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         _toggleEditMode();
       } else {
         final error = ref.read(profileProvider).error;
-        _showError(error ?? 'Failed to update profile');
+        _showError(error ?? l10n.profileUpdateFailed);
       }
     }
   }
@@ -125,6 +127,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   /// Picks a picture and stages it locally — it is only actually uploaded
   /// when the user taps Save (see _saveProfile), same as editing the name.
   Future<void> _pickProfilePicture() async {
+    final l10n = AppLocalizations.of(context);
     XFile? image;
     try {
       image = await _imagePicker.pickImage(
@@ -134,7 +137,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         imageQuality: 85,
       );
     } catch (e) {
-      if (mounted) _showError('Error selecting image: $e');
+      if (mounted) _showError(l10n.profileImageSelectError(e.toString()));
       return;
     }
 
@@ -154,26 +157,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isUploadingPicture = false);
-        _showError('Error reading image: $e');
+        _showError(l10n.profileImageReadError(e.toString()));
       }
     }
   }
 
   Future<void> _confirmRemoveProfilePicture() async {
+    final l10n = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove Profile Picture'),
-        content: const Text('Are you sure you want to remove your profile picture?'),
+        title: Text(l10n.profileRemovePictureTitle),
+        content: Text(l10n.profileRemovePictureMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.errorColor),
-            child: const Text('Remove'),
+            child: Text(l10n.profileRemove),
           ),
         ],
       ),
@@ -191,7 +195,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ref.read(authProvider.notifier).loadUserProfile();
       } else {
         final error = ref.read(profileProvider).error;
-        _showError(error ?? 'Failed to remove profile picture');
+        _showError(error ?? l10n.profileRemovePictureFailed);
       }
     }
   }
@@ -216,10 +220,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final authState = ref.watch(authProvider);
     final profileState = ref.watch(profileProvider);
     final user = authState.user;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Profile'),
+        title: Text(l10n.profileTitle),
         centerTitle: true,
         actions: [
           AnimatedSwitcher(
@@ -233,7 +238,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     children: [
                       _ProfileAppBarPillButton(
                         icon: Icons.close_rounded,
-                        tooltip: 'Cancel',
+                        tooltip: l10n.commonCancel,
                         color: AppTheme.primaryBlue,
                         onPressed: _isSaving ? null : _toggleEditMode,
                       ),
@@ -242,7 +247,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         padding: const EdgeInsets.only(right: 16),
                         child: _ProfileAppBarPillButton(
                           icon: Icons.check_rounded,
-                          label: 'Save',
+                          label: l10n.commonSave,
                           filled: true,
                           isLoading: _isSaving,
                           color: _rrWebBlue,
@@ -256,7 +261,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: _ProfileAppBarPillButton(
                       key: const ValueKey('view-action'),
                       icon: Icons.edit_outlined,
-                      tooltip: 'Edit Profile',
+                      tooltip: l10n.profileEditTooltip,
                       onPressed: _toggleEditMode,
                     ),
                   ),
@@ -342,6 +347,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildProfileHero(user, profileState) {
+    final l10n = AppLocalizations.of(context);
     final isActive = user?.status == 'active';
     final _raw = (user?.username ?? 'U').toUpperCase();
     final initials = _raw.length >= 2 ? _raw.substring(0, 2) : _raw;
@@ -494,10 +500,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 _pendingPictureBytes != null
-                    ? 'New photo selected · tap Save to apply'
+                    ? l10n.profileNewPhotoSelected
                     : pictureUrl != null
-                        ? 'Tap to change photo · long-press to remove'
-                        : 'Tap to add a photo',
+                        ? l10n.profilePhotoChangeHint
+                        : l10n.profilePhotoAddHint,
                 style: TextStyle(
                   fontSize: 11,
                   color: Colors.white.withOpacity(0.75),
@@ -512,7 +518,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             delay: 180,
             beginOffset: const Offset(0, 0.25),
             child: Text(
-              profileState.profileData?['full_name'] ?? user?.fullName ?? 'User',
+              profileState.profileData?['full_name'] ?? user?.fullName ?? l10n.profileDefaultUser,
               style: const TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -565,7 +571,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   const SizedBox(width: 7),
                   Text(
-                    profileState.profileData?['role'] ?? user?.role ?? 'No Role',
+                    profileState.profileData?['role'] ?? user?.role ?? l10n.profileNoRole,
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 13,
@@ -586,6 +592,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildEditBanner() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       key: const ValueKey('edit-banner'),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -608,7 +615,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Edit mode — tap ✓ in the toolbar to save changes',
+              l10n.profileEditBanner,
               style: TextStyle(
                 color: Colors.orange.shade900,
                 fontSize: 13,
@@ -626,9 +633,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // ─────────────────────────────────────────────────────────────────────────
 
   Widget _buildPersonalInfoCard(user, profileState) {
+    final l10n = AppLocalizations.of(context);
     return _buildSectionCard(
       icon: Icons.person_rounded,
-      title: 'Personal Information',
+      title: l10n.profilePersonalInfo,
       color: AppTheme.primaryBlue,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 280),
@@ -652,33 +660,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildViewFields(user, profileState) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       key: const ValueKey('view-fields'),
       children: [
-        _buildInfoTile(Icons.badge_rounded, 'Full Name',
-            profileState.profileData?['full_name'] ?? user?.fullName ?? 'N/A'),
+        _buildInfoTile(Icons.badge_rounded, l10n.profileFullName,
+            profileState.profileData?['full_name'] ?? user?.fullName ?? l10n.profileNotAvailable),
         _buildDivider(),
-        _buildInfoTile(Icons.alternate_email_rounded, 'Username',
-            user?.username ?? 'N/A'),
+        _buildInfoTile(Icons.alternate_email_rounded, l10n.profileUsername,
+            user?.username ?? l10n.profileNotAvailable),
         _buildDivider(),
-        _buildInfoTile(Icons.email_rounded, 'Email',
-            profileState.profileData?['email'] ?? user?.email ?? 'N/A'),
+        _buildInfoTile(Icons.email_rounded, l10n.profileEmail,
+            profileState.profileData?['email'] ?? user?.email ?? l10n.profileNotAvailable),
         _buildDivider(),
-        _buildInfoTile(Icons.phone_rounded, 'Phone',
-            profileState.profileData?['phone'] ?? user?.phone ?? 'N/A'),
+        _buildInfoTile(Icons.phone_rounded, l10n.profilePhone,
+            profileState.profileData?['phone'] ?? user?.phone ?? l10n.profileNotAvailable),
       ],
     );
   }
 
   Widget _buildEditFields(user, profileState) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       key: const ValueKey('edit-fields'),
       children: [
         TextField(
           controller: _fullNameController,
-          decoration: const InputDecoration(
-            labelText: 'Full Name',
-            prefixIcon: Icon(Icons.badge_rounded),
+          decoration: InputDecoration(
+            labelText: l10n.profileFullName,
+            prefixIcon: const Icon(Icons.badge_rounded),
           ),
           textInputAction: TextInputAction.done,
           onSubmitted: (_) => _saveProfile(),
@@ -688,19 +698,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         // account-recovery credentials, and changing them without
         // re-verifying ownership (OTP / confirmation link) is a real
         // account-takeover risk. Shown read-only for context while editing.
-        _buildInfoTile(Icons.email_rounded, 'Email',
-            profileState.profileData?['email'] ?? user?.email ?? 'N/A'),
+        _buildInfoTile(Icons.email_rounded, l10n.profileEmail,
+            profileState.profileData?['email'] ?? user?.email ?? l10n.profileNotAvailable),
         _buildDivider(),
-        _buildInfoTile(Icons.phone_rounded, 'Phone',
-            profileState.profileData?['phone'] ?? user?.phone ?? 'N/A'),
+        _buildInfoTile(Icons.phone_rounded, l10n.profilePhone,
+            profileState.profileData?['phone'] ?? user?.phone ?? l10n.profileNotAvailable),
       ],
     );
   }
 
   Widget _buildRoleCard(user, profileState) {
+    final l10n = AppLocalizations.of(context);
     return _buildSectionCard(
       icon: Icons.shield_rounded,
-      title: 'Role & Organization',
+      title: l10n.profileRoleOrg,
       color: AppTheme.accentIndigo,
       trailing:
           (profileState.profileData?['role_type'] == 'independent' ||
@@ -709,7 +720,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ? TextButton.icon(
               onPressed: _showChangeRoleDialog,
               icon: const Icon(Icons.swap_horiz_rounded, size: 16),
-              label: const Text('Change'),
+              label: Text(l10n.profileChange),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 textStyle:
@@ -719,16 +730,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           : null,
       child: Column(
         children: [
-          _buildInfoTile(Icons.badge_outlined, 'Role',
-              profileState.profileData?['role'] ?? user?.role ?? 'Not assigned'),
+          _buildInfoTile(Icons.badge_outlined, l10n.profileRole,
+              profileState.profileData?['role'] ?? user?.role ?? l10n.profileNotAssigned),
           _buildDivider(),
-          _buildInfoTile(Icons.business_rounded, 'Company',
-              profileState.profileData?['company_name'] ?? user?.companyName ?? 'None'),
+          _buildInfoTile(Icons.business_rounded, l10n.profileCompany,
+              profileState.profileData?['company_name'] ?? user?.companyName ?? l10n.profileNone),
           _buildDivider(),
           _buildInfoTile(
             Icons.verified_user_rounded,
-            'Profile Status',
-            profileState.profileCompleted ? 'Completed' : 'Incomplete',
+            l10n.profileStatus,
+            profileState.profileCompleted ? l10n.profileStatusCompleted : l10n.profileStatusIncomplete,
             valueColor:
                 profileState.profileCompleted ? AppTheme.statusActive : AppTheme.statusWarning,
             chip: true,
@@ -740,13 +751,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               !_isEditMode) ...[
             const SizedBox(height: 16),
             _buildRoleChangeOptions(
-              headerText: 'As an Independent User, you can:',
+              headerText: l10n.profileIndependentOptions,
               buttons: [
-                _buildRoleChangeButton('Join Organization', Icons.business,
+                _buildRoleChangeButton(l10n.profileJoinOrganization, Icons.business,
                     () => _showJoinOrganizationDialog()),
-                _buildRoleChangeButton('Create Organization', Icons.add_business,
+                _buildRoleChangeButton(l10n.profileCreateOrganization, Icons.add_business,
                     () => context.push('/organizations/create')),
-                _buildRoleChangeButton('Become Driver', Icons.local_shipping,
+                _buildRoleChangeButton(l10n.profileBecomeDriver, Icons.local_shipping,
                     () => _showBecomeDriverDialog()),
               ],
             ),
@@ -755,14 +766,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               !_isEditMode) ...[
             const SizedBox(height: 16),
             _buildRoleChangeOptions(
-              headerText: 'Your request is pending approval. You can:',
+              headerText: l10n.profilePendingOptions,
               headerColor: Colors.orange,
               buttons: [
-                _buildRoleChangeButton('Change Organization', Icons.swap_horiz,
+                _buildRoleChangeButton(l10n.profileChangeOrganization, Icons.swap_horiz,
                     () => _showJoinOrganizationDialog()),
-                _buildRoleChangeButton('Create Organization', Icons.add_business,
+                _buildRoleChangeButton(l10n.profileCreateOrganization, Icons.add_business,
                     () => context.push('/organizations/create')),
-                _buildRoleChangeButton('Go Independent', Icons.person_outline,
+                _buildRoleChangeButton(l10n.profileGoIndependent, Icons.person_outline,
                     () => _confirmGoIndependent()),
               ],
             ),
@@ -781,7 +792,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Your role is managed by your organization.',
+                      l10n.profileRoleManaged,
                       style: TextStyle(color: Colors.blue.shade800, fontSize: 13),
                     ),
                   ),
@@ -795,22 +806,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildAccountCard(user) {
+    final l10n = AppLocalizations.of(context);
     return _buildSectionCard(
       icon: Icons.security_rounded,
-      title: 'Account Status',
+      title: l10n.profileAccountStatus,
       color: AppTheme.accentCyan,
       child: Column(
         children: [
           _buildInfoTile(
             Icons.lock_rounded,
-            'Auth Method',
-            user?.authMethod == 'email' ? 'Email & Password' : 'Security Questions',
+            l10n.profileAuthMethod,
+            user?.authMethod == 'email' ? l10n.profileAuthEmailPassword : l10n.profileAuthSecurityQuestions,
           ),
           _buildDivider(),
           _buildInfoTile(
             Icons.circle_rounded,
-            'Status',
-            user?.status ?? 'Unknown',
+            l10n.profileStatusLabel,
+            user?.status ?? l10n.profileUnknown,
             valueColor:
                 user?.status == 'active' ? AppTheme.statusActive : AppTheme.statusWarning,
             chip: true,
@@ -828,7 +840,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 child: const Icon(Icons.password_rounded,
                     size: 16, color: AppTheme.textSecondary),
               ),
-              title: const Text('Change Password'),
+              title: Text(l10n.profileChangePassword),
               trailing: const Icon(Icons.chevron_right_rounded),
               onTap: () => context.push('/profile/change-password'),
             ),
@@ -1115,17 +1127,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // ─────────────────────────────────────────────────────────────────────────
 
   void _confirmGoIndependent() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Pending Request?'),
-        content: const Text(
-          'This will cancel your pending organization request and return you to Independent User status. You can join or create an organization again at any time.',
-        ),
+        title: Text(l10n.profileCancelPendingTitle),
+        content: Text(l10n.profileCancelPendingMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Keep Pending'),
+            child: Text(l10n.profileKeepPending),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.orange),
@@ -1138,10 +1149,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Row(children: [
-                        Icon(Icons.check_circle, color: Colors.white),
-                        SizedBox(width: 12),
-                        Text('You are now an Independent User.'),
+                      content: Row(children: [
+                        const Icon(Icons.check_circle, color: Colors.white),
+                        const SizedBox(width: 12),
+                        Text(l10n.profileNowIndependent),
                       ]),
                       backgroundColor: AppTheme.successColor,
                       behavior: SnackBarBehavior.floating,
@@ -1155,7 +1166,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   final error = ref.read(profileProvider).error;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(error ?? 'Failed to update role'),
+                      content: Text(error ?? l10n.profileRoleUpdateFailed),
                       backgroundColor: AppTheme.errorColor,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
@@ -1165,7 +1176,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 }
               }
             },
-            child: const Text('Go Independent'),
+            child: Text(l10n.profileGoIndependent),
           ),
         ],
       ),
@@ -1173,19 +1184,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _showChangeRoleDialog() {
+    final l10n = AppLocalizations.of(context);
     final isPending =
         ref.read(profileProvider).profileData?['role_type'] == 'pending_user';
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Change Role'),
+        title: Text(l10n.profileChangeRoleTitle),
         content: Text(isPending
-            ? 'Your request is pending. What would you like to do?'
-            : 'Choose how you want to change your role:'),
+            ? l10n.profileChangeRolePending
+            : l10n.profileChangeRoleChoose),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           if (!isPending)
             TextButton(
@@ -1193,21 +1205,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Navigator.pop(ctx);
                 _showBecomeDriverDialog();
               },
-              child: const Text('Become Driver'),
+              child: Text(l10n.profileBecomeDriver),
             ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               _showJoinOrganizationDialog();
             },
-            child: Text(isPending ? 'Change Organization' : 'Join Organization'),
+            child: Text(isPending ? l10n.profileChangeOrganization : l10n.profileJoinOrganization),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               context.push('/organizations/create');
             },
-            child: const Text('Create Organization'),
+            child: Text(l10n.profileCreateOrganization),
           ),
           if (isPending)
             TextButton(
@@ -1215,8 +1227,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 Navigator.pop(ctx);
                 _confirmGoIndependent();
               },
-              child: const Text('Go Independent',
-                  style: TextStyle(color: Colors.orange)),
+              child: Text(l10n.profileGoIndependent,
+                  style: const TextStyle(color: Colors.orange)),
             ),
         ],
       ),
@@ -1236,7 +1248,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     {'key': 'viewer_analyst', 'label': 'Viewer / Analyst'},
   ];
 
+  String _predefinedRoleLabel(AppLocalizations l10n, String key) => switch (key) {
+        'fleet_manager' => l10n.profileRoleFleetManager,
+        'dispatcher' => l10n.profileRoleDispatcher,
+        'driver' => l10n.roleDriver,
+        'accountant' => l10n.profileRoleAccountant,
+        'maintenance_manager' => l10n.profileRoleMaintenanceManager,
+        'compliance_officer' => l10n.profileRoleComplianceOfficer,
+        'operations_manager' => l10n.profileRoleOperationsManager,
+        'maintenance_technician' => l10n.profileRoleMaintenanceTechnician,
+        'customer_service' => l10n.profileRoleCustomerService,
+        'viewer_analyst' => l10n.profileRoleViewerAnalyst,
+        _ => key,
+      };
+
   void _showJoinOrganizationDialog() {
+    final l10n = AppLocalizations.of(context);
     final searchController = TextEditingController();
     List<dynamic> searchResults = [];
     String? selectedCompanyId;
@@ -1249,7 +1276,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (dialogContext) => StatefulBuilder(
         builder: (_, setDialogState) {
           return AlertDialog(
-            title: const Text('Join Organization'),
+            title: Text(l10n.profileJoinOrganization),
             contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
             content: SizedBox(
               width: double.maxFinite,
@@ -1261,8 +1288,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     controller: searchController,
                     autofocus: true,
                     decoration: InputDecoration(
-                      labelText: 'Search Company',
-                      hintText: 'Enter at least 3 characters',
+                      labelText: l10n.profileCompleteSearchCompany,
+                      hintText: l10n.profileCompleteSearchHint,
                       prefixIcon: const Icon(Icons.search),
                       border: const OutlineInputBorder(),
                       suffixIcon: isSearching
@@ -1368,21 +1395,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ],
                   const SizedBox(height: 14),
-                  const Text('Requested Role (Optional)',
-                      style: TextStyle(
+                  Text(l10n.profileRequestedRole,
+                      style: const TextStyle(
                           fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 6),
                   DropdownButton<String>(
                     value: selectedRoleKey,
                     isExpanded: true,
-                    hint: const Text('No preference'),
+                    hint: Text(l10n.profileNoPreference),
                     underline:
                         Container(height: 1, color: Colors.grey.shade400),
                     items: [
-                      const DropdownMenuItem<String>(
-                          value: null, child: Text('No preference')),
+                      DropdownMenuItem<String>(
+                          value: null, child: Text(l10n.profileNoPreference)),
                       ..._predefinedRoles.map((r) => DropdownMenuItem<String>(
-                          value: r['key'], child: Text(r['label']!))),
+                          value: r['key'],
+                          child: Text(_predefinedRoleLabel(l10n, r['key']!)))),
                     ],
                     onChanged: (v) =>
                         setDialogState(() => selectedRoleKey = v),
@@ -1394,7 +1422,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
+                child: Text(l10n.commonCancel),
               ),
               FilledButton(
                 onPressed: selectedCompanyId == null
@@ -1414,10 +1442,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           if (success) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: const Row(children: [
-                                  Icon(Icons.check_circle, color: Colors.white),
-                                  SizedBox(width: 12),
-                                  Text('Join request submitted! Awaiting approval.'),
+                                content: Row(children: [
+                                  const Icon(Icons.check_circle, color: Colors.white),
+                                  const SizedBox(width: 12),
+                                  Text(l10n.profileJoinSubmitted),
                                 ]),
                                 backgroundColor: AppTheme.successColor,
                                 behavior: SnackBarBehavior.floating,
@@ -1431,7 +1459,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             final error = ref.read(profileProvider).error;
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text(error ?? 'Failed to join organization'),
+                                content: Text(error ?? l10n.profileJoinFailed),
                                 backgroundColor: AppTheme.errorColor,
                                 behavior: SnackBarBehavior.floating,
                                 shape: RoundedRectangleBorder(
@@ -1441,7 +1469,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           }
                         }
                       },
-                child: const Text('Submit'),
+                child: Text(l10n.commonSubmit),
               ),
             ],
           );
@@ -1451,35 +1479,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _showBecomeDriverDialog() {
+    final l10n = AppLocalizations.of(context);
     final licenseNumberController = TextEditingController();
     final licenseExpiryController = TextEditingController();
 
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Become a Driver'),
+        title: Text(l10n.profileBecomeDriverTitle),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Enter your driver license details:'),
+              Text(l10n.profileDriverLicenseIntro),
               const SizedBox(height: 16),
               TextField(
                 controller: licenseNumberController,
-                decoration: const InputDecoration(
-                  labelText: 'License Number',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.badge),
+                decoration: InputDecoration(
+                  labelText: l10n.profileLicenseNumber,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.badge),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: licenseExpiryController,
-                decoration: const InputDecoration(
-                  labelText: 'License Expiry (YYYY-MM-DD)',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.calendar_today),
+                decoration: InputDecoration(
+                  labelText: l10n.profileLicenseExpiry,
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.calendar_today),
                   hintText: '2027-12-31',
                 ),
               ),
@@ -1489,19 +1518,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () async {
               if (licenseNumberController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter license number')),
+                  SnackBar(content: Text(l10n.profileEnterLicenseNumber)),
                 );
                 return;
               }
               if (licenseExpiryController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Please enter license expiry date')),
+                  SnackBar(content: Text(l10n.profileEnterLicenseExpiry)),
                 );
                 return;
               }
@@ -1521,10 +1550,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: const Row(children: [
-                        Icon(Icons.check_circle, color: Colors.white),
-                        SizedBox(width: 12),
-                        Text('Role changed to Driver successfully!'),
+                      content: Row(children: [
+                        const Icon(Icons.check_circle, color: Colors.white),
+                        const SizedBox(width: 12),
+                        Text(l10n.profileBecameDriver),
                       ]),
                       backgroundColor: AppTheme.successColor,
                       behavior: SnackBarBehavior.floating,
@@ -1538,7 +1567,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   final error = ref.read(profileProvider).error;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(error ?? 'Failed to change role'),
+                      content: Text(error ?? l10n.profileChangeRoleFailed),
                       backgroundColor: AppTheme.errorColor,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
@@ -1548,7 +1577,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 }
               }
             },
-            child: const Text('Submit'),
+            child: Text(l10n.commonSubmit),
           ),
         ],
       ),
