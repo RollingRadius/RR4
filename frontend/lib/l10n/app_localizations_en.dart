@@ -2986,4 +2986,1409 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get stageNameUnloading => 'Unloading';
+
+  @override
+  String get createTripAddNewDriver => 'Add New Driver';
+
+  @override
+  String get createTripAddressLine1 => 'Address Line 1';
+
+  @override
+  String get createTripAddressLine2 => 'Address Line 2';
+
+  @override
+  String createTripAddressN(int number) {
+    return 'Address $number';
+  }
+
+  @override
+  String get createTripAttachingDriver => 'Attaching driver to vehicle on RR…';
+
+  @override
+  String get createTripAutoFilledHint => 'Auto-filled or enter manually';
+
+  @override
+  String get createTripAxleDouble => 'Double';
+
+  @override
+  String get createTripAxleMultiple => 'Multiple';
+
+  @override
+  String get createTripAxleSingle => 'Single';
+
+  @override
+  String get createTripAxleTriple => 'Triple';
+
+  @override
+  String get createTripBiddingHint =>
+      'Set your offline bid / booking amount to the vehicle provider';
+
+  @override
+  String get createTripBodyType => 'Vehicle Body Type';
+
+  @override
+  String get createTripBookingAmount => 'Vehicle Provider Booking Amount (₹) *';
+
+  @override
+  String get createTripBookingHint =>
+      'e.g. 42000  (offline bid sent to vehicle provider)';
+
+  @override
+  String get createTripConsigneeGstin => 'Consignee GSTIN';
+
+  @override
+  String get createTripConsigneeHint =>
+      'Select from Partners to auto fill Consignee details';
+
+  @override
+  String get createTripConsigneeName => 'Consignee Name';
+
+  @override
+  String get createTripConsigneeNameHint => 'e.g. JSW Steel Ltd';
+
+  @override
+  String get createTripConsignorGstin => 'Consignor GSTIN';
+
+  @override
+  String get createTripConsignorHint =>
+      'Select from Partners to auto fill Consignor details';
+
+  @override
+  String get createTripConsignorName => 'Consignor Name *';
+
+  @override
+  String get createTripConsignorNameHint => 'e.g. Tata Steel Ltd';
+
+  @override
+  String get createTripCreateButton => 'Create Trip';
+
+  @override
+  String get createTripDepotHint => 'e.g. KNP01';
+
+  @override
+  String get createTripDiscard => 'Discard';
+
+  @override
+  String get createTripDiscardBody =>
+      'Your edits to this trip have not been saved.';
+
+  @override
+  String get createTripDiscardTitle => 'Discard changes?';
+
+  @override
+  String get createTripDriverLabel => 'Driver *';
+
+  @override
+  String get createTripDriverSearchHint =>
+      'Full 10-digit phone, or part of the name';
+
+  @override
+  String get createTripDriverSearchLabel => 'Driver Name or Phone Number';
+
+  @override
+  String createTripEditTitle(String ident) {
+    return 'Edit Trip · $ident';
+  }
+
+  @override
+  String createTripErrAttachDriver(String error) {
+    return 'Could not attach driver to vehicle on RR: $error';
+  }
+
+  @override
+  String get createTripErrCreateFailed => 'Failed to create trip';
+
+  @override
+  String get createTripErrNoUserFound => 'No user found for this number';
+
+  @override
+  String get createTripErrRrSlow =>
+      'RR is taking too long to respond — please try again';
+
+  @override
+  String get createTripErrSaveFailed =>
+      'Could not save the changes — please try again';
+
+  @override
+  String get createTripExpectedFreight => 'Expected Freight Amount (₹) *';
+
+  @override
+  String get createTripFreightHint => 'e.g. 45000';
+
+  @override
+  String get createTripHandledByPerson => 'Handled by Person *';
+
+  @override
+  String get createTripInvoiceHint => 'e.g. 150000';
+
+  @override
+  String get createTripInvoiceValue => 'Total Invoice Value (₹) *';
+
+  @override
+  String get createTripKeepEditing => 'Keep editing';
+
+  @override
+  String get createTripLandmark => 'Landmark / locality';
+
+  @override
+  String get createTripLoadingBodyTypes => 'Loading body types…';
+
+  @override
+  String get createTripLoadingCompanies => 'Loading companies…';
+
+  @override
+  String get createTripLoadingPartners => 'Loading partners…';
+
+  @override
+  String get createTripLoadingVehicles => 'Loading vehicles…';
+
+  @override
+  String get createTripLoadingWorkers => 'Loading workers…';
+
+  @override
+  String get createTripLookingUp => 'Looking up…';
+
+  @override
+  String get createTripMarketShort => 'market';
+
+  @override
+  String get createTripMaterialType => 'Material / Product Type *';
+
+  @override
+  String createTripMaxChars(int max, int count) {
+    return 'Max $max characters   $count/$max';
+  }
+
+  @override
+  String get createTripNewTrip => 'New Trip';
+
+  @override
+  String get createTripNoCompanies =>
+      'No companies — vehicle from personal fleet below';
+
+  @override
+  String get createTripNoDriverOnRr =>
+      'This vehicle has no driver assigned on RR — search for one below or add a new driver.';
+
+  @override
+  String get createTripNoEntryZone => 'No Entry Zone';
+
+  @override
+  String get createTripNoVehicles => 'No vehicles found';
+
+  @override
+  String get createTripNotBookedNotice =>
+      'Not booked on RR yet — changes are saved here and sent to RR when you Confirm Booking.';
+
+  @override
+  String get createTripNothingChanged => 'Nothing has been changed';
+
+  @override
+  String get createTripParcelDesc => 'Description of Parcel';
+
+  @override
+  String get createTripParcelDescHint => 'e.g. Steel coils';
+
+  @override
+  String get createTripPickupCityName => 'Pickup City Name *';
+
+  @override
+  String get createTripPickupHint => 'Select consignor address to auto fill';
+
+  @override
+  String get createTripPinHint => '6-digit PIN';
+
+  @override
+  String get createTripPinZip => 'Pin / Zip Code';
+
+  @override
+  String get createTripSearchCity => 'Search city…';
+
+  @override
+  String get createTripSearchMaterial => 'Search material…';
+
+  @override
+  String get createTripSectionBidding => 'Bidding Amount';
+
+  @override
+  String get createTripSectionConsignee => 'Consignee Info';
+
+  @override
+  String get createTripSectionConsignor => 'Consignor Info';
+
+  @override
+  String get createTripSectionHandledBy => 'Trip Handled By';
+
+  @override
+  String get createTripSectionParcel => 'Parcel / Load Information';
+
+  @override
+  String get createTripSectionPickup => 'Pickup Location';
+
+  @override
+  String get createTripSectionUnload => 'Unload Location';
+
+  @override
+  String get createTripSectionVehicleProvider => 'Vehicle Provider';
+
+  @override
+  String get createTripSectionVehicleSpecs => 'Vehicle Specs';
+
+  @override
+  String get createTripSelectAxle => 'Select axle type';
+
+  @override
+  String get createTripSelectBodyType => 'Select vehicle body type';
+
+  @override
+  String get createTripSelectCompany => 'Select company';
+
+  @override
+  String get createTripSelectCompanyFirst =>
+      'Select a company above to load vehicles';
+
+  @override
+  String get createTripSelectConsigneeAddress =>
+      'Select consignee address (optional)';
+
+  @override
+  String get createTripSelectConsigneeCompany => 'Select Consignee Company';
+
+  @override
+  String get createTripSelectConsignorAddress =>
+      'Select consignor address (optional)';
+
+  @override
+  String get createTripSelectConsignorCompany => 'Select Consignor Company *';
+
+  @override
+  String get createTripSelectFromPartners => 'Select from Partners (optional)';
+
+  @override
+  String get createTripSelectOpsWorker => 'Select RR Ops worker';
+
+  @override
+  String get createTripSelectPartner => 'Select partner';
+
+  @override
+  String get createTripSelectPartnerFirst => 'Select a partner above first';
+
+  @override
+  String get createTripSelectProviderCompany => 'Select Provider Company *';
+
+  @override
+  String get createTripSelectToAutoFill => 'Select to auto-fill address fields';
+
+  @override
+  String get createTripSelectVehicle => 'Select Vehicle *';
+
+  @override
+  String get createTripSelectVehicleHint => 'Select a vehicle';
+
+  @override
+  String get createTripSelectWheels => 'Select number of wheels';
+
+  @override
+  String get createTripStepBidding => 'Bidding';
+
+  @override
+  String get createTripStepVehicle => 'Vehicle';
+
+  @override
+  String get createTripStreetArea => 'Street / area';
+
+  @override
+  String get createTripTabLoadInfo => 'Load Info';
+
+  @override
+  String get createTripTapToSelect => 'Tap to select';
+
+  @override
+  String get createTripTotalWeight => 'Total Weight / Quantity *';
+
+  @override
+  String get createTripUnknown => 'Unknown';
+
+  @override
+  String get createTripUnknownError => 'unknown error';
+
+  @override
+  String get createTripUnloadCityName => 'Unload City Name *';
+
+  @override
+  String get createTripUnloadHint => 'Select consignee address to auto fill';
+
+  @override
+  String get createTripUpdate => 'Update';
+
+  @override
+  String get createTripUpdated => 'Trip updated';
+
+  @override
+  String get createTripValBookingAmount =>
+      'Booking Amount (₹) is required and must be greater than 0';
+
+  @override
+  String get createTripValConsignorCompany =>
+      'Must select company from dropdown';
+
+  @override
+  String get createTripValConsignorName =>
+      'Consignor Name is required — pick a partner above or type it in';
+
+  @override
+  String get createTripValDriver => 'Select a Driver';
+
+  @override
+  String get createTripValExpectedFreight =>
+      'Expected Freight Amount (₹) is required by RR create trip';
+
+  @override
+  String get createTripValInvoiceValue =>
+      'Total Invoice Value (₹) is required — used as parcel cost in RR';
+
+  @override
+  String get createTripValMaterial =>
+      'Material / Product Type is required — search and select from the list';
+
+  @override
+  String get createTripValOpsWorker =>
+      'Select the RR Ops worker handling this trip';
+
+  @override
+  String get createTripValPickupCity =>
+      'Pickup City is required — search and select from the list';
+
+  @override
+  String get createTripValUnloadCity =>
+      'Unload City is required — search and select from the list';
+
+  @override
+  String get createTripValVehicle => 'Select a Vehicle';
+
+  @override
+  String get createTripValVpCompany =>
+      'Vehicle Provider Company is required — select a company';
+
+  @override
+  String get createTripValVpPhone =>
+      'Enter Vehicle Provider phone number and tap the result to select';
+
+  @override
+  String get createTripValWeight => 'Total Weight / Quantity is required';
+
+  @override
+  String get createTripVpPhone => 'Vehicle Provider Phone *';
+
+  @override
+  String get createTripVpPhoneHint =>
+      'e.g. 8960281816 — auto-searches at 10 digits';
+
+  @override
+  String get createTripVpSteps =>
+      'Enter provider phone → select user → select company → select vehicle';
+
+  @override
+  String get createTripWarnBusy =>
+      'This driver is already on another open trip — tracking won\'t link to this trip until that one is finished.';
+
+  @override
+  String get createTripWarnNoApp =>
+      'This driver hasn\'t set up the RR4 app yet — tracking won\'t be available for this trip until they do.';
+
+  @override
+  String get createTripWeightHint => 'e.g. 20';
+
+  @override
+  String createTripWheelsCount(int count) {
+    return '$count wheels';
+  }
+
+  @override
+  String get lpDashAboutRr => 'About RR Logistics';
+
+  @override
+  String get lpDashAddCompany => 'Add Company';
+
+  @override
+  String get lpDashAddDriver => 'Add Driver';
+
+  @override
+  String get lpDashAddVehicle => 'Add Vehicle';
+
+  @override
+  String get lpDashBrowseLoads => 'Browse available load requirements';
+
+  @override
+  String get lpDashComingSoonBody =>
+      'This section is under development\nand will be available soon.';
+
+  @override
+  String get lpDashCreateTrip => 'Create Trip';
+
+  @override
+  String get lpDashEmployees => 'Employees';
+
+  @override
+  String get lpDashEmptyTripsHint =>
+      'Create a trip to track it here in real time';
+
+  @override
+  String get lpDashFleetHub => 'Fleet Hub';
+
+  @override
+  String get lpDashFleetStatus => 'Fleet Status';
+
+  @override
+  String get lpDashHireTruck => 'Hire Truck';
+
+  @override
+  String get lpDashLoadFleetFailed => 'Could not load fleet status';
+
+  @override
+  String get lpDashNavFleet => 'Fleet';
+
+  @override
+  String get lpDashNavLoads => 'Loads';
+
+  @override
+  String get lpDashNavSoon => 'Soon';
+
+  @override
+  String get lpDashNewTrip => 'New Trip';
+
+  @override
+  String get lpDashNoRecords => 'No RR Web records yet';
+
+  @override
+  String get lpDashNoRecordsHint => 'Completed RR Web trips will appear here';
+
+  @override
+  String get lpDashPanelSubtitle => 'Logistic Partner Panel';
+
+  @override
+  String lpDashPendingCount(int count) {
+    return '$count pending';
+  }
+
+  @override
+  String get lpDashReconnect => 'Reconnect';
+
+  @override
+  String get lpDashRecordsSubtitle => 'Completed RR Web trips';
+
+  @override
+  String get lpDashRequests => 'Requests';
+
+  @override
+  String get lpDashRrQuickAdd => 'RR QUICK ADD';
+
+  @override
+  String lpDashRrSyncFailedDetail(String reason) {
+    return 'RR sync failed: $reason';
+  }
+
+  @override
+  String get lpDashRrTripNumber => 'RR Trip Number';
+
+  @override
+  String get lpDashS1AllowBody =>
+      'Allow the Field Executive to fill Stage 1 (Truck Detail Registration) docs for this trip?\n\nYou can change this later from the trip card.';
+
+  @override
+  String get lpDashS1AllowTitle => 'Field Executive — Stage 1';
+
+  @override
+  String get lpDashSearchNewLoads => 'Search New Loads';
+
+  @override
+  String get lpDashTrack => 'Track';
+
+  @override
+  String lpDashTripCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count trips',
+      one: '1 trip',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get lpDashTripCreated => 'Trip Created';
+
+  @override
+  String get lpDashTripNumberCopied => 'Trip number copied';
+
+  @override
+  String get lpDashTripSyncedToRrWeb => 'Trip Synced to RR Web';
+
+  @override
+  String get lpDashVehicleHireRequests => 'Vehicle Hire Requests';
+
+  @override
+  String get lpOpsAddCompany => 'Add Company';
+
+  @override
+  String get lpOpsAddDriver => 'Add Driver';
+
+  @override
+  String get lpOpsAddVehicle => 'Add Vehicle';
+
+  @override
+  String get lpOpsDrawerTrack => 'Track';
+
+  @override
+  String get lpOpsEmptyBody =>
+      'No active RR Web trips yet.\nTap \"+ New Trip\" above to get started.';
+
+  @override
+  String get lpOpsEmptyTitle => 'No RR Web trips yet';
+
+  @override
+  String get lpOpsHireRequests => 'Vehicle Hire Requests';
+
+  @override
+  String get lpOpsHireTruck => 'Hire Truck';
+
+  @override
+  String get lpOpsNavLoads => 'Loads';
+
+  @override
+  String get lpOpsNeedsSlip => 'Needs Slip';
+
+  @override
+  String get lpOpsNewTrip => 'New Trip';
+
+  @override
+  String lpOpsNoMatch(String query) {
+    return 'No trips match \"$query\"';
+  }
+
+  @override
+  String get lpOpsNoSyncedHint => 'Trips synced to RR web will appear here';
+
+  @override
+  String get lpOpsNoSyncedTitle => 'No synced trips yet';
+
+  @override
+  String get lpOpsQuickAdd => 'RR QUICK ADD';
+
+  @override
+  String get lpOpsReconnect => 'Reconnect';
+
+  @override
+  String get lpOpsRrTripNumber => 'RR Trip Number';
+
+  @override
+  String get lpOpsS1Body =>
+      'Allow the Field Executive to fill Stage 1 (Truck Detail Registration) docs for this trip?\n\nYou can change this later from the trip card.';
+
+  @override
+  String get lpOpsS1Title => 'Field Executive — Stage 1';
+
+  @override
+  String get lpOpsSlipDone => 'Slip Done';
+
+  @override
+  String lpOpsSyncFailedMsg(String error) {
+    return 'RR sync failed: $error';
+  }
+
+  @override
+  String lpOpsSyncedCount(int count) {
+    return '$count synced';
+  }
+
+  @override
+  String get lpOpsTripCreated => 'Trip Created';
+
+  @override
+  String get lpOpsTripNumberCopied => 'Trip number copied';
+
+  @override
+  String get lpOpsTripSynced => 'Trip Synced to RR Web';
+
+  @override
+  String get lpOpsWebTrips => 'RR Web Trips';
+
+  @override
+  String get lpWorkersDaily => 'Daily';
+
+  @override
+  String get lpWorkersEmptyHint =>
+      'Active employees in your organisation will appear here.';
+
+  @override
+  String get lpWorkersEmptyTitle => 'No employees found';
+
+  @override
+  String get lpWorkersLoadFailed => 'Failed to load';
+
+  @override
+  String get lpWorkersMonthly => 'Monthly';
+
+  @override
+  String get lpWorkersNoActivityHint =>
+      'No stage submissions recorded for this period.';
+
+  @override
+  String get lpWorkersNoActivityTitle => 'No activity yet';
+
+  @override
+  String lpWorkersPoints(int count) {
+    return '$count pts';
+  }
+
+  @override
+  String get lpWorkersPtsShort => 'pts';
+
+  @override
+  String lpWorkersRemoveConfirm(String name) {
+    return 'Remove $name from the organization? They will lose access immediately and can request to rejoin later.';
+  }
+
+  @override
+  String lpWorkersRemoveFailed(String error) {
+    return 'Failed to remove: $error';
+  }
+
+  @override
+  String get lpWorkersRemoveTitle => 'Remove From Organization';
+
+  @override
+  String lpWorkersRemoved(String name) {
+    return '$name removed from the organization';
+  }
+
+  @override
+  String get lpWorkersTabLeaderboard => 'Leaderboard';
+
+  @override
+  String get lpWorkersTabRecord => 'Record';
+
+  @override
+  String get lpWorkersTitle => 'Employees';
+
+  @override
+  String lpWorkersTripsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count trips',
+      one: '$count trip',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get rrQuickAddActionFailed => 'Action failed. Please try again.';
+
+  @override
+  String get rrQuickAddAddCompanyButton => 'Add Company';
+
+  @override
+  String get rrQuickAddAddDriverButton => 'Add Driver';
+
+  @override
+  String get rrQuickAddAddVehicleButton => 'Add Vehicle';
+
+  @override
+  String get rrQuickAddApprove => 'Approve';
+
+  @override
+  String get rrQuickAddApprovedEndDate => 'Approved End Date';
+
+  @override
+  String rrQuickAddApprovedRange(String start, String end) {
+    return 'Approved: $start to $end';
+  }
+
+  @override
+  String get rrQuickAddApprovedStartDate => 'Approved Start Date';
+
+  @override
+  String get rrQuickAddBizCommissionAgent => 'Commission Agent';
+
+  @override
+  String get rrQuickAddBizDriver => 'Driver';
+
+  @override
+  String get rrQuickAddBizOther => 'Other';
+
+  @override
+  String get rrQuickAddBizParcelReceiver => 'Parcel Receiver - Consignee';
+
+  @override
+  String get rrQuickAddBizParcelReceiverAgent =>
+      'Parcel Receiver Agent - Consignee Commission Agent';
+
+  @override
+  String get rrQuickAddBizParcelSender => 'Parcel Sender - Consignor';
+
+  @override
+  String get rrQuickAddBizParcelSenderAgent =>
+      'Parcel Sender Agent - Consignor Commission Agent';
+
+  @override
+  String get rrQuickAddBizTransporter => 'Transporter';
+
+  @override
+  String get rrQuickAddBizVehicleAgent => 'Vehicle Agent';
+
+  @override
+  String get rrQuickAddBizVehicleOwner => 'Vehicle Owner';
+
+  @override
+  String get rrQuickAddBusinessTypeLabel => 'Business Type *';
+
+  @override
+  String get rrQuickAddCheckHistory => 'Check Vehicle History';
+
+  @override
+  String rrQuickAddCompanyAdded(String name) {
+    return 'Company \"$name\" added on RR';
+  }
+
+  @override
+  String get rrQuickAddCompanyFirmLabel => 'Company / Firm Name';
+
+  @override
+  String get rrQuickAddCompanyIntro =>
+      'Register a new vehicle-provider company on RR';
+
+  @override
+  String get rrQuickAddCompanyNameRequired => 'Company name is required';
+
+  @override
+  String get rrQuickAddCompanyOptional => 'Company (optional)';
+
+  @override
+  String get rrQuickAddCompanyOwnerLabel =>
+      'Company Owner (search or enter a new 10-digit phone) *';
+
+  @override
+  String get rrQuickAddCompanyTitle => 'Add New Company';
+
+  @override
+  String rrQuickAddContractorLine(String value) {
+    return 'Contractor: $value';
+  }
+
+  @override
+  String rrQuickAddDateRangeTo(String start, String end) {
+    return '$start to $end';
+  }
+
+  @override
+  String rrQuickAddDriverAdded(String name) {
+    return 'Driver \"$name\" added on RR';
+  }
+
+  @override
+  String get rrQuickAddDriverIntro => 'Register a new driver on RR';
+
+  @override
+  String get rrQuickAddDriverTitle => 'Add New Driver';
+
+  @override
+  String rrQuickAddEndLine(String date) {
+    return 'End: $date';
+  }
+
+  @override
+  String get rrQuickAddEngineModelLabel => 'Engine Model *';
+
+  @override
+  String get rrQuickAddFind => 'Find';
+
+  @override
+  String rrQuickAddFromLine(String date) {
+    return 'From: $date';
+  }
+
+  @override
+  String get rrQuickAddHireApproved => 'Hire request approved';
+
+  @override
+  String get rrQuickAddHireEmpty => 'No pending hire requests';
+
+  @override
+  String get rrQuickAddHireLoadFailed => 'Could not load hire requests';
+
+  @override
+  String get rrQuickAddHirePerson => 'Hire Person';
+
+  @override
+  String get rrQuickAddHirePersonLabel => 'Vehicle Hire Person *';
+
+  @override
+  String get rrQuickAddHireRejected => 'Hire request rejected';
+
+  @override
+  String get rrQuickAddHireSendFailed =>
+      'Could not send hire request. Please try again.';
+
+  @override
+  String get rrQuickAddHireSent => 'Hiring request sent successfully';
+
+  @override
+  String get rrQuickAddHireTitle => 'Vehicle Hire Requests';
+
+  @override
+  String get rrQuickAddHiringDateFrom => 'Hiring Request Date — From';
+
+  @override
+  String get rrQuickAddHiringDateTo => 'Hiring Request Date — To';
+
+  @override
+  String get rrQuickAddHiringRequestDate => 'Hiring Request Date';
+
+  @override
+  String get rrQuickAddHistoryFailed =>
+      'Could not load history. Please try again.';
+
+  @override
+  String get rrQuickAddHistoryHint =>
+      'Reference only — look up a vehicle\'s past hires';
+
+  @override
+  String get rrQuickAddHistorySelectFirst =>
+      'Search and select a vehicle first';
+
+  @override
+  String get rrQuickAddLenderDetail => 'Lender Detail';
+
+  @override
+  String get rrQuickAddLenderVehicles => 'Lender Vehicles *';
+
+  @override
+  String get rrQuickAddMarketTitle => 'Add Market Vehicle';
+
+  @override
+  String get rrQuickAddNameLabel => 'Name *';
+
+  @override
+  String get rrQuickAddNameMin => 'Enter at least 2 characters';
+
+  @override
+  String rrQuickAddNoHistory(String vehicle) {
+    return 'No hire history found for $vehicle';
+  }
+
+  @override
+  String get rrQuickAddNoOwnerVehicles => 'This owner has no vehicles on RR';
+
+  @override
+  String get rrQuickAddNotSet => 'Not set';
+
+  @override
+  String get rrQuickAddOrByPhone => '— or by phone number —';
+
+  @override
+  String rrQuickAddOwnerLine(String value) {
+    return 'Owner: $value';
+  }
+
+  @override
+  String get rrQuickAddOwnerOrPhone =>
+      'Select an existing owner or enter a valid 10-digit phone number';
+
+  @override
+  String get rrQuickAddOwnerPhoneLabel => 'Owner Phone Number *';
+
+  @override
+  String get rrQuickAddPhoneLabel => 'Phone Number *';
+
+  @override
+  String get rrQuickAddPhoneSearchHint =>
+      'Full 10-digit phone, or part of the name';
+
+  @override
+  String get rrQuickAddRcHint => 'e.g. RJ14';
+
+  @override
+  String get rrQuickAddRcNumberLabel => 'RC Number *';
+
+  @override
+  String get rrQuickAddRcRequired => 'RC number is required';
+
+  @override
+  String get rrQuickAddReject => 'Reject';
+
+  @override
+  String get rrQuickAddRequestInfo => 'Request Information';
+
+  @override
+  String get rrQuickAddRequestTimePeriod => 'Request Time Period';
+
+  @override
+  String rrQuickAddRequestedByLine(String value) {
+    return 'Requested by: $value';
+  }
+
+  @override
+  String rrQuickAddRequestedRangeArrow(String start, String end) {
+    return 'Requested: $start → $end';
+  }
+
+  @override
+  String rrQuickAddRequestedRangeTo(String start, String end) {
+    return 'Requested: $start to $end';
+  }
+
+  @override
+  String get rrQuickAddReviewTitle => 'Review Hire Request';
+
+  @override
+  String get rrQuickAddSamePerson =>
+      'The hiring person and lender must be different. You cannot hire your own vehicle.';
+
+  @override
+  String get rrQuickAddSearchByCompany => 'Search by company/firm';
+
+  @override
+  String get rrQuickAddSelectCity => 'Select a city from the suggestions';
+
+  @override
+  String get rrQuickAddSelectEngineModel =>
+      'Select an engine model from the suggestions';
+
+  @override
+  String get rrQuickAddSelectFleetVehicle =>
+      'Select a vehicle from the owner\'s fleet';
+
+  @override
+  String get rrQuickAddSelectHirePerson =>
+      'Search and select the Vehicle Hire Person';
+
+  @override
+  String get rrQuickAddSelectOwner => 'Select an owner from the suggestions';
+
+  @override
+  String get rrQuickAddSelectVehicleHint => 'Select vehicle';
+
+  @override
+  String get rrQuickAddSelectVehicleOwner =>
+      'Search and select the Vehicle Owner';
+
+  @override
+  String rrQuickAddStartLine(String date) {
+    return 'Start: $date';
+  }
+
+  @override
+  String get rrQuickAddStatusApproved => 'Approved';
+
+  @override
+  String get rrQuickAddStatusRejected => 'Rejected';
+
+  @override
+  String get rrQuickAddStatusRequested => 'Requested';
+
+  @override
+  String get rrQuickAddStatusTerminated => 'Terminated';
+
+  @override
+  String rrQuickAddTerminatedLine(String date) {
+    return 'Terminated: $date';
+  }
+
+  @override
+  String rrQuickAddToLine(String date) {
+    return 'To: $date';
+  }
+
+  @override
+  String get rrQuickAddUnknown => 'Unknown';
+
+  @override
+  String rrQuickAddVehicleAdded(String rc) {
+    return 'Vehicle \"$rc\" added on RR';
+  }
+
+  @override
+  String get rrQuickAddVehicleDetail => 'Vehicle Detail';
+
+  @override
+  String get rrQuickAddVehicleIntro => 'Register a new vehicle on RR';
+
+  @override
+  String rrQuickAddVehicleLine(String value) {
+    return 'Vehicle: $value';
+  }
+
+  @override
+  String get rrQuickAddVehicleOwnerLabel => 'Vehicle Owner *';
+
+  @override
+  String get rrQuickAddVehicleTitle => 'Add New Vehicle';
+
+  @override
+  String get rrQuickAddYourFleet => 'Your fleet';
+
+  @override
+  String loadsBrowserCompany(String name) {
+    return 'Company: $name';
+  }
+
+  @override
+  String loadsBrowserCopiedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count load requirements copied to clipboard',
+      one: 'Load requirement copied to clipboard',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get loadsBrowserCopyDetails => 'Copy Details';
+
+  @override
+  String loadsBrowserCopySelected(int count) {
+    return 'Copy Selected ($count)';
+  }
+
+  @override
+  String get loadsBrowserDetailsCopied => 'Load details copied to clipboard';
+
+  @override
+  String get loadsBrowserDropHint => 'Drop city…';
+
+  @override
+  String get loadsBrowserEmpty => 'No pending load requirements';
+
+  @override
+  String loadsBrowserLogisticPartner(String name) {
+    return 'Logistic Partner: $name';
+  }
+
+  @override
+  String loadsBrowserMaterialWeight(String weight) {
+    return 'Material: $weight';
+  }
+
+  @override
+  String get loadsBrowserPickupHint => 'Pickup city…';
+
+  @override
+  String get loadsBrowserSubtitle =>
+      'Browse pending requirements from load owners';
+
+  @override
+  String get loadsBrowserTitle => 'Search Loads';
+
+  @override
+  String loadsBrowserTruckUnit(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'trucks',
+      one: 'truck',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String loadsBrowserTruckWeight(String weight) {
+    return 'Truck: $weight';
+  }
+
+  @override
+  String get loadsBrowserTrucksNeeded => 'Trucks Needed:';
+
+  @override
+  String get loadsBrowserWhatsApp => 'WhatsApp';
+
+  @override
+  String get loadsBrowserWhatsAppFailed => 'Could not open WhatsApp';
+
+  @override
+  String get tripDetailCreated => 'Created';
+
+  @override
+  String get tripDetailEndDate => 'End Date';
+
+  @override
+  String get tripDetailFetchingGps => 'Fetching GPS location…';
+
+  @override
+  String get tripDetailGoToStage => 'GO TO PRESENT STAGE';
+
+  @override
+  String get tripDetailInvoiceNumber => 'Invoice Number';
+
+  @override
+  String get tripDetailLoadItem => 'Load Item';
+
+  @override
+  String get tripDetailRoute => 'ROUTE';
+
+  @override
+  String get tripDetailSectionCargo => 'Cargo Details';
+
+  @override
+  String get tripDetailSectionFinancial => 'Financial Details';
+
+  @override
+  String get tripDetailSectionIdentifiers => 'Identifiers';
+
+  @override
+  String get tripDetailSectionLogistics => 'Logistics';
+
+  @override
+  String tripDetailStageLine(int number, String name) {
+    return 'Stage $number: $name';
+  }
+
+  @override
+  String get tripDetailStartDate => 'Start Date';
+
+  @override
+  String get tripDetailTitle => 'Trip Details';
+
+  @override
+  String get tripDetailTripAmount => 'Trip Amount';
+
+  @override
+  String get tripDetailTripNumber => 'Trip Number';
+
+  @override
+  String get tripDetailViewOnMap => 'View vehicle on live map';
+
+  @override
+  String tripLocateDaysAgo(int days) {
+    return '${days}d ago';
+  }
+
+  @override
+  String tripLocateGapLocationOff(String time) {
+    return 'Location off · $time';
+  }
+
+  @override
+  String get tripLocateGapNearDetail => 'The vehicle stayed in the same area.';
+
+  @override
+  String tripLocateGapNoTracking(String time) {
+    return 'No tracking for this trip · $time';
+  }
+
+  @override
+  String tripLocateGapOkDetail(String km) {
+    return 'About $km km by road. Approximate route, minimum distance.';
+  }
+
+  @override
+  String tripLocateGapOkDetailMode(String km, String mode) {
+    return 'About $km km by road. Approximate route, minimum distance ($mode).';
+  }
+
+  @override
+  String get tripLocateGapReleasedDetail =>
+      'Tracking was paused for this trip or the driver changed. No route is drawn.';
+
+  @override
+  String tripLocateGapSemanticsOff(String label) {
+    return 'Location off for $label. Tap for details.';
+  }
+
+  @override
+  String tripLocateGapSemanticsReleased(String label) {
+    return 'No tracking for this trip for $label. Tap for details.';
+  }
+
+  @override
+  String tripLocateGapSuspiciousDetail(String km) {
+    return 'The vehicle moved $km km in a straight line, which is too far for this time. No route is drawn.';
+  }
+
+  @override
+  String get tripLocateGapUnavailable => 'Route not available yet.';
+
+  @override
+  String get tripLocateGpsActive => 'GPS Active';
+
+  @override
+  String tripLocateHoursAgo(int hours) {
+    return '${hours}h ago';
+  }
+
+  @override
+  String tripLocateHoursMinutes(int hours, int minutes) {
+    return '$hours h $minutes min';
+  }
+
+  @override
+  String get tripLocateJustNow => 'just now';
+
+  @override
+  String tripLocateLastUpdated(String ago, String time) {
+    return 'Last updated: $ago ($time)';
+  }
+
+  @override
+  String get tripLocateLegendLocationOff => 'Location off';
+
+  @override
+  String get tripLocateLegendSemantics =>
+      'Map key. Orange line: tracked route. Grey dotted line: location was off.';
+
+  @override
+  String get tripLocateLegendTracked => 'Tracked';
+
+  @override
+  String get tripLocateLoadingTrail => 'Loading trail…';
+
+  @override
+  String tripLocateLocating(String tripNumber) {
+    return 'Locating $tripNumber';
+  }
+
+  @override
+  String tripLocateMinutes(int minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String tripLocateMinutesAgo(int minutes) {
+    return '${minutes}m ago';
+  }
+
+  @override
+  String get tripLocateModeCar => 'car route';
+
+  @override
+  String get tripLocateModeHeavyTruck => 'heavy truck route';
+
+  @override
+  String get tripLocateModeLightTruck => 'light truck route';
+
+  @override
+  String get tripLocateModeMediumTruck => 'medium truck route';
+
+  @override
+  String get tripLocateModeTruck => 'truck route';
+
+  @override
+  String get tripLocateNoGpsMessage =>
+      'The driver app has not shared a location yet for this trip.';
+
+  @override
+  String get tripLocateNoGpsTitle => 'No GPS Location Available';
+
+  @override
+  String get tripLocateNoSignal => 'No Signal';
+
+  @override
+  String get tripLocateOpenMaps => 'Open in Google Maps';
+
+  @override
+  String get tripLocateStale => 'Stale';
+
+  @override
+  String get tripLocateTimeMismatch => 'time mismatch';
+
+  @override
+  String get tripLocateTryAgain => 'Try Again';
+
+  @override
+  String get tripLocateVehicleFallback => 'VEHICLE';
+
+  @override
+  String get workerReqAccept => 'Accept';
+
+  @override
+  String get workerReqAccepted => 'Worker accepted!';
+
+  @override
+  String get workerReqAssignRole => 'Assign Role';
+
+  @override
+  String workerReqCurrentRole(String role) {
+    return 'Currently: $role';
+  }
+
+  @override
+  String workerReqJoined(String date) {
+    return 'Joined $date';
+  }
+
+  @override
+  String workerReqJoinedBy(String date, String name) {
+    return 'Joined $date by $name';
+  }
+
+  @override
+  String get workerReqLoadFailed => 'Failed to load requests';
+
+  @override
+  String get workerReqNoAccepted => 'No accepted employees yet';
+
+  @override
+  String get workerReqNoAcceptedHint => 'Accepted employees will appear here.';
+
+  @override
+  String get workerReqNoPending => 'No pending requests';
+
+  @override
+  String get workerReqNoPendingHint => 'Worker requests will appear here.';
+
+  @override
+  String get workerReqNoRolePicked =>
+      'This worker didn\'t pick a role at signup — choose one below.';
+
+  @override
+  String get workerReqNoRoleRequested => 'No role requested yet';
+
+  @override
+  String get workerReqReject => 'Reject';
+
+  @override
+  String get workerReqRejectConfirm =>
+      'Are you sure you want to reject this worker request?';
+
+  @override
+  String get workerReqRejectTitle => 'Reject Request';
+
+  @override
+  String get workerReqRejected => 'Request rejected.';
+
+  @override
+  String workerReqRequestedOn(String date) {
+    return 'Requested: $date';
+  }
+
+  @override
+  String get workerReqRoleFeDesc =>
+      'Manages trip stages and fleet status on the ground';
+
+  @override
+  String get workerReqRoleLoadOwnerWorker => 'Load Owner Worker';
+
+  @override
+  String get workerReqRoleLoadOwnerWorkerDesc =>
+      'Manages load postings and shipment tracking';
+
+  @override
+  String get workerReqRoleNotSet => 'Role not set — tap to assign';
+
+  @override
+  String get workerReqRoleRrOpsDesc =>
+      'Handles RR sync and trip data entry in the RR system';
+
+  @override
+  String get workerReqTabAccepted => 'Accepted';
+
+  @override
+  String get workerReqTabPending => 'Pending';
+
+  @override
+  String get workerReqTitle => 'Employee Requests';
+
+  @override
+  String get workerReqUnknown => 'Unknown';
 }

@@ -1716,5 +1716,849 @@
   "stageNameUnloading": "Unloading",
   "@stageNameUnloading": {
     "description": "Short stage-5 name in the stepper (Unloading / proof of delivery)"
-  }
+  },
+  "createTripAddNewDriver": "Add New Driver",
+  "createTripAddressLine1": "Address Line 1",
+  "createTripAddressLine2": "Address Line 2",
+  "createTripAddressN": "Address {number}",
+  "@createTripAddressN": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "createTripAttachingDriver": "Attaching driver to vehicle on RR…",
+  "createTripAutoFilledHint": "Auto-filled or enter manually",
+  "createTripAxleDouble": "Double",
+  "createTripAxleMultiple": "Multiple",
+  "createTripAxleSingle": "Single",
+  "createTripAxleTriple": "Triple",
+  "createTripBiddingHint": "Set your offline bid / booking amount to the vehicle provider",
+  "createTripBodyType": "Vehicle Body Type",
+  "createTripBookingAmount": "Vehicle Provider Booking Amount (₹) *",
+  "createTripBookingHint": "e.g. 42000  (offline bid sent to vehicle provider)",
+  "createTripConsigneeGstin": "Consignee GSTIN",
+  "createTripConsigneeHint": "Select from Partners to auto fill Consignee details",
+  "createTripConsigneeName": "Consignee Name",
+  "createTripConsigneeNameHint": "e.g. JSW Steel Ltd",
+  "createTripConsignorGstin": "Consignor GSTIN",
+  "createTripConsignorHint": "Select from Partners to auto fill Consignor details",
+  "createTripConsignorName": "Consignor Name *",
+  "createTripConsignorNameHint": "e.g. Tata Steel Ltd",
+  "createTripCreateButton": "Create Trip",
+  "createTripDepotHint": "e.g. KNP01",
+  "createTripDiscard": "Discard",
+  "createTripDiscardBody": "Your edits to this trip have not been saved.",
+  "createTripDiscardTitle": "Discard changes?",
+  "createTripDriverLabel": "Driver *",
+  "createTripDriverSearchHint": "Full 10-digit phone, or part of the name",
+  "createTripDriverSearchLabel": "Driver Name or Phone Number",
+  "createTripEditTitle": "Edit Trip · {ident}",
+  "@createTripEditTitle": {
+    "placeholders": {
+      "ident": {
+        "type": "String"
+      }
+    }
+  },
+  "createTripErrAttachDriver": "Could not attach driver to vehicle on RR: {error}",
+  "@createTripErrAttachDriver": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "createTripErrCreateFailed": "Failed to create trip",
+  "createTripErrNoUserFound": "No user found for this number",
+  "createTripErrRrSlow": "RR is taking too long to respond — please try again",
+  "createTripErrSaveFailed": "Could not save the changes — please try again",
+  "createTripExpectedFreight": "Expected Freight Amount (₹) *",
+  "createTripFreightHint": "e.g. 45000",
+  "createTripHandledByPerson": "Handled by Person *",
+  "createTripInvoiceHint": "e.g. 150000",
+  "createTripInvoiceValue": "Total Invoice Value (₹) *",
+  "createTripKeepEditing": "Keep editing",
+  "createTripLandmark": "Landmark / locality",
+  "createTripLoadingBodyTypes": "Loading body types…",
+  "createTripLoadingCompanies": "Loading companies…",
+  "createTripLoadingPartners": "Loading partners…",
+  "createTripLoadingVehicles": "Loading vehicles…",
+  "createTripLoadingWorkers": "Loading workers…",
+  "createTripLookingUp": "Looking up…",
+  "createTripMarketShort": "market",
+  "createTripMaterialType": "Material / Product Type *",
+  "createTripMaxChars": "Max {max} characters   {count}/{max}",
+  "@createTripMaxChars": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "createTripNewTrip": "New Trip",
+  "createTripNoCompanies": "No companies — vehicle from personal fleet below",
+  "createTripNoDriverOnRr": "This vehicle has no driver assigned on RR — search for one below or add a new driver.",
+  "createTripNoEntryZone": "No Entry Zone",
+  "createTripNoVehicles": "No vehicles found",
+  "createTripNotBookedNotice": "Not booked on RR yet — changes are saved here and sent to RR when you Confirm Booking.",
+  "createTripNothingChanged": "Nothing has been changed",
+  "createTripParcelDesc": "Description of Parcel",
+  "createTripParcelDescHint": "e.g. Steel coils",
+  "createTripPickupCityName": "Pickup City Name *",
+  "createTripPickupHint": "Select consignor address to auto fill",
+  "createTripPinHint": "6-digit PIN",
+  "createTripPinZip": "Pin / Zip Code",
+  "createTripSearchCity": "Search city…",
+  "createTripSearchMaterial": "Search material…",
+  "createTripSectionBidding": "Bidding Amount",
+  "createTripSectionConsignee": "Consignee Info",
+  "createTripSectionConsignor": "Consignor Info",
+  "createTripSectionHandledBy": "Trip Handled By",
+  "createTripSectionParcel": "Parcel / Load Information",
+  "createTripSectionPickup": "Pickup Location",
+  "createTripSectionUnload": "Unload Location",
+  "createTripSectionVehicleProvider": "Vehicle Provider",
+  "createTripSectionVehicleSpecs": "Vehicle Specs",
+  "createTripSelectAxle": "Select axle type",
+  "createTripSelectBodyType": "Select vehicle body type",
+  "createTripSelectCompany": "Select company",
+  "createTripSelectCompanyFirst": "Select a company above to load vehicles",
+  "createTripSelectConsigneeAddress": "Select consignee address (optional)",
+  "createTripSelectConsigneeCompany": "Select Consignee Company",
+  "createTripSelectConsignorAddress": "Select consignor address (optional)",
+  "createTripSelectConsignorCompany": "Select Consignor Company *",
+  "createTripSelectFromPartners": "Select from Partners (optional)",
+  "createTripSelectOpsWorker": "Select RR Ops worker",
+  "createTripSelectPartner": "Select partner",
+  "createTripSelectPartnerFirst": "Select a partner above first",
+  "createTripSelectProviderCompany": "Select Provider Company *",
+  "createTripSelectToAutoFill": "Select to auto-fill address fields",
+  "createTripSelectVehicle": "Select Vehicle *",
+  "createTripSelectVehicleHint": "Select a vehicle",
+  "createTripSelectWheels": "Select number of wheels",
+  "createTripStepBidding": "Bidding",
+  "createTripStepVehicle": "Vehicle",
+  "createTripStreetArea": "Street / area",
+  "createTripTabLoadInfo": "Load Info",
+  "createTripTapToSelect": "Tap to select",
+  "createTripTotalWeight": "Total Weight / Quantity *",
+  "createTripUnknown": "Unknown",
+  "createTripUnknownError": "unknown error",
+  "createTripUnloadCityName": "Unload City Name *",
+  "createTripUnloadHint": "Select consignee address to auto fill",
+  "createTripUpdate": "Update",
+  "createTripUpdated": "Trip updated",
+  "createTripValBookingAmount": "Booking Amount (₹) is required and must be greater than 0",
+  "createTripValConsignorCompany": "Must select company from dropdown",
+  "createTripValConsignorName": "Consignor Name is required — pick a partner above or type it in",
+  "createTripValDriver": "Select a Driver",
+  "createTripValExpectedFreight": "Expected Freight Amount (₹) is required by RR create trip",
+  "createTripValInvoiceValue": "Total Invoice Value (₹) is required — used as parcel cost in RR",
+  "createTripValMaterial": "Material / Product Type is required — search and select from the list",
+  "createTripValOpsWorker": "Select the RR Ops worker handling this trip",
+  "createTripValPickupCity": "Pickup City is required — search and select from the list",
+  "createTripValUnloadCity": "Unload City is required — search and select from the list",
+  "createTripValVehicle": "Select a Vehicle",
+  "createTripValVpCompany": "Vehicle Provider Company is required — select a company",
+  "createTripValVpPhone": "Enter Vehicle Provider phone number and tap the result to select",
+  "createTripValWeight": "Total Weight / Quantity is required",
+  "createTripVpPhone": "Vehicle Provider Phone *",
+  "createTripVpPhoneHint": "e.g. 8960281816 — auto-searches at 10 digits",
+  "createTripVpSteps": "Enter provider phone → select user → select company → select vehicle",
+  "createTripWarnBusy": "This driver is already on another open trip — tracking won't link to this trip until that one is finished.",
+  "createTripWarnNoApp": "This driver hasn't set up the RR4 app yet — tracking won't be available for this trip until they do.",
+  "createTripWeightHint": "e.g. 20",
+  "createTripWheelsCount": "{count} wheels",
+  "@createTripWheelsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "lpDashAboutRr": "About RR Logistics",
+  "lpDashAddCompany": "Add Company",
+  "lpDashAddDriver": "Add Driver",
+  "lpDashAddVehicle": "Add Vehicle",
+  "lpDashBrowseLoads": "Browse available load requirements",
+  "lpDashComingSoonBody": "This section is under development\nand will be available soon.",
+  "lpDashCreateTrip": "Create Trip",
+  "lpDashEmployees": "Employees",
+  "lpDashEmptyTripsHint": "Create a trip to track it here in real time",
+  "lpDashFleetHub": "Fleet Hub",
+  "lpDashFleetStatus": "Fleet Status",
+  "lpDashHireTruck": "Hire Truck",
+  "lpDashLoadFleetFailed": "Could not load fleet status",
+  "lpDashNavFleet": "Fleet",
+  "lpDashNavLoads": "Loads",
+  "lpDashNavSoon": "Soon",
+  "lpDashNewTrip": "New Trip",
+  "lpDashNoRecords": "No RR Web records yet",
+  "lpDashNoRecordsHint": "Completed RR Web trips will appear here",
+  "lpDashPanelSubtitle": "Logistic Partner Panel",
+  "lpDashPendingCount": "{count} pending",
+  "@lpDashPendingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "lpDashReconnect": "Reconnect",
+  "lpDashRecordsSubtitle": "Completed RR Web trips",
+  "lpDashRequests": "Requests",
+  "lpDashRrQuickAdd": "RR QUICK ADD",
+  "lpDashRrSyncFailedDetail": "RR sync failed: {reason}",
+  "@lpDashRrSyncFailedDetail": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "lpDashRrTripNumber": "RR Trip Number",
+  "lpDashS1AllowBody": "Allow the Field Executive to fill Stage 1 (Truck Detail Registration) docs for this trip?\n\nYou can change this later from the trip card.",
+  "lpDashS1AllowTitle": "Field Executive — Stage 1",
+  "lpDashSearchNewLoads": "Search New Loads",
+  "lpDashTrack": "Track",
+  "lpDashTripCount": "{count, plural, =1{1 trip} other{{count} trips}}",
+  "@lpDashTripCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "lpDashTripCreated": "Trip Created",
+  "lpDashTripNumberCopied": "Trip number copied",
+  "lpDashTripSyncedToRrWeb": "Trip Synced to RR Web",
+  "lpDashVehicleHireRequests": "Vehicle Hire Requests",
+  "lpOpsAddCompany": "Add Company",
+  "lpOpsAddDriver": "Add Driver",
+  "lpOpsAddVehicle": "Add Vehicle",
+  "lpOpsDrawerTrack": "Track",
+  "lpOpsEmptyBody": "No active RR Web trips yet.\nTap \"+ New Trip\" above to get started.",
+  "lpOpsEmptyTitle": "No RR Web trips yet",
+  "lpOpsHireRequests": "Vehicle Hire Requests",
+  "lpOpsHireTruck": "Hire Truck",
+  "lpOpsNavLoads": "Loads",
+  "lpOpsNeedsSlip": "Needs Slip",
+  "lpOpsNewTrip": "New Trip",
+  "lpOpsNoMatch": "No trips match \"{query}\"",
+  "@lpOpsNoMatch": {
+    "placeholders": {
+      "query": {
+        "type": "String"
+      }
+    }
+  },
+  "lpOpsNoSyncedHint": "Trips synced to RR web will appear here",
+  "lpOpsNoSyncedTitle": "No synced trips yet",
+  "lpOpsQuickAdd": "RR QUICK ADD",
+  "lpOpsReconnect": "Reconnect",
+  "lpOpsRrTripNumber": "RR Trip Number",
+  "lpOpsS1Body": "Allow the Field Executive to fill Stage 1 (Truck Detail Registration) docs for this trip?\n\nYou can change this later from the trip card.",
+  "lpOpsS1Title": "Field Executive — Stage 1",
+  "lpOpsSlipDone": "Slip Done",
+  "lpOpsSyncFailedMsg": "RR sync failed: {error}",
+  "@lpOpsSyncFailedMsg": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "lpOpsSyncedCount": "{count} synced",
+  "@lpOpsSyncedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "lpOpsTripCreated": "Trip Created",
+  "lpOpsTripNumberCopied": "Trip number copied",
+  "lpOpsTripSynced": "Trip Synced to RR Web",
+  "lpOpsWebTrips": "RR Web Trips",
+  "lpWorkersDaily": "Daily",
+  "lpWorkersEmptyHint": "Active employees in your organisation will appear here.",
+  "lpWorkersEmptyTitle": "No employees found",
+  "lpWorkersLoadFailed": "Failed to load",
+  "lpWorkersMonthly": "Monthly",
+  "lpWorkersNoActivityHint": "No stage submissions recorded for this period.",
+  "lpWorkersNoActivityTitle": "No activity yet",
+  "lpWorkersPoints": "{count} pts",
+  "@lpWorkersPoints": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "lpWorkersPtsShort": "pts",
+  "lpWorkersRemoveConfirm": "Remove {name} from the organization? They will lose access immediately and can request to rejoin later.",
+  "@lpWorkersRemoveConfirm": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "lpWorkersRemoveFailed": "Failed to remove: {error}",
+  "@lpWorkersRemoveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "lpWorkersRemoveTitle": "Remove From Organization",
+  "lpWorkersRemoved": "{name} removed from the organization",
+  "@lpWorkersRemoved": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "lpWorkersTabLeaderboard": "Leaderboard",
+  "lpWorkersTabRecord": "Record",
+  "lpWorkersTitle": "Employees",
+  "lpWorkersTripsCount": "{count, plural, =1{{count} trip} other{{count} trips}}",
+  "@lpWorkersTripsCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "rrQuickAddActionFailed": "Action failed. Please try again.",
+  "rrQuickAddAddCompanyButton": "Add Company",
+  "rrQuickAddAddDriverButton": "Add Driver",
+  "rrQuickAddAddVehicleButton": "Add Vehicle",
+  "rrQuickAddApprove": "Approve",
+  "rrQuickAddApprovedEndDate": "Approved End Date",
+  "rrQuickAddApprovedRange": "Approved: {start} to {end}",
+  "@rrQuickAddApprovedRange": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddApprovedStartDate": "Approved Start Date",
+  "rrQuickAddBizCommissionAgent": "Commission Agent",
+  "rrQuickAddBizDriver": "Driver",
+  "rrQuickAddBizOther": "Other",
+  "rrQuickAddBizParcelReceiver": "Parcel Receiver - Consignee",
+  "rrQuickAddBizParcelReceiverAgent": "Parcel Receiver Agent - Consignee Commission Agent",
+  "rrQuickAddBizParcelSender": "Parcel Sender - Consignor",
+  "rrQuickAddBizParcelSenderAgent": "Parcel Sender Agent - Consignor Commission Agent",
+  "rrQuickAddBizTransporter": "Transporter",
+  "rrQuickAddBizVehicleAgent": "Vehicle Agent",
+  "rrQuickAddBizVehicleOwner": "Vehicle Owner",
+  "rrQuickAddBusinessTypeLabel": "Business Type *",
+  "rrQuickAddCheckHistory": "Check Vehicle History",
+  "rrQuickAddCompanyAdded": "Company \"{name}\" added on RR",
+  "@rrQuickAddCompanyAdded": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddCompanyFirmLabel": "Company / Firm Name",
+  "rrQuickAddCompanyIntro": "Register a new vehicle-provider company on RR",
+  "rrQuickAddCompanyNameRequired": "Company name is required",
+  "rrQuickAddCompanyOptional": "Company (optional)",
+  "rrQuickAddCompanyOwnerLabel": "Company Owner (search or enter a new 10-digit phone) *",
+  "rrQuickAddCompanyTitle": "Add New Company",
+  "rrQuickAddContractorLine": "Contractor: {value}",
+  "@rrQuickAddContractorLine": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddDateRangeTo": "{start} to {end}",
+  "@rrQuickAddDateRangeTo": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddDriverAdded": "Driver \"{name}\" added on RR",
+  "@rrQuickAddDriverAdded": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddDriverIntro": "Register a new driver on RR",
+  "rrQuickAddDriverTitle": "Add New Driver",
+  "rrQuickAddEndLine": "End: {date}",
+  "@rrQuickAddEndLine": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddEngineModelLabel": "Engine Model *",
+  "rrQuickAddFind": "Find",
+  "rrQuickAddFromLine": "From: {date}",
+  "@rrQuickAddFromLine": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddHireApproved": "Hire request approved",
+  "rrQuickAddHireEmpty": "No pending hire requests",
+  "rrQuickAddHireLoadFailed": "Could not load hire requests",
+  "rrQuickAddHirePerson": "Hire Person",
+  "rrQuickAddHirePersonLabel": "Vehicle Hire Person *",
+  "rrQuickAddHireRejected": "Hire request rejected",
+  "rrQuickAddHireSendFailed": "Could not send hire request. Please try again.",
+  "rrQuickAddHireSent": "Hiring request sent successfully",
+  "rrQuickAddHireTitle": "Vehicle Hire Requests",
+  "rrQuickAddHiringDateFrom": "Hiring Request Date — From",
+  "rrQuickAddHiringDateTo": "Hiring Request Date — To",
+  "rrQuickAddHiringRequestDate": "Hiring Request Date",
+  "rrQuickAddHistoryFailed": "Could not load history. Please try again.",
+  "rrQuickAddHistoryHint": "Reference only — look up a vehicle's past hires",
+  "rrQuickAddHistorySelectFirst": "Search and select a vehicle first",
+  "rrQuickAddLenderDetail": "Lender Detail",
+  "rrQuickAddLenderVehicles": "Lender Vehicles *",
+  "rrQuickAddMarketTitle": "Add Market Vehicle",
+  "rrQuickAddNameLabel": "Name *",
+  "rrQuickAddNameMin": "Enter at least 2 characters",
+  "rrQuickAddNoHistory": "No hire history found for {vehicle}",
+  "@rrQuickAddNoHistory": {
+    "placeholders": {
+      "vehicle": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddNoOwnerVehicles": "This owner has no vehicles on RR",
+  "rrQuickAddNotSet": "Not set",
+  "rrQuickAddOrByPhone": "— or by phone number —",
+  "rrQuickAddOwnerLine": "Owner: {value}",
+  "@rrQuickAddOwnerLine": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddOwnerOrPhone": "Select an existing owner or enter a valid 10-digit phone number",
+  "rrQuickAddOwnerPhoneLabel": "Owner Phone Number *",
+  "rrQuickAddPhoneLabel": "Phone Number *",
+  "rrQuickAddPhoneSearchHint": "Full 10-digit phone, or part of the name",
+  "rrQuickAddRcHint": "e.g. RJ14",
+  "rrQuickAddRcNumberLabel": "RC Number *",
+  "rrQuickAddRcRequired": "RC number is required",
+  "rrQuickAddReject": "Reject",
+  "rrQuickAddRequestInfo": "Request Information",
+  "rrQuickAddRequestTimePeriod": "Request Time Period",
+  "rrQuickAddRequestedByLine": "Requested by: {value}",
+  "@rrQuickAddRequestedByLine": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddRequestedRangeArrow": "Requested: {start} → {end}",
+  "@rrQuickAddRequestedRangeArrow": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddRequestedRangeTo": "Requested: {start} to {end}",
+  "@rrQuickAddRequestedRangeTo": {
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddReviewTitle": "Review Hire Request",
+  "rrQuickAddSamePerson": "The hiring person and lender must be different. You cannot hire your own vehicle.",
+  "rrQuickAddSearchByCompany": "Search by company/firm",
+  "rrQuickAddSelectCity": "Select a city from the suggestions",
+  "rrQuickAddSelectEngineModel": "Select an engine model from the suggestions",
+  "rrQuickAddSelectFleetVehicle": "Select a vehicle from the owner's fleet",
+  "rrQuickAddSelectHirePerson": "Search and select the Vehicle Hire Person",
+  "rrQuickAddSelectOwner": "Select an owner from the suggestions",
+  "rrQuickAddSelectVehicleHint": "Select vehicle",
+  "rrQuickAddSelectVehicleOwner": "Search and select the Vehicle Owner",
+  "rrQuickAddStartLine": "Start: {date}",
+  "@rrQuickAddStartLine": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddStatusApproved": "Approved",
+  "rrQuickAddStatusRejected": "Rejected",
+  "rrQuickAddStatusRequested": "Requested",
+  "rrQuickAddStatusTerminated": "Terminated",
+  "rrQuickAddTerminatedLine": "Terminated: {date}",
+  "@rrQuickAddTerminatedLine": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddToLine": "To: {date}",
+  "@rrQuickAddToLine": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddUnknown": "Unknown",
+  "rrQuickAddVehicleAdded": "Vehicle \"{rc}\" added on RR",
+  "@rrQuickAddVehicleAdded": {
+    "placeholders": {
+      "rc": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddVehicleDetail": "Vehicle Detail",
+  "rrQuickAddVehicleIntro": "Register a new vehicle on RR",
+  "rrQuickAddVehicleLine": "Vehicle: {value}",
+  "@rrQuickAddVehicleLine": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "rrQuickAddVehicleOwnerLabel": "Vehicle Owner *",
+  "rrQuickAddVehicleTitle": "Add New Vehicle",
+  "rrQuickAddYourFleet": "Your fleet",
+  "loadsBrowserCompany": "Company: {name}",
+  "@loadsBrowserCompany": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "loadsBrowserCopiedCount": "{count, plural, =1{Load requirement copied to clipboard} other{{count} load requirements copied to clipboard}}",
+  "@loadsBrowserCopiedCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "loadsBrowserCopyDetails": "Copy Details",
+  "loadsBrowserCopySelected": "Copy Selected ({count})",
+  "@loadsBrowserCopySelected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "loadsBrowserDetailsCopied": "Load details copied to clipboard",
+  "loadsBrowserDropHint": "Drop city…",
+  "loadsBrowserEmpty": "No pending load requirements",
+  "loadsBrowserLogisticPartner": "Logistic Partner: {name}",
+  "@loadsBrowserLogisticPartner": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "loadsBrowserMaterialWeight": "Material: {weight}",
+  "@loadsBrowserMaterialWeight": {
+    "placeholders": {
+      "weight": {
+        "type": "String"
+      }
+    }
+  },
+  "loadsBrowserPickupHint": "Pickup city…",
+  "loadsBrowserSubtitle": "Browse pending requirements from load owners",
+  "loadsBrowserTitle": "Search Loads",
+  "loadsBrowserTruckUnit": "{count, plural, =1{truck} other{trucks}}",
+  "@loadsBrowserTruckUnit": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "loadsBrowserTruckWeight": "Truck: {weight}",
+  "@loadsBrowserTruckWeight": {
+    "placeholders": {
+      "weight": {
+        "type": "String"
+      }
+    }
+  },
+  "loadsBrowserTrucksNeeded": "Trucks Needed:",
+  "loadsBrowserWhatsApp": "WhatsApp",
+  "loadsBrowserWhatsAppFailed": "Could not open WhatsApp",
+  "tripDetailCreated": "Created",
+  "tripDetailEndDate": "End Date",
+  "tripDetailFetchingGps": "Fetching GPS location…",
+  "tripDetailGoToStage": "GO TO PRESENT STAGE",
+  "tripDetailInvoiceNumber": "Invoice Number",
+  "tripDetailLoadItem": "Load Item",
+  "tripDetailRoute": "ROUTE",
+  "tripDetailSectionCargo": "Cargo Details",
+  "tripDetailSectionFinancial": "Financial Details",
+  "tripDetailSectionIdentifiers": "Identifiers",
+  "tripDetailSectionLogistics": "Logistics",
+  "tripDetailStageLine": "Stage {number}: {name}",
+  "@tripDetailStageLine": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "tripDetailStartDate": "Start Date",
+  "tripDetailTitle": "Trip Details",
+  "tripDetailTripAmount": "Trip Amount",
+  "tripDetailTripNumber": "Trip Number",
+  "tripDetailViewOnMap": "View vehicle on live map",
+  "tripLocateDaysAgo": "{days}d ago",
+  "@tripLocateDaysAgo": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "tripLocateGapLocationOff": "Location off · {time}",
+  "@tripLocateGapLocationOff": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "tripLocateGapNearDetail": "The vehicle stayed in the same area.",
+  "tripLocateGapNoTracking": "No tracking for this trip · {time}",
+  "@tripLocateGapNoTracking": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "tripLocateGapOkDetail": "About {km} km by road. Approximate route, minimum distance.",
+  "@tripLocateGapOkDetail": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "tripLocateGapOkDetailMode": "About {km} km by road. Approximate route, minimum distance ({mode}).",
+  "@tripLocateGapOkDetailMode": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      },
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "tripLocateGapReleasedDetail": "Tracking was paused for this trip or the driver changed. No route is drawn.",
+  "tripLocateGapSemanticsOff": "Location off for {label}. Tap for details.",
+  "@tripLocateGapSemanticsOff": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "tripLocateGapSemanticsReleased": "No tracking for this trip for {label}. Tap for details.",
+  "@tripLocateGapSemanticsReleased": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "tripLocateGapSuspiciousDetail": "The vehicle moved {km} km in a straight line, which is too far for this time. No route is drawn.",
+  "@tripLocateGapSuspiciousDetail": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "tripLocateGapUnavailable": "Route not available yet.",
+  "tripLocateGpsActive": "GPS Active",
+  "tripLocateHoursAgo": "{hours}h ago",
+  "@tripLocateHoursAgo": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "tripLocateHoursMinutes": "{hours} h {minutes} min",
+  "@tripLocateHoursMinutes": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      },
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "tripLocateJustNow": "just now",
+  "tripLocateLastUpdated": "Last updated: {ago} ({time})",
+  "@tripLocateLastUpdated": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "tripLocateLegendLocationOff": "Location off",
+  "tripLocateLegendSemantics": "Map key. Orange line: tracked route. Grey dotted line: location was off.",
+  "tripLocateLegendTracked": "Tracked",
+  "tripLocateLoadingTrail": "Loading trail…",
+  "tripLocateLocating": "Locating {tripNumber}",
+  "@tripLocateLocating": {
+    "placeholders": {
+      "tripNumber": {
+        "type": "String"
+      }
+    }
+  },
+  "tripLocateMinutes": "{minutes} min",
+  "@tripLocateMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "tripLocateMinutesAgo": "{minutes}m ago",
+  "@tripLocateMinutesAgo": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "tripLocateModeCar": "car route",
+  "tripLocateModeHeavyTruck": "heavy truck route",
+  "tripLocateModeLightTruck": "light truck route",
+  "tripLocateModeMediumTruck": "medium truck route",
+  "tripLocateModeTruck": "truck route",
+  "tripLocateNoGpsMessage": "The driver app has not shared a location yet for this trip.",
+  "tripLocateNoGpsTitle": "No GPS Location Available",
+  "tripLocateNoSignal": "No Signal",
+  "tripLocateOpenMaps": "Open in Google Maps",
+  "tripLocateStale": "Stale",
+  "tripLocateTimeMismatch": "time mismatch",
+  "tripLocateTryAgain": "Try Again",
+  "tripLocateVehicleFallback": "VEHICLE",
+  "workerReqAccept": "Accept",
+  "workerReqAccepted": "Worker accepted!",
+  "workerReqAssignRole": "Assign Role",
+  "workerReqCurrentRole": "Currently: {role}",
+  "@workerReqCurrentRole": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "workerReqJoined": "Joined {date}",
+  "@workerReqJoined": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "workerReqJoinedBy": "Joined {date} by {name}",
+  "@workerReqJoinedBy": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "workerReqLoadFailed": "Failed to load requests",
+  "workerReqNoAccepted": "No accepted employees yet",
+  "workerReqNoAcceptedHint": "Accepted employees will appear here.",
+  "workerReqNoPending": "No pending requests",
+  "workerReqNoPendingHint": "Worker requests will appear here.",
+  "workerReqNoRolePicked": "This worker didn't pick a role at signup — choose one below.",
+  "workerReqNoRoleRequested": "No role requested yet",
+  "workerReqReject": "Reject",
+  "workerReqRejectConfirm": "Are you sure you want to reject this worker request?",
+  "workerReqRejectTitle": "Reject Request",
+  "workerReqRejected": "Request rejected.",
+  "workerReqRequestedOn": "Requested: {date}",
+  "@workerReqRequestedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "workerReqRoleFeDesc": "Manages trip stages and fleet status on the ground",
+  "workerReqRoleLoadOwnerWorker": "Load Owner Worker",
+  "workerReqRoleLoadOwnerWorkerDesc": "Manages load postings and shipment tracking",
+  "workerReqRoleNotSet": "Role not set — tap to assign",
+  "workerReqRoleRrOpsDesc": "Handles RR sync and trip data entry in the RR system",
+  "workerReqTabAccepted": "Accepted",
+  "workerReqTabPending": "Pending",
+  "workerReqTitle": "Employee Requests",
+  "workerReqUnknown": "Unknown"
 }

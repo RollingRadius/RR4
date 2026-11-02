@@ -5515,6 +5515,2412 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unloading'**
   String get stageNameUnloading;
+
+  /// No description provided for @createTripAddNewDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Add New Driver'**
+  String get createTripAddNewDriver;
+
+  /// No description provided for @createTripAddressLine1.
+  ///
+  /// In en, this message translates to:
+  /// **'Address Line 1'**
+  String get createTripAddressLine1;
+
+  /// No description provided for @createTripAddressLine2.
+  ///
+  /// In en, this message translates to:
+  /// **'Address Line 2'**
+  String get createTripAddressLine2;
+
+  /// No description provided for @createTripAddressN.
+  ///
+  /// In en, this message translates to:
+  /// **'Address {number}'**
+  String createTripAddressN(int number);
+
+  /// No description provided for @createTripAttachingDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Attaching driver to vehicle on RR…'**
+  String get createTripAttachingDriver;
+
+  /// No description provided for @createTripAutoFilledHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-filled or enter manually'**
+  String get createTripAutoFilledHint;
+
+  /// No description provided for @createTripAxleDouble.
+  ///
+  /// In en, this message translates to:
+  /// **'Double'**
+  String get createTripAxleDouble;
+
+  /// No description provided for @createTripAxleMultiple.
+  ///
+  /// In en, this message translates to:
+  /// **'Multiple'**
+  String get createTripAxleMultiple;
+
+  /// No description provided for @createTripAxleSingle.
+  ///
+  /// In en, this message translates to:
+  /// **'Single'**
+  String get createTripAxleSingle;
+
+  /// No description provided for @createTripAxleTriple.
+  ///
+  /// In en, this message translates to:
+  /// **'Triple'**
+  String get createTripAxleTriple;
+
+  /// No description provided for @createTripBiddingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Set your offline bid / booking amount to the vehicle provider'**
+  String get createTripBiddingHint;
+
+  /// No description provided for @createTripBodyType.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Body Type'**
+  String get createTripBodyType;
+
+  /// No description provided for @createTripBookingAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Provider Booking Amount (₹) *'**
+  String get createTripBookingAmount;
+
+  /// No description provided for @createTripBookingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 42000  (offline bid sent to vehicle provider)'**
+  String get createTripBookingHint;
+
+  /// No description provided for @createTripConsigneeGstin.
+  ///
+  /// In en, this message translates to:
+  /// **'Consignee GSTIN'**
+  String get createTripConsigneeGstin;
+
+  /// No description provided for @createTripConsigneeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select from Partners to auto fill Consignee details'**
+  String get createTripConsigneeHint;
+
+  /// No description provided for @createTripConsigneeName.
+  ///
+  /// In en, this message translates to:
+  /// **'Consignee Name'**
+  String get createTripConsigneeName;
+
+  /// No description provided for @createTripConsigneeNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. JSW Steel Ltd'**
+  String get createTripConsigneeNameHint;
+
+  /// No description provided for @createTripConsignorGstin.
+  ///
+  /// In en, this message translates to:
+  /// **'Consignor GSTIN'**
+  String get createTripConsignorGstin;
+
+  /// No description provided for @createTripConsignorHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select from Partners to auto fill Consignor details'**
+  String get createTripConsignorHint;
+
+  /// No description provided for @createTripConsignorName.
+  ///
+  /// In en, this message translates to:
+  /// **'Consignor Name *'**
+  String get createTripConsignorName;
+
+  /// No description provided for @createTripConsignorNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Tata Steel Ltd'**
+  String get createTripConsignorNameHint;
+
+  /// No description provided for @createTripCreateButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Trip'**
+  String get createTripCreateButton;
+
+  /// No description provided for @createTripDepotHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. KNP01'**
+  String get createTripDepotHint;
+
+  /// No description provided for @createTripDiscard.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get createTripDiscard;
+
+  /// No description provided for @createTripDiscardBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your edits to this trip have not been saved.'**
+  String get createTripDiscardBody;
+
+  /// No description provided for @createTripDiscardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard changes?'**
+  String get createTripDiscardTitle;
+
+  /// No description provided for @createTripDriverLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver *'**
+  String get createTripDriverLabel;
+
+  /// No description provided for @createTripDriverSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Full 10-digit phone, or part of the name'**
+  String get createTripDriverSearchHint;
+
+  /// No description provided for @createTripDriverSearchLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver Name or Phone Number'**
+  String get createTripDriverSearchLabel;
+
+  /// No description provided for @createTripEditTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Trip · {ident}'**
+  String createTripEditTitle(String ident);
+
+  /// No description provided for @createTripErrAttachDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not attach driver to vehicle on RR: {error}'**
+  String createTripErrAttachDriver(String error);
+
+  /// No description provided for @createTripErrCreateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to create trip'**
+  String get createTripErrCreateFailed;
+
+  /// No description provided for @createTripErrNoUserFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No user found for this number'**
+  String get createTripErrNoUserFound;
+
+  /// No description provided for @createTripErrRrSlow.
+  ///
+  /// In en, this message translates to:
+  /// **'RR is taking too long to respond — please try again'**
+  String get createTripErrRrSlow;
+
+  /// No description provided for @createTripErrSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save the changes — please try again'**
+  String get createTripErrSaveFailed;
+
+  /// No description provided for @createTripExpectedFreight.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected Freight Amount (₹) *'**
+  String get createTripExpectedFreight;
+
+  /// No description provided for @createTripFreightHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 45000'**
+  String get createTripFreightHint;
+
+  /// No description provided for @createTripHandledByPerson.
+  ///
+  /// In en, this message translates to:
+  /// **'Handled by Person *'**
+  String get createTripHandledByPerson;
+
+  /// No description provided for @createTripInvoiceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 150000'**
+  String get createTripInvoiceHint;
+
+  /// No description provided for @createTripInvoiceValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Invoice Value (₹) *'**
+  String get createTripInvoiceValue;
+
+  /// No description provided for @createTripKeepEditing.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep editing'**
+  String get createTripKeepEditing;
+
+  /// No description provided for @createTripLandmark.
+  ///
+  /// In en, this message translates to:
+  /// **'Landmark / locality'**
+  String get createTripLandmark;
+
+  /// No description provided for @createTripLoadingBodyTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading body types…'**
+  String get createTripLoadingBodyTypes;
+
+  /// No description provided for @createTripLoadingCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading companies…'**
+  String get createTripLoadingCompanies;
+
+  /// No description provided for @createTripLoadingPartners.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading partners…'**
+  String get createTripLoadingPartners;
+
+  /// No description provided for @createTripLoadingVehicles.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading vehicles…'**
+  String get createTripLoadingVehicles;
+
+  /// No description provided for @createTripLoadingWorkers.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading workers…'**
+  String get createTripLoadingWorkers;
+
+  /// No description provided for @createTripLookingUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Looking up…'**
+  String get createTripLookingUp;
+
+  /// No description provided for @createTripMarketShort.
+  ///
+  /// In en, this message translates to:
+  /// **'market'**
+  String get createTripMarketShort;
+
+  /// No description provided for @createTripMaterialType.
+  ///
+  /// In en, this message translates to:
+  /// **'Material / Product Type *'**
+  String get createTripMaterialType;
+
+  /// No description provided for @createTripMaxChars.
+  ///
+  /// In en, this message translates to:
+  /// **'Max {max} characters   {count}/{max}'**
+  String createTripMaxChars(int max, int count);
+
+  /// No description provided for @createTripNewTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'New Trip'**
+  String get createTripNewTrip;
+
+  /// No description provided for @createTripNoCompanies.
+  ///
+  /// In en, this message translates to:
+  /// **'No companies — vehicle from personal fleet below'**
+  String get createTripNoCompanies;
+
+  /// No description provided for @createTripNoDriverOnRr.
+  ///
+  /// In en, this message translates to:
+  /// **'This vehicle has no driver assigned on RR — search for one below or add a new driver.'**
+  String get createTripNoDriverOnRr;
+
+  /// No description provided for @createTripNoEntryZone.
+  ///
+  /// In en, this message translates to:
+  /// **'No Entry Zone'**
+  String get createTripNoEntryZone;
+
+  /// No description provided for @createTripNoVehicles.
+  ///
+  /// In en, this message translates to:
+  /// **'No vehicles found'**
+  String get createTripNoVehicles;
+
+  /// No description provided for @createTripNotBookedNotice.
+  ///
+  /// In en, this message translates to:
+  /// **'Not booked on RR yet — changes are saved here and sent to RR when you Confirm Booking.'**
+  String get createTripNotBookedNotice;
+
+  /// No description provided for @createTripNothingChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing has been changed'**
+  String get createTripNothingChanged;
+
+  /// No description provided for @createTripParcelDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Description of Parcel'**
+  String get createTripParcelDesc;
+
+  /// No description provided for @createTripParcelDescHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Steel coils'**
+  String get createTripParcelDescHint;
+
+  /// No description provided for @createTripPickupCityName.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup City Name *'**
+  String get createTripPickupCityName;
+
+  /// No description provided for @createTripPickupHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select consignor address to auto fill'**
+  String get createTripPickupHint;
+
+  /// No description provided for @createTripPinHint.
+  ///
+  /// In en, this message translates to:
+  /// **'6-digit PIN'**
+  String get createTripPinHint;
+
+  /// No description provided for @createTripPinZip.
+  ///
+  /// In en, this message translates to:
+  /// **'Pin / Zip Code'**
+  String get createTripPinZip;
+
+  /// No description provided for @createTripSearchCity.
+  ///
+  /// In en, this message translates to:
+  /// **'Search city…'**
+  String get createTripSearchCity;
+
+  /// No description provided for @createTripSearchMaterial.
+  ///
+  /// In en, this message translates to:
+  /// **'Search material…'**
+  String get createTripSearchMaterial;
+
+  /// No description provided for @createTripSectionBidding.
+  ///
+  /// In en, this message translates to:
+  /// **'Bidding Amount'**
+  String get createTripSectionBidding;
+
+  /// No description provided for @createTripSectionConsignee.
+  ///
+  /// In en, this message translates to:
+  /// **'Consignee Info'**
+  String get createTripSectionConsignee;
+
+  /// No description provided for @createTripSectionConsignor.
+  ///
+  /// In en, this message translates to:
+  /// **'Consignor Info'**
+  String get createTripSectionConsignor;
+
+  /// No description provided for @createTripSectionHandledBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Handled By'**
+  String get createTripSectionHandledBy;
+
+  /// No description provided for @createTripSectionParcel.
+  ///
+  /// In en, this message translates to:
+  /// **'Parcel / Load Information'**
+  String get createTripSectionParcel;
+
+  /// No description provided for @createTripSectionPickup.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup Location'**
+  String get createTripSectionPickup;
+
+  /// No description provided for @createTripSectionUnload.
+  ///
+  /// In en, this message translates to:
+  /// **'Unload Location'**
+  String get createTripSectionUnload;
+
+  /// No description provided for @createTripSectionVehicleProvider.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Provider'**
+  String get createTripSectionVehicleProvider;
+
+  /// No description provided for @createTripSectionVehicleSpecs.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Specs'**
+  String get createTripSectionVehicleSpecs;
+
+  /// No description provided for @createTripSelectAxle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select axle type'**
+  String get createTripSelectAxle;
+
+  /// No description provided for @createTripSelectBodyType.
+  ///
+  /// In en, this message translates to:
+  /// **'Select vehicle body type'**
+  String get createTripSelectBodyType;
+
+  /// No description provided for @createTripSelectCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Select company'**
+  String get createTripSelectCompany;
+
+  /// No description provided for @createTripSelectCompanyFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a company above to load vehicles'**
+  String get createTripSelectCompanyFirst;
+
+  /// No description provided for @createTripSelectConsigneeAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Select consignee address (optional)'**
+  String get createTripSelectConsigneeAddress;
+
+  /// No description provided for @createTripSelectConsigneeCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Consignee Company'**
+  String get createTripSelectConsigneeCompany;
+
+  /// No description provided for @createTripSelectConsignorAddress.
+  ///
+  /// In en, this message translates to:
+  /// **'Select consignor address (optional)'**
+  String get createTripSelectConsignorAddress;
+
+  /// No description provided for @createTripSelectConsignorCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Consignor Company *'**
+  String get createTripSelectConsignorCompany;
+
+  /// No description provided for @createTripSelectFromPartners.
+  ///
+  /// In en, this message translates to:
+  /// **'Select from Partners (optional)'**
+  String get createTripSelectFromPartners;
+
+  /// No description provided for @createTripSelectOpsWorker.
+  ///
+  /// In en, this message translates to:
+  /// **'Select RR Ops worker'**
+  String get createTripSelectOpsWorker;
+
+  /// No description provided for @createTripSelectPartner.
+  ///
+  /// In en, this message translates to:
+  /// **'Select partner'**
+  String get createTripSelectPartner;
+
+  /// No description provided for @createTripSelectPartnerFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a partner above first'**
+  String get createTripSelectPartnerFirst;
+
+  /// No description provided for @createTripSelectProviderCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Provider Company *'**
+  String get createTripSelectProviderCompany;
+
+  /// No description provided for @createTripSelectToAutoFill.
+  ///
+  /// In en, this message translates to:
+  /// **'Select to auto-fill address fields'**
+  String get createTripSelectToAutoFill;
+
+  /// No description provided for @createTripSelectVehicle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Vehicle *'**
+  String get createTripSelectVehicle;
+
+  /// No description provided for @createTripSelectVehicleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a vehicle'**
+  String get createTripSelectVehicleHint;
+
+  /// No description provided for @createTripSelectWheels.
+  ///
+  /// In en, this message translates to:
+  /// **'Select number of wheels'**
+  String get createTripSelectWheels;
+
+  /// No description provided for @createTripStepBidding.
+  ///
+  /// In en, this message translates to:
+  /// **'Bidding'**
+  String get createTripStepBidding;
+
+  /// No description provided for @createTripStepVehicle.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle'**
+  String get createTripStepVehicle;
+
+  /// No description provided for @createTripStreetArea.
+  ///
+  /// In en, this message translates to:
+  /// **'Street / area'**
+  String get createTripStreetArea;
+
+  /// No description provided for @createTripTabLoadInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Load Info'**
+  String get createTripTabLoadInfo;
+
+  /// No description provided for @createTripTapToSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to select'**
+  String get createTripTapToSelect;
+
+  /// No description provided for @createTripTotalWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Weight / Quantity *'**
+  String get createTripTotalWeight;
+
+  /// No description provided for @createTripUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get createTripUnknown;
+
+  /// No description provided for @createTripUnknownError.
+  ///
+  /// In en, this message translates to:
+  /// **'unknown error'**
+  String get createTripUnknownError;
+
+  /// No description provided for @createTripUnloadCityName.
+  ///
+  /// In en, this message translates to:
+  /// **'Unload City Name *'**
+  String get createTripUnloadCityName;
+
+  /// No description provided for @createTripUnloadHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select consignee address to auto fill'**
+  String get createTripUnloadHint;
+
+  /// No description provided for @createTripUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get createTripUpdate;
+
+  /// No description provided for @createTripUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip updated'**
+  String get createTripUpdated;
+
+  /// No description provided for @createTripValBookingAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking Amount (₹) is required and must be greater than 0'**
+  String get createTripValBookingAmount;
+
+  /// No description provided for @createTripValConsignorCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Must select company from dropdown'**
+  String get createTripValConsignorCompany;
+
+  /// No description provided for @createTripValConsignorName.
+  ///
+  /// In en, this message translates to:
+  /// **'Consignor Name is required — pick a partner above or type it in'**
+  String get createTripValConsignorName;
+
+  /// No description provided for @createTripValDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a Driver'**
+  String get createTripValDriver;
+
+  /// No description provided for @createTripValExpectedFreight.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected Freight Amount (₹) is required by RR create trip'**
+  String get createTripValExpectedFreight;
+
+  /// No description provided for @createTripValInvoiceValue.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Invoice Value (₹) is required — used as parcel cost in RR'**
+  String get createTripValInvoiceValue;
+
+  /// No description provided for @createTripValMaterial.
+  ///
+  /// In en, this message translates to:
+  /// **'Material / Product Type is required — search and select from the list'**
+  String get createTripValMaterial;
+
+  /// No description provided for @createTripValOpsWorker.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the RR Ops worker handling this trip'**
+  String get createTripValOpsWorker;
+
+  /// No description provided for @createTripValPickupCity.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup City is required — search and select from the list'**
+  String get createTripValPickupCity;
+
+  /// No description provided for @createTripValUnloadCity.
+  ///
+  /// In en, this message translates to:
+  /// **'Unload City is required — search and select from the list'**
+  String get createTripValUnloadCity;
+
+  /// No description provided for @createTripValVehicle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a Vehicle'**
+  String get createTripValVehicle;
+
+  /// No description provided for @createTripValVpCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Provider Company is required — select a company'**
+  String get createTripValVpCompany;
+
+  /// No description provided for @createTripValVpPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Vehicle Provider phone number and tap the result to select'**
+  String get createTripValVpPhone;
+
+  /// No description provided for @createTripValWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Total Weight / Quantity is required'**
+  String get createTripValWeight;
+
+  /// No description provided for @createTripVpPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Provider Phone *'**
+  String get createTripVpPhone;
+
+  /// No description provided for @createTripVpPhoneHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 8960281816 — auto-searches at 10 digits'**
+  String get createTripVpPhoneHint;
+
+  /// No description provided for @createTripVpSteps.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter provider phone → select user → select company → select vehicle'**
+  String get createTripVpSteps;
+
+  /// No description provided for @createTripWarnBusy.
+  ///
+  /// In en, this message translates to:
+  /// **'This driver is already on another open trip — tracking won\'t link to this trip until that one is finished.'**
+  String get createTripWarnBusy;
+
+  /// No description provided for @createTripWarnNoApp.
+  ///
+  /// In en, this message translates to:
+  /// **'This driver hasn\'t set up the RR4 app yet — tracking won\'t be available for this trip until they do.'**
+  String get createTripWarnNoApp;
+
+  /// No description provided for @createTripWeightHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. 20'**
+  String get createTripWeightHint;
+
+  /// No description provided for @createTripWheelsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} wheels'**
+  String createTripWheelsCount(int count);
+
+  /// No description provided for @lpDashAboutRr.
+  ///
+  /// In en, this message translates to:
+  /// **'About RR Logistics'**
+  String get lpDashAboutRr;
+
+  /// No description provided for @lpDashAddCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Company'**
+  String get lpDashAddCompany;
+
+  /// No description provided for @lpDashAddDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Driver'**
+  String get lpDashAddDriver;
+
+  /// No description provided for @lpDashAddVehicle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Vehicle'**
+  String get lpDashAddVehicle;
+
+  /// No description provided for @lpDashBrowseLoads.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse available load requirements'**
+  String get lpDashBrowseLoads;
+
+  /// No description provided for @lpDashComingSoonBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This section is under development\nand will be available soon.'**
+  String get lpDashComingSoonBody;
+
+  /// No description provided for @lpDashCreateTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'Create Trip'**
+  String get lpDashCreateTrip;
+
+  /// No description provided for @lpDashEmployees.
+  ///
+  /// In en, this message translates to:
+  /// **'Employees'**
+  String get lpDashEmployees;
+
+  /// No description provided for @lpDashEmptyTripsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a trip to track it here in real time'**
+  String get lpDashEmptyTripsHint;
+
+  /// No description provided for @lpDashFleetHub.
+  ///
+  /// In en, this message translates to:
+  /// **'Fleet Hub'**
+  String get lpDashFleetHub;
+
+  /// No description provided for @lpDashFleetStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Fleet Status'**
+  String get lpDashFleetStatus;
+
+  /// No description provided for @lpDashHireTruck.
+  ///
+  /// In en, this message translates to:
+  /// **'Hire Truck'**
+  String get lpDashHireTruck;
+
+  /// No description provided for @lpDashLoadFleetFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load fleet status'**
+  String get lpDashLoadFleetFailed;
+
+  /// No description provided for @lpDashNavFleet.
+  ///
+  /// In en, this message translates to:
+  /// **'Fleet'**
+  String get lpDashNavFleet;
+
+  /// No description provided for @lpDashNavLoads.
+  ///
+  /// In en, this message translates to:
+  /// **'Loads'**
+  String get lpDashNavLoads;
+
+  /// No description provided for @lpDashNavSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Soon'**
+  String get lpDashNavSoon;
+
+  /// No description provided for @lpDashNewTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'New Trip'**
+  String get lpDashNewTrip;
+
+  /// No description provided for @lpDashNoRecords.
+  ///
+  /// In en, this message translates to:
+  /// **'No RR Web records yet'**
+  String get lpDashNoRecords;
+
+  /// No description provided for @lpDashNoRecordsHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed RR Web trips will appear here'**
+  String get lpDashNoRecordsHint;
+
+  /// No description provided for @lpDashPanelSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Logistic Partner Panel'**
+  String get lpDashPanelSubtitle;
+
+  /// No description provided for @lpDashPendingCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} pending'**
+  String lpDashPendingCount(int count);
+
+  /// No description provided for @lpDashReconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect'**
+  String get lpDashReconnect;
+
+  /// No description provided for @lpDashRecordsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed RR Web trips'**
+  String get lpDashRecordsSubtitle;
+
+  /// No description provided for @lpDashRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests'**
+  String get lpDashRequests;
+
+  /// No description provided for @lpDashRrQuickAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'RR QUICK ADD'**
+  String get lpDashRrQuickAdd;
+
+  /// No description provided for @lpDashRrSyncFailedDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'RR sync failed: {reason}'**
+  String lpDashRrSyncFailedDetail(String reason);
+
+  /// No description provided for @lpDashRrTripNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'RR Trip Number'**
+  String get lpDashRrTripNumber;
+
+  /// No description provided for @lpDashS1AllowBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow the Field Executive to fill Stage 1 (Truck Detail Registration) docs for this trip?\n\nYou can change this later from the trip card.'**
+  String get lpDashS1AllowBody;
+
+  /// No description provided for @lpDashS1AllowTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Field Executive — Stage 1'**
+  String get lpDashS1AllowTitle;
+
+  /// No description provided for @lpDashSearchNewLoads.
+  ///
+  /// In en, this message translates to:
+  /// **'Search New Loads'**
+  String get lpDashSearchNewLoads;
+
+  /// No description provided for @lpDashTrack.
+  ///
+  /// In en, this message translates to:
+  /// **'Track'**
+  String get lpDashTrack;
+
+  /// No description provided for @lpDashTripCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 trip} other{{count} trips}}'**
+  String lpDashTripCount(int count);
+
+  /// No description provided for @lpDashTripCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Created'**
+  String get lpDashTripCreated;
+
+  /// No description provided for @lpDashTripNumberCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip number copied'**
+  String get lpDashTripNumberCopied;
+
+  /// No description provided for @lpDashTripSyncedToRrWeb.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Synced to RR Web'**
+  String get lpDashTripSyncedToRrWeb;
+
+  /// No description provided for @lpDashVehicleHireRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Hire Requests'**
+  String get lpDashVehicleHireRequests;
+
+  /// No description provided for @lpOpsAddCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Company'**
+  String get lpOpsAddCompany;
+
+  /// No description provided for @lpOpsAddDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Driver'**
+  String get lpOpsAddDriver;
+
+  /// No description provided for @lpOpsAddVehicle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Vehicle'**
+  String get lpOpsAddVehicle;
+
+  /// No description provided for @lpOpsDrawerTrack.
+  ///
+  /// In en, this message translates to:
+  /// **'Track'**
+  String get lpOpsDrawerTrack;
+
+  /// No description provided for @lpOpsEmptyBody.
+  ///
+  /// In en, this message translates to:
+  /// **'No active RR Web trips yet.\nTap \"+ New Trip\" above to get started.'**
+  String get lpOpsEmptyBody;
+
+  /// No description provided for @lpOpsEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No RR Web trips yet'**
+  String get lpOpsEmptyTitle;
+
+  /// No description provided for @lpOpsHireRequests.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Hire Requests'**
+  String get lpOpsHireRequests;
+
+  /// No description provided for @lpOpsHireTruck.
+  ///
+  /// In en, this message translates to:
+  /// **'Hire Truck'**
+  String get lpOpsHireTruck;
+
+  /// No description provided for @lpOpsNavLoads.
+  ///
+  /// In en, this message translates to:
+  /// **'Loads'**
+  String get lpOpsNavLoads;
+
+  /// No description provided for @lpOpsNeedsSlip.
+  ///
+  /// In en, this message translates to:
+  /// **'Needs Slip'**
+  String get lpOpsNeedsSlip;
+
+  /// No description provided for @lpOpsNewTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'New Trip'**
+  String get lpOpsNewTrip;
+
+  /// No description provided for @lpOpsNoMatch.
+  ///
+  /// In en, this message translates to:
+  /// **'No trips match \"{query}\"'**
+  String lpOpsNoMatch(String query);
+
+  /// No description provided for @lpOpsNoSyncedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Trips synced to RR web will appear here'**
+  String get lpOpsNoSyncedHint;
+
+  /// No description provided for @lpOpsNoSyncedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No synced trips yet'**
+  String get lpOpsNoSyncedTitle;
+
+  /// No description provided for @lpOpsQuickAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'RR QUICK ADD'**
+  String get lpOpsQuickAdd;
+
+  /// No description provided for @lpOpsReconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect'**
+  String get lpOpsReconnect;
+
+  /// No description provided for @lpOpsRrTripNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'RR Trip Number'**
+  String get lpOpsRrTripNumber;
+
+  /// No description provided for @lpOpsS1Body.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow the Field Executive to fill Stage 1 (Truck Detail Registration) docs for this trip?\n\nYou can change this later from the trip card.'**
+  String get lpOpsS1Body;
+
+  /// No description provided for @lpOpsS1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Field Executive — Stage 1'**
+  String get lpOpsS1Title;
+
+  /// No description provided for @lpOpsSlipDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Slip Done'**
+  String get lpOpsSlipDone;
+
+  /// No description provided for @lpOpsSyncFailedMsg.
+  ///
+  /// In en, this message translates to:
+  /// **'RR sync failed: {error}'**
+  String lpOpsSyncFailedMsg(String error);
+
+  /// No description provided for @lpOpsSyncedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} synced'**
+  String lpOpsSyncedCount(int count);
+
+  /// No description provided for @lpOpsTripCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Created'**
+  String get lpOpsTripCreated;
+
+  /// No description provided for @lpOpsTripNumberCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip number copied'**
+  String get lpOpsTripNumberCopied;
+
+  /// No description provided for @lpOpsTripSynced.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Synced to RR Web'**
+  String get lpOpsTripSynced;
+
+  /// No description provided for @lpOpsWebTrips.
+  ///
+  /// In en, this message translates to:
+  /// **'RR Web Trips'**
+  String get lpOpsWebTrips;
+
+  /// No description provided for @lpWorkersDaily.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily'**
+  String get lpWorkersDaily;
+
+  /// No description provided for @lpWorkersEmptyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Active employees in your organisation will appear here.'**
+  String get lpWorkersEmptyHint;
+
+  /// No description provided for @lpWorkersEmptyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No employees found'**
+  String get lpWorkersEmptyTitle;
+
+  /// No description provided for @lpWorkersLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load'**
+  String get lpWorkersLoadFailed;
+
+  /// No description provided for @lpWorkersMonthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get lpWorkersMonthly;
+
+  /// No description provided for @lpWorkersNoActivityHint.
+  ///
+  /// In en, this message translates to:
+  /// **'No stage submissions recorded for this period.'**
+  String get lpWorkersNoActivityHint;
+
+  /// No description provided for @lpWorkersNoActivityTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No activity yet'**
+  String get lpWorkersNoActivityTitle;
+
+  /// No description provided for @lpWorkersPoints.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} pts'**
+  String lpWorkersPoints(int count);
+
+  /// No description provided for @lpWorkersPtsShort.
+  ///
+  /// In en, this message translates to:
+  /// **'pts'**
+  String get lpWorkersPtsShort;
+
+  /// No description provided for @lpWorkersRemoveConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name} from the organization? They will lose access immediately and can request to rejoin later.'**
+  String lpWorkersRemoveConfirm(String name);
+
+  /// No description provided for @lpWorkersRemoveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to remove: {error}'**
+  String lpWorkersRemoveFailed(String error);
+
+  /// No description provided for @lpWorkersRemoveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove From Organization'**
+  String get lpWorkersRemoveTitle;
+
+  /// No description provided for @lpWorkersRemoved.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} removed from the organization'**
+  String lpWorkersRemoved(String name);
+
+  /// No description provided for @lpWorkersTabLeaderboard.
+  ///
+  /// In en, this message translates to:
+  /// **'Leaderboard'**
+  String get lpWorkersTabLeaderboard;
+
+  /// No description provided for @lpWorkersTabRecord.
+  ///
+  /// In en, this message translates to:
+  /// **'Record'**
+  String get lpWorkersTabRecord;
+
+  /// No description provided for @lpWorkersTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Employees'**
+  String get lpWorkersTitle;
+
+  /// No description provided for @lpWorkersTripsCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} trip} other{{count} trips}}'**
+  String lpWorkersTripsCount(int count);
+
+  /// No description provided for @rrQuickAddActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Action failed. Please try again.'**
+  String get rrQuickAddActionFailed;
+
+  /// No description provided for @rrQuickAddAddCompanyButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Company'**
+  String get rrQuickAddAddCompanyButton;
+
+  /// No description provided for @rrQuickAddAddDriverButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Driver'**
+  String get rrQuickAddAddDriverButton;
+
+  /// No description provided for @rrQuickAddAddVehicleButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Vehicle'**
+  String get rrQuickAddAddVehicleButton;
+
+  /// No description provided for @rrQuickAddApprove.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve'**
+  String get rrQuickAddApprove;
+
+  /// No description provided for @rrQuickAddApprovedEndDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved End Date'**
+  String get rrQuickAddApprovedEndDate;
+
+  /// No description provided for @rrQuickAddApprovedRange.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved: {start} to {end}'**
+  String rrQuickAddApprovedRange(String start, String end);
+
+  /// No description provided for @rrQuickAddApprovedStartDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved Start Date'**
+  String get rrQuickAddApprovedStartDate;
+
+  /// No description provided for @rrQuickAddBizCommissionAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Commission Agent'**
+  String get rrQuickAddBizCommissionAgent;
+
+  /// No description provided for @rrQuickAddBizDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver'**
+  String get rrQuickAddBizDriver;
+
+  /// No description provided for @rrQuickAddBizOther.
+  ///
+  /// In en, this message translates to:
+  /// **'Other'**
+  String get rrQuickAddBizOther;
+
+  /// No description provided for @rrQuickAddBizParcelReceiver.
+  ///
+  /// In en, this message translates to:
+  /// **'Parcel Receiver - Consignee'**
+  String get rrQuickAddBizParcelReceiver;
+
+  /// No description provided for @rrQuickAddBizParcelReceiverAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Parcel Receiver Agent - Consignee Commission Agent'**
+  String get rrQuickAddBizParcelReceiverAgent;
+
+  /// No description provided for @rrQuickAddBizParcelSender.
+  ///
+  /// In en, this message translates to:
+  /// **'Parcel Sender - Consignor'**
+  String get rrQuickAddBizParcelSender;
+
+  /// No description provided for @rrQuickAddBizParcelSenderAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Parcel Sender Agent - Consignor Commission Agent'**
+  String get rrQuickAddBizParcelSenderAgent;
+
+  /// No description provided for @rrQuickAddBizTransporter.
+  ///
+  /// In en, this message translates to:
+  /// **'Transporter'**
+  String get rrQuickAddBizTransporter;
+
+  /// No description provided for @rrQuickAddBizVehicleAgent.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Agent'**
+  String get rrQuickAddBizVehicleAgent;
+
+  /// No description provided for @rrQuickAddBizVehicleOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Owner'**
+  String get rrQuickAddBizVehicleOwner;
+
+  /// No description provided for @rrQuickAddBusinessTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Business Type *'**
+  String get rrQuickAddBusinessTypeLabel;
+
+  /// No description provided for @rrQuickAddCheckHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Check Vehicle History'**
+  String get rrQuickAddCheckHistory;
+
+  /// No description provided for @rrQuickAddCompanyAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Company \"{name}\" added on RR'**
+  String rrQuickAddCompanyAdded(String name);
+
+  /// No description provided for @rrQuickAddCompanyFirmLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Company / Firm Name'**
+  String get rrQuickAddCompanyFirmLabel;
+
+  /// No description provided for @rrQuickAddCompanyIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Register a new vehicle-provider company on RR'**
+  String get rrQuickAddCompanyIntro;
+
+  /// No description provided for @rrQuickAddCompanyNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Company name is required'**
+  String get rrQuickAddCompanyNameRequired;
+
+  /// No description provided for @rrQuickAddCompanyOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Company (optional)'**
+  String get rrQuickAddCompanyOptional;
+
+  /// No description provided for @rrQuickAddCompanyOwnerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Company Owner (search or enter a new 10-digit phone) *'**
+  String get rrQuickAddCompanyOwnerLabel;
+
+  /// No description provided for @rrQuickAddCompanyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add New Company'**
+  String get rrQuickAddCompanyTitle;
+
+  /// No description provided for @rrQuickAddContractorLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Contractor: {value}'**
+  String rrQuickAddContractorLine(String value);
+
+  /// No description provided for @rrQuickAddDateRangeTo.
+  ///
+  /// In en, this message translates to:
+  /// **'{start} to {end}'**
+  String rrQuickAddDateRangeTo(String start, String end);
+
+  /// No description provided for @rrQuickAddDriverAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver \"{name}\" added on RR'**
+  String rrQuickAddDriverAdded(String name);
+
+  /// No description provided for @rrQuickAddDriverIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Register a new driver on RR'**
+  String get rrQuickAddDriverIntro;
+
+  /// No description provided for @rrQuickAddDriverTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add New Driver'**
+  String get rrQuickAddDriverTitle;
+
+  /// No description provided for @rrQuickAddEndLine.
+  ///
+  /// In en, this message translates to:
+  /// **'End: {date}'**
+  String rrQuickAddEndLine(String date);
+
+  /// No description provided for @rrQuickAddEngineModelLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Engine Model *'**
+  String get rrQuickAddEngineModelLabel;
+
+  /// No description provided for @rrQuickAddFind.
+  ///
+  /// In en, this message translates to:
+  /// **'Find'**
+  String get rrQuickAddFind;
+
+  /// No description provided for @rrQuickAddFromLine.
+  ///
+  /// In en, this message translates to:
+  /// **'From: {date}'**
+  String rrQuickAddFromLine(String date);
+
+  /// No description provided for @rrQuickAddHireApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Hire request approved'**
+  String get rrQuickAddHireApproved;
+
+  /// No description provided for @rrQuickAddHireEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending hire requests'**
+  String get rrQuickAddHireEmpty;
+
+  /// No description provided for @rrQuickAddHireLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load hire requests'**
+  String get rrQuickAddHireLoadFailed;
+
+  /// No description provided for @rrQuickAddHirePerson.
+  ///
+  /// In en, this message translates to:
+  /// **'Hire Person'**
+  String get rrQuickAddHirePerson;
+
+  /// No description provided for @rrQuickAddHirePersonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Hire Person *'**
+  String get rrQuickAddHirePersonLabel;
+
+  /// No description provided for @rrQuickAddHireRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Hire request rejected'**
+  String get rrQuickAddHireRejected;
+
+  /// No description provided for @rrQuickAddHireSendFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not send hire request. Please try again.'**
+  String get rrQuickAddHireSendFailed;
+
+  /// No description provided for @rrQuickAddHireSent.
+  ///
+  /// In en, this message translates to:
+  /// **'Hiring request sent successfully'**
+  String get rrQuickAddHireSent;
+
+  /// No description provided for @rrQuickAddHireTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Hire Requests'**
+  String get rrQuickAddHireTitle;
+
+  /// No description provided for @rrQuickAddHiringDateFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Hiring Request Date — From'**
+  String get rrQuickAddHiringDateFrom;
+
+  /// No description provided for @rrQuickAddHiringDateTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Hiring Request Date — To'**
+  String get rrQuickAddHiringDateTo;
+
+  /// No description provided for @rrQuickAddHiringRequestDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Hiring Request Date'**
+  String get rrQuickAddHiringRequestDate;
+
+  /// No description provided for @rrQuickAddHistoryFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load history. Please try again.'**
+  String get rrQuickAddHistoryFailed;
+
+  /// No description provided for @rrQuickAddHistoryHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Reference only — look up a vehicle\'s past hires'**
+  String get rrQuickAddHistoryHint;
+
+  /// No description provided for @rrQuickAddHistorySelectFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Search and select a vehicle first'**
+  String get rrQuickAddHistorySelectFirst;
+
+  /// No description provided for @rrQuickAddLenderDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Lender Detail'**
+  String get rrQuickAddLenderDetail;
+
+  /// No description provided for @rrQuickAddLenderVehicles.
+  ///
+  /// In en, this message translates to:
+  /// **'Lender Vehicles *'**
+  String get rrQuickAddLenderVehicles;
+
+  /// No description provided for @rrQuickAddMarketTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add Market Vehicle'**
+  String get rrQuickAddMarketTitle;
+
+  /// No description provided for @rrQuickAddNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Name *'**
+  String get rrQuickAddNameLabel;
+
+  /// No description provided for @rrQuickAddNameMin.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter at least 2 characters'**
+  String get rrQuickAddNameMin;
+
+  /// No description provided for @rrQuickAddNoHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'No hire history found for {vehicle}'**
+  String rrQuickAddNoHistory(String vehicle);
+
+  /// No description provided for @rrQuickAddNoOwnerVehicles.
+  ///
+  /// In en, this message translates to:
+  /// **'This owner has no vehicles on RR'**
+  String get rrQuickAddNoOwnerVehicles;
+
+  /// No description provided for @rrQuickAddNotSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get rrQuickAddNotSet;
+
+  /// No description provided for @rrQuickAddOrByPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'— or by phone number —'**
+  String get rrQuickAddOrByPhone;
+
+  /// No description provided for @rrQuickAddOwnerLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner: {value}'**
+  String rrQuickAddOwnerLine(String value);
+
+  /// No description provided for @rrQuickAddOwnerOrPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an existing owner or enter a valid 10-digit phone number'**
+  String get rrQuickAddOwnerOrPhone;
+
+  /// No description provided for @rrQuickAddOwnerPhoneLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Owner Phone Number *'**
+  String get rrQuickAddOwnerPhoneLabel;
+
+  /// No description provided for @rrQuickAddPhoneLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Phone Number *'**
+  String get rrQuickAddPhoneLabel;
+
+  /// No description provided for @rrQuickAddPhoneSearchHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Full 10-digit phone, or part of the name'**
+  String get rrQuickAddPhoneSearchHint;
+
+  /// No description provided for @rrQuickAddRcHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. RJ14'**
+  String get rrQuickAddRcHint;
+
+  /// No description provided for @rrQuickAddRcNumberLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'RC Number *'**
+  String get rrQuickAddRcNumberLabel;
+
+  /// No description provided for @rrQuickAddRcRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'RC number is required'**
+  String get rrQuickAddRcRequired;
+
+  /// No description provided for @rrQuickAddReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get rrQuickAddReject;
+
+  /// No description provided for @rrQuickAddRequestInfo.
+  ///
+  /// In en, this message translates to:
+  /// **'Request Information'**
+  String get rrQuickAddRequestInfo;
+
+  /// No description provided for @rrQuickAddRequestTimePeriod.
+  ///
+  /// In en, this message translates to:
+  /// **'Request Time Period'**
+  String get rrQuickAddRequestTimePeriod;
+
+  /// No description provided for @rrQuickAddRequestedByLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested by: {value}'**
+  String rrQuickAddRequestedByLine(String value);
+
+  /// No description provided for @rrQuickAddRequestedRangeArrow.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested: {start} → {end}'**
+  String rrQuickAddRequestedRangeArrow(String start, String end);
+
+  /// No description provided for @rrQuickAddRequestedRangeTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested: {start} to {end}'**
+  String rrQuickAddRequestedRangeTo(String start, String end);
+
+  /// No description provided for @rrQuickAddReviewTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Review Hire Request'**
+  String get rrQuickAddReviewTitle;
+
+  /// No description provided for @rrQuickAddSamePerson.
+  ///
+  /// In en, this message translates to:
+  /// **'The hiring person and lender must be different. You cannot hire your own vehicle.'**
+  String get rrQuickAddSamePerson;
+
+  /// No description provided for @rrQuickAddSearchByCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by company/firm'**
+  String get rrQuickAddSearchByCompany;
+
+  /// No description provided for @rrQuickAddSelectCity.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a city from the suggestions'**
+  String get rrQuickAddSelectCity;
+
+  /// No description provided for @rrQuickAddSelectEngineModel.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an engine model from the suggestions'**
+  String get rrQuickAddSelectEngineModel;
+
+  /// No description provided for @rrQuickAddSelectFleetVehicle.
+  ///
+  /// In en, this message translates to:
+  /// **'Select a vehicle from the owner\'s fleet'**
+  String get rrQuickAddSelectFleetVehicle;
+
+  /// No description provided for @rrQuickAddSelectHirePerson.
+  ///
+  /// In en, this message translates to:
+  /// **'Search and select the Vehicle Hire Person'**
+  String get rrQuickAddSelectHirePerson;
+
+  /// No description provided for @rrQuickAddSelectOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Select an owner from the suggestions'**
+  String get rrQuickAddSelectOwner;
+
+  /// No description provided for @rrQuickAddSelectVehicleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select vehicle'**
+  String get rrQuickAddSelectVehicleHint;
+
+  /// No description provided for @rrQuickAddSelectVehicleOwner.
+  ///
+  /// In en, this message translates to:
+  /// **'Search and select the Vehicle Owner'**
+  String get rrQuickAddSelectVehicleOwner;
+
+  /// No description provided for @rrQuickAddStartLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Start: {date}'**
+  String rrQuickAddStartLine(String date);
+
+  /// No description provided for @rrQuickAddStatusApproved.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved'**
+  String get rrQuickAddStatusApproved;
+
+  /// No description provided for @rrQuickAddStatusRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Rejected'**
+  String get rrQuickAddStatusRejected;
+
+  /// No description provided for @rrQuickAddStatusRequested.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested'**
+  String get rrQuickAddStatusRequested;
+
+  /// No description provided for @rrQuickAddStatusTerminated.
+  ///
+  /// In en, this message translates to:
+  /// **'Terminated'**
+  String get rrQuickAddStatusTerminated;
+
+  /// No description provided for @rrQuickAddTerminatedLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Terminated: {date}'**
+  String rrQuickAddTerminatedLine(String date);
+
+  /// No description provided for @rrQuickAddToLine.
+  ///
+  /// In en, this message translates to:
+  /// **'To: {date}'**
+  String rrQuickAddToLine(String date);
+
+  /// No description provided for @rrQuickAddUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get rrQuickAddUnknown;
+
+  /// No description provided for @rrQuickAddVehicleAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle \"{rc}\" added on RR'**
+  String rrQuickAddVehicleAdded(String rc);
+
+  /// No description provided for @rrQuickAddVehicleDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Detail'**
+  String get rrQuickAddVehicleDetail;
+
+  /// No description provided for @rrQuickAddVehicleIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Register a new vehicle on RR'**
+  String get rrQuickAddVehicleIntro;
+
+  /// No description provided for @rrQuickAddVehicleLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle: {value}'**
+  String rrQuickAddVehicleLine(String value);
+
+  /// No description provided for @rrQuickAddVehicleOwnerLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Vehicle Owner *'**
+  String get rrQuickAddVehicleOwnerLabel;
+
+  /// No description provided for @rrQuickAddVehicleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Add New Vehicle'**
+  String get rrQuickAddVehicleTitle;
+
+  /// No description provided for @rrQuickAddYourFleet.
+  ///
+  /// In en, this message translates to:
+  /// **'Your fleet'**
+  String get rrQuickAddYourFleet;
+
+  /// No description provided for @loadsBrowserCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Company: {name}'**
+  String loadsBrowserCompany(String name);
+
+  /// No description provided for @loadsBrowserCopiedCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Load requirement copied to clipboard} other{{count} load requirements copied to clipboard}}'**
+  String loadsBrowserCopiedCount(int count);
+
+  /// No description provided for @loadsBrowserCopyDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy Details'**
+  String get loadsBrowserCopyDetails;
+
+  /// No description provided for @loadsBrowserCopySelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy Selected ({count})'**
+  String loadsBrowserCopySelected(int count);
+
+  /// No description provided for @loadsBrowserDetailsCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Load details copied to clipboard'**
+  String get loadsBrowserDetailsCopied;
+
+  /// No description provided for @loadsBrowserDropHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop city…'**
+  String get loadsBrowserDropHint;
+
+  /// No description provided for @loadsBrowserEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending load requirements'**
+  String get loadsBrowserEmpty;
+
+  /// No description provided for @loadsBrowserLogisticPartner.
+  ///
+  /// In en, this message translates to:
+  /// **'Logistic Partner: {name}'**
+  String loadsBrowserLogisticPartner(String name);
+
+  /// No description provided for @loadsBrowserMaterialWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Material: {weight}'**
+  String loadsBrowserMaterialWeight(String weight);
+
+  /// No description provided for @loadsBrowserPickupHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Pickup city…'**
+  String get loadsBrowserPickupHint;
+
+  /// No description provided for @loadsBrowserSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Browse pending requirements from load owners'**
+  String get loadsBrowserSubtitle;
+
+  /// No description provided for @loadsBrowserTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Loads'**
+  String get loadsBrowserTitle;
+
+  /// No description provided for @loadsBrowserTruckUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{truck} other{trucks}}'**
+  String loadsBrowserTruckUnit(int count);
+
+  /// No description provided for @loadsBrowserTruckWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck: {weight}'**
+  String loadsBrowserTruckWeight(String weight);
+
+  /// No description provided for @loadsBrowserTrucksNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Trucks Needed:'**
+  String get loadsBrowserTrucksNeeded;
+
+  /// No description provided for @loadsBrowserWhatsApp.
+  ///
+  /// In en, this message translates to:
+  /// **'WhatsApp'**
+  String get loadsBrowserWhatsApp;
+
+  /// No description provided for @loadsBrowserWhatsAppFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not open WhatsApp'**
+  String get loadsBrowserWhatsAppFailed;
+
+  /// No description provided for @tripDetailCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Created'**
+  String get tripDetailCreated;
+
+  /// No description provided for @tripDetailEndDate.
+  ///
+  /// In en, this message translates to:
+  /// **'End Date'**
+  String get tripDetailEndDate;
+
+  /// No description provided for @tripDetailFetchingGps.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching GPS location…'**
+  String get tripDetailFetchingGps;
+
+  /// No description provided for @tripDetailGoToStage.
+  ///
+  /// In en, this message translates to:
+  /// **'GO TO PRESENT STAGE'**
+  String get tripDetailGoToStage;
+
+  /// No description provided for @tripDetailInvoiceNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Invoice Number'**
+  String get tripDetailInvoiceNumber;
+
+  /// No description provided for @tripDetailLoadItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Load Item'**
+  String get tripDetailLoadItem;
+
+  /// No description provided for @tripDetailRoute.
+  ///
+  /// In en, this message translates to:
+  /// **'ROUTE'**
+  String get tripDetailRoute;
+
+  /// No description provided for @tripDetailSectionCargo.
+  ///
+  /// In en, this message translates to:
+  /// **'Cargo Details'**
+  String get tripDetailSectionCargo;
+
+  /// No description provided for @tripDetailSectionFinancial.
+  ///
+  /// In en, this message translates to:
+  /// **'Financial Details'**
+  String get tripDetailSectionFinancial;
+
+  /// No description provided for @tripDetailSectionIdentifiers.
+  ///
+  /// In en, this message translates to:
+  /// **'Identifiers'**
+  String get tripDetailSectionIdentifiers;
+
+  /// No description provided for @tripDetailSectionLogistics.
+  ///
+  /// In en, this message translates to:
+  /// **'Logistics'**
+  String get tripDetailSectionLogistics;
+
+  /// No description provided for @tripDetailStageLine.
+  ///
+  /// In en, this message translates to:
+  /// **'Stage {number}: {name}'**
+  String tripDetailStageLine(int number, String name);
+
+  /// No description provided for @tripDetailStartDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Start Date'**
+  String get tripDetailStartDate;
+
+  /// No description provided for @tripDetailTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Details'**
+  String get tripDetailTitle;
+
+  /// No description provided for @tripDetailTripAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Amount'**
+  String get tripDetailTripAmount;
+
+  /// No description provided for @tripDetailTripNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip Number'**
+  String get tripDetailTripNumber;
+
+  /// No description provided for @tripDetailViewOnMap.
+  ///
+  /// In en, this message translates to:
+  /// **'View vehicle on live map'**
+  String get tripDetailViewOnMap;
+
+  /// No description provided for @tripLocateDaysAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{days}d ago'**
+  String tripLocateDaysAgo(int days);
+
+  /// No description provided for @tripLocateGapLocationOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Location off · {time}'**
+  String tripLocateGapLocationOff(String time);
+
+  /// No description provided for @tripLocateGapNearDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'The vehicle stayed in the same area.'**
+  String get tripLocateGapNearDetail;
+
+  /// No description provided for @tripLocateGapNoTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'No tracking for this trip · {time}'**
+  String tripLocateGapNoTracking(String time);
+
+  /// No description provided for @tripLocateGapOkDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'About {km} km by road. Approximate route, minimum distance.'**
+  String tripLocateGapOkDetail(String km);
+
+  /// No description provided for @tripLocateGapOkDetailMode.
+  ///
+  /// In en, this message translates to:
+  /// **'About {km} km by road. Approximate route, minimum distance ({mode}).'**
+  String tripLocateGapOkDetailMode(String km, String mode);
+
+  /// No description provided for @tripLocateGapReleasedDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracking was paused for this trip or the driver changed. No route is drawn.'**
+  String get tripLocateGapReleasedDetail;
+
+  /// No description provided for @tripLocateGapSemanticsOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Location off for {label}. Tap for details.'**
+  String tripLocateGapSemanticsOff(String label);
+
+  /// No description provided for @tripLocateGapSemanticsReleased.
+  ///
+  /// In en, this message translates to:
+  /// **'No tracking for this trip for {label}. Tap for details.'**
+  String tripLocateGapSemanticsReleased(String label);
+
+  /// No description provided for @tripLocateGapSuspiciousDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'The vehicle moved {km} km in a straight line, which is too far for this time. No route is drawn.'**
+  String tripLocateGapSuspiciousDetail(String km);
+
+  /// No description provided for @tripLocateGapUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Route not available yet.'**
+  String get tripLocateGapUnavailable;
+
+  /// No description provided for @tripLocateGpsActive.
+  ///
+  /// In en, this message translates to:
+  /// **'GPS Active'**
+  String get tripLocateGpsActive;
+
+  /// No description provided for @tripLocateHoursAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours}h ago'**
+  String tripLocateHoursAgo(int hours);
+
+  /// No description provided for @tripLocateHoursMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{hours} h {minutes} min'**
+  String tripLocateHoursMinutes(int hours, int minutes);
+
+  /// No description provided for @tripLocateJustNow.
+  ///
+  /// In en, this message translates to:
+  /// **'just now'**
+  String get tripLocateJustNow;
+
+  /// No description provided for @tripLocateLastUpdated.
+  ///
+  /// In en, this message translates to:
+  /// **'Last updated: {ago} ({time})'**
+  String tripLocateLastUpdated(String ago, String time);
+
+  /// No description provided for @tripLocateLegendLocationOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Location off'**
+  String get tripLocateLegendLocationOff;
+
+  /// No description provided for @tripLocateLegendSemantics.
+  ///
+  /// In en, this message translates to:
+  /// **'Map key. Orange line: tracked route. Grey dotted line: location was off.'**
+  String get tripLocateLegendSemantics;
+
+  /// No description provided for @tripLocateLegendTracked.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracked'**
+  String get tripLocateLegendTracked;
+
+  /// No description provided for @tripLocateLoadingTrail.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading trail…'**
+  String get tripLocateLoadingTrail;
+
+  /// No description provided for @tripLocateLocating.
+  ///
+  /// In en, this message translates to:
+  /// **'Locating {tripNumber}'**
+  String tripLocateLocating(String tripNumber);
+
+  /// No description provided for @tripLocateMinutes.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes} min'**
+  String tripLocateMinutes(int minutes);
+
+  /// No description provided for @tripLocateMinutesAgo.
+  ///
+  /// In en, this message translates to:
+  /// **'{minutes}m ago'**
+  String tripLocateMinutesAgo(int minutes);
+
+  /// No description provided for @tripLocateModeCar.
+  ///
+  /// In en, this message translates to:
+  /// **'car route'**
+  String get tripLocateModeCar;
+
+  /// No description provided for @tripLocateModeHeavyTruck.
+  ///
+  /// In en, this message translates to:
+  /// **'heavy truck route'**
+  String get tripLocateModeHeavyTruck;
+
+  /// No description provided for @tripLocateModeLightTruck.
+  ///
+  /// In en, this message translates to:
+  /// **'light truck route'**
+  String get tripLocateModeLightTruck;
+
+  /// No description provided for @tripLocateModeMediumTruck.
+  ///
+  /// In en, this message translates to:
+  /// **'medium truck route'**
+  String get tripLocateModeMediumTruck;
+
+  /// No description provided for @tripLocateModeTruck.
+  ///
+  /// In en, this message translates to:
+  /// **'truck route'**
+  String get tripLocateModeTruck;
+
+  /// No description provided for @tripLocateNoGpsMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'The driver app has not shared a location yet for this trip.'**
+  String get tripLocateNoGpsMessage;
+
+  /// No description provided for @tripLocateNoGpsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'No GPS Location Available'**
+  String get tripLocateNoGpsTitle;
+
+  /// No description provided for @tripLocateNoSignal.
+  ///
+  /// In en, this message translates to:
+  /// **'No Signal'**
+  String get tripLocateNoSignal;
+
+  /// No description provided for @tripLocateOpenMaps.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in Google Maps'**
+  String get tripLocateOpenMaps;
+
+  /// No description provided for @tripLocateStale.
+  ///
+  /// In en, this message translates to:
+  /// **'Stale'**
+  String get tripLocateStale;
+
+  /// No description provided for @tripLocateTimeMismatch.
+  ///
+  /// In en, this message translates to:
+  /// **'time mismatch'**
+  String get tripLocateTimeMismatch;
+
+  /// No description provided for @tripLocateTryAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Try Again'**
+  String get tripLocateTryAgain;
+
+  /// No description provided for @tripLocateVehicleFallback.
+  ///
+  /// In en, this message translates to:
+  /// **'VEHICLE'**
+  String get tripLocateVehicleFallback;
+
+  /// No description provided for @workerReqAccept.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept'**
+  String get workerReqAccept;
+
+  /// No description provided for @workerReqAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Worker accepted!'**
+  String get workerReqAccepted;
+
+  /// No description provided for @workerReqAssignRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Assign Role'**
+  String get workerReqAssignRole;
+
+  /// No description provided for @workerReqCurrentRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Currently: {role}'**
+  String workerReqCurrentRole(String role);
+
+  /// No description provided for @workerReqJoined.
+  ///
+  /// In en, this message translates to:
+  /// **'Joined {date}'**
+  String workerReqJoined(String date);
+
+  /// No description provided for @workerReqJoinedBy.
+  ///
+  /// In en, this message translates to:
+  /// **'Joined {date} by {name}'**
+  String workerReqJoinedBy(String date, String name);
+
+  /// No description provided for @workerReqLoadFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load requests'**
+  String get workerReqLoadFailed;
+
+  /// No description provided for @workerReqNoAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'No accepted employees yet'**
+  String get workerReqNoAccepted;
+
+  /// No description provided for @workerReqNoAcceptedHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted employees will appear here.'**
+  String get workerReqNoAcceptedHint;
+
+  /// No description provided for @workerReqNoPending.
+  ///
+  /// In en, this message translates to:
+  /// **'No pending requests'**
+  String get workerReqNoPending;
+
+  /// No description provided for @workerReqNoPendingHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Worker requests will appear here.'**
+  String get workerReqNoPendingHint;
+
+  /// No description provided for @workerReqNoRolePicked.
+  ///
+  /// In en, this message translates to:
+  /// **'This worker didn\'t pick a role at signup — choose one below.'**
+  String get workerReqNoRolePicked;
+
+  /// No description provided for @workerReqNoRoleRequested.
+  ///
+  /// In en, this message translates to:
+  /// **'No role requested yet'**
+  String get workerReqNoRoleRequested;
+
+  /// No description provided for @workerReqReject.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject'**
+  String get workerReqReject;
+
+  /// No description provided for @workerReqRejectConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to reject this worker request?'**
+  String get workerReqRejectConfirm;
+
+  /// No description provided for @workerReqRejectTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject Request'**
+  String get workerReqRejectTitle;
+
+  /// No description provided for @workerReqRejected.
+  ///
+  /// In en, this message translates to:
+  /// **'Request rejected.'**
+  String get workerReqRejected;
+
+  /// No description provided for @workerReqRequestedOn.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested: {date}'**
+  String workerReqRequestedOn(String date);
+
+  /// No description provided for @workerReqRoleFeDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Manages trip stages and fleet status on the ground'**
+  String get workerReqRoleFeDesc;
+
+  /// No description provided for @workerReqRoleLoadOwnerWorker.
+  ///
+  /// In en, this message translates to:
+  /// **'Load Owner Worker'**
+  String get workerReqRoleLoadOwnerWorker;
+
+  /// No description provided for @workerReqRoleLoadOwnerWorkerDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Manages load postings and shipment tracking'**
+  String get workerReqRoleLoadOwnerWorkerDesc;
+
+  /// No description provided for @workerReqRoleNotSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Role not set — tap to assign'**
+  String get workerReqRoleNotSet;
+
+  /// No description provided for @workerReqRoleRrOpsDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Handles RR sync and trip data entry in the RR system'**
+  String get workerReqRoleRrOpsDesc;
+
+  /// No description provided for @workerReqTabAccepted.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepted'**
+  String get workerReqTabAccepted;
+
+  /// No description provided for @workerReqTabPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get workerReqTabPending;
+
+  /// No description provided for @workerReqTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Employee Requests'**
+  String get workerReqTitle;
+
+  /// No description provided for @workerReqUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Unknown'**
+  String get workerReqUnknown;
 }
 
 class _AppLocalizationsDelegate

@@ -210,10 +210,10 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get loginPendingMessage =>
-      'कंपनी ओनर की मंज़ूरी का इंतज़ार करें।\n\nकंपनी ओनर आपकी रिक्वेस्ट मंज़ूर कर देंगे, तब आप लॉगिन कर पाएंगे।';
+      'कंपनी ओनर के स्वीकार करने का इंतज़ार करें।\n\nकंपनी ओनर आपकी रिक्वेस्ट स्वीकार कर लेंगे, तब आप लॉगिन कर पाएंगे।';
 
   @override
-  String get loginPendingTitle => 'मंज़ूरी बाकी है';
+  String get loginPendingTitle => 'मंज़ूरी पेंडिंग है';
 
   @override
   String get loginSubtitle => 'अपने फ्लीट डैशबोर्ड में सुरक्षित तरीके से जाएं';
@@ -893,7 +893,7 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get profileCompleteRequestSent =>
-      'रिक्वेस्ट भेज दी गई! कंपनी ओनर के मंज़ूर करने का इंतज़ार करें।';
+      'रिक्वेस्ट भेज दी गई! कंपनी ओनर के स्वीकार करने का इंतज़ार करें।';
 
   @override
   String get profileCompleteRrOpsDesc =>
@@ -1127,7 +1127,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get recvDocsDeleteTitle => 'रिसीविंग डॉक हटाएं?';
 
   @override
-  String get recvDocsEditTitle => 'रिसीविंग डॉक बदलें';
+  String get recvDocsEditTitle => 'रिसीविंग डॉक एडिट करें';
 
   @override
   String get recvDocsEmpty => 'अभी कोई रिसीविंग डॉक अपलोड नहीं हुआ';
@@ -1277,7 +1277,7 @@ class AppLocalizationsHi extends AppLocalizations {
   String get tripCardDismiss => 'बंद करें';
 
   @override
-  String get tripCardEditTrip => 'ट्रिप बदलें';
+  String get tripCardEditTrip => 'ट्रिप एडिट करें';
 
   @override
   String get tripCardLabelAxleType => 'एक्सल टाइप';
@@ -2977,4 +2977,1406 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get stageNameUnloading => 'अनलोडिंग';
+
+  @override
+  String get createTripAddNewDriver => 'नया चालक जोड़ें';
+
+  @override
+  String get createTripAddressLine1 => 'पता लाइन 1';
+
+  @override
+  String get createTripAddressLine2 => 'पता लाइन 2';
+
+  @override
+  String createTripAddressN(int number) {
+    return 'पता $number';
+  }
+
+  @override
+  String get createTripAttachingDriver => 'RR पर वाहन से चालक जोड़ रहे हैं…';
+
+  @override
+  String get createTripAutoFilledHint => 'अपने आप भरेगा या खुद लिखें';
+
+  @override
+  String get createTripAxleDouble => 'डबल';
+
+  @override
+  String get createTripAxleMultiple => 'मल्टीपल';
+
+  @override
+  String get createTripAxleSingle => 'सिंगल';
+
+  @override
+  String get createTripAxleTriple => 'ट्रिपल';
+
+  @override
+  String get createTripBiddingHint =>
+      'वाहन देने वाले को अपनी ऑफ़लाइन बिड / बुकिंग रकम तय करें';
+
+  @override
+  String get createTripBodyType => 'वाहन का बॉडी टाइप';
+
+  @override
+  String get createTripBookingAmount => 'वाहन देने वाले की बुकिंग रकम (₹) *';
+
+  @override
+  String get createTripBookingHint =>
+      'जैसे 42000  (वाहन देने वाले को भेजी गई ऑफ़लाइन बिड)';
+
+  @override
+  String get createTripConsigneeGstin => 'कंसाइनी का GSTIN';
+
+  @override
+  String get createTripConsigneeHint =>
+      'कंसाइनी की जानकारी अपने आप भरने के लिए पार्टनर में से चुनें';
+
+  @override
+  String get createTripConsigneeName => 'कंसाइनी का नाम';
+
+  @override
+  String get createTripConsigneeNameHint => 'जैसे JSW Steel Ltd';
+
+  @override
+  String get createTripConsignorGstin => 'कंसाइनर का GSTIN';
+
+  @override
+  String get createTripConsignorHint =>
+      'कंसाइनर की जानकारी अपने आप भरने के लिए पार्टनर में से चुनें';
+
+  @override
+  String get createTripConsignorName => 'कंसाइनर का नाम *';
+
+  @override
+  String get createTripConsignorNameHint => 'जैसे Tata Steel Ltd';
+
+  @override
+  String get createTripCreateButton => 'ट्रिप बनाएं';
+
+  @override
+  String get createTripDepotHint => 'जैसे KNP01';
+
+  @override
+  String get createTripDiscard => 'छोड़ दें';
+
+  @override
+  String get createTripDiscardBody =>
+      'इस ट्रिप के आपके बदलाव सेव नहीं हुए हैं।';
+
+  @override
+  String get createTripDiscardTitle => 'बदलाव छोड़ दें?';
+
+  @override
+  String get createTripDriverLabel => 'चालक *';
+
+  @override
+  String get createTripDriverSearchHint =>
+      'पूरा 10 अंकों का फ़ोन, या नाम का कुछ हिस्सा';
+
+  @override
+  String get createTripDriverSearchLabel => 'चालक का नाम या फ़ोन नंबर';
+
+  @override
+  String createTripEditTitle(String ident) {
+    return 'ट्रिप एडिट करें · $ident';
+  }
+
+  @override
+  String createTripErrAttachDriver(String error) {
+    return 'RR पर वाहन से चालक नहीं जुड़ सका: $error';
+  }
+
+  @override
+  String get createTripErrCreateFailed => 'ट्रिप नहीं बन सकी';
+
+  @override
+  String get createTripErrNoUserFound => 'इस नंबर का कोई यूज़र नहीं मिला';
+
+  @override
+  String get createTripErrRrSlow =>
+      'RR जवाब देने में बहुत समय ले रहा है — फिर कोशिश करें';
+
+  @override
+  String get createTripErrSaveFailed =>
+      'बदलाव सेव नहीं हो सके — फिर कोशिश करें';
+
+  @override
+  String get createTripExpectedFreight => 'अनुमानित भाड़ा (₹) *';
+
+  @override
+  String get createTripFreightHint => 'जैसे 45000';
+
+  @override
+  String get createTripHandledByPerson => 'संभालने वाला *';
+
+  @override
+  String get createTripInvoiceHint => 'जैसे 150000';
+
+  @override
+  String get createTripInvoiceValue => 'कुल इनवॉइस वैल्यू (₹) *';
+
+  @override
+  String get createTripKeepEditing => 'बदलते रहें';
+
+  @override
+  String get createTripLandmark => 'लैंडमार्क / मोहल्ला';
+
+  @override
+  String get createTripLoadingBodyTypes => 'बॉडी टाइप लोड हो रहे हैं…';
+
+  @override
+  String get createTripLoadingCompanies => 'कंपनियां लोड हो रही हैं…';
+
+  @override
+  String get createTripLoadingPartners => 'पार्टनर लोड हो रहे हैं…';
+
+  @override
+  String get createTripLoadingVehicles => 'वाहन लोड हो रहे हैं…';
+
+  @override
+  String get createTripLoadingWorkers => 'वर्कर लोड हो रहे हैं…';
+
+  @override
+  String get createTripLookingUp => 'खोज रहे हैं…';
+
+  @override
+  String get createTripMarketShort => 'मार्केट';
+
+  @override
+  String get createTripMaterialType => 'माल / प्रोडक्ट टाइप *';
+
+  @override
+  String createTripMaxChars(int max, int count) {
+    return 'ज़्यादा से ज़्यादा $max अक्षर   $count/$max';
+  }
+
+  @override
+  String get createTripNewTrip => 'नई ट्रिप';
+
+  @override
+  String get createTripNoCompanies =>
+      'कोई कंपनी नहीं — नीचे निजी फ्लीट का वाहन चुनें';
+
+  @override
+  String get createTripNoDriverOnRr =>
+      'RR पर इस वाहन में कोई चालक नहीं है — नीचे खोजें या नया चालक जोड़ें।';
+
+  @override
+  String get createTripNoEntryZone => 'नो एंट्री ज़ोन';
+
+  @override
+  String get createTripNoVehicles => 'कोई वाहन नहीं मिला';
+
+  @override
+  String get createTripNotBookedNotice =>
+      'अभी RR पर बुक नहीं हुई — बदलाव यहां सेव हैं और बुकिंग पक्की करने पर RR को भेजे जाएंगे।';
+
+  @override
+  String get createTripNothingChanged => 'कुछ बदला नहीं है';
+
+  @override
+  String get createTripParcelDesc => 'पार्सल का विवरण';
+
+  @override
+  String get createTripParcelDescHint => 'जैसे स्टील कॉइल';
+
+  @override
+  String get createTripPickupCityName => 'पिकअप शहर का नाम *';
+
+  @override
+  String get createTripPickupHint => 'अपने आप भरने के लिए कंसाइनर का पता चुनें';
+
+  @override
+  String get createTripPinHint => '6 अंकों का पिनकोड';
+
+  @override
+  String get createTripPinZip => 'पिनकोड';
+
+  @override
+  String get createTripSearchCity => 'शहर खोजें…';
+
+  @override
+  String get createTripSearchMaterial => 'माल खोजें…';
+
+  @override
+  String get createTripSectionBidding => 'बिडिंग रकम';
+
+  @override
+  String get createTripSectionConsignee => 'कंसाइनी की जानकारी';
+
+  @override
+  String get createTripSectionConsignor => 'कंसाइनर की जानकारी';
+
+  @override
+  String get createTripSectionHandledBy => 'ट्रिप हैंडल करने वाले';
+
+  @override
+  String get createTripSectionParcel => 'पार्सल / लोड की जानकारी';
+
+  @override
+  String get createTripSectionPickup => 'पिकअप लोकेशन';
+
+  @override
+  String get createTripSectionUnload => 'अनलोड लोकेशन';
+
+  @override
+  String get createTripSectionVehicleProvider => 'वाहन देने वाला';
+
+  @override
+  String get createTripSectionVehicleSpecs => 'वाहन की डिटेल';
+
+  @override
+  String get createTripSelectAxle => 'एक्सल टाइप चुनें';
+
+  @override
+  String get createTripSelectBodyType => 'वाहन का बॉडी टाइप चुनें';
+
+  @override
+  String get createTripSelectCompany => 'कंपनी चुनें';
+
+  @override
+  String get createTripSelectCompanyFirst =>
+      'वाहन देखने के लिए पहले ऊपर से कंपनी चुनें';
+
+  @override
+  String get createTripSelectConsigneeAddress =>
+      'कंसाइनी का पता चुनें (ज़रूरी नहीं)';
+
+  @override
+  String get createTripSelectConsigneeCompany => 'कंसाइनी की कंपनी चुनें';
+
+  @override
+  String get createTripSelectConsignorAddress =>
+      'कंसाइनर का पता चुनें (ज़रूरी नहीं)';
+
+  @override
+  String get createTripSelectConsignorCompany => 'कंसाइनर की कंपनी चुनें *';
+
+  @override
+  String get createTripSelectFromPartners =>
+      'पार्टनर में से चुनें (ज़रूरी नहीं)';
+
+  @override
+  String get createTripSelectOpsWorker => 'RR Ops वर्कर चुनें';
+
+  @override
+  String get createTripSelectPartner => 'पार्टनर चुनें';
+
+  @override
+  String get createTripSelectPartnerFirst => 'पहले ऊपर से पार्टनर चुनें';
+
+  @override
+  String get createTripSelectProviderCompany =>
+      'वाहन देने वाले की कंपनी चुनें *';
+
+  @override
+  String get createTripSelectToAutoFill => 'पता अपने आप भरने के लिए चुनें';
+
+  @override
+  String get createTripSelectVehicle => 'वाहन चुनें *';
+
+  @override
+  String get createTripSelectVehicleHint => 'वाहन चुनें';
+
+  @override
+  String get createTripSelectWheels => 'पहियों की संख्या चुनें';
+
+  @override
+  String get createTripStepBidding => 'बिडिंग';
+
+  @override
+  String get createTripStepVehicle => 'वाहन';
+
+  @override
+  String get createTripStreetArea => 'गली / इलाका';
+
+  @override
+  String get createTripTabLoadInfo => 'लोड की जानकारी';
+
+  @override
+  String get createTripTapToSelect => 'चुनने के लिए टैप करें';
+
+  @override
+  String get createTripTotalWeight => 'कुल वज़न / मात्रा *';
+
+  @override
+  String get createTripUnknown => 'अज्ञात';
+
+  @override
+  String get createTripUnknownError => 'कोई अज्ञात गड़बड़';
+
+  @override
+  String get createTripUnloadCityName => 'अनलोड शहर का नाम *';
+
+  @override
+  String get createTripUnloadHint => 'अपने आप भरने के लिए कंसाइनी का पता चुनें';
+
+  @override
+  String get createTripUpdate => 'अपडेट करें';
+
+  @override
+  String get createTripUpdated => 'ट्रिप अपडेट हो गई';
+
+  @override
+  String get createTripValBookingAmount =>
+      'बुकिंग रकम (₹) ज़रूरी है और 0 से ज़्यादा होनी चाहिए';
+
+  @override
+  String get createTripValConsignorCompany =>
+      'लिस्ट में से कंपनी चुनना ज़रूरी है';
+
+  @override
+  String get createTripValConsignorName =>
+      'कंसाइनर का नाम ज़रूरी है — ऊपर से पार्टनर चुनें या नाम लिखें';
+
+  @override
+  String get createTripValDriver => 'चालक चुनें';
+
+  @override
+  String get createTripValExpectedFreight =>
+      'RR में ट्रिप बनाने के लिए अनुमानित भाड़ा (₹) ज़रूरी है';
+
+  @override
+  String get createTripValInvoiceValue =>
+      'कुल इनवॉइस वैल्यू (₹) ज़रूरी है — RR में पार्सल की कीमत के तौर पर लगेगी';
+
+  @override
+  String get createTripValMaterial =>
+      'माल / प्रोडक्ट टाइप ज़रूरी है — खोजकर लिस्ट में से चुनें';
+
+  @override
+  String get createTripValOpsWorker =>
+      'इस ट्रिप को संभालने वाला RR Ops वर्कर चुनें';
+
+  @override
+  String get createTripValPickupCity =>
+      'पिकअप शहर ज़रूरी है — खोजकर लिस्ट में से चुनें';
+
+  @override
+  String get createTripValUnloadCity =>
+      'अनलोड शहर ज़रूरी है — खोजकर लिस्ट में से चुनें';
+
+  @override
+  String get createTripValVehicle => 'वाहन चुनें';
+
+  @override
+  String get createTripValVpCompany =>
+      'वाहन देने वाले की कंपनी ज़रूरी है — कंपनी चुनें';
+
+  @override
+  String get createTripValVpPhone =>
+      'वाहन देने वाले का फ़ोन नंबर डालें और नतीजे पर टैप करके चुनें';
+
+  @override
+  String get createTripValWeight => 'कुल वज़न / मात्रा ज़रूरी है';
+
+  @override
+  String get createTripVpPhone => 'वाहन देने वाले का फ़ोन *';
+
+  @override
+  String get createTripVpPhoneHint =>
+      'जैसे 8960281816 — 10 अंक होते ही अपने आप खोजेगा';
+
+  @override
+  String get createTripVpSteps =>
+      'वाहन देने वाले का फ़ोन डालें → यूज़र चुनें → कंपनी चुनें → वाहन चुनें';
+
+  @override
+  String get createTripWarnBusy =>
+      'यह चालक पहले से दूसरी चालू ट्रिप पर है — वह ट्रिप पूरी होने तक ट्रैकिंग इस ट्रिप से नहीं जुड़ेगी।';
+
+  @override
+  String get createTripWarnNoApp =>
+      'इस चालक ने अभी RR4 ऐप सेट अप नहीं किया है — जब तक वे नहीं करते, इस ट्रिप की ट्रैकिंग नहीं होगी।';
+
+  @override
+  String get createTripWeightHint => 'जैसे 20';
+
+  @override
+  String createTripWheelsCount(int count) {
+    return '$count पहिए';
+  }
+
+  @override
+  String get lpDashAboutRr => 'RR Logistics के बारे में';
+
+  @override
+  String get lpDashAddCompany => 'कंपनी जोड़ें';
+
+  @override
+  String get lpDashAddDriver => 'चालक जोड़ें';
+
+  @override
+  String get lpDashAddVehicle => 'वाहन जोड़ें';
+
+  @override
+  String get lpDashBrowseLoads => 'उपलब्ध लोड रिक्वायरमेंट देखें';
+
+  @override
+  String get lpDashComingSoonBody =>
+      'यह सेक्शन तैयार हो रहा है\nऔर जल्द ही उपलब्ध होगा।';
+
+  @override
+  String get lpDashCreateTrip => 'ट्रिप बनाएं';
+
+  @override
+  String get lpDashEmployees => 'कर्मचारी';
+
+  @override
+  String get lpDashEmptyTripsHint => 'ट्रिप बनाएं और उसे यहां लाइव ट्रैक करें';
+
+  @override
+  String get lpDashFleetHub => 'फ्लीट हब';
+
+  @override
+  String get lpDashFleetStatus => 'फ्लीट की स्थिति';
+
+  @override
+  String get lpDashHireTruck => 'ट्रक हायर करें';
+
+  @override
+  String get lpDashLoadFleetFailed => 'फ्लीट की स्थिति लोड नहीं हो सकी';
+
+  @override
+  String get lpDashNavFleet => 'फ्लीट';
+
+  @override
+  String get lpDashNavLoads => 'लोड';
+
+  @override
+  String get lpDashNavSoon => 'जल्द';
+
+  @override
+  String get lpDashNewTrip => 'नई ट्रिप';
+
+  @override
+  String get lpDashNoRecords => 'अभी कोई RR Web रिकॉर्ड नहीं है';
+
+  @override
+  String get lpDashNoRecordsHint => 'पूरी हुई RR Web ट्रिप यहां दिखेंगी';
+
+  @override
+  String get lpDashPanelSubtitle => 'लॉजिस्टिक पार्टनर पैनल';
+
+  @override
+  String lpDashPendingCount(int count) {
+    return '$count पेंडिंग';
+  }
+
+  @override
+  String get lpDashReconnect => 'फिर से जोड़ें';
+
+  @override
+  String get lpDashRecordsSubtitle => 'पूरी हुई RR Web ट्रिप';
+
+  @override
+  String get lpDashRequests => 'रिक्वेस्ट';
+
+  @override
+  String get lpDashRrQuickAdd => 'RR क्विक ऐड';
+
+  @override
+  String lpDashRrSyncFailedDetail(String reason) {
+    return 'RR सिंक नहीं हुआ: $reason';
+  }
+
+  @override
+  String get lpDashRrTripNumber => 'RR ट्रिप नंबर';
+
+  @override
+  String get lpDashS1AllowBody =>
+      'क्या फील्ड एक्ज़ीक्यूटिव इस ट्रिप के स्टेज 1 (ट्रक डिटेल रजिस्ट्रेशन) के डॉक्यूमेंट भर सकता है?\n\nआप इसे बाद में ट्रिप कार्ड से बदल सकते हैं।';
+
+  @override
+  String get lpDashS1AllowTitle => 'फील्ड एक्ज़ीक्यूटिव — स्टेज 1';
+
+  @override
+  String get lpDashSearchNewLoads => 'नए लोड खोजें';
+
+  @override
+  String get lpDashTrack => 'ट्रैक';
+
+  @override
+  String lpDashTripCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ट्रिप',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get lpDashTripCreated => 'ट्रिप बन गई';
+
+  @override
+  String get lpDashTripNumberCopied => 'ट्रिप नंबर कॉपी हो गया';
+
+  @override
+  String get lpDashTripSyncedToRrWeb => 'ट्रिप RR Web में सिंक हो गई';
+
+  @override
+  String get lpDashVehicleHireRequests => 'वाहन हायर रिक्वेस्ट';
+
+  @override
+  String get lpOpsAddCompany => 'कंपनी जोड़ें';
+
+  @override
+  String get lpOpsAddDriver => 'चालक जोड़ें';
+
+  @override
+  String get lpOpsAddVehicle => 'वाहन जोड़ें';
+
+  @override
+  String get lpOpsDrawerTrack => 'ट्रैक';
+
+  @override
+  String get lpOpsEmptyBody =>
+      'अभी कोई चालू RR Web ट्रिप नहीं है।\nशुरू करने के लिए ऊपर \"+ नई ट्रिप\" दबाएं।';
+
+  @override
+  String get lpOpsEmptyTitle => 'अभी कोई RR Web ट्रिप नहीं';
+
+  @override
+  String get lpOpsHireRequests => 'वाहन हायर रिक्वेस्ट';
+
+  @override
+  String get lpOpsHireTruck => 'ट्रक हायर करें';
+
+  @override
+  String get lpOpsNavLoads => 'लोड';
+
+  @override
+  String get lpOpsNeedsSlip => 'स्लिप बाकी';
+
+  @override
+  String get lpOpsNewTrip => 'नई ट्रिप';
+
+  @override
+  String lpOpsNoMatch(String query) {
+    return '\"$query\" से कोई ट्रिप नहीं मिली';
+  }
+
+  @override
+  String get lpOpsNoSyncedHint => 'RR web में सिंक हुई ट्रिप यहां दिखेंगी';
+
+  @override
+  String get lpOpsNoSyncedTitle => 'अभी कोई सिंक हुई ट्रिप नहीं';
+
+  @override
+  String get lpOpsQuickAdd => 'RR क्विक ऐड';
+
+  @override
+  String get lpOpsReconnect => 'फिर से जोड़ें';
+
+  @override
+  String get lpOpsRrTripNumber => 'RR ट्रिप नंबर';
+
+  @override
+  String get lpOpsS1Body =>
+      'क्या फील्ड एक्ज़ीक्यूटिव इस ट्रिप के स्टेज 1 (ट्रक डिटेल रजिस्ट्रेशन) के डॉक्यूमेंट भरे?\n\nआप इसे बाद में ट्रिप कार्ड से बदल सकते हैं।';
+
+  @override
+  String get lpOpsS1Title => 'फील्ड एक्ज़ीक्यूटिव — स्टेज 1';
+
+  @override
+  String get lpOpsSlipDone => 'स्लिप हो गई';
+
+  @override
+  String lpOpsSyncFailedMsg(String error) {
+    return 'RR सिंक नहीं हुआ: $error';
+  }
+
+  @override
+  String lpOpsSyncedCount(int count) {
+    return '$count सिंक हुईं';
+  }
+
+  @override
+  String get lpOpsTripCreated => 'ट्रिप बन गई';
+
+  @override
+  String get lpOpsTripNumberCopied => 'ट्रिप नंबर कॉपी हो गया';
+
+  @override
+  String get lpOpsTripSynced => 'ट्रिप RR Web में सिंक हो गई';
+
+  @override
+  String get lpOpsWebTrips => 'RR Web ट्रिप';
+
+  @override
+  String get lpWorkersDaily => 'दैनिक';
+
+  @override
+  String get lpWorkersEmptyHint =>
+      'आपकी कंपनी के सक्रिय कर्मचारी यहां दिखेंगे।';
+
+  @override
+  String get lpWorkersEmptyTitle => 'कोई कर्मचारी नहीं मिला';
+
+  @override
+  String get lpWorkersLoadFailed => 'लोड नहीं हो सका';
+
+  @override
+  String get lpWorkersMonthly => 'मासिक';
+
+  @override
+  String get lpWorkersNoActivityHint =>
+      'इस अवधि में कोई स्टेज सबमिशन दर्ज नहीं हुआ।';
+
+  @override
+  String get lpWorkersNoActivityTitle => 'अभी कोई गतिविधि नहीं';
+
+  @override
+  String lpWorkersPoints(int count) {
+    return '$count अंक';
+  }
+
+  @override
+  String get lpWorkersPtsShort => 'अंक';
+
+  @override
+  String lpWorkersRemoveConfirm(String name) {
+    return '$name को कंपनी से हटाएं? उनका एक्सेस अभी बंद हो जाएगा और वे बाद में दोबारा जुड़ने की रिक्वेस्ट कर सकते हैं।';
+  }
+
+  @override
+  String lpWorkersRemoveFailed(String error) {
+    return 'हटाना नहीं हो सका: $error';
+  }
+
+  @override
+  String get lpWorkersRemoveTitle => 'कंपनी से हटाएं';
+
+  @override
+  String lpWorkersRemoved(String name) {
+    return '$name को कंपनी से हटा दिया गया';
+  }
+
+  @override
+  String get lpWorkersTabLeaderboard => 'लीडरबोर्ड';
+
+  @override
+  String get lpWorkersTabRecord => 'रिकॉर्ड';
+
+  @override
+  String get lpWorkersTitle => 'कर्मचारी';
+
+  @override
+  String lpWorkersTripsCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ट्रिप',
+      one: '$count ट्रिप',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get rrQuickAddActionFailed =>
+      'काम नहीं हो सका। कृपया फिर से कोशिश करें।';
+
+  @override
+  String get rrQuickAddAddCompanyButton => 'कंपनी जोड़ें';
+
+  @override
+  String get rrQuickAddAddDriverButton => 'चालक जोड़ें';
+
+  @override
+  String get rrQuickAddAddVehicleButton => 'वाहन जोड़ें';
+
+  @override
+  String get rrQuickAddApprove => 'मंज़ूर करें';
+
+  @override
+  String get rrQuickAddApprovedEndDate => 'मंज़ूर खत्म तारीख';
+
+  @override
+  String rrQuickAddApprovedRange(String start, String end) {
+    return 'मंज़ूर: $start से $end';
+  }
+
+  @override
+  String get rrQuickAddApprovedStartDate => 'मंज़ूर शुरू तारीख';
+
+  @override
+  String get rrQuickAddBizCommissionAgent => 'कमीशन एजेंट';
+
+  @override
+  String get rrQuickAddBizDriver => 'चालक';
+
+  @override
+  String get rrQuickAddBizOther => 'अन्य';
+
+  @override
+  String get rrQuickAddBizParcelReceiver => 'पार्सल पाने वाला - कंसाइनी';
+
+  @override
+  String get rrQuickAddBizParcelReceiverAgent =>
+      'पार्सल पाने वाले का एजेंट - कंसाइनी कमीशन एजेंट';
+
+  @override
+  String get rrQuickAddBizParcelSender => 'पार्सल भेजने वाला - कंसाइनर';
+
+  @override
+  String get rrQuickAddBizParcelSenderAgent =>
+      'पार्सल भेजने वाले का एजेंट - कंसाइनर कमीशन एजेंट';
+
+  @override
+  String get rrQuickAddBizTransporter => 'ट्रांसपोर्टर';
+
+  @override
+  String get rrQuickAddBizVehicleAgent => 'वाहन एजेंट';
+
+  @override
+  String get rrQuickAddBizVehicleOwner => 'वाहन ओनर';
+
+  @override
+  String get rrQuickAddBusinessTypeLabel => 'बिज़नेस टाइप *';
+
+  @override
+  String get rrQuickAddCheckHistory => 'वाहन की हिस्ट्री देखें';
+
+  @override
+  String rrQuickAddCompanyAdded(String name) {
+    return 'कंपनी \"$name\" RR पर जोड़ दी गई';
+  }
+
+  @override
+  String get rrQuickAddCompanyFirmLabel => 'कंपनी / फर्म का नाम';
+
+  @override
+  String get rrQuickAddCompanyIntro =>
+      'RR पर नई वाहन देने वाली कंपनी रजिस्टर करें';
+
+  @override
+  String get rrQuickAddCompanyNameRequired => 'कंपनी का नाम ज़रूरी है';
+
+  @override
+  String get rrQuickAddCompanyOptional => 'कंपनी (ज़रूरी नहीं)';
+
+  @override
+  String get rrQuickAddCompanyOwnerLabel =>
+      'कंपनी ओनर (खोजें या नया 10 अंकों का फ़ोन डालें) *';
+
+  @override
+  String get rrQuickAddCompanyTitle => 'नई कंपनी जोड़ें';
+
+  @override
+  String rrQuickAddContractorLine(String value) {
+    return 'कॉन्ट्रैक्टर: $value';
+  }
+
+  @override
+  String rrQuickAddDateRangeTo(String start, String end) {
+    return '$start से $end';
+  }
+
+  @override
+  String rrQuickAddDriverAdded(String name) {
+    return 'चालक \"$name\" RR पर जोड़ दिया गया';
+  }
+
+  @override
+  String get rrQuickAddDriverIntro => 'RR पर नया चालक रजिस्टर करें';
+
+  @override
+  String get rrQuickAddDriverTitle => 'नया चालक जोड़ें';
+
+  @override
+  String rrQuickAddEndLine(String date) {
+    return 'खत्म: $date';
+  }
+
+  @override
+  String get rrQuickAddEngineModelLabel => 'इंजन मॉडल *';
+
+  @override
+  String get rrQuickAddFind => 'खोजें';
+
+  @override
+  String rrQuickAddFromLine(String date) {
+    return 'से: $date';
+  }
+
+  @override
+  String get rrQuickAddHireApproved => 'हायर रिक्वेस्ट मंज़ूर हो गई';
+
+  @override
+  String get rrQuickAddHireEmpty => 'कोई पेंडिंग हायर रिक्वेस्ट नहीं';
+
+  @override
+  String get rrQuickAddHireLoadFailed => 'हायर रिक्वेस्ट लोड नहीं हो सकीं';
+
+  @override
+  String get rrQuickAddHirePerson => 'हायर करने वाला';
+
+  @override
+  String get rrQuickAddHirePersonLabel => 'वाहन हायर करने वाला *';
+
+  @override
+  String get rrQuickAddHireRejected => 'हायर रिक्वेस्ट अस्वीकार कर दी गई';
+
+  @override
+  String get rrQuickAddHireSendFailed =>
+      'हायर रिक्वेस्ट नहीं भेजी जा सकी। कृपया फिर से कोशिश करें।';
+
+  @override
+  String get rrQuickAddHireSent => 'हायरिंग रिक्वेस्ट भेज दी गई';
+
+  @override
+  String get rrQuickAddHireTitle => 'वाहन हायर रिक्वेस्ट';
+
+  @override
+  String get rrQuickAddHiringDateFrom => 'हायरिंग रिक्वेस्ट की तारीख — से';
+
+  @override
+  String get rrQuickAddHiringDateTo => 'हायरिंग रिक्वेस्ट की तारीख — तक';
+
+  @override
+  String get rrQuickAddHiringRequestDate => 'हायरिंग रिक्वेस्ट की तारीख';
+
+  @override
+  String get rrQuickAddHistoryFailed =>
+      'हिस्ट्री लोड नहीं हो सकी। कृपया फिर से कोशिश करें।';
+
+  @override
+  String get rrQuickAddHistoryHint =>
+      'सिर्फ़ जानकारी के लिए — वाहन के पुराने हायर देखें';
+
+  @override
+  String get rrQuickAddHistorySelectFirst => 'पहले वाहन खोजकर चुनें';
+
+  @override
+  String get rrQuickAddLenderDetail => 'वाहन देने वाले की जानकारी';
+
+  @override
+  String get rrQuickAddLenderVehicles => 'वाहन देने वाले के वाहन *';
+
+  @override
+  String get rrQuickAddMarketTitle => 'मार्केट वाहन जोड़ें';
+
+  @override
+  String get rrQuickAddNameLabel => 'नाम *';
+
+  @override
+  String get rrQuickAddNameMin => 'कम से कम 2 अक्षर डालें';
+
+  @override
+  String rrQuickAddNoHistory(String vehicle) {
+    return '$vehicle की कोई हायर हिस्ट्री नहीं मिली';
+  }
+
+  @override
+  String get rrQuickAddNoOwnerVehicles => 'इस ओनर का RR पर कोई वाहन नहीं है';
+
+  @override
+  String get rrQuickAddNotSet => 'सेट नहीं है';
+
+  @override
+  String get rrQuickAddOrByPhone => '— या फ़ोन नंबर से —';
+
+  @override
+  String rrQuickAddOwnerLine(String value) {
+    return 'ओनर: $value';
+  }
+
+  @override
+  String get rrQuickAddOwnerOrPhone =>
+      'मौजूदा ओनर चुनें या सही 10 अंकों का फ़ोन नंबर डालें';
+
+  @override
+  String get rrQuickAddOwnerPhoneLabel => 'ओनर का फ़ोन नंबर *';
+
+  @override
+  String get rrQuickAddPhoneLabel => 'फ़ोन नंबर *';
+
+  @override
+  String get rrQuickAddPhoneSearchHint =>
+      'पूरा 10 अंकों का फ़ोन, या नाम का कुछ हिस्सा';
+
+  @override
+  String get rrQuickAddRcHint => 'जैसे RJ14';
+
+  @override
+  String get rrQuickAddRcNumberLabel => 'RC नंबर *';
+
+  @override
+  String get rrQuickAddRcRequired => 'RC नंबर ज़रूरी है';
+
+  @override
+  String get rrQuickAddReject => 'अस्वीकार करें';
+
+  @override
+  String get rrQuickAddRequestInfo => 'रिक्वेस्ट की जानकारी';
+
+  @override
+  String get rrQuickAddRequestTimePeriod => 'रिक्वेस्ट की अवधि';
+
+  @override
+  String rrQuickAddRequestedByLine(String value) {
+    return 'रिक्वेस्ट करने वाला: $value';
+  }
+
+  @override
+  String rrQuickAddRequestedRangeArrow(String start, String end) {
+    return 'रिक्वेस्ट: $start → $end';
+  }
+
+  @override
+  String rrQuickAddRequestedRangeTo(String start, String end) {
+    return 'रिक्वेस्ट: $start से $end';
+  }
+
+  @override
+  String get rrQuickAddReviewTitle => 'हायर रिक्वेस्ट का रिव्यू';
+
+  @override
+  String get rrQuickAddSamePerson =>
+      'हायर करने वाला और वाहन देने वाला अलग होने चाहिए। आप अपना ही वाहन हायर नहीं कर सकते।';
+
+  @override
+  String get rrQuickAddSearchByCompany => 'कंपनी/फर्म से खोजें';
+
+  @override
+  String get rrQuickAddSelectCity => 'सुझावों में से शहर चुनें';
+
+  @override
+  String get rrQuickAddSelectEngineModel => 'सुझावों में से इंजन मॉडल चुनें';
+
+  @override
+  String get rrQuickAddSelectFleetVehicle => 'ओनर के फ्लीट से वाहन चुनें';
+
+  @override
+  String get rrQuickAddSelectHirePerson => 'वाहन हायर करने वाले को खोजकर चुनें';
+
+  @override
+  String get rrQuickAddSelectOwner => 'सुझावों में से ओनर चुनें';
+
+  @override
+  String get rrQuickAddSelectVehicleHint => 'वाहन चुनें';
+
+  @override
+  String get rrQuickAddSelectVehicleOwner => 'वाहन ओनर को खोजकर चुनें';
+
+  @override
+  String rrQuickAddStartLine(String date) {
+    return 'शुरू: $date';
+  }
+
+  @override
+  String get rrQuickAddStatusApproved => 'Approved';
+
+  @override
+  String get rrQuickAddStatusRejected => 'Rejected';
+
+  @override
+  String get rrQuickAddStatusRequested => 'Requested';
+
+  @override
+  String get rrQuickAddStatusTerminated => 'Terminated';
+
+  @override
+  String rrQuickAddTerminatedLine(String date) {
+    return 'समाप्त: $date';
+  }
+
+  @override
+  String rrQuickAddToLine(String date) {
+    return 'तक: $date';
+  }
+
+  @override
+  String get rrQuickAddUnknown => 'अज्ञात';
+
+  @override
+  String rrQuickAddVehicleAdded(String rc) {
+    return 'वाहन \"$rc\" RR पर जोड़ दिया गया';
+  }
+
+  @override
+  String get rrQuickAddVehicleDetail => 'वाहन की जानकारी';
+
+  @override
+  String get rrQuickAddVehicleIntro => 'RR पर नया वाहन रजिस्टर करें';
+
+  @override
+  String rrQuickAddVehicleLine(String value) {
+    return 'वाहन: $value';
+  }
+
+  @override
+  String get rrQuickAddVehicleOwnerLabel => 'वाहन ओनर *';
+
+  @override
+  String get rrQuickAddVehicleTitle => 'नया वाहन जोड़ें';
+
+  @override
+  String get rrQuickAddYourFleet => 'आपका फ्लीट';
+
+  @override
+  String loadsBrowserCompany(String name) {
+    return 'कंपनी: $name';
+  }
+
+  @override
+  String loadsBrowserCopiedCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count लोड रिक्वायरमेंट क्लिपबोर्ड पर कॉपी हो गईं',
+      one: 'लोड रिक्वायरमेंट क्लिपबोर्ड पर कॉपी हो गई',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get loadsBrowserCopyDetails => 'जानकारी कॉपी करें';
+
+  @override
+  String loadsBrowserCopySelected(int count) {
+    return 'चुने हुए कॉपी करें ($count)';
+  }
+
+  @override
+  String get loadsBrowserDetailsCopied =>
+      'लोड की जानकारी क्लिपबोर्ड पर कॉपी हो गई';
+
+  @override
+  String get loadsBrowserDropHint => 'ड्रॉप शहर…';
+
+  @override
+  String get loadsBrowserEmpty => 'कोई लोड रिक्वायरमेंट पेंडिंग नहीं';
+
+  @override
+  String loadsBrowserLogisticPartner(String name) {
+    return 'लॉजिस्टिक पार्टनर: $name';
+  }
+
+  @override
+  String loadsBrowserMaterialWeight(String weight) {
+    return 'माल: $weight';
+  }
+
+  @override
+  String get loadsBrowserPickupHint => 'पिकअप शहर…';
+
+  @override
+  String get loadsBrowserSubtitle =>
+      'लोड मालिकों की पेंडिंग रिक्वायरमेंट देखें';
+
+  @override
+  String get loadsBrowserTitle => 'लोड खोजें';
+
+  @override
+  String loadsBrowserTruckUnit(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'ट्रक',
+      one: 'ट्रक',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String loadsBrowserTruckWeight(String weight) {
+    return 'ट्रक: $weight';
+  }
+
+  @override
+  String get loadsBrowserTrucksNeeded => 'ट्रक चाहिए:';
+
+  @override
+  String get loadsBrowserWhatsApp => 'WhatsApp';
+
+  @override
+  String get loadsBrowserWhatsAppFailed => 'WhatsApp नहीं खुल पाया';
+
+  @override
+  String get tripDetailCreated => 'बनने की तारीख';
+
+  @override
+  String get tripDetailEndDate => 'ख़त्म होने की तारीख';
+
+  @override
+  String get tripDetailFetchingGps => 'GPS लोकेशन ली जा रही है…';
+
+  @override
+  String get tripDetailGoToStage => 'मौजूदा स्टेज पर जाएं';
+
+  @override
+  String get tripDetailInvoiceNumber => 'इनवॉइस नंबर';
+
+  @override
+  String get tripDetailLoadItem => 'लोड आइटम';
+
+  @override
+  String get tripDetailRoute => 'रूट';
+
+  @override
+  String get tripDetailSectionCargo => 'माल की जानकारी';
+
+  @override
+  String get tripDetailSectionFinancial => 'पैसों की जानकारी';
+
+  @override
+  String get tripDetailSectionIdentifiers => 'पहचान की जानकारी';
+
+  @override
+  String get tripDetailSectionLogistics => 'लॉजिस्टिक्स';
+
+  @override
+  String tripDetailStageLine(int number, String name) {
+    return 'स्टेज $number: $name';
+  }
+
+  @override
+  String get tripDetailStartDate => 'शुरू होने की तारीख';
+
+  @override
+  String get tripDetailTitle => 'ट्रिप की जानकारी';
+
+  @override
+  String get tripDetailTripAmount => 'ट्रिप की रकम';
+
+  @override
+  String get tripDetailTripNumber => 'ट्रिप नंबर';
+
+  @override
+  String get tripDetailViewOnMap => 'वाहन को लाइव मैप पर देखें';
+
+  @override
+  String tripLocateDaysAgo(int days) {
+    return '$days दिन पहले';
+  }
+
+  @override
+  String tripLocateGapLocationOff(String time) {
+    return 'लोकेशन बंद थी · $time';
+  }
+
+  @override
+  String get tripLocateGapNearDetail => 'वाहन उसी इलाके में रहा।';
+
+  @override
+  String tripLocateGapNoTracking(String time) {
+    return 'इस ट्रिप की ट्रैकिंग नहीं हुई · $time';
+  }
+
+  @override
+  String tripLocateGapOkDetail(String km) {
+    return 'सड़क से लगभग $km किमी। अंदाज़न रूट, कम से कम दूरी।';
+  }
+
+  @override
+  String tripLocateGapOkDetailMode(String km, String mode) {
+    return 'सड़क से लगभग $km किमी। अंदाज़न रूट, कम से कम दूरी ($mode)।';
+  }
+
+  @override
+  String get tripLocateGapReleasedDetail =>
+      'इस ट्रिप की ट्रैकिंग रोकी गई थी या चालक बदल गया। कोई रूट नहीं दिखाया गया।';
+
+  @override
+  String tripLocateGapSemanticsOff(String label) {
+    return 'लोकेशन $label तक बंद थी। जानकारी के लिए टैप करें।';
+  }
+
+  @override
+  String tripLocateGapSemanticsReleased(String label) {
+    return 'इस ट्रिप की ट्रैकिंग $label तक नहीं हुई। जानकारी के लिए टैप करें।';
+  }
+
+  @override
+  String tripLocateGapSuspiciousDetail(String km) {
+    return 'वाहन सीधी लाइन में $km किमी चला, जो इस समय के हिसाब से बहुत ज़्यादा है। कोई रूट नहीं दिखाया गया।';
+  }
+
+  @override
+  String get tripLocateGapUnavailable => 'रूट अभी उपलब्ध नहीं है।';
+
+  @override
+  String get tripLocateGpsActive => 'GPS चालू';
+
+  @override
+  String tripLocateHoursAgo(int hours) {
+    return '$hours घंटे पहले';
+  }
+
+  @override
+  String tripLocateHoursMinutes(int hours, int minutes) {
+    return '$hours घंटे $minutes मिनट';
+  }
+
+  @override
+  String get tripLocateJustNow => 'अभी';
+
+  @override
+  String tripLocateLastUpdated(String ago, String time) {
+    return 'आख़िरी अपडेट: $ago ($time)';
+  }
+
+  @override
+  String get tripLocateLegendLocationOff => 'लोकेशन बंद';
+
+  @override
+  String get tripLocateLegendSemantics =>
+      'मैप का संकेत। नारंगी लाइन: ट्रैक हुआ रूट। स्लेटी बिंदु वाली लाइन: लोकेशन बंद थी।';
+
+  @override
+  String get tripLocateLegendTracked => 'ट्रैक हुआ';
+
+  @override
+  String get tripLocateLoadingTrail => 'सफ़र का रूट लोड हो रहा है…';
+
+  @override
+  String tripLocateLocating(String tripNumber) {
+    return '$tripNumber का लोकेशन देखा जा रहा है';
+  }
+
+  @override
+  String tripLocateMinutes(int minutes) {
+    return '$minutes मिनट';
+  }
+
+  @override
+  String tripLocateMinutesAgo(int minutes) {
+    return '$minutes मिनट पहले';
+  }
+
+  @override
+  String get tripLocateModeCar => 'कार का रूट';
+
+  @override
+  String get tripLocateModeHeavyTruck => 'भारी ट्रक का रूट';
+
+  @override
+  String get tripLocateModeLightTruck => 'हल्के ट्रक का रूट';
+
+  @override
+  String get tripLocateModeMediumTruck => 'मीडियम ट्रक का रूट';
+
+  @override
+  String get tripLocateModeTruck => 'ट्रक का रूट';
+
+  @override
+  String get tripLocateNoGpsMessage =>
+      'इस ट्रिप के लिए चालक के ऐप से अभी तक लोकेशन नहीं आई।';
+
+  @override
+  String get tripLocateNoGpsTitle => 'GPS लोकेशन उपलब्ध नहीं';
+
+  @override
+  String get tripLocateNoSignal => 'सिग्नल नहीं';
+
+  @override
+  String get tripLocateOpenMaps => 'Google Maps में खोलें';
+
+  @override
+  String get tripLocateStale => 'पुरानी लोकेशन';
+
+  @override
+  String get tripLocateTimeMismatch => 'समय में गड़बड़';
+
+  @override
+  String get tripLocateTryAgain => 'फिर कोशिश करें';
+
+  @override
+  String get tripLocateVehicleFallback => 'वाहन';
+
+  @override
+  String get workerReqAccept => 'स्वीकार करें';
+
+  @override
+  String get workerReqAccepted => 'वर्कर को स्वीकार कर लिया गया!';
+
+  @override
+  String get workerReqAssignRole => 'भूमिका दें';
+
+  @override
+  String workerReqCurrentRole(String role) {
+    return 'अभी: $role';
+  }
+
+  @override
+  String workerReqJoined(String date) {
+    return '$date को जुड़े';
+  }
+
+  @override
+  String workerReqJoinedBy(String date, String name) {
+    return '$name द्वारा $date को जुड़े';
+  }
+
+  @override
+  String get workerReqLoadFailed => 'रिक्वेस्ट लोड नहीं हो पाईं';
+
+  @override
+  String get workerReqNoAccepted => 'अभी कोई कर्मचारी स्वीकार नहीं किया गया';
+
+  @override
+  String get workerReqNoAcceptedHint => 'स्वीकार किए गए कर्मचारी यहां दिखेंगे।';
+
+  @override
+  String get workerReqNoPending => 'कोई रिक्वेस्ट पेंडिंग नहीं';
+
+  @override
+  String get workerReqNoPendingHint => 'वर्कर रिक्वेस्ट यहां दिखेंगी।';
+
+  @override
+  String get workerReqNoRolePicked =>
+      'इस वर्कर ने साइनअप पर भूमिका नहीं चुनी — नीचे से चुनें।';
+
+  @override
+  String get workerReqNoRoleRequested => 'अभी कोई भूमिका नहीं मांगी गई';
+
+  @override
+  String get workerReqReject => 'अस्वीकार करें';
+
+  @override
+  String get workerReqRejectConfirm =>
+      'क्या आप इस वर्कर रिक्वेस्ट को अस्वीकार करना चाहते हैं?';
+
+  @override
+  String get workerReqRejectTitle => 'रिक्वेस्ट अस्वीकार करें';
+
+  @override
+  String get workerReqRejected => 'रिक्वेस्ट अस्वीकार कर दी गई।';
+
+  @override
+  String workerReqRequestedOn(String date) {
+    return 'रिक्वेस्ट की तारीख: $date';
+  }
+
+  @override
+  String get workerReqRoleFeDesc =>
+      'ज़मीन पर ट्रिप के स्टेज और फ्लीट की स्थिति संभालता है';
+
+  @override
+  String get workerReqRoleLoadOwnerWorker => 'लोड मालिक वर्कर';
+
+  @override
+  String get workerReqRoleLoadOwnerWorkerDesc =>
+      'लोड पोस्टिंग और शिपमेंट ट्रैकिंग संभालता है';
+
+  @override
+  String get workerReqRoleNotSet => 'भूमिका तय नहीं — चुनने के लिए टैप करें';
+
+  @override
+  String get workerReqRoleRrOpsDesc =>
+      'RR सिंक और RR सिस्टम में ट्रिप का डेटा एंट्री संभालता है';
+
+  @override
+  String get workerReqTabAccepted => 'स्वीकृत';
+
+  @override
+  String get workerReqTabPending => 'पेंडिंग';
+
+  @override
+  String get workerReqTitle => 'कर्मचारी रिक्वेस्ट';
+
+  @override
+  String get workerReqUnknown => 'अज्ञात';
 }
