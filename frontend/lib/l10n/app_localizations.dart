@@ -7921,6 +7921,858 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unknown'**
   String get workerReqUnknown;
+
+  /// No description provided for @loadSpecAxleFullTrailer.
+  ///
+  /// In en, this message translates to:
+  /// **'Full Trailer'**
+  String get loadSpecAxleFullTrailer;
+
+  /// No description provided for @loadSpecAxleMulti.
+  ///
+  /// In en, this message translates to:
+  /// **'Multi-Axle'**
+  String get loadSpecAxleMulti;
+
+  /// No description provided for @loadSpecAxleSemiTrailer.
+  ///
+  /// In en, this message translates to:
+  /// **'Semi-Trailer'**
+  String get loadSpecAxleSemiTrailer;
+
+  /// No description provided for @loadSpecAxleSingle.
+  ///
+  /// In en, this message translates to:
+  /// **'Single Axle'**
+  String get loadSpecAxleSingle;
+
+  /// No description provided for @loadSpecAxleTandem.
+  ///
+  /// In en, this message translates to:
+  /// **'Tandem Axle'**
+  String get loadSpecAxleTandem;
+
+  /// No description provided for @loadSpecAxleTri.
+  ///
+  /// In en, this message translates to:
+  /// **'Tri-Axle'**
+  String get loadSpecAxleTri;
+
+  /// No description provided for @loadSpecBodyCarCarrier.
+  ///
+  /// In en, this message translates to:
+  /// **'Car Carrier'**
+  String get loadSpecBodyCarCarrier;
+
+  /// No description provided for @loadSpecBodyClosed.
+  ///
+  /// In en, this message translates to:
+  /// **'Closed Body'**
+  String get loadSpecBodyClosed;
+
+  /// No description provided for @loadSpecBodyContainer.
+  ///
+  /// In en, this message translates to:
+  /// **'Container'**
+  String get loadSpecBodyContainer;
+
+  /// No description provided for @loadSpecBodyFlatbed.
+  ///
+  /// In en, this message translates to:
+  /// **'Flatbed'**
+  String get loadSpecBodyFlatbed;
+
+  /// No description provided for @loadSpecBodyLowBed.
+  ///
+  /// In en, this message translates to:
+  /// **'Low Bed'**
+  String get loadSpecBodyLowBed;
+
+  /// No description provided for @loadSpecBodyOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Body'**
+  String get loadSpecBodyOpen;
+
+  /// No description provided for @loadSpecBodyRefrigerated.
+  ///
+  /// In en, this message translates to:
+  /// **'Refrigerated'**
+  String get loadSpecBodyRefrigerated;
+
+  /// No description provided for @loadSpecBodySideWall.
+  ///
+  /// In en, this message translates to:
+  /// **'Side Wall'**
+  String get loadSpecBodySideWall;
+
+  /// No description provided for @loadSpecBodyTanker.
+  ///
+  /// In en, this message translates to:
+  /// **'Tanker'**
+  String get loadSpecBodyTanker;
+
+  /// No description provided for @loadSpecBodyTipper.
+  ///
+  /// In en, this message translates to:
+  /// **'Tipper / Dumper'**
+  String get loadSpecBodyTipper;
+
+  /// No description provided for @loadSpecFloorAluminium.
+  ///
+  /// In en, this message translates to:
+  /// **'Aluminium'**
+  String get loadSpecFloorAluminium;
+
+  /// No description provided for @loadSpecFloorBamboo.
+  ///
+  /// In en, this message translates to:
+  /// **'Bamboo'**
+  String get loadSpecFloorBamboo;
+
+  /// No description provided for @loadSpecFloorCorrugated.
+  ///
+  /// In en, this message translates to:
+  /// **'Corrugated'**
+  String get loadSpecFloorCorrugated;
+
+  /// No description provided for @loadSpecFloorPlain.
+  ///
+  /// In en, this message translates to:
+  /// **'Plain Floor'**
+  String get loadSpecFloorPlain;
+
+  /// No description provided for @loadSpecFloorRubberMatted.
+  ///
+  /// In en, this message translates to:
+  /// **'Rubber Matted'**
+  String get loadSpecFloorRubberMatted;
+
+  /// No description provided for @loadSpecFloorSteel.
+  ///
+  /// In en, this message translates to:
+  /// **'Steel'**
+  String get loadSpecFloorSteel;
+
+  /// No description provided for @loadSpecFloorWooden.
+  ///
+  /// In en, this message translates to:
+  /// **'Wooden'**
+  String get loadSpecFloorWooden;
+
+  /// No description provided for @loadSpecMatAgri.
+  ///
+  /// In en, this message translates to:
+  /// **'Agricultural Produce'**
+  String get loadSpecMatAgri;
+
+  /// No description provided for @loadSpecMatAutoParts.
+  ///
+  /// In en, this message translates to:
+  /// **'Automotive Parts'**
+  String get loadSpecMatAutoParts;
+
+  /// No description provided for @loadSpecMatChemicals.
+  ///
+  /// In en, this message translates to:
+  /// **'Chemicals'**
+  String get loadSpecMatChemicals;
+
+  /// No description provided for @loadSpecMatConstruction.
+  ///
+  /// In en, this message translates to:
+  /// **'Construction Materials'**
+  String get loadSpecMatConstruction;
+
+  /// No description provided for @loadSpecMatElectronics.
+  ///
+  /// In en, this message translates to:
+  /// **'Electronics'**
+  String get loadSpecMatElectronics;
+
+  /// No description provided for @loadSpecMatFmcg.
+  ///
+  /// In en, this message translates to:
+  /// **'FMCG / Packaged Goods'**
+  String get loadSpecMatFmcg;
+
+  /// No description provided for @loadSpecMatFurniture.
+  ///
+  /// In en, this message translates to:
+  /// **'Furniture'**
+  String get loadSpecMatFurniture;
+
+  /// No description provided for @loadSpecMatGlass.
+  ///
+  /// In en, this message translates to:
+  /// **'Glass & Ceramics'**
+  String get loadSpecMatGlass;
+
+  /// No description provided for @loadSpecMatHazardous.
+  ///
+  /// In en, this message translates to:
+  /// **'Hazardous Goods'**
+  String get loadSpecMatHazardous;
+
+  /// No description provided for @loadSpecMatIndustrial.
+  ///
+  /// In en, this message translates to:
+  /// **'Industrial'**
+  String get loadSpecMatIndustrial;
+
+  /// No description provided for @loadSpecMatLiquids.
+  ///
+  /// In en, this message translates to:
+  /// **'Liquids / Beverages'**
+  String get loadSpecMatLiquids;
+
+  /// No description provided for @loadSpecMatMachinery.
+  ///
+  /// In en, this message translates to:
+  /// **'Machinery & Equipment'**
+  String get loadSpecMatMachinery;
+
+  /// No description provided for @loadSpecMatOthers.
+  ///
+  /// In en, this message translates to:
+  /// **'Others'**
+  String get loadSpecMatOthers;
+
+  /// No description provided for @loadSpecMatPaints.
+  ///
+  /// In en, this message translates to:
+  /// **'Paints & Coatings'**
+  String get loadSpecMatPaints;
+
+  /// No description provided for @loadSpecMatPaper.
+  ///
+  /// In en, this message translates to:
+  /// **'Paper & Printing'**
+  String get loadSpecMatPaper;
+
+  /// No description provided for @loadSpecMatPerishables.
+  ///
+  /// In en, this message translates to:
+  /// **'Perishables'**
+  String get loadSpecMatPerishables;
+
+  /// No description provided for @loadSpecMatPharma.
+  ///
+  /// In en, this message translates to:
+  /// **'Pharmaceuticals'**
+  String get loadSpecMatPharma;
+
+  /// No description provided for @loadSpecMatPlastics.
+  ///
+  /// In en, this message translates to:
+  /// **'Plastics & Rubber'**
+  String get loadSpecMatPlastics;
+
+  /// No description provided for @loadSpecMatSteelCoils.
+  ///
+  /// In en, this message translates to:
+  /// **'Steel Coils'**
+  String get loadSpecMatSteelCoils;
+
+  /// No description provided for @loadSpecMatTextiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Textiles & Fabrics'**
+  String get loadSpecMatTextiles;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'DASHBOARD'**
+  String get loDashBottomDashboard;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'DOCS'**
+  String get loDashBottomDocs;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'LOADS'**
+  String get loDashBottomLoads;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'MY TRIPS'**
+  String get loDashBottomMyTrips;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'PROFILE'**
+  String get loDashBottomProfile;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'SOON'**
+  String get loDashBottomSoon;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'Clear All'**
+  String get loDashClearAll;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'This will permanently delete all notifications.'**
+  String get loDashClearAllBody;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'Clear all notifications?'**
+  String get loDashClearAllTitle;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'Create Load Requirement'**
+  String get loDashCreateLoadButton;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'My Loads'**
+  String get loDashNavMyLoads;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'No notifications yet'**
+  String get loDashNoNotifications;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'Load Owner Panel'**
+  String get loDashPanelTitle;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'Send your load details to your preferred logistic partner and get it moving.'**
+  String get loDashPostLoadBody;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'Post a Load Requirement'**
+  String get loDashPostLoadTitle;
+
+  /// No description provided for @loDashSoonSuffix.
+  ///
+  /// In en, this message translates to:
+  /// **'{label} (Soon)'**
+  String loDashSoonSuffix(String label);
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'Documents'**
+  String get loDashTabDocuments;
+
+  /// Load owner dashboard label
+  ///
+  /// In en, this message translates to:
+  /// **'Tracking'**
+  String get loDashTabTracking;
+
+  /// Title of the page-not-found screen
+  ///
+  /// In en, this message translates to:
+  /// **'Error'**
+  String get appRouterErrorTitle;
+
+  /// Page-not-found message
+  ///
+  /// In en, this message translates to:
+  /// **'Page not found: {location}'**
+  String appRouterPageNotFound(String location);
+
+  /// Avatar menu item
+  ///
+  /// In en, this message translates to:
+  /// **'Create Organization'**
+  String get mainNavCreateOrganization;
+
+  /// Maintenance supervisor nav tab
+  ///
+  /// In en, this message translates to:
+  /// **'Inventory'**
+  String get mainNavInventory;
+
+  /// Snackbar error
+  ///
+  /// In en, this message translates to:
+  /// **'Error loading organizations: {error}'**
+  String mainNavLoadOrganizationsError(String error);
+
+  /// Snackbar while organizations load
+  ///
+  /// In en, this message translates to:
+  /// **'Loading organizations...'**
+  String get mainNavLoadingOrganizations;
+
+  /// Logout dialog body
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to logout?'**
+  String get mainNavLogoutConfirm;
+
+  /// Avatar menu item
+  ///
+  /// In en, this message translates to:
+  /// **'Manage Organization'**
+  String get mainNavManageOrganization;
+
+  /// Avatar menu item
+  ///
+  /// In en, this message translates to:
+  /// **'My Organizations'**
+  String get mainNavMyOrganizations;
+
+  /// Avatar menu item
+  ///
+  /// In en, this message translates to:
+  /// **'My Profile'**
+  String get mainNavMyProfile;
+
+  /// Maintenance supervisor nav tab
+  ///
+  /// In en, this message translates to:
+  /// **'My Tasks'**
+  String get mainNavMyTasks;
+
+  /// Snackbar when user has no organization
+  ///
+  /// In en, this message translates to:
+  /// **'No organization found. Please join or create one first.'**
+  String get mainNavNoOrganization;
+
+  /// Fallback title when the organization has no name
+  ///
+  /// In en, this message translates to:
+  /// **'Organization'**
+  String get mainNavOrganizationFallback;
+
+  /// Bottom nav tab label
+  ///
+  /// In en, this message translates to:
+  /// **'Reports'**
+  String get mainNavReports;
+
+  /// Bottom nav tab label
+  ///
+  /// In en, this message translates to:
+  /// **'Roles'**
+  String get mainNavRoles;
+
+  /// Maintenance supervisor nav tab
+  ///
+  /// In en, this message translates to:
+  /// **'Schedule'**
+  String get mainNavSchedule;
+
+  /// Avatar menu item
+  ///
+  /// In en, this message translates to:
+  /// **'Sign Out'**
+  String get mainNavSignOut;
+
+  /// Bottom nav tab label
+  ///
+  /// In en, this message translates to:
+  /// **'Tasks'**
+  String get mainNavTasks;
+
+  /// Name shown when the user has no name or username
+  ///
+  /// In en, this message translates to:
+  /// **'User'**
+  String get mainNavUserFallback;
+
+  /// No description provided for @loReceiverDashboardTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Load Receiver Dashboard'**
+  String get loReceiverDashboardTitle;
+
+  /// No description provided for @loReceiverEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Your incoming deliveries will appear here.'**
+  String get loReceiverEmpty;
+
+  /// No description provided for @loReceiverRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Load Receiver'**
+  String get loReceiverRole;
+
+  /// No description provided for @loUploadBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Body'**
+  String get loUploadBody;
+
+  /// No description provided for @loUploadBroadcastHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty to broadcast to all'**
+  String get loUploadBroadcastHint;
+
+  /// No description provided for @loUploadDropHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Destination'**
+  String get loUploadDropHint;
+
+  /// No description provided for @loUploadDropLocation.
+  ///
+  /// In en, this message translates to:
+  /// **'Drop Location'**
+  String get loUploadDropLocation;
+
+  /// No description provided for @loUploadEntryDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry Date'**
+  String get loUploadEntryDate;
+
+  /// No description provided for @loUploadEntryMethod.
+  ///
+  /// In en, this message translates to:
+  /// **'Entry Method'**
+  String get loUploadEntryMethod;
+
+  /// No description provided for @loUploadExpectedContact.
+  ///
+  /// In en, this message translates to:
+  /// **'Expected Contact'**
+  String get loUploadExpectedContact;
+
+  /// No description provided for @loUploadExpectedContactBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Our logistics coordinator will reach out within 15 minutes for final verification.'**
+  String get loUploadExpectedContactBody;
+
+  /// No description provided for @loUploadExpectedContactHighlight.
+  ///
+  /// In en, this message translates to:
+  /// **'15 minutes'**
+  String get loUploadExpectedContactHighlight;
+
+  /// No description provided for @loUploadFleetStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Fleet Status'**
+  String get loUploadFleetStatus;
+
+  /// No description provided for @loUploadFleetStatusBody.
+  ///
+  /// In en, this message translates to:
+  /// **'4 heavy-duty trailers are currently available in your pickup zone.'**
+  String get loUploadFleetStatusBody;
+
+  /// No description provided for @loUploadFloor.
+  ///
+  /// In en, this message translates to:
+  /// **'Floor'**
+  String get loUploadFloor;
+
+  /// No description provided for @loUploadMaterialType.
+  ///
+  /// In en, this message translates to:
+  /// **'Material Type'**
+  String get loUploadMaterialType;
+
+  /// No description provided for @loUploadMaterialWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Material Weight'**
+  String get loUploadMaterialWeight;
+
+  /// No description provided for @loUploadMethodBulk.
+  ///
+  /// In en, this message translates to:
+  /// **'BULK'**
+  String get loUploadMethodBulk;
+
+  /// No description provided for @loUploadMethodManual.
+  ///
+  /// In en, this message translates to:
+  /// **'MANUAL'**
+  String get loUploadMethodManual;
+
+  /// No description provided for @loUploadMethodPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'PHOTO'**
+  String get loUploadMethodPhoto;
+
+  /// No description provided for @loUploadNavDocs.
+  ///
+  /// In en, this message translates to:
+  /// **'Docs'**
+  String get loUploadNavDocs;
+
+  /// No description provided for @loUploadNavTracking.
+  ///
+  /// In en, this message translates to:
+  /// **'Tracking'**
+  String get loUploadNavTracking;
+
+  /// No description provided for @loUploadNewLoad.
+  ///
+  /// In en, this message translates to:
+  /// **'New Load'**
+  String get loUploadNewLoad;
+
+  /// No description provided for @loUploadNewLoadRequirement.
+  ///
+  /// In en, this message translates to:
+  /// **'New Load Requirement'**
+  String get loUploadNewLoadRequirement;
+
+  /// No description provided for @loUploadPickDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick date'**
+  String get loUploadPickDate;
+
+  /// No description provided for @loUploadPickupHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter Origin Hub'**
+  String get loUploadPickupHint;
+
+  /// No description provided for @loUploadProcessUpdate.
+  ///
+  /// In en, this message translates to:
+  /// **'Process Update'**
+  String get loUploadProcessUpdate;
+
+  /// No description provided for @loUploadProcessUpdateBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Fleet optimization algorithms are calculating the most efficient route for your cargo.'**
+  String get loUploadProcessUpdateBody;
+
+  /// No description provided for @loUploadReferenceId.
+  ///
+  /// In en, this message translates to:
+  /// **'Reference ID'**
+  String get loUploadReferenceId;
+
+  /// No description provided for @loUploadSearchPartnerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search Logistic Partner here'**
+  String get loUploadSearchPartnerHint;
+
+  /// No description provided for @loUploadSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get loUploadSelect;
+
+  /// No description provided for @loUploadSelectMaterial.
+  ///
+  /// In en, this message translates to:
+  /// **'Select material'**
+  String get loUploadSelectMaterial;
+
+  /// No description provided for @loUploadSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Selected'**
+  String get loUploadSelected;
+
+  /// No description provided for @loUploadSendTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Send To'**
+  String get loUploadSendTo;
+
+  /// No description provided for @loUploadSoonBadge.
+  ///
+  /// In en, this message translates to:
+  /// **'SOON'**
+  String get loUploadSoonBadge;
+
+  /// No description provided for @loUploadSubmitButton.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit Load Requirement'**
+  String get loUploadSubmitButton;
+
+  /// No description provided for @loUploadSubmitFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Submission failed. Please try again.'**
+  String get loUploadSubmitFailed;
+
+  /// No description provided for @loUploadSuccessBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your load requirement for {count, plural, =1{1 unit} other{{count} units}} of {material} has been received. Our team is now assigning the fleet.'**
+  String loUploadSuccessBody(int count, String material);
+
+  /// No description provided for @loUploadSuccessTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Submission Successful'**
+  String get loUploadSuccessTitle;
+
+  /// No description provided for @loUploadTargetPartners.
+  ///
+  /// In en, this message translates to:
+  /// **'Target Partners'**
+  String get loUploadTargetPartners;
+
+  /// No description provided for @loUploadTrackInTrips.
+  ///
+  /// In en, this message translates to:
+  /// **'Track in My Trips'**
+  String get loUploadTrackInTrips;
+
+  /// No description provided for @loUploadTruckCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck Count'**
+  String get loUploadTruckCount;
+
+  /// No description provided for @loUploadTruckRequirements.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck Requirements'**
+  String get loUploadTruckRequirements;
+
+  /// No description provided for @loUploadTruckWeightOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck Weight (Optional)'**
+  String get loUploadTruckWeightOptional;
+
+  /// No description provided for @loUploadUnits.
+  ///
+  /// In en, this message translates to:
+  /// **'Units'**
+  String get loUploadUnits;
+
+  /// No description provided for @loUploadValAxle.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select an axle type'**
+  String get loUploadValAxle;
+
+  /// No description provided for @loUploadValBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a body type'**
+  String get loUploadValBody;
+
+  /// No description provided for @loUploadValDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select an entry date'**
+  String get loUploadValDate;
+
+  /// No description provided for @loUploadValDrop.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a drop location'**
+  String get loUploadValDrop;
+
+  /// No description provided for @loUploadValFloor.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a floor type'**
+  String get loUploadValFloor;
+
+  /// No description provided for @loUploadValMaterial.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a material type'**
+  String get loUploadValMaterial;
+
+  /// No description provided for @loUploadValMaterialWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter the material weight'**
+  String get loUploadValMaterialWeight;
+
+  /// No description provided for @loUploadValPartner.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select a logistic partner'**
+  String get loUploadValPartner;
+
+  /// No description provided for @loUploadValPickup.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a pickup location'**
+  String get loUploadValPickup;
+
+  /// No description provided for @loUploadValTruckCount.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck count can\'t be zero'**
+  String get loUploadValTruckCount;
+
+  /// No description provided for @loUploadValTruckWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid truck weight, or leave it blank'**
+  String get loUploadValTruckWeight;
+
+  /// No description provided for @loWorkerHomeBuilding.
+  ///
+  /// In en, this message translates to:
+  /// **'Your load owner worker workspace is being built. Check back soon.'**
+  String get loWorkerHomeBuilding;
+
+  /// No description provided for @loWorkerHomeFallbackName.
+  ///
+  /// In en, this message translates to:
+  /// **'Worker'**
+  String get loWorkerHomeFallbackName;
+
+  /// No description provided for @loWorkerHomeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Load Owner Worker Dashboard'**
+  String get loWorkerHomeTitle;
+
+  /// No description provided for @loWorkerHomeWelcome.
+  ///
+  /// In en, this message translates to:
+  /// **'Welcome, {name}!'**
+  String loWorkerHomeWelcome(String name);
+
+  /// Body of the transporter coming-soon dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'This dashboard is currently under\ndevelopment and will be available soon.'**
+  String get transporterComingSoonBody;
+
+  /// Title of the transporter placeholder dashboard
+  ///
+  /// In en, this message translates to:
+  /// **'Transporter Dashboard'**
+  String get transporterDashboardTitle;
 }
 
 class _AppLocalizationsDelegate

@@ -2560,5 +2560,295 @@
   "workerReqTabAccepted": "Accepted",
   "workerReqTabPending": "Pending",
   "workerReqTitle": "Employee Requests",
-  "workerReqUnknown": "Unknown"
+  "workerReqUnknown": "Unknown",
+  "loadSpecAxleFullTrailer": "Full Trailer",
+  "loadSpecAxleMulti": "Multi-Axle",
+  "loadSpecAxleSemiTrailer": "Semi-Trailer",
+  "loadSpecAxleSingle": "Single Axle",
+  "loadSpecAxleTandem": "Tandem Axle",
+  "loadSpecAxleTri": "Tri-Axle",
+  "loadSpecBodyCarCarrier": "Car Carrier",
+  "loadSpecBodyClosed": "Closed Body",
+  "loadSpecBodyContainer": "Container",
+  "loadSpecBodyFlatbed": "Flatbed",
+  "loadSpecBodyLowBed": "Low Bed",
+  "loadSpecBodyOpen": "Open Body",
+  "loadSpecBodyRefrigerated": "Refrigerated",
+  "loadSpecBodySideWall": "Side Wall",
+  "loadSpecBodyTanker": "Tanker",
+  "loadSpecBodyTipper": "Tipper / Dumper",
+  "loadSpecFloorAluminium": "Aluminium",
+  "loadSpecFloorBamboo": "Bamboo",
+  "loadSpecFloorCorrugated": "Corrugated",
+  "loadSpecFloorPlain": "Plain Floor",
+  "loadSpecFloorRubberMatted": "Rubber Matted",
+  "loadSpecFloorSteel": "Steel",
+  "loadSpecFloorWooden": "Wooden",
+  "loadSpecMatAgri": "Agricultural Produce",
+  "loadSpecMatAutoParts": "Automotive Parts",
+  "loadSpecMatChemicals": "Chemicals",
+  "loadSpecMatConstruction": "Construction Materials",
+  "loadSpecMatElectronics": "Electronics",
+  "loadSpecMatFmcg": "FMCG / Packaged Goods",
+  "loadSpecMatFurniture": "Furniture",
+  "loadSpecMatGlass": "Glass & Ceramics",
+  "loadSpecMatHazardous": "Hazardous Goods",
+  "loadSpecMatIndustrial": "Industrial",
+  "loadSpecMatLiquids": "Liquids / Beverages",
+  "loadSpecMatMachinery": "Machinery & Equipment",
+  "loadSpecMatOthers": "Others",
+  "loadSpecMatPaints": "Paints & Coatings",
+  "loadSpecMatPaper": "Paper & Printing",
+  "loadSpecMatPerishables": "Perishables",
+  "loadSpecMatPharma": "Pharmaceuticals",
+  "loadSpecMatPlastics": "Plastics & Rubber",
+  "loadSpecMatSteelCoils": "Steel Coils",
+  "loadSpecMatTextiles": "Textiles & Fabrics",
+  "loDashBottomDashboard": "DASHBOARD",
+  "@loDashBottomDashboard": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashBottomDocs": "DOCS",
+  "@loDashBottomDocs": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashBottomLoads": "LOADS",
+  "@loDashBottomLoads": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashBottomMyTrips": "MY TRIPS",
+  "@loDashBottomMyTrips": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashBottomProfile": "PROFILE",
+  "@loDashBottomProfile": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashBottomSoon": "SOON",
+  "@loDashBottomSoon": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashClearAll": "Clear All",
+  "@loDashClearAll": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashClearAllBody": "This will permanently delete all notifications.",
+  "@loDashClearAllBody": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashClearAllTitle": "Clear all notifications?",
+  "@loDashClearAllTitle": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashCreateLoadButton": "Create Load Requirement",
+  "@loDashCreateLoadButton": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashNavMyLoads": "My Loads",
+  "@loDashNavMyLoads": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashNoNotifications": "No notifications yet",
+  "@loDashNoNotifications": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashPanelTitle": "Load Owner Panel",
+  "@loDashPanelTitle": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashPostLoadBody": "Send your load details to your preferred logistic partner and get it moving.",
+  "@loDashPostLoadBody": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashPostLoadTitle": "Post a Load Requirement",
+  "@loDashPostLoadTitle": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashSoonSuffix": "{label} (Soon)",
+  "@loDashSoonSuffix": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "loDashTabDocuments": "Documents",
+  "@loDashTabDocuments": {
+    "description": "Load owner dashboard label"
+  },
+  "loDashTabTracking": "Tracking",
+  "@loDashTabTracking": {
+    "description": "Load owner dashboard label"
+  },
+  "appRouterErrorTitle": "Error",
+  "@appRouterErrorTitle": {
+    "description": "Title of the page-not-found screen"
+  },
+  "appRouterPageNotFound": "Page not found: {location}",
+  "@appRouterPageNotFound": {
+    "description": "Page-not-found message",
+    "placeholders": {
+      "location": {
+        "type": "String"
+      }
+    }
+  },
+  "mainNavCreateOrganization": "Create Organization",
+  "@mainNavCreateOrganization": {
+    "description": "Avatar menu item"
+  },
+  "mainNavInventory": "Inventory",
+  "@mainNavInventory": {
+    "description": "Maintenance supervisor nav tab"
+  },
+  "mainNavLoadOrganizationsError": "Error loading organizations: {error}",
+  "@mainNavLoadOrganizationsError": {
+    "description": "Snackbar error",
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mainNavLoadingOrganizations": "Loading organizations...",
+  "@mainNavLoadingOrganizations": {
+    "description": "Snackbar while organizations load"
+  },
+  "mainNavLogoutConfirm": "Are you sure you want to logout?",
+  "@mainNavLogoutConfirm": {
+    "description": "Logout dialog body"
+  },
+  "mainNavManageOrganization": "Manage Organization",
+  "@mainNavManageOrganization": {
+    "description": "Avatar menu item"
+  },
+  "mainNavMyOrganizations": "My Organizations",
+  "@mainNavMyOrganizations": {
+    "description": "Avatar menu item"
+  },
+  "mainNavMyProfile": "My Profile",
+  "@mainNavMyProfile": {
+    "description": "Avatar menu item"
+  },
+  "mainNavMyTasks": "My Tasks",
+  "@mainNavMyTasks": {
+    "description": "Maintenance supervisor nav tab"
+  },
+  "mainNavNoOrganization": "No organization found. Please join or create one first.",
+  "@mainNavNoOrganization": {
+    "description": "Snackbar when user has no organization"
+  },
+  "mainNavOrganizationFallback": "Organization",
+  "@mainNavOrganizationFallback": {
+    "description": "Fallback title when the organization has no name"
+  },
+  "mainNavReports": "Reports",
+  "@mainNavReports": {
+    "description": "Bottom nav tab label"
+  },
+  "mainNavRoles": "Roles",
+  "@mainNavRoles": {
+    "description": "Bottom nav tab label"
+  },
+  "mainNavSchedule": "Schedule",
+  "@mainNavSchedule": {
+    "description": "Maintenance supervisor nav tab"
+  },
+  "mainNavSignOut": "Sign Out",
+  "@mainNavSignOut": {
+    "description": "Avatar menu item"
+  },
+  "mainNavTasks": "Tasks",
+  "@mainNavTasks": {
+    "description": "Bottom nav tab label"
+  },
+  "mainNavUserFallback": "User",
+  "@mainNavUserFallback": {
+    "description": "Name shown when the user has no name or username"
+  },
+  "loReceiverDashboardTitle": "Load Receiver Dashboard",
+  "loReceiverEmpty": "Your incoming deliveries will appear here.",
+  "loReceiverRole": "Load Receiver",
+  "loUploadBody": "Body",
+  "loUploadBroadcastHint": "Leave empty to broadcast to all",
+  "loUploadDropHint": "Enter Destination",
+  "loUploadDropLocation": "Drop Location",
+  "loUploadEntryDate": "Entry Date",
+  "loUploadEntryMethod": "Entry Method",
+  "loUploadExpectedContact": "Expected Contact",
+  "loUploadExpectedContactBody": "Our logistics coordinator will reach out within 15 minutes for final verification.",
+  "loUploadExpectedContactHighlight": "15 minutes",
+  "loUploadFleetStatus": "Fleet Status",
+  "loUploadFleetStatusBody": "4 heavy-duty trailers are currently available in your pickup zone.",
+  "loUploadFloor": "Floor",
+  "loUploadMaterialType": "Material Type",
+  "loUploadMaterialWeight": "Material Weight",
+  "loUploadMethodBulk": "BULK",
+  "loUploadMethodManual": "MANUAL",
+  "loUploadMethodPhoto": "PHOTO",
+  "loUploadNavDocs": "Docs",
+  "loUploadNavTracking": "Tracking",
+  "loUploadNewLoad": "New Load",
+  "loUploadNewLoadRequirement": "New Load Requirement",
+  "loUploadPickDate": "Pick date",
+  "loUploadPickupHint": "Enter Origin Hub",
+  "loUploadProcessUpdate": "Process Update",
+  "loUploadProcessUpdateBody": "Fleet optimization algorithms are calculating the most efficient route for your cargo.",
+  "loUploadReferenceId": "Reference ID",
+  "loUploadSearchPartnerHint": "Search Logistic Partner here",
+  "loUploadSelect": "Select",
+  "loUploadSelectMaterial": "Select material",
+  "loUploadSelected": "Selected",
+  "loUploadSendTo": "Send To",
+  "loUploadSoonBadge": "SOON",
+  "loUploadSubmitButton": "Submit Load Requirement",
+  "loUploadSubmitFailed": "Submission failed. Please try again.",
+  "loUploadSuccessBody": "Your load requirement for {count, plural, =1{1 unit} other{{count} units}} of {material} has been received. Our team is now assigning the fleet.",
+  "@loUploadSuccessBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "material": {
+        "type": "String"
+      }
+    }
+  },
+  "loUploadSuccessTitle": "Submission Successful",
+  "loUploadTargetPartners": "Target Partners",
+  "loUploadTrackInTrips": "Track in My Trips",
+  "loUploadTruckCount": "Truck Count",
+  "loUploadTruckRequirements": "Truck Requirements",
+  "loUploadTruckWeightOptional": "Truck Weight (Optional)",
+  "loUploadUnits": "Units",
+  "loUploadValAxle": "Please select an axle type",
+  "loUploadValBody": "Please select a body type",
+  "loUploadValDate": "Please select an entry date",
+  "loUploadValDrop": "Please enter a drop location",
+  "loUploadValFloor": "Please select a floor type",
+  "loUploadValMaterial": "Please select a material type",
+  "loUploadValMaterialWeight": "Please enter the material weight",
+  "loUploadValPartner": "Please select a logistic partner",
+  "loUploadValPickup": "Please enter a pickup location",
+  "loUploadValTruckCount": "Truck count can't be zero",
+  "loUploadValTruckWeight": "Enter a valid truck weight, or leave it blank",
+  "loWorkerHomeBuilding": "Your load owner worker workspace is being built. Check back soon.",
+  "loWorkerHomeFallbackName": "Worker",
+  "loWorkerHomeTitle": "Load Owner Worker Dashboard",
+  "loWorkerHomeWelcome": "Welcome, {name}!",
+  "@loWorkerHomeWelcome": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "transporterComingSoonBody": "This dashboard is currently under\ndevelopment and will be available soon.",
+  "@transporterComingSoonBody": {
+    "description": "Body of the transporter coming-soon dashboard"
+  },
+  "transporterDashboardTitle": "Transporter Dashboard",
+  "@transporterDashboardTitle": {
+    "description": "Title of the transporter placeholder dashboard"
+  }
 }

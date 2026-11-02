@@ -4391,4 +4391,455 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get workerReqUnknown => 'Unknown';
+
+  @override
+  String get loadSpecAxleFullTrailer => 'Full Trailer';
+
+  @override
+  String get loadSpecAxleMulti => 'Multi-Axle';
+
+  @override
+  String get loadSpecAxleSemiTrailer => 'Semi-Trailer';
+
+  @override
+  String get loadSpecAxleSingle => 'Single Axle';
+
+  @override
+  String get loadSpecAxleTandem => 'Tandem Axle';
+
+  @override
+  String get loadSpecAxleTri => 'Tri-Axle';
+
+  @override
+  String get loadSpecBodyCarCarrier => 'Car Carrier';
+
+  @override
+  String get loadSpecBodyClosed => 'Closed Body';
+
+  @override
+  String get loadSpecBodyContainer => 'Container';
+
+  @override
+  String get loadSpecBodyFlatbed => 'Flatbed';
+
+  @override
+  String get loadSpecBodyLowBed => 'Low Bed';
+
+  @override
+  String get loadSpecBodyOpen => 'Open Body';
+
+  @override
+  String get loadSpecBodyRefrigerated => 'Refrigerated';
+
+  @override
+  String get loadSpecBodySideWall => 'Side Wall';
+
+  @override
+  String get loadSpecBodyTanker => 'Tanker';
+
+  @override
+  String get loadSpecBodyTipper => 'Tipper / Dumper';
+
+  @override
+  String get loadSpecFloorAluminium => 'Aluminium';
+
+  @override
+  String get loadSpecFloorBamboo => 'Bamboo';
+
+  @override
+  String get loadSpecFloorCorrugated => 'Corrugated';
+
+  @override
+  String get loadSpecFloorPlain => 'Plain Floor';
+
+  @override
+  String get loadSpecFloorRubberMatted => 'Rubber Matted';
+
+  @override
+  String get loadSpecFloorSteel => 'Steel';
+
+  @override
+  String get loadSpecFloorWooden => 'Wooden';
+
+  @override
+  String get loadSpecMatAgri => 'Agricultural Produce';
+
+  @override
+  String get loadSpecMatAutoParts => 'Automotive Parts';
+
+  @override
+  String get loadSpecMatChemicals => 'Chemicals';
+
+  @override
+  String get loadSpecMatConstruction => 'Construction Materials';
+
+  @override
+  String get loadSpecMatElectronics => 'Electronics';
+
+  @override
+  String get loadSpecMatFmcg => 'FMCG / Packaged Goods';
+
+  @override
+  String get loadSpecMatFurniture => 'Furniture';
+
+  @override
+  String get loadSpecMatGlass => 'Glass & Ceramics';
+
+  @override
+  String get loadSpecMatHazardous => 'Hazardous Goods';
+
+  @override
+  String get loadSpecMatIndustrial => 'Industrial';
+
+  @override
+  String get loadSpecMatLiquids => 'Liquids / Beverages';
+
+  @override
+  String get loadSpecMatMachinery => 'Machinery & Equipment';
+
+  @override
+  String get loadSpecMatOthers => 'Others';
+
+  @override
+  String get loadSpecMatPaints => 'Paints & Coatings';
+
+  @override
+  String get loadSpecMatPaper => 'Paper & Printing';
+
+  @override
+  String get loadSpecMatPerishables => 'Perishables';
+
+  @override
+  String get loadSpecMatPharma => 'Pharmaceuticals';
+
+  @override
+  String get loadSpecMatPlastics => 'Plastics & Rubber';
+
+  @override
+  String get loadSpecMatSteelCoils => 'Steel Coils';
+
+  @override
+  String get loadSpecMatTextiles => 'Textiles & Fabrics';
+
+  @override
+  String get loDashBottomDashboard => 'DASHBOARD';
+
+  @override
+  String get loDashBottomDocs => 'DOCS';
+
+  @override
+  String get loDashBottomLoads => 'LOADS';
+
+  @override
+  String get loDashBottomMyTrips => 'MY TRIPS';
+
+  @override
+  String get loDashBottomProfile => 'PROFILE';
+
+  @override
+  String get loDashBottomSoon => 'SOON';
+
+  @override
+  String get loDashClearAll => 'Clear All';
+
+  @override
+  String get loDashClearAllBody =>
+      'This will permanently delete all notifications.';
+
+  @override
+  String get loDashClearAllTitle => 'Clear all notifications?';
+
+  @override
+  String get loDashCreateLoadButton => 'Create Load Requirement';
+
+  @override
+  String get loDashNavMyLoads => 'My Loads';
+
+  @override
+  String get loDashNoNotifications => 'No notifications yet';
+
+  @override
+  String get loDashPanelTitle => 'Load Owner Panel';
+
+  @override
+  String get loDashPostLoadBody =>
+      'Send your load details to your preferred logistic partner and get it moving.';
+
+  @override
+  String get loDashPostLoadTitle => 'Post a Load Requirement';
+
+  @override
+  String loDashSoonSuffix(String label) {
+    return '$label (Soon)';
+  }
+
+  @override
+  String get loDashTabDocuments => 'Documents';
+
+  @override
+  String get loDashTabTracking => 'Tracking';
+
+  @override
+  String get appRouterErrorTitle => 'Error';
+
+  @override
+  String appRouterPageNotFound(String location) {
+    return 'Page not found: $location';
+  }
+
+  @override
+  String get mainNavCreateOrganization => 'Create Organization';
+
+  @override
+  String get mainNavInventory => 'Inventory';
+
+  @override
+  String mainNavLoadOrganizationsError(String error) {
+    return 'Error loading organizations: $error';
+  }
+
+  @override
+  String get mainNavLoadingOrganizations => 'Loading organizations...';
+
+  @override
+  String get mainNavLogoutConfirm => 'Are you sure you want to logout?';
+
+  @override
+  String get mainNavManageOrganization => 'Manage Organization';
+
+  @override
+  String get mainNavMyOrganizations => 'My Organizations';
+
+  @override
+  String get mainNavMyProfile => 'My Profile';
+
+  @override
+  String get mainNavMyTasks => 'My Tasks';
+
+  @override
+  String get mainNavNoOrganization =>
+      'No organization found. Please join or create one first.';
+
+  @override
+  String get mainNavOrganizationFallback => 'Organization';
+
+  @override
+  String get mainNavReports => 'Reports';
+
+  @override
+  String get mainNavRoles => 'Roles';
+
+  @override
+  String get mainNavSchedule => 'Schedule';
+
+  @override
+  String get mainNavSignOut => 'Sign Out';
+
+  @override
+  String get mainNavTasks => 'Tasks';
+
+  @override
+  String get mainNavUserFallback => 'User';
+
+  @override
+  String get loReceiverDashboardTitle => 'Load Receiver Dashboard';
+
+  @override
+  String get loReceiverEmpty => 'Your incoming deliveries will appear here.';
+
+  @override
+  String get loReceiverRole => 'Load Receiver';
+
+  @override
+  String get loUploadBody => 'Body';
+
+  @override
+  String get loUploadBroadcastHint => 'Leave empty to broadcast to all';
+
+  @override
+  String get loUploadDropHint => 'Enter Destination';
+
+  @override
+  String get loUploadDropLocation => 'Drop Location';
+
+  @override
+  String get loUploadEntryDate => 'Entry Date';
+
+  @override
+  String get loUploadEntryMethod => 'Entry Method';
+
+  @override
+  String get loUploadExpectedContact => 'Expected Contact';
+
+  @override
+  String get loUploadExpectedContactBody =>
+      'Our logistics coordinator will reach out within 15 minutes for final verification.';
+
+  @override
+  String get loUploadExpectedContactHighlight => '15 minutes';
+
+  @override
+  String get loUploadFleetStatus => 'Fleet Status';
+
+  @override
+  String get loUploadFleetStatusBody =>
+      '4 heavy-duty trailers are currently available in your pickup zone.';
+
+  @override
+  String get loUploadFloor => 'Floor';
+
+  @override
+  String get loUploadMaterialType => 'Material Type';
+
+  @override
+  String get loUploadMaterialWeight => 'Material Weight';
+
+  @override
+  String get loUploadMethodBulk => 'BULK';
+
+  @override
+  String get loUploadMethodManual => 'MANUAL';
+
+  @override
+  String get loUploadMethodPhoto => 'PHOTO';
+
+  @override
+  String get loUploadNavDocs => 'Docs';
+
+  @override
+  String get loUploadNavTracking => 'Tracking';
+
+  @override
+  String get loUploadNewLoad => 'New Load';
+
+  @override
+  String get loUploadNewLoadRequirement => 'New Load Requirement';
+
+  @override
+  String get loUploadPickDate => 'Pick date';
+
+  @override
+  String get loUploadPickupHint => 'Enter Origin Hub';
+
+  @override
+  String get loUploadProcessUpdate => 'Process Update';
+
+  @override
+  String get loUploadProcessUpdateBody =>
+      'Fleet optimization algorithms are calculating the most efficient route for your cargo.';
+
+  @override
+  String get loUploadReferenceId => 'Reference ID';
+
+  @override
+  String get loUploadSearchPartnerHint => 'Search Logistic Partner here';
+
+  @override
+  String get loUploadSelect => 'Select';
+
+  @override
+  String get loUploadSelectMaterial => 'Select material';
+
+  @override
+  String get loUploadSelected => 'Selected';
+
+  @override
+  String get loUploadSendTo => 'Send To';
+
+  @override
+  String get loUploadSoonBadge => 'SOON';
+
+  @override
+  String get loUploadSubmitButton => 'Submit Load Requirement';
+
+  @override
+  String get loUploadSubmitFailed => 'Submission failed. Please try again.';
+
+  @override
+  String loUploadSuccessBody(int count, String material) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count units',
+      one: '1 unit',
+    );
+    return 'Your load requirement for $_temp0 of $material has been received. Our team is now assigning the fleet.';
+  }
+
+  @override
+  String get loUploadSuccessTitle => 'Submission Successful';
+
+  @override
+  String get loUploadTargetPartners => 'Target Partners';
+
+  @override
+  String get loUploadTrackInTrips => 'Track in My Trips';
+
+  @override
+  String get loUploadTruckCount => 'Truck Count';
+
+  @override
+  String get loUploadTruckRequirements => 'Truck Requirements';
+
+  @override
+  String get loUploadTruckWeightOptional => 'Truck Weight (Optional)';
+
+  @override
+  String get loUploadUnits => 'Units';
+
+  @override
+  String get loUploadValAxle => 'Please select an axle type';
+
+  @override
+  String get loUploadValBody => 'Please select a body type';
+
+  @override
+  String get loUploadValDate => 'Please select an entry date';
+
+  @override
+  String get loUploadValDrop => 'Please enter a drop location';
+
+  @override
+  String get loUploadValFloor => 'Please select a floor type';
+
+  @override
+  String get loUploadValMaterial => 'Please select a material type';
+
+  @override
+  String get loUploadValMaterialWeight => 'Please enter the material weight';
+
+  @override
+  String get loUploadValPartner => 'Please select a logistic partner';
+
+  @override
+  String get loUploadValPickup => 'Please enter a pickup location';
+
+  @override
+  String get loUploadValTruckCount => 'Truck count can\'t be zero';
+
+  @override
+  String get loUploadValTruckWeight =>
+      'Enter a valid truck weight, or leave it blank';
+
+  @override
+  String get loWorkerHomeBuilding =>
+      'Your load owner worker workspace is being built. Check back soon.';
+
+  @override
+  String get loWorkerHomeFallbackName => 'Worker';
+
+  @override
+  String get loWorkerHomeTitle => 'Load Owner Worker Dashboard';
+
+  @override
+  String loWorkerHomeWelcome(String name) {
+    return 'Welcome, $name!';
+  }
+
+  @override
+  String get transporterComingSoonBody =>
+      'This dashboard is currently under\ndevelopment and will be available soon.';
+
+  @override
+  String get transporterDashboardTitle => 'Transporter Dashboard';
 }

@@ -4379,4 +4379,447 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get workerReqUnknown => 'अज्ञात';
+
+  @override
+  String get loadSpecAxleFullTrailer => 'फुल ट्रेलर';
+
+  @override
+  String get loadSpecAxleMulti => 'मल्टी-एक्सल';
+
+  @override
+  String get loadSpecAxleSemiTrailer => 'सेमी-ट्रेलर';
+
+  @override
+  String get loadSpecAxleSingle => 'सिंगल एक्सल';
+
+  @override
+  String get loadSpecAxleTandem => 'टैंडम एक्सल';
+
+  @override
+  String get loadSpecAxleTri => 'ट्राई-एक्सल';
+
+  @override
+  String get loadSpecBodyCarCarrier => 'कार कैरियर';
+
+  @override
+  String get loadSpecBodyClosed => 'क्लोज़्ड बॉडी';
+
+  @override
+  String get loadSpecBodyContainer => 'कंटेनर';
+
+  @override
+  String get loadSpecBodyFlatbed => 'फ्लैटबेड';
+
+  @override
+  String get loadSpecBodyLowBed => 'लो बेड';
+
+  @override
+  String get loadSpecBodyOpen => 'ओपन बॉडी';
+
+  @override
+  String get loadSpecBodyRefrigerated => 'रेफ्रिजरेटेड';
+
+  @override
+  String get loadSpecBodySideWall => 'साइड वॉल';
+
+  @override
+  String get loadSpecBodyTanker => 'टैंकर';
+
+  @override
+  String get loadSpecBodyTipper => 'टिपर / डंपर';
+
+  @override
+  String get loadSpecFloorAluminium => 'एल्युमिनियम';
+
+  @override
+  String get loadSpecFloorBamboo => 'बांस';
+
+  @override
+  String get loadSpecFloorCorrugated => 'कोरुगेटेड';
+
+  @override
+  String get loadSpecFloorPlain => 'प्लेन फ्लोर';
+
+  @override
+  String get loadSpecFloorRubberMatted => 'रबर मैटेड';
+
+  @override
+  String get loadSpecFloorSteel => 'स्टील';
+
+  @override
+  String get loadSpecFloorWooden => 'लकड़ी का';
+
+  @override
+  String get loadSpecMatAgri => 'खेती की उपज';
+
+  @override
+  String get loadSpecMatAutoParts => 'ऑटोमोटिव पार्ट्स';
+
+  @override
+  String get loadSpecMatChemicals => 'केमिकल';
+
+  @override
+  String get loadSpecMatConstruction => 'कंस्ट्रक्शन मटेरियल';
+
+  @override
+  String get loadSpecMatElectronics => 'इलेक्ट्रॉनिक्स';
+
+  @override
+  String get loadSpecMatFmcg => 'FMCG / पैकेज्ड माल';
+
+  @override
+  String get loadSpecMatFurniture => 'फर्नीचर';
+
+  @override
+  String get loadSpecMatGlass => 'कांच और सिरेमिक';
+
+  @override
+  String get loadSpecMatHazardous => 'खतरनाक माल';
+
+  @override
+  String get loadSpecMatIndustrial => 'इंडस्ट्रियल माल';
+
+  @override
+  String get loadSpecMatLiquids => 'लिक्विड / पेय पदार्थ';
+
+  @override
+  String get loadSpecMatMachinery => 'मशीनरी और इक्विपमेंट';
+
+  @override
+  String get loadSpecMatOthers => 'अन्य';
+
+  @override
+  String get loadSpecMatPaints => 'पेंट और कोटिंग';
+
+  @override
+  String get loadSpecMatPaper => 'कागज़ और प्रिंटिंग';
+
+  @override
+  String get loadSpecMatPerishables => 'जल्दी खराब होने वाला माल';
+
+  @override
+  String get loadSpecMatPharma => 'दवाइयां (फ़ार्मा)';
+
+  @override
+  String get loadSpecMatPlastics => 'प्लास्टिक और रबर';
+
+  @override
+  String get loadSpecMatSteelCoils => 'स्टील कॉइल';
+
+  @override
+  String get loadSpecMatTextiles => 'कपड़ा और फैब्रिक';
+
+  @override
+  String get loDashBottomDashboard => 'डैशबोर्ड';
+
+  @override
+  String get loDashBottomDocs => 'दस्तावेज़';
+
+  @override
+  String get loDashBottomLoads => 'लोड';
+
+  @override
+  String get loDashBottomMyTrips => 'मेरी ट्रिप';
+
+  @override
+  String get loDashBottomProfile => 'प्रोफ़ाइल';
+
+  @override
+  String get loDashBottomSoon => 'जल्द';
+
+  @override
+  String get loDashClearAll => 'सब हटाएं';
+
+  @override
+  String get loDashClearAllBody => 'सभी सूचनाएं हमेशा के लिए हट जाएंगी।';
+
+  @override
+  String get loDashClearAllTitle => 'सभी सूचनाएं हटाएं?';
+
+  @override
+  String get loDashCreateLoadButton => 'लोड रिक्वायरमेंट बनाएं';
+
+  @override
+  String get loDashNavMyLoads => 'मेरे लोड';
+
+  @override
+  String get loDashNoNotifications => 'अभी कोई सूचना नहीं';
+
+  @override
+  String get loDashPanelTitle => 'लोड मालिक पैनल';
+
+  @override
+  String get loDashPostLoadBody =>
+      'अपने पसंदीदा लॉजिस्टिक पार्टनर को लोड की जानकारी भेजें और माल रवाना करवाएं।';
+
+  @override
+  String get loDashPostLoadTitle => 'लोड रिक्वायरमेंट पोस्ट करें';
+
+  @override
+  String loDashSoonSuffix(String label) {
+    return '$label (जल्द)';
+  }
+
+  @override
+  String get loDashTabDocuments => 'दस्तावेज़';
+
+  @override
+  String get loDashTabTracking => 'ट्रैकिंग';
+
+  @override
+  String get appRouterErrorTitle => 'गड़बड़ी';
+
+  @override
+  String appRouterPageNotFound(String location) {
+    return 'पेज नहीं मिला: $location';
+  }
+
+  @override
+  String get mainNavCreateOrganization => 'कंपनी बनाएं';
+
+  @override
+  String get mainNavInventory => 'इन्वेंटरी';
+
+  @override
+  String mainNavLoadOrganizationsError(String error) {
+    return 'कंपनियां लोड करने में गड़बड़ी: $error';
+  }
+
+  @override
+  String get mainNavLoadingOrganizations => 'कंपनियां लोड हो रही हैं...';
+
+  @override
+  String get mainNavLogoutConfirm => 'क्या आप लॉग आउट करना चाहते हैं?';
+
+  @override
+  String get mainNavManageOrganization => 'कंपनी मैनेज करें';
+
+  @override
+  String get mainNavMyOrganizations => 'मेरी कंपनियां';
+
+  @override
+  String get mainNavMyProfile => 'मेरी प्रोफ़ाइल';
+
+  @override
+  String get mainNavMyTasks => 'मेरे टास्क';
+
+  @override
+  String get mainNavNoOrganization =>
+      'कोई कंपनी नहीं मिली। पहले किसी कंपनी से जुड़ें या नई बनाएं।';
+
+  @override
+  String get mainNavOrganizationFallback => 'कंपनी';
+
+  @override
+  String get mainNavReports => 'रिपोर्ट';
+
+  @override
+  String get mainNavRoles => 'भूमिका';
+
+  @override
+  String get mainNavSchedule => 'शेड्यूल';
+
+  @override
+  String get mainNavSignOut => 'साइन आउट';
+
+  @override
+  String get mainNavTasks => 'टास्क';
+
+  @override
+  String get mainNavUserFallback => 'यूज़र';
+
+  @override
+  String get loReceiverDashboardTitle => 'लोड रिसीवर डैशबोर्ड';
+
+  @override
+  String get loReceiverEmpty => 'आपकी आने वाली डिलीवरी यहां दिखेंगी।';
+
+  @override
+  String get loReceiverRole => 'लोड रिसीवर';
+
+  @override
+  String get loUploadBody => 'बॉडी';
+
+  @override
+  String get loUploadBroadcastHint => 'सबको भेजने के लिए खाली छोड़ें';
+
+  @override
+  String get loUploadDropHint => 'मंज़िल डालें';
+
+  @override
+  String get loUploadDropLocation => 'ड्रॉप लोकेशन';
+
+  @override
+  String get loUploadEntryDate => 'एंट्री की तारीख';
+
+  @override
+  String get loUploadEntryMethod => 'एंट्री का तरीका';
+
+  @override
+  String get loUploadExpectedContact => 'संपर्क कब होगा';
+
+  @override
+  String get loUploadExpectedContactBody =>
+      'हमारे लॉजिस्टिक कोऑर्डिनेटर आखिरी वेरिफ़िकेशन के लिए 15 मिनट में आपसे संपर्क करेंगे।';
+
+  @override
+  String get loUploadExpectedContactHighlight => '15 मिनट';
+
+  @override
+  String get loUploadFleetStatus => 'फ्लीट की स्थिति';
+
+  @override
+  String get loUploadFleetStatusBody =>
+      'आपके पिकअप ज़ोन में अभी 4 हैवी-ड्यूटी ट्रेलर उपलब्ध हैं।';
+
+  @override
+  String get loUploadFloor => 'फ्लोर';
+
+  @override
+  String get loUploadMaterialType => 'माल का प्रकार';
+
+  @override
+  String get loUploadMaterialWeight => 'माल का वज़न';
+
+  @override
+  String get loUploadMethodBulk => 'बल्क';
+
+  @override
+  String get loUploadMethodManual => 'मैनुअल';
+
+  @override
+  String get loUploadMethodPhoto => 'फोटो';
+
+  @override
+  String get loUploadNavDocs => 'डॉक्स';
+
+  @override
+  String get loUploadNavTracking => 'ट्रैकिंग';
+
+  @override
+  String get loUploadNewLoad => 'नया लोड';
+
+  @override
+  String get loUploadNewLoadRequirement => 'नई लोड रिक्वायरमेंट';
+
+  @override
+  String get loUploadPickDate => 'तारीख चुनें';
+
+  @override
+  String get loUploadPickupHint => 'शुरुआती हब डालें';
+
+  @override
+  String get loUploadProcessUpdate => 'प्रोसेस अपडेट';
+
+  @override
+  String get loUploadProcessUpdateBody =>
+      'फ्लीट ऑप्टिमाइज़ेशन आपके माल के लिए सबसे अच्छा रूट निकाल रहा है।';
+
+  @override
+  String get loUploadReferenceId => 'रेफ़रेंस आईडी';
+
+  @override
+  String get loUploadSearchPartnerHint => 'यहां लॉजिस्टिक पार्टनर खोजें';
+
+  @override
+  String get loUploadSelect => 'चुनें';
+
+  @override
+  String get loUploadSelectMaterial => 'माल चुनें';
+
+  @override
+  String get loUploadSelected => 'चुना हुआ';
+
+  @override
+  String get loUploadSendTo => 'किसे भेजें';
+
+  @override
+  String get loUploadSoonBadge => 'जल्द';
+
+  @override
+  String get loUploadSubmitButton => 'लोड रिक्वायरमेंट सबमिट करें';
+
+  @override
+  String get loUploadSubmitFailed => 'सबमिट नहीं हो सका। दोबारा कोशिश करें।';
+
+  @override
+  String loUploadSuccessBody(int count, String material) {
+    return '$material के $count यूनिट के लिए आपकी लोड रिक्वायरमेंट मिल गई है। हमारी टीम अब फ्लीट असाइन कर रही है।';
+  }
+
+  @override
+  String get loUploadSuccessTitle => 'सबमिट हो गया';
+
+  @override
+  String get loUploadTargetPartners => 'टारगेट पार्टनर';
+
+  @override
+  String get loUploadTrackInTrips => 'मेरी ट्रिप में ट्रैक करें';
+
+  @override
+  String get loUploadTruckCount => 'ट्रकों की संख्या';
+
+  @override
+  String get loUploadTruckRequirements => 'ट्रक रिक्वायरमेंट';
+
+  @override
+  String get loUploadTruckWeightOptional => 'ट्रक का वज़न (ज़रूरी नहीं)';
+
+  @override
+  String get loUploadUnits => 'यूनिट';
+
+  @override
+  String get loUploadValAxle => 'एक्सल टाइप चुनें';
+
+  @override
+  String get loUploadValBody => 'बॉडी टाइप चुनें';
+
+  @override
+  String get loUploadValDate => 'एंट्री की तारीख चुनें';
+
+  @override
+  String get loUploadValDrop => 'ड्रॉप लोकेशन डालें';
+
+  @override
+  String get loUploadValFloor => 'फ्लोर टाइप चुनें';
+
+  @override
+  String get loUploadValMaterial => 'माल का प्रकार चुनें';
+
+  @override
+  String get loUploadValMaterialWeight => 'माल का वज़न डालें';
+
+  @override
+  String get loUploadValPartner => 'लॉजिस्टिक पार्टनर चुनें';
+
+  @override
+  String get loUploadValPickup => 'पिकअप लोकेशन डालें';
+
+  @override
+  String get loUploadValTruckCount => 'ट्रकों की संख्या 0 नहीं हो सकती';
+
+  @override
+  String get loUploadValTruckWeight => 'सही ट्रक वज़न डालें, या खाली छोड़ दें';
+
+  @override
+  String get loWorkerHomeBuilding =>
+      'आपका लोड मालिक वर्कर वर्कस्पेस तैयार हो रहा है। जल्द दोबारा देखें।';
+
+  @override
+  String get loWorkerHomeFallbackName => 'वर्कर';
+
+  @override
+  String get loWorkerHomeTitle => 'लोड मालिक वर्कर डैशबोर्ड';
+
+  @override
+  String loWorkerHomeWelcome(String name) {
+    return 'स्वागत है, $name!';
+  }
+
+  @override
+  String get transporterComingSoonBody =>
+      'यह डैशबोर्ड अभी तैयार हो रहा है\nऔर जल्द ही उपलब्ध होगा।';
+
+  @override
+  String get transporterDashboardTitle => 'ट्रांसपोर्टर डैशबोर्ड';
 }
