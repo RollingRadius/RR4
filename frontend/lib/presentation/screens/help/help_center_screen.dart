@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class HelpCenterScreen extends ConsumerStatefulWidget {
   const HelpCenterScreen({super.key});
@@ -38,11 +39,12 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   Widget _buildAppBar() {
+    final l10n = AppLocalizations.of(context);
     return SliverAppBar(
       expandedHeight: 200,
       pinned: true,
       flexibleSpace: FlexibleSpaceBar(
-        title: const Text('Help Center'),
+        title: Text(l10n.helpCenterTitle),
         background: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -67,6 +69,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   Widget _buildSearchSection() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -75,7 +78,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
             controller: _searchController,
             onChanged: (value) => setState(() => _searchQuery = value),
             decoration: InputDecoration(
-              hintText: 'Search for help articles, guides, FAQs...',
+              hintText: l10n.helpCenterSearchHint,
               prefixIcon: const Icon(Icons.search),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
@@ -103,6 +106,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   Widget _buildSearchResults() {
+    final l10n = AppLocalizations.of(context);
     final results = _getSearchResults(_searchQuery);
 
     if (results.isEmpty) {
@@ -114,7 +118,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
               Icon(Icons.search_off, size: 48, color: Colors.grey[400]),
               const SizedBox(height: 16),
               Text(
-                'No results found for "$_searchQuery"',
+                l10n.helpCenterNoResults(_searchQuery),
                 style: TextStyle(
                   fontSize: 16,
                   color: Colors.grey[600],
@@ -123,7 +127,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Try different keywords or browse categories below',
+                l10n.helpCenterNoResultsHint,
                 style: TextStyle(fontSize: 14, color: Colors.grey[500]),
               ),
             ],
@@ -139,7 +143,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Text(
-              '${results.length} results found',
+              l10n.helpCenterResultsFound(results.length),
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -163,13 +167,14 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   Widget _buildQuickActions() {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Quick Actions',
+          Text(
+            l10n.helpCenterQuickActions,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -180,7 +185,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
             children: [
               Expanded(
                 child: _buildQuickActionCard(
-                  'Getting Started',
+                  l10n.helpCenterGettingStarted,
                   Icons.rocket_launch,
                   Colors.blue,
                   () => _showGettingStarted(),
@@ -189,7 +194,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: _buildQuickActionCard(
-                  'Video Tutorials',
+                  l10n.helpCenterVideoTutorials,
                   Icons.play_circle_outline,
                   Colors.red,
                   () => _showVideoTutorials(),
@@ -202,7 +207,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
             children: [
               Expanded(
                 child: _buildQuickActionCard(
-                  'Contact Support',
+                  l10n.helpCenterContactSupport,
                   Icons.support_agent,
                   Colors.green,
                   () => _showContactSupport(),
@@ -211,7 +216,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: _buildQuickActionCard(
-                  'Report Issue',
+                  l10n.helpCenterReportIssue,
                   Icons.bug_report,
                   Colors.orange,
                   () => _showReportIssue(),
@@ -264,6 +269,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   Widget _buildPopularArticles() {
+    final l10n = AppLocalizations.of(context);
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -272,8 +278,8 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Popular Articles',
+              Text(
+                l10n.helpCenterPopularArticles,
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -281,41 +287,41 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
               ),
               TextButton(
                 onPressed: () => _showAllArticles(),
-                child: const Text('View All'),
+                child: Text(l10n.helpCenterViewAll),
               ),
             ],
           ),
           const SizedBox(height: 16),
           _buildArticleCard(
-            'How to add a new vehicle',
-            'Step-by-step guide to adding vehicles to your fleet',
+            l10n.helpCenterArticleAddVehicle,
+            l10n.helpCenterArticleAddVehicleDesc,
             Icons.directions_car,
             Colors.blue,
-            '5 min read',
+            l10n.helpCenterReadMinutes(5),
             4.8,
           ),
           _buildArticleCard(
-            'Managing driver permissions',
-            'Learn how to assign and manage driver roles and permissions',
+            l10n.helpCenterArticleDriverPerms,
+            l10n.helpCenterArticleDriverPermsDesc,
             Icons.badge,
             Colors.purple,
-            '7 min read',
+            l10n.helpCenterReadMinutes(7),
             4.9,
           ),
           _buildArticleCard(
-            'Setting up real-time tracking',
-            'Configure GPS tracking for your fleet vehicles',
+            l10n.helpCenterArticleRealtimeTracking,
+            l10n.helpCenterArticleRealtimeTrackingDesc,
             Icons.location_on,
             Colors.red,
-            '4 min read',
+            l10n.helpCenterReadMinutes(4),
             4.7,
           ),
           _buildArticleCard(
-            'Creating maintenance schedules',
-            'Keep your fleet running smoothly with scheduled maintenance',
+            l10n.helpCenterArticleMaintenance,
+            l10n.helpCenterArticleMaintenanceDesc,
             Icons.build_circle,
             Colors.orange,
-            '6 min read',
+            l10n.helpCenterReadMinutes(6),
             4.6,
           ),
         ],
@@ -400,62 +406,63 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   Widget _buildCategories() {
+    final l10n = AppLocalizations.of(context);
     final categories = [
       {
-        'title': 'Vehicle Management',
+        'title': l10n.helpCenterCatVehicle,
         'icon': Icons.directions_car,
         'color': Colors.blue,
         'articles': 24,
-        'description': 'Adding, editing, and managing vehicles'
+        'description': l10n.helpCenterCatVehicleDesc
       },
       {
-        'title': 'Driver Management',
+        'title': l10n.helpCenterCatDriver,
         'icon': Icons.badge,
         'color': Colors.teal,
         'articles': 18,
-        'description': 'Driver profiles, licenses, and assignments'
+        'description': l10n.helpCenterCatDriverDesc
       },
       {
-        'title': 'Trip Management',
+        'title': l10n.helpCenterCatTrip,
         'icon': Icons.route,
         'color': Colors.purple,
         'articles': 15,
-        'description': 'Creating and monitoring trips'
+        'description': l10n.helpCenterCatTripDesc
       },
       {
-        'title': 'Real-time Tracking',
+        'title': l10n.helpCenterCatTracking,
         'icon': Icons.location_on,
         'color': Colors.red,
         'articles': 12,
-        'description': 'GPS tracking and location services'
+        'description': l10n.helpCenterCatTrackingDesc
       },
       {
-        'title': 'Financial Management',
+        'title': l10n.helpCenterCatFinancial,
         'icon': Icons.account_balance,
         'color': Colors.amber,
         'articles': 20,
-        'description': 'Expenses, invoices, and payments'
+        'description': l10n.helpCenterCatFinancialDesc
       },
       {
-        'title': 'Maintenance',
+        'title': l10n.helpCenterCatMaintenance,
         'icon': Icons.build_circle,
         'color': Colors.orange,
         'articles': 16,
-        'description': 'Schedules, repairs, and inspections'
+        'description': l10n.helpCenterCatMaintenanceDesc
       },
       {
-        'title': 'Roles & Permissions',
+        'title': l10n.helpCenterCatRoles,
         'icon': Icons.security,
         'color': Colors.indigo,
         'articles': 22,
-        'description': 'User roles and access control'
+        'description': l10n.helpCenterCatRolesDesc
       },
       {
-        'title': 'Reports & Analytics',
+        'title': l10n.helpCenterCatReports,
         'icon': Icons.analytics,
         'color': Colors.deepPurple,
         'articles': 14,
-        'description': 'Generating and exporting reports'
+        'description': l10n.helpCenterCatReportsDesc
       },
     ];
 
@@ -464,8 +471,8 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Browse by Category',
+          Text(
+            l10n.helpCenterBrowseByCategory,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -587,6 +594,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   Widget _buildContactSupport() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       margin: const EdgeInsets.all(24),
       padding: const EdgeInsets.all(24),
@@ -602,8 +610,8 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
         children: [
           const Icon(Icons.headset_mic, size: 48, color: Colors.white),
           const SizedBox(height: 16),
-          const Text(
-            'Need More Help?',
+          Text(
+            l10n.helpCenterNeedMoreHelp,
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
@@ -611,8 +619,8 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Our support team is available 24/7 to assist you',
+          Text(
+            l10n.helpCenterSupport247,
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -626,7 +634,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
                 child: OutlinedButton.icon(
                   onPressed: () => _showContactOptions(),
                   icon: const Icon(Icons.email, color: Colors.white),
-                  label: const Text('Email Us', style: TextStyle(color: Colors.white)),
+                  label: Text(l10n.helpCenterEmailUs, style: const TextStyle(color: Colors.white)),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Colors.white),
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -638,7 +646,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
                 child: ElevatedButton.icon(
                   onPressed: () => _showLiveChat(),
                   icon: const Icon(Icons.chat_bubble),
-                  label: const Text('Live Chat'),
+                  label: Text(l10n.helpCenterLiveChat),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: Colors.blue[700],
@@ -649,8 +657,8 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          const Text(
-            'Average response time: 2 minutes',
+          Text(
+            l10n.helpCenterAvgResponse,
             style: TextStyle(
               fontSize: 12,
               color: Colors.white70,
@@ -662,34 +670,35 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   List<Map<String, dynamic>> _getSearchResults(String query) {
+    final l10n = AppLocalizations.of(context);
     final allArticles = [
       {
-        'title': 'How to add a new vehicle',
-        'description': 'Step-by-step guide to adding vehicles to your fleet',
+        'title': l10n.helpCenterArticleAddVehicle,
+        'description': l10n.helpCenterArticleAddVehicleDesc,
         'icon': Icons.directions_car,
         'color': Colors.blue,
       },
       {
-        'title': 'Managing driver permissions',
-        'description': 'Learn how to assign and manage driver roles',
+        'title': l10n.helpCenterArticleDriverPerms,
+        'description': l10n.helpCenterSearchDriverPermsDesc,
         'icon': Icons.badge,
         'color': Colors.purple,
       },
       {
-        'title': 'Setting up GPS tracking',
-        'description': 'Configure real-time vehicle tracking',
+        'title': l10n.helpCenterSearchGpsTitle,
+        'description': l10n.helpCenterSearchGpsDesc,
         'icon': Icons.location_on,
         'color': Colors.red,
       },
       {
-        'title': 'Creating maintenance schedules',
-        'description': 'Schedule regular vehicle maintenance',
+        'title': l10n.helpCenterArticleMaintenance,
+        'description': l10n.helpCenterSearchMaintenanceDesc,
         'icon': Icons.build_circle,
         'color': Colors.orange,
       },
       {
-        'title': 'Generating financial reports',
-        'description': 'Create and export financial reports',
+        'title': l10n.helpCenterSearchReportsTitle,
+        'description': l10n.helpCenterSearchReportsDesc,
         'icon': Icons.analytics,
         'color': Colors.deepPurple,
       },
@@ -703,6 +712,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   void _openArticle(Map<String, dynamic> article) {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -713,12 +723,12 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'This is a detailed article about: ${article['title']}',
+                l10n.helpCenterArticleDetailIntro(article['title']),
                 style: const TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Article content would go here with step-by-step instructions, screenshots, and helpful tips.',
+              Text(
+                l10n.helpCenterArticlePlaceholder,
               ),
             ],
           ),
@@ -726,16 +736,16 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
+            child: Text(l10n.commonClose),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Article marked as helpful')),
+                SnackBar(content: Text(l10n.helpCenterMarkedHelpful)),
               );
             },
-            child: const Text('Was this helpful?'),
+            child: Text(l10n.helpCenterWasHelpful),
           ),
         ],
       ),
@@ -743,13 +753,15 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   void _openCategory(String category) {
+    final l10n = AppLocalizations.of(context);
     context.go('/help');
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Opening $category articles...')),
+      SnackBar(content: Text(l10n.helpCenterOpeningCategory(category))),
     );
   }
 
   void _showGettingStarted() {
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -760,16 +772,16 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
           child: ListView(
             controller: scrollController,
             children: [
-              const Text(
-                'Getting Started Guide',
+              Text(
+                l10n.helpCenterGuideTitle,
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 24),
-              _buildStepCard(1, 'Create Your Account', 'Sign up with your details'),
-              _buildStepCard(2, 'Set Up Your Organization', 'Create or join an organization'),
-              _buildStepCard(3, 'Add Your Fleet', 'Add vehicles to the system'),
-              _buildStepCard(4, 'Invite Team Members', 'Add drivers and staff'),
-              _buildStepCard(5, 'Start Managing', 'Begin tracking and managing your fleet'),
+              _buildStepCard(1, l10n.helpCenterStep1Title, l10n.helpCenterStep1Desc),
+              _buildStepCard(2, l10n.helpCenterStep2Title, l10n.helpCenterStep2Desc),
+              _buildStepCard(3, l10n.helpCenterStep3Title, l10n.helpCenterStep3Desc),
+              _buildStepCard(4, l10n.helpCenterStep4Title, l10n.helpCenterStep4Desc),
+              _buildStepCard(5, l10n.helpCenterStep5Title, l10n.helpCenterStep5Desc),
             ],
           ),
         ),
@@ -792,8 +804,9 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   void _showVideoTutorials() {
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Video tutorials coming soon!')),
+      SnackBar(content: Text(l10n.helpCenterVideoComingSoon)),
     );
   }
 
@@ -802,24 +815,25 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   void _showReportIssue() {
+    final l10n = AppLocalizations.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Report an Issue'),
+        title: Text(l10n.helpCenterReportTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
-              decoration: const InputDecoration(
-                labelText: 'Issue Title',
+              decoration: InputDecoration(
+                labelText: l10n.helpCenterIssueTitle,
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
             TextField(
               maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Description',
+              decoration: InputDecoration(
+                labelText: l10n.helpCenterIssueDescription,
                 border: OutlineInputBorder(),
               ),
             ),
@@ -828,16 +842,16 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Issue reported successfully')),
+                SnackBar(content: Text(l10n.helpCenterIssueReported)),
               );
             },
-            child: const Text('Submit'),
+            child: Text(l10n.commonSubmit),
           ),
         ],
       ),
@@ -845,12 +859,14 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   void _showAllArticles() {
+    final l10n = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Showing all articles...')),
+      SnackBar(content: Text(l10n.helpCenterShowingAll)),
     );
   }
 
   void _showContactOptions() {
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       builder: (context) => Container(
@@ -858,8 +874,8 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-              'Contact Support',
+            Text(
+              l10n.helpCenterContactSupport,
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
@@ -868,7 +884,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
                 backgroundColor: Colors.blue,
                 child: Icon(Icons.email, color: Colors.white),
               ),
-              title: const Text('Email Support'),
+              title: Text(l10n.helpCenterEmailSupport),
               subtitle: const Text('support@fleetmanagement.com'),
               onTap: () {},
             ),
@@ -877,7 +893,7 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
                 backgroundColor: Colors.green,
                 child: Icon(Icons.phone, color: Colors.white),
               ),
-              title: const Text('Phone Support'),
+              title: Text(l10n.helpCenterPhoneSupport),
               subtitle: const Text('+1 (555) 123-4567'),
               onTap: () {},
             ),
@@ -886,8 +902,8 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
                 backgroundColor: Colors.purple,
                 child: Icon(Icons.chat, color: Colors.white),
               ),
-              title: const Text('Live Chat'),
-              subtitle: const Text('Chat with our support team'),
+              title: Text(l10n.helpCenterLiveChat),
+              subtitle: Text(l10n.helpCenterChatWithTeam),
               onTap: () => _showLiveChat(),
             ),
           ],
@@ -897,9 +913,10 @@ class _HelpCenterScreenState extends ConsumerState<HelpCenterScreen> {
   }
 
   void _showLiveChat() {
+    final l10n = AppLocalizations.of(context);
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Opening live chat...')),
+      SnackBar(content: Text(l10n.helpCenterOpeningChat)),
     );
   }
 }
