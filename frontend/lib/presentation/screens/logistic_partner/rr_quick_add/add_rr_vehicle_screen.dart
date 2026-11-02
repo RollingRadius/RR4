@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
@@ -64,16 +65,17 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context);
     if (_ownerId == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Select an owner from the suggestions', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.rrQuickAddSelectOwner, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _error,
       ));
       return;
     }
     if (_engineModelId == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Select an engine model from the suggestions', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.rrQuickAddSelectEngineModel, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _error,
       ));
       return;
@@ -89,7 +91,7 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
           ));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Vehicle "${result['rc_number']}" added on RR', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.rrQuickAddVehicleAdded('${result['rc_number']}'), style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -119,8 +121,9 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text('Add New Vehicle', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _rrBlue),
+      appBar: AppBar(title: Text(l10n.rrQuickAddVehicleTitle, style: _manrope(size: 17, color: Colors.white)), backgroundColor: _rrBlue),
       body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Form(
@@ -128,11 +131,11 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Register a new vehicle on RR', style: _inter(size: 13)),
+                    Text(l10n.rrQuickAddVehicleIntro, style: _inter(size: 13)),
                     const SizedBox(height: 20),
                     RrSearchField<Map<String, dynamic>>(
-                      label: 'Owner Phone Number *',
-                      hintText: 'Full 10-digit phone, or part of the name',
+                      label: l10n.rrQuickAddOwnerPhoneLabel,
+                      hintText: l10n.rrQuickAddPhoneSearchHint,
                       controller: _ownerCtrl,
                       keyboardType: TextInputType.phone,
                       search: _searchOwners,
@@ -143,7 +146,7 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
                     ),
                     const SizedBox(height: 16),
                     RrSearchField<Map<String, dynamic>>(
-                      label: 'Company (optional)',
+                      label: l10n.rrQuickAddCompanyOptional,
                       controller: _companyCtrl,
                       search: _searchCompanies,
                       itemLabel: (c) => c['name'] as String? ?? '',
@@ -157,7 +160,7 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
                     ),
                     const SizedBox(height: 16),
                     RrSearchField<Map<String, dynamic>>(
-                      label: 'Engine Model *',
+                      label: l10n.rrQuickAddEngineModelLabel,
                       controller: _engineModelCtrl,
                       search: _searchEngineModels,
                       itemLabel: (m) => m['name'] as String? ?? '',
@@ -174,10 +177,10 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
                       controller: _rcCtrl,
                       textCapitalization: TextCapitalization.characters,
                       decoration: InputDecoration(
-                        labelText: 'RC Number *',
+                        labelText: l10n.rrQuickAddRcNumberLabel,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'RC number is required' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? l10n.rrQuickAddRcRequired : null,
                     ),
                     const SizedBox(height: 28),
                     SizedBox(
@@ -191,7 +194,7 @@ class _AddRrVehicleScreenState extends ConsumerState<AddRrVehicleScreen> {
                         ),
                         child: _submitting
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : Text('Add Vehicle', style: _manrope(size: 14, color: Colors.white)),
+                            : Text(l10n.rrQuickAddAddVehicleButton, style: _manrope(size: 14, color: Colors.white)),
                       ),
                     ),
                   ],

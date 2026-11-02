@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
@@ -20,6 +21,7 @@ const _error = Color(0xFFBA1A1A);
 // Mirrors RR's `UserOrCompanyTypes` enum (rrbc-api/app/enum_directory.py).
 // "Vehicle Owner" is the default since that's what makes a company usable as
 // a trip's vehicle provider — any of the others remain selectable if needed.
+// Sent to RR as-is; display text comes from _businessTypeLabel().
 const _businessTypes = <String>[
   'Vehicle Owner',
   'Transporter',
@@ -32,6 +34,22 @@ const _businessTypes = <String>[
   'Driver',
   'Other',
 ];
+
+String _businessTypeLabel(AppLocalizations l10n, String t) {
+  switch (t) {
+    case 'Vehicle Owner': return l10n.rrQuickAddBizVehicleOwner;
+    case 'Transporter': return l10n.rrQuickAddBizTransporter;
+    case 'Vehicle Agent': return l10n.rrQuickAddBizVehicleAgent;
+    case 'Commission Agent': return l10n.rrQuickAddBizCommissionAgent;
+    case 'Parcel Sender - Consignor': return l10n.rrQuickAddBizParcelSender;
+    case 'Parcel Sender Agent - Consignor Commission Agent': return l10n.rrQuickAddBizParcelSenderAgent;
+    case 'Parcel Receiver - Consignee': return l10n.rrQuickAddBizParcelReceiver;
+    case 'Parcel Receiver Agent - Consignee Commission Agent': return l10n.rrQuickAddBizParcelReceiverAgent;
+    case 'Driver': return l10n.rrQuickAddBizDriver;
+    case 'Other': return l10n.rrQuickAddBizOther;
+    default: return t;
+  }
+}
 
 TextStyle _manrope({double size = 14, FontWeight weight = FontWeight.w700, Color color = const Color(0xFF191C1E)}) =>
     GoogleFonts.manrope(fontSize: size, fontWeight: weight, color: color);
@@ -69,9 +87,10 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context);
     if (_cityId == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Select a city from the suggestions', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.rrQuickAddSelectCity, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _error,
       ));
       return;
@@ -79,7 +98,7 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
     final ownerPhone = _ownerId == null ? _ownerCtrl.text.trim() : null;
     if (_ownerId == null && !RegExp(r'^\d{10}$').hasMatch(ownerPhone ?? '')) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Select an existing owner or enter a valid 10-digit phone number', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.rrQuickAddOwnerOrPhone, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _error,
       ));
       return;
@@ -96,7 +115,7 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
           ));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Company "${result['name']}" added on RR', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.rrQuickAddCompanyAdded('${result['name']}'), style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -125,8 +144,9 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text('Add New Company', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _rrBlue),
+      appBar: AppBar(title: Text(l10n.rrQuickAddCompanyTitle, style: _manrope(size: 17, color: Colors.white)), backgroundColor: _rrBlue),
       body: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Form(
@@ -134,11 +154,11 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Register a new vehicle-provider company on RR', style: _inter(size: 13)),
+                    Text(l10n.rrQuickAddCompanyIntro, style: _inter(size: 13)),
                     const SizedBox(height: 20),
                     RrSearchField<Map<String, dynamic>>(
-                      label: 'Company Owner (search or enter a new 10-digit phone) *',
-                      hintText: 'Full 10-digit phone, or part of the name',
+                      label: l10n.rrQuickAddCompanyOwnerLabel,
+                      hintText: l10n.rrQuickAddPhoneSearchHint,
                       controller: _ownerCtrl,
                       keyboardType: TextInputType.phone,
                       search: _searchOwners,
@@ -156,14 +176,14 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
                     TextFormField(
                       controller: _nameCtrl,
                       decoration: InputDecoration(
-                        labelText: 'Company Name *',
+                        labelText: l10n.companyCreateNameLabel,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Company name is required' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? l10n.rrQuickAddCompanyNameRequired : null,
                     ),
                     const SizedBox(height: 16),
                     RrSearchField<Map<String, dynamic>>(
-                      label: 'City *',
+                      label: l10n.companyCreateCityLabel,
                       controller: _cityCtrl,
                       search: _searchCities,
                       itemLabel: (c) => c['name'] as String? ?? '',
@@ -180,13 +200,13 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
                       value: _businessType,
                       isExpanded: true,
                       decoration: InputDecoration(
-                        labelText: 'Business Type *',
+                        labelText: l10n.rrQuickAddBusinessTypeLabel,
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                       ),
                       items: _businessTypes
                           .map((t) => DropdownMenuItem(
                                 value: t,
-                                child: Text(t, overflow: TextOverflow.ellipsis),
+                                child: Text(_businessTypeLabel(l10n, t), overflow: TextOverflow.ellipsis),
                               ))
                           .toList(),
                       onChanged: (v) => setState(() => _businessType = v ?? _businessTypes.first),
@@ -203,7 +223,7 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
                         ),
                         child: _submitting
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : Text('Add Company', style: _manrope(size: 14, color: Colors.white)),
+                            : Text(l10n.rrQuickAddAddCompanyButton, style: _manrope(size: 14, color: Colors.white)),
                       ),
                     ),
                   ],

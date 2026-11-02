@@ -3,16 +3,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 
-String _errorMessage(Object e) {
+String _errorMessage(Object e, String fallback) {
   if (e is DioException) {
     final detail = e.response?.data is Map ? (e.response?.data as Map)['detail'] : null;
     if (detail is String) return detail;
     if (detail is List && detail.isNotEmpty) return detail.first.toString();
   }
-  return 'Action failed. Please try again.';
+  return fallback;
 }
 
 // RR-blue for header/brand surfaces (matches the RR-ops dashboard this
@@ -76,6 +77,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
   }
 
   Future<void> _load() async {
+    final l10n = AppLocalizations.of(context);
     setState(() { _loading = true; _errorMsg = null; });
     try {
       final items = await runRrAction(context, ref, () => ref.read(rrSyncApiProvider).getVehicleHireRequests());
@@ -83,7 +85,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
       setState(() { _items = items; _loading = false; });
     } catch (e) {
       if (!mounted) return;
-      setState(() { _loading = false; _errorMsg = 'Could not load hire requests'; });
+      setState(() { _loading = false; _errorMsg = l10n.rrQuickAddHireLoadFailed; });
     }
   }
 
@@ -97,6 +99,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
   }
 
   Future<void> _submitReview(Map<String, dynamic> item, String status, {DateTime? start, DateTime? end}) async {
+    final l10n = AppLocalizations.of(context);
     final marketVehicleId = item['market_vehicle_id'] as String;
     setState(() => _actingOnId = marketVehicleId);
     try {
@@ -112,7 +115,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
       if (!mounted) return;
       setState(() => _actingOnId = null);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(status == 'Approved' ? 'Hire request approved' : 'Hire request rejected',
+        content: Text(status == 'Approved' ? l10n.rrQuickAddHireApproved : l10n.rrQuickAddHireRejected,
             style: _inter(size: 13, color: Colors.white)),
         backgroundColor: status == 'Approved' ? _success : _secondary,
         behavior: SnackBarBehavior.floating,
@@ -123,7 +126,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
       if (!mounted) return;
       setState(() => _actingOnId = null);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_errorMessage(e), style: _inter(size: 13, color: Colors.white)),
+        content: Text(_errorMessage(e, l10n.rrQuickAddActionFailed), style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -133,9 +136,10 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text('Vehicle Hire Requests', style: _manrope(size: 17, color: Colors.white)),
+        title: Text(l10n.rrQuickAddHireTitle, style: _manrope(size: 17, color: Colors.white)),
         backgroundColor: _rrBlue,
       ),
       body: _loading
@@ -144,7 +148,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
               ? Center(child: Text(_errorMsg!, style: _inter(size: 13)))
               : _items.isEmpty
                   ? Center(
-                      child: Text('No pending hire requests', style: _inter(size: 14)),
+                      child: Text(l10n.rrQuickAddHireEmpty, style: _inter(size: 14)),
                     )
                   : RefreshIndicator(
                       onRefresh: _load,
@@ -171,7 +175,7 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: Text('Vehicle: ${item['vehicle_number'] ?? '—'}',
+                                        child: Text(l10n.rrQuickAddVehicleLine('${item['vehicle_number'] ?? '—'}'),
                                             style: _manrope(size: 14)),
                                       ),
                                       if (acting)
@@ -181,19 +185,19 @@ class _VehicleHireRequestsScreenState extends ConsumerState<VehicleHireRequestsS
                                     ],
                                   ),
                                   const SizedBox(height: 4),
-                                  Text('Owner: ${item['owner_name'] ?? '—'}', style: _inter(size: 13)),
+                                  Text(l10n.rrQuickAddOwnerLine('${item['owner_name'] ?? '—'}'), style: _inter(size: 13)),
                                   const SizedBox(height: 2),
-                                  Text('Requested by: ${item['hirer_name'] ?? '—'}', style: _inter(size: 13)),
+                                  Text(l10n.rrQuickAddRequestedByLine('${item['hirer_name'] ?? '—'}'), style: _inter(size: 13)),
                                   if (item['requested_start_date'] != null) ...[
                                     const SizedBox(height: 4),
                                     Text(
-                                      'Requested: ${_fmtDateTime(item['requested_start_date'])} → ${_fmtDateTime(item['requested_end_date'])}',
+                                      l10n.rrQuickAddRequestedRangeArrow(_fmtDateTime(item['requested_start_date']), _fmtDateTime(item['requested_end_date'])),
                                       style: _inter(size: 12),
                                     ),
                                   ],
                                   if (isMine) ...[
                                     const SizedBox(height: 8),
-                                    Text('Your fleet', style: _inter(size: 12, weight: FontWeight.w600, color: _success)),
+                                    Text(l10n.rrQuickAddYourFleet, style: _inter(size: 12, weight: FontWeight.w600, color: _success)),
                                   ],
                                 ],
                               ),
@@ -231,6 +235,7 @@ class _ReviewRequestDialogState extends State<_ReviewRequestDialog> {
   DateTime? _end;
 
   Future<void> _pickDate({required bool isStart}) async {
+    final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
     final initial = isStart ? (_start ?? now) : (_end ?? (_start ?? now).add(const Duration(days: 7)));
     final firstDate = isStart ? now.subtract(const Duration(days: 1)) : (_start ?? now);
@@ -239,7 +244,7 @@ class _ReviewRequestDialogState extends State<_ReviewRequestDialog> {
       initialDate: initial,
       firstDate: firstDate,
       lastDate: now.add(const Duration(days: 365)),
-      helpText: isStart ? 'Approved Start Date' : 'Approved End Date',
+      helpText: isStart ? l10n.rrQuickAddApprovedStartDate : l10n.rrQuickAddApprovedEndDate,
     );
     if (picked == null) return;
     setState(() {
@@ -252,10 +257,11 @@ class _ReviewRequestDialogState extends State<_ReviewRequestDialog> {
     });
   }
 
-  String _fmtPicked(DateTime? d) => d == null ? 'Select date' : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+  String _fmtPicked(DateTime? d) => d == null ? AppLocalizations.of(context).driverOnboardSelectDate : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final item = widget.item;
     final vehicleDetail = [item['vehicle_model'], item['vehicle_number']]
         .where((v) => v != null && (v as String).isNotEmpty)
@@ -263,21 +269,21 @@ class _ReviewRequestDialogState extends State<_ReviewRequestDialog> {
     final canSubmit = _decision == 'Rejected' || (_start != null && _end != null);
 
     return AlertDialog(
-      title: Text('Review Hire Request', style: _manrope(size: 16)),
+      title: Text(l10n.rrQuickAddReviewTitle, style: _manrope(size: 16)),
       content: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Request Information', style: _manrope(size: 12, color: _rrBlue)),
+            Text(l10n.rrQuickAddRequestInfo, style: _manrope(size: 12, color: _rrBlue)),
             const SizedBox(height: 10),
-            _InfoRow(label: 'Hire Person', value: (item['hirer_name'] as String?) ?? '—'),
+            _InfoRow(label: l10n.rrQuickAddHirePerson, value: (item['hirer_name'] as String?) ?? '—'),
             const SizedBox(height: 6),
-            _InfoRow(label: 'Vehicle Detail', value: vehicleDetail.isEmpty ? '—' : vehicleDetail),
+            _InfoRow(label: l10n.rrQuickAddVehicleDetail, value: vehicleDetail.isEmpty ? '—' : vehicleDetail),
             const SizedBox(height: 6),
             _InfoRow(
-              label: 'Request Time Period',
-              value: '${_fmtDateTime(item['requested_start_date'])} to ${_fmtDateTime(item['requested_end_date'])}',
+              label: l10n.rrQuickAddRequestTimePeriod,
+              value: l10n.rrQuickAddDateRangeTo(_fmtDateTime(item['requested_start_date']), _fmtDateTime(item['requested_end_date'])),
             ),
             const Divider(height: 24),
             RadioListTile<String>(
@@ -285,7 +291,7 @@ class _ReviewRequestDialogState extends State<_ReviewRequestDialog> {
               value: 'Approved',
               groupValue: _decision,
               activeColor: _success,
-              title: Text('Approve', style: _inter(size: 14, weight: FontWeight.w600)),
+              title: Text(l10n.rrQuickAddApprove, style: _inter(size: 14, weight: FontWeight.w600)),
               onChanged: (v) => setState(() => _decision = v ?? 'Approved'),
             ),
             RadioListTile<String>(
@@ -293,7 +299,7 @@ class _ReviewRequestDialogState extends State<_ReviewRequestDialog> {
               value: 'Rejected',
               groupValue: _decision,
               activeColor: _error,
-              title: Text('Reject', style: _inter(size: 14, weight: FontWeight.w600)),
+              title: Text(l10n.rrQuickAddReject, style: _inter(size: 14, weight: FontWeight.w600)),
               onChanged: (v) => setState(() => _decision = v ?? 'Approved'),
             ),
             if (_decision == 'Approved') ...[
@@ -303,14 +309,14 @@ class _ReviewRequestDialogState extends State<_ReviewRequestDialog> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => _pickDate(isStart: true),
-                      child: Text('Start: ${_fmtPicked(_start)}', style: _inter(size: 12)),
+                      child: Text(l10n.rrQuickAddStartLine(_fmtPicked(_start)), style: _inter(size: 12)),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () => _pickDate(isStart: false),
-                      child: Text('End: ${_fmtPicked(_end)}', style: _inter(size: 12)),
+                      child: Text(l10n.rrQuickAddEndLine(_fmtPicked(_end)), style: _inter(size: 12)),
                     ),
                   ),
                 ],
@@ -320,7 +326,7 @@ class _ReviewRequestDialogState extends State<_ReviewRequestDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.commonCancel)),
         ElevatedButton(
           onPressed: canSubmit
               ? () => Navigator.pop(
@@ -332,7 +338,7 @@ class _ReviewRequestDialogState extends State<_ReviewRequestDialog> {
             backgroundColor: _decision == 'Approved' ? _success : _error,
             foregroundColor: Colors.white,
           ),
-          child: const Text('Submit'),
+          child: Text(l10n.commonSubmit),
         ),
       ],
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
@@ -46,6 +47,7 @@ class _AddRrUserScreenState extends ConsumerState<AddRrUserScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    final l10n = AppLocalizations.of(context);
 
     setState(() => _submitting = true);
     try {
@@ -55,7 +57,7 @@ class _AddRrUserScreenState extends ConsumerState<AddRrUserScreen> {
           ));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Driver "${result['name']}" added on RR', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.rrQuickAddDriverAdded('${result['name']}'), style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -76,8 +78,9 @@ class _AddRrUserScreenState extends ConsumerState<AddRrUserScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text('Add New Driver', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _rrBlue),
+      appBar: AppBar(title: Text(l10n.rrQuickAddDriverTitle, style: _manrope(size: 17, color: Colors.white)), backgroundColor: _rrBlue),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -85,27 +88,27 @@ class _AddRrUserScreenState extends ConsumerState<AddRrUserScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Register a new driver on RR', style: _inter(size: 13)),
+              Text(l10n.rrQuickAddDriverIntro, style: _inter(size: 13)),
               const SizedBox(height: 20),
               TextFormField(
                 controller: _nameCtrl,
                 decoration: InputDecoration(
-                  labelText: 'Name *',
+                  labelText: l10n.rrQuickAddNameLabel,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                validator: (v) => (v == null || v.trim().length < 2) ? 'Enter at least 2 characters' : null,
+                validator: (v) => (v == null || v.trim().length < 2) ? l10n.rrQuickAddNameMin : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _phoneCtrl,
                 keyboardType: TextInputType.phone,
                 decoration: InputDecoration(
-                  labelText: 'Phone Number *',
+                  labelText: l10n.rrQuickAddPhoneLabel,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
                 validator: (v) {
                   final cleaned = (v ?? '').trim();
-                  if (!RegExp(r'^\d{10}$').hasMatch(cleaned)) return 'Enter exactly 10 digits';
+                  if (!RegExp(r'^\d{10}$').hasMatch(cleaned)) return l10n.stageCommonPhone10Digits;
                   return null;
                 },
               ),
@@ -121,7 +124,7 @@ class _AddRrUserScreenState extends ConsumerState<AddRrUserScreen> {
                   ),
                   child: _submitting
                       ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text('Add Driver', style: _manrope(size: 14, color: Colors.white)),
+                      : Text(l10n.rrQuickAddAddDriverButton, style: _manrope(size: 14, color: Colors.white)),
                 ),
               ),
             ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
@@ -35,6 +36,16 @@ String _fmtHistoryDateTime(dynamic iso) {
   final d = dt.day.toString().padLeft(2, '0');
   final m = dt.month.toString().padLeft(2, '0');
   return '$d/$m/${dt.year}';
+}
+
+String _historyStatusLabel(AppLocalizations l10n, String status) {
+  switch (status) {
+    case 'Requested': return l10n.rrQuickAddStatusRequested;
+    case 'Approved': return l10n.rrQuickAddStatusApproved;
+    case 'Rejected': return l10n.rrQuickAddStatusRejected;
+    case 'Terminated': return l10n.rrQuickAddStatusTerminated;
+    default: return status;
+  }
 }
 
 Color _historyStatusColor(String status) {
@@ -101,9 +112,10 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
       runRrAction(context, ref, () => ref.read(rrSyncApiProvider).searchVehiclesByRc(q));
 
   Future<void> _findVehicleHistory() async {
+    final l10n = AppLocalizations.of(context);
     final vehicleId = _historyVehicleId;
     if (vehicleId == null || vehicleId.isEmpty) {
-      _showError('Search and select a vehicle first');
+      _showError(l10n.rrQuickAddHistorySelectFirst);
       return;
     }
     setState(() { _loadingHistory = true; _historyItems = []; _historyError = null; _historySearched = true; });
@@ -114,7 +126,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
       setState(() => _historyItems = items);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _historyError = 'Could not load history. Please try again.');
+      setState(() => _historyError = l10n.rrQuickAddHistoryFailed);
     } finally {
       if (mounted) setState(() => _loadingHistory = false);
     }
@@ -157,6 +169,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
   }
 
   Future<void> _pickDateTime({required bool isStart}) async {
+    final l10n = AppLocalizations.of(context);
     final now = DateTime.now();
     final initial = isStart ? (_startDate ?? now) : (_endDate ?? (_startDate ?? now).add(const Duration(days: 7)));
     final firstDate = isStart ? now.subtract(const Duration(days: 1)) : (_startDate ?? now);
@@ -165,7 +178,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
       initialDate: initial,
       firstDate: firstDate,
       lastDate: now.add(const Duration(days: 365)),
-      helpText: isStart ? 'Hiring Request Date — From' : 'Hiring Request Date — To',
+      helpText: isStart ? l10n.rrQuickAddHiringDateFrom : l10n.rrQuickAddHiringDateTo,
     );
     if (pickedDate == null || !mounted) return;
     final pickedTime = await showTimePicker(
@@ -185,22 +198,23 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context);
     if (_hirePersonCompanyId == null && _hirePersonUserId == null) {
-      _showError('Search and select the Vehicle Hire Person');
+      _showError(l10n.rrQuickAddSelectHirePerson);
       return;
     }
     if (_ownerCompanyId == null && _ownerUserId == null) {
-      _showError('Search and select the Vehicle Owner');
+      _showError(l10n.rrQuickAddSelectVehicleOwner);
       return;
     }
     if (_selectedVehicleId == null) {
-      _showError('Select a vehicle from the owner\'s fleet');
+      _showError(l10n.rrQuickAddSelectFleetVehicle);
       return;
     }
     final hirePersonId = _hirePersonCompanyId ?? _hirePersonUserId;
     final ownerId = _ownerCompanyId ?? _ownerUserId;
     if (hirePersonId == ownerId) {
-      _showError('The hiring person and lender must be different. You cannot hire your own vehicle.');
+      _showError(l10n.rrQuickAddSamePerson);
       return;
     }
 
@@ -220,7 +234,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
           ));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Hiring request sent successfully', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.rrQuickAddHireSent, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -229,7 +243,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Could not send hire request. Please try again.', style: _inter(size: 13, color: Colors.white)),
+        content: Text(l10n.rrQuickAddHireSendFailed, style: _inter(size: 13, color: Colors.white)),
         backgroundColor: _error,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -260,7 +274,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
   }
 
   String _fmtDateTime(DateTime? d) {
-    if (d == null) return 'Not set';
+    if (d == null) return AppLocalizations.of(context).rrQuickAddNotSet;
     final dd = d.day.toString().padLeft(2, '0');
     final mm = d.month.toString().padLeft(2, '0');
     final hh = d.hour.toString().padLeft(2, '0');
@@ -277,15 +291,16 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
     required void Function(String? companyId, String? userId) onChanged,
     required VoidCallback? onOwnerContextChanged,
   }) {
+    final l10n = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: _manrope(size: 13)),
         const SizedBox(height: 6),
-        Text('Search by company/firm', style: _inter(size: 12)),
+        Text(l10n.rrQuickAddSearchByCompany, style: _inter(size: 12)),
         const SizedBox(height: 6),
         RrSearchField<Map<String, dynamic>>(
-          label: 'Company / Firm Name',
+          label: l10n.rrQuickAddCompanyFirmLabel,
           controller: companyCtrl,
           search: _searchCompanies,
           itemLabel: (c) => c['name'] as String? ?? '',
@@ -300,11 +315,11 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
           onCleared: () => setState(() => onChanged(null, userId)),
         ),
         const SizedBox(height: 10),
-        Text('— or by phone number —', style: _inter(size: 12)),
+        Text(l10n.rrQuickAddOrByPhone, style: _inter(size: 12)),
         const SizedBox(height: 6),
         RrSearchField<Map<String, dynamic>>(
-          label: 'Phone Number',
-          hintText: 'Full 10-digit phone, or part of the name',
+          label: l10n.authPhoneNumber,
+          hintText: l10n.rrQuickAddPhoneSearchHint,
           controller: userCtrl,
           keyboardType: TextInputType.phone,
           search: _searchUsers,
@@ -326,8 +341,9 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text('Add Market Vehicle', style: _manrope(size: 17, color: Colors.white)), backgroundColor: _rrBlue),
+      appBar: AppBar(title: Text(l10n.rrQuickAddMarketTitle, style: _manrope(size: 17, color: Colors.white)), backgroundColor: _rrBlue),
       body: SingleChildScrollView(
               controller: _scrollCtrl,
               padding: const EdgeInsets.all(16),
@@ -336,7 +352,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                 children: [
                   // ── Vehicle Hire Person ──────────────────────────────────
                   _dualSearchField(
-                    label: 'Vehicle Hire Person *',
+                    label: l10n.rrQuickAddHirePersonLabel,
                     companyCtrl: _hirePersonCompanyCtrl,
                     userCtrl: _hirePersonUserCtrl,
                     companyId: _hirePersonCompanyId,
@@ -349,10 +365,10 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                   const SizedBox(height: 8),
 
                   // ── Lender Detail ────────────────────────────────────────
-                  Text('Lender Detail', style: _manrope(size: 13, color: _rrBlue)),
+                  Text(l10n.rrQuickAddLenderDetail, style: _manrope(size: 13, color: _rrBlue)),
                   const SizedBox(height: 10),
                   _dualSearchField(
-                    label: 'Vehicle Owner *',
+                    label: l10n.rrQuickAddVehicleOwnerLabel,
                     companyCtrl: _ownerCompanyCtrl,
                     userCtrl: _ownerUserCtrl,
                     companyId: _ownerCompanyId,
@@ -364,16 +380,16 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                   if (_loadingVehicles)
                     const LinearProgressIndicator()
                   else if (_ownerCompanyId != null || _ownerUserId != null) ...[
-                    Text('Lender Vehicles *', style: _inter(size: 12, weight: FontWeight.w600)),
+                    Text(l10n.rrQuickAddLenderVehicles, style: _inter(size: 12, weight: FontWeight.w600)),
                     const SizedBox(height: 6),
                     _ownerVehicles.isEmpty
-                        ? Text('This owner has no vehicles on RR', style: _inter(size: 12, color: _secondary))
+                        ? Text(l10n.rrQuickAddNoOwnerVehicles, style: _inter(size: 12, color: _secondary))
                         : DropdownButtonFormField<String>(
                             value: _selectedVehicleId,
                             isExpanded: true,
                             decoration: InputDecoration(
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                              hintText: 'Select vehicle',
+                              hintText: l10n.rrQuickAddSelectVehicleHint,
                             ),
                             items: _ownerVehicles.map((v) {
                               final model = v['model_name'] as String? ?? '';
@@ -384,7 +400,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                               ].join(' ');
                               return DropdownMenuItem(
                                 value: v['rr_vehicle_id'] as String,
-                                child: Text(label.isEmpty ? 'Unknown' : label, overflow: TextOverflow.ellipsis),
+                                child: Text(label.isEmpty ? l10n.rrQuickAddUnknown : label, overflow: TextOverflow.ellipsis),
                               );
                             }).toList(),
                             onChanged: (v) => setState(() => _selectedVehicleId = v),
@@ -393,21 +409,21 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                   const SizedBox(height: 20),
 
                   // ── Hiring Request Date ─────────────────────────────────
-                  Text('Hiring Request Date', style: _manrope(size: 13, color: _rrBlue)),
+                  Text(l10n.rrQuickAddHiringRequestDate, style: _manrope(size: 13, color: _rrBlue)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => _pickDateTime(isStart: true),
-                          child: Text('From: ${_fmtDateTime(_startDate)}', style: _inter(size: 12)),
+                          child: Text(l10n.rrQuickAddFromLine(_fmtDateTime(_startDate)), style: _inter(size: 12)),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton(
                           onPressed: () => _pickDateTime(isStart: false),
-                          child: Text('To: ${_fmtDateTime(_endDate)}', style: _inter(size: 12)),
+                          child: Text(l10n.rrQuickAddToLine(_fmtDateTime(_endDate)), style: _inter(size: 12)),
                         ),
                       ),
                     ],
@@ -424,7 +440,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                       ),
                       child: _submitting
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : Text('Submit', style: _manrope(size: 14, color: Colors.white)),
+                          : Text(l10n.commonSubmit, style: _manrope(size: 14, color: Colors.white)),
                     ),
                   ),
                   const SizedBox(height: 28),
@@ -451,16 +467,16 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                           children: [
                             const Icon(Icons.history_rounded, size: 18, color: _secondary),
                             const SizedBox(width: 6),
-                            Text('Check Vehicle History', style: _manrope(size: 13)),
+                            Text(l10n.rrQuickAddCheckHistory, style: _manrope(size: 13)),
                           ],
                         ),
                         const SizedBox(height: 2),
-                        Text('Reference only — look up a vehicle\'s past hires',
+                        Text(l10n.rrQuickAddHistoryHint,
                             style: _inter(size: 11.5)),
                         const SizedBox(height: 10),
                         RrSearchField<Map<String, dynamic>>(
-                          label: 'RC Number',
-                          hintText: 'e.g. RJ14',
+                          label: l10n.stageS1RcNumber,
+                          hintText: l10n.rrQuickAddRcHint,
                           controller: _rcSearchCtrl,
                           search: _searchVehiclesByRc,
                           itemLabel: (v) => v['rc_number'] as String? ?? '',
@@ -494,7 +510,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                             onPressed: (_historyVehicleId == null || _loadingHistory) ? null : _findVehicleHistory,
                             child: _loadingHistory
                                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                                : Text('Find', style: _manrope(size: 13, color: _rrBlue)),
+                                : Text(l10n.rrQuickAddFind, style: _manrope(size: 13, color: _rrBlue)),
                           ),
                         ),
                         if (_historyError != null) ...[
@@ -503,7 +519,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                         ] else if (_historySearched && !_loadingHistory) ...[
                           const SizedBox(height: 10),
                           if (_historyItems.isEmpty)
-                            Text('No hire history found for $_historyVehicleLabel',
+                            Text(l10n.rrQuickAddNoHistory('$_historyVehicleLabel'),
                                 style: _inter(size: 12))
                           else
                             ...(_historyItems.map((item) => Container(
@@ -533,7 +549,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                                               borderRadius: BorderRadius.circular(20),
                                             ),
                                             child: Text(
-                                              item['status'] as String? ?? '',
+                                              _historyStatusLabel(l10n, item['status'] as String? ?? ''),
                                               style: _inter(size: 10.5, weight: FontWeight.w700,
                                                   color: _historyStatusColor(item['status'] as String? ?? '')),
                                             ),
@@ -542,32 +558,34 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Owner: ${item['owner_name'] ?? '—'}'
-                                        '${(item['owner_phone'] as String?)?.isNotEmpty == true ? ' (${item['owner_phone']})' : ''}',
+                                        l10n.rrQuickAddOwnerLine(
+                                            '${item['owner_name'] ?? '—'}'
+                                            '${(item['owner_phone'] as String?)?.isNotEmpty == true ? ' (${item['owner_phone']})' : ''}'),
                                         style: _inter(size: 11.5),
                                       ),
                                       Text(
-                                        'Contractor: ${item['contractor_name'] ?? '—'}'
-                                        '${(item['contractor_phone'] as String?)?.isNotEmpty == true ? ' (${item['contractor_phone']})' : ''}'
-                                        '${(item['contractor_business_type'] as String?)?.isNotEmpty == true ? ' (${item['contractor_business_type']})' : ''}',
+                                        l10n.rrQuickAddContractorLine(
+                                            '${item['contractor_name'] ?? '—'}'
+                                            '${(item['contractor_phone'] as String?)?.isNotEmpty == true ? ' (${item['contractor_phone']})' : ''}'
+                                            '${(item['contractor_business_type'] as String?)?.isNotEmpty == true ? ' (${item['contractor_business_type']})' : ''}'),
                                         style: _inter(size: 11.5),
                                       ),
                                       if (item['requested_start_date'] != null) ...[
                                         const SizedBox(height: 2),
                                         Text(
-                                          'Requested: ${_fmtHistoryDateTime(item['requested_start_date'])} to ${_fmtHistoryDateTime(item['requested_end_date'])}',
+                                          l10n.rrQuickAddRequestedRangeTo(_fmtHistoryDateTime(item['requested_start_date']), _fmtHistoryDateTime(item['requested_end_date'])),
                                           style: _inter(size: 11),
                                         ),
                                       ],
                                       if (item['approved_start_date'] != null) ...[
                                         Text(
-                                          'Approved: ${_fmtHistoryDateTime(item['approved_start_date'])} to ${_fmtHistoryDateTime(item['approved_end_date'])}',
+                                          l10n.rrQuickAddApprovedRange(_fmtHistoryDateTime(item['approved_start_date']), _fmtHistoryDateTime(item['approved_end_date'])),
                                           style: _inter(size: 11),
                                         ),
                                       ],
                                       if (item['termination_date'] != null) ...[
                                         Text(
-                                          'Terminated: ${_fmtHistoryDateTime(item['termination_date'])}',
+                                          l10n.rrQuickAddTerminatedLine(_fmtHistoryDateTime(item['termination_date'])),
                                           style: _inter(size: 11),
                                         ),
                                       ],
