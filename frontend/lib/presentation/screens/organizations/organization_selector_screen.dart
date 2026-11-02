@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/organization_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class OrganizationSelectorScreen extends ConsumerStatefulWidget {
   const OrganizationSelectorScreen({super.key});
@@ -39,15 +40,16 @@ class _OrganizationSelectorScreenState
     if (success && mounted) {
       await ref.read(authProvider.notifier).refreshToken();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Switched to ${org['organization_name']}'),
+        content: Text(AppLocalizations.of(context)
+            .orgSelectSwitched('${org['organization_name']}')),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
       ));
       context.pop();
     } else if (mounted) {
       setState(() => _switchingOrgId = null);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Failed to switch organization'),
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(AppLocalizations.of(context).orgSelectSwitchFailed),
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
       ));
@@ -59,6 +61,7 @@ class _OrganizationSelectorScreenState
     final orgState = ref.watch(organizationProvider);
     final authState = ref.watch(authProvider);
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -70,15 +73,15 @@ class _OrganizationSelectorScreenState
             pinned: true,
             backgroundColor: theme.primaryColor,
             iconTheme: const IconThemeData(color: Colors.white),
-            title: const Text(
-              'Select Organization',
-              style: TextStyle(color: Colors.white, fontSize: 17),
+            title: Text(
+              l10n.orgSelectTitle,
+              style: const TextStyle(color: Colors.white, fontSize: 17),
             ),
             actions: [
               IconButton(
                 icon: const Icon(Icons.add_business_outlined,
                     color: Colors.white),
-                tooltip: 'Create Organization',
+                tooltip: l10n.orgSelectCreate,
                 onPressed: () => context.push('/organizations/create'),
               ),
             ],
@@ -108,7 +111,7 @@ class _OrganizationSelectorScreenState
                 child: Row(
                   children: [
                     Text(
-                      'Your Organizations',
+                      l10n.orgSelectYourOrgs,
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -185,6 +188,7 @@ class _OrganizationSelectorScreenState
 
   Widget _buildHeader(BuildContext context, dynamic authState) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final user = authState.user;
     final fullName = user?.fullName ?? '';
     final username = user?.username ?? '';
@@ -249,7 +253,7 @@ class _OrganizationSelectorScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Welcome back,',
+                          l10n.orgSelectWelcome,
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.white.withOpacity(0.75),
@@ -257,7 +261,7 @@ class _OrganizationSelectorScreenState
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          fullName.isNotEmpty ? fullName : 'User',
+                          fullName.isNotEmpty ? fullName : l10n.orgSelectUser,
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -286,6 +290,7 @@ class _OrganizationSelectorScreenState
 
   Widget _buildEmptyState(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -305,14 +310,14 @@ class _OrganizationSelectorScreenState
               ),
             ),
             const SizedBox(height: 24),
-            const Text(
-              'No Organizations Yet',
-              style: TextStyle(
+            Text(
+              l10n.orgSelectNoOrgs,
+              style: const TextStyle(
                   fontSize: 20, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             Text(
-              'Create your own or ask an admin to add you to an existing organization.',
+              l10n.orgSelectNoOrgsBody,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: Colors.grey[500]),
             ),
@@ -320,7 +325,7 @@ class _OrganizationSelectorScreenState
             FilledButton.icon(
               onPressed: () => context.push('/organizations/create'),
               icon: const Icon(Icons.add_business_outlined, size: 18),
-              label: const Text('Create Organization'),
+              label: Text(l10n.orgSelectCreate),
               style: FilledButton.styleFrom(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 24, vertical: 14),
@@ -333,6 +338,7 @@ class _OrganizationSelectorScreenState
   }
 
   Widget _buildErrorState(BuildContext context, String error) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -349,9 +355,9 @@ class _OrganizationSelectorScreenState
                   size: 48, color: Colors.red),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Something went wrong',
-              style: TextStyle(
+            Text(
+              l10n.orgSelectWrong,
+              style: const TextStyle(
                   fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
@@ -366,7 +372,7 @@ class _OrganizationSelectorScreenState
                   .read(organizationProvider.notifier)
                   .loadOrganizations(),
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Try again'),
+              label: Text(l10n.orgSelectTryAgain),
             ),
           ],
         ),
@@ -410,9 +416,10 @@ class _OrgCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final orgName =
-        org['organization_name'] as String? ?? 'Unknown';
-    final role = org['role'] as String? ?? 'No Role';
+        org['organization_name'] as String? ?? l10n.createTripUnknown;
+    final role = org['role'] as String? ?? l10n.orgSelectNoRole;
     final initial = orgName.isNotEmpty ? orgName[0].toUpperCase() : '?';
     final color = _orgColor(orgName);
 
@@ -510,7 +517,7 @@ class _OrgCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          'Pending Approval',
+                          l10n.loginPendingTitle,
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -566,6 +573,7 @@ class _CreateOrgCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -597,7 +605,7 @@ class _CreateOrgCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Create New Organization',
+                    l10n.orgSelectCreateNew,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -606,7 +614,7 @@ class _CreateOrgCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Set up your own fleet organization',
+                    l10n.orgSelectCreateNewSub,
                     style: TextStyle(
                         fontSize: 12, color: Colors.grey[500]),
                   ),

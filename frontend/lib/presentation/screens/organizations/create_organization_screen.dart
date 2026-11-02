@@ -5,6 +5,7 @@ import 'package:fleet_management/providers/company_provider.dart';
 import 'package:fleet_management/providers/organization_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class CreateOrganizationScreen extends ConsumerStatefulWidget {
   const CreateOrganizationScreen({super.key});
@@ -56,17 +57,17 @@ class _CreateOrganizationScreenState
 
   String? _validateGSTIN(String? value) {
     if (value == null || value.isEmpty) return null;
-    if (value.length != 15) return 'GSTIN must be exactly 15 characters';
+    if (value.length != 15) return AppLocalizations.of(context).orgCreateGstinLength;
     if (!RegExp(r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$')
-        .hasMatch(value)) return 'Invalid GSTIN format';
+        .hasMatch(value)) return AppLocalizations.of(context).orgCreateGstinInvalid;
     return null;
   }
 
   String? _validatePAN(String? value) {
     if (value == null || value.isEmpty) return null;
-    if (value.length != 10) return 'PAN must be exactly 10 characters';
+    if (value.length != 10) return AppLocalizations.of(context).orgCreatePanLength;
     if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$').hasMatch(value))
-      return 'Invalid PAN format';
+      return AppLocalizations.of(context).orgCreatePanInvalid;
     return null;
   }
 
@@ -101,8 +102,8 @@ class _CreateOrganizationScreenState
         await ref.read(organizationProvider.notifier).loadOrganizations();
 
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              'Organization "${response['company_name']}" created successfully!'),
+          content: Text(AppLocalizations.of(context)
+              .orgCreateSuccess('${response['company_name']}')),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
         ));
@@ -112,7 +113,7 @@ class _CreateOrganizationScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Failed to create organization: $e'),
+          content: Text(AppLocalizations.of(context).orgCreateFailed('$e')),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ));
@@ -125,6 +126,7 @@ class _CreateOrganizationScreenState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
@@ -138,8 +140,8 @@ class _CreateOrganizationScreenState
               pinned: true,
               backgroundColor: theme.primaryColor,
               iconTheme: const IconThemeData(color: Colors.white),
-              title: const Text('Create Organization',
-                  style: TextStyle(color: Colors.white, fontSize: 17)),
+              title: Text(l10n.orgCreateTitle,
+                  style: const TextStyle(color: Colors.white, fontSize: 17)),
               flexibleSpace: FlexibleSpaceBar(
                 background: _buildHeader(context),
               ),
@@ -155,33 +157,33 @@ class _CreateOrganizationScreenState
                     child: _SectionCard(
                       step: 1,
                       icon: Icons.business_outlined,
-                      title: 'Company Information',
+                      title: l10n.orgCreateSecCompany,
                       color: theme.primaryColor,
                       children: [
                         _buildField(
                           controller: _companyNameController,
-                          label: 'Company Name',
-                          hint: 'e.g., Acme Logistics Pvt. Ltd.',
+                          label: l10n.orgCreateCompanyName,
+                          hint: l10n.orgCreateCompanyNameHint,
                           icon: Icons.corporate_fare_outlined,
                           required: true,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty)
-                              return 'Company name is required';
+                              return l10n.orgCreateCompanyNameRequired;
                             if (v.trim().length < 2)
-                              return 'Must be at least 2 characters';
+                              return l10n.orgCreateMin2Chars;
                             return null;
                           },
                         ),
                         const SizedBox(height: 14),
                         _buildField(
                           controller: _businessTypeController,
-                          label: 'Business Type',
-                          hint: 'e.g., Transportation, Logistics',
+                          label: l10n.orgCreateBusinessType,
+                          hint: l10n.orgCreateBusinessTypeHint,
                           icon: Icons.category_outlined,
                           required: true,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty)
-                              return 'Business type is required';
+                              return l10n.orgCreateBusinessTypeRequired;
                             return null;
                           },
                         ),
@@ -194,39 +196,39 @@ class _CreateOrganizationScreenState
                     child: _SectionCard(
                       step: 2,
                       icon: Icons.contact_mail_outlined,
-                      title: 'Contact Information',
+                      title: l10n.orgCreateSecContact,
                       color: Colors.teal,
                       children: [
                         _buildField(
                           controller: _businessEmailController,
-                          label: 'Business Email',
+                          label: l10n.orgCreateBusinessEmail,
                           hint: 'company@example.com',
                           icon: Icons.email_outlined,
                           required: true,
                           keyboardType: TextInputType.emailAddress,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty)
-                              return 'Business email is required';
+                              return l10n.orgCreateEmailRequired;
                             if (!RegExp(
                                     r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
                                 .hasMatch(v))
-                              return 'Invalid email format';
+                              return l10n.orgCreateEmailInvalid;
                             return null;
                           },
                         ),
                         const SizedBox(height: 14),
                         _buildField(
                           controller: _businessPhoneController,
-                          label: 'Business Phone',
+                          label: l10n.orgCreateBusinessPhone,
                           hint: '+91 98765 43210',
                           icon: Icons.phone_outlined,
                           required: true,
                           keyboardType: TextInputType.phone,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty)
-                              return 'Business phone is required';
+                              return l10n.orgCreatePhoneRequired;
                             if (v.trim().length < 10)
-                              return 'Must be at least 10 digits';
+                              return l10n.orgCreateMin10Digits;
                             return null;
                           },
                         ),
@@ -239,19 +241,19 @@ class _CreateOrganizationScreenState
                     child: _SectionCard(
                       step: 3,
                       icon: Icons.location_on_outlined,
-                      title: 'Address',
+                      title: l10n.orgCreateSecAddress,
                       color: Colors.orange,
                       children: [
                         _buildField(
                           controller: _addressController,
-                          label: 'Street Address',
-                          hint: 'Building, street, area…',
+                          label: l10n.orgCreateStreetAddress,
+                          hint: l10n.orgCreateStreetAddressHint,
                           icon: Icons.home_outlined,
                           required: true,
                           maxLines: 2,
                           validator: (v) {
                             if (v == null || v.trim().isEmpty)
-                              return 'Address is required';
+                              return l10n.orgCreateAddressRequired;
                             return null;
                           },
                         ),
@@ -261,13 +263,13 @@ class _CreateOrganizationScreenState
                             Expanded(
                               child: _buildField(
                                 controller: _cityController,
-                                label: 'City',
+                                label: l10n.orgCreateCity,
                                 hint: 'Mumbai',
                                 icon: Icons.location_city_outlined,
                                 required: true,
                                 validator: (v) {
                                   if (v == null || v.trim().isEmpty)
-                                    return 'Required';
+                                    return l10n.orgCreateRequired;
                                   return null;
                                 },
                               ),
@@ -276,13 +278,13 @@ class _CreateOrganizationScreenState
                             Expanded(
                               child: _buildField(
                                 controller: _stateController,
-                                label: 'State',
+                                label: l10n.orgCreateState,
                                 hint: 'Maharashtra',
                                 icon: Icons.map_outlined,
                                 required: true,
                                 validator: (v) {
                                   if (v == null || v.trim().isEmpty)
-                                    return 'Required';
+                                    return l10n.orgCreateRequired;
                                   return null;
                                 },
                               ),
@@ -295,16 +297,16 @@ class _CreateOrganizationScreenState
                             Expanded(
                               child: _buildField(
                                 controller: _pincodeController,
-                                label: 'Pincode',
+                                label: l10n.orgCreatePincode,
                                 hint: '400001',
                                 icon: Icons.pin_outlined,
                                 required: true,
                                 keyboardType: TextInputType.number,
                                 validator: (v) {
                                   if (v == null || v.trim().isEmpty)
-                                    return 'Required';
+                                    return l10n.orgCreateRequired;
                                   if (v.trim().length != 6)
-                                    return 'Invalid';
+                                    return l10n.orgCreateInvalid;
                                   return null;
                                 },
                               ),
@@ -313,7 +315,7 @@ class _CreateOrganizationScreenState
                             Expanded(
                               child: _buildField(
                                 controller: _countryController,
-                                label: 'Country',
+                                label: l10n.orgCreateCountry,
                                 hint: 'India',
                                 icon: Icons.flag_outlined,
                                 enabled: false,
@@ -351,7 +353,7 @@ class _CreateOrganizationScreenState
                     delay: 340,
                     child: TextButton(
                       onPressed: _isCreating ? null : () => context.pop(),
-                      child: Text('Cancel',
+                      child: Text(l10n.commonCancel,
                           style: TextStyle(color: Colors.grey[500])),
                     ),
                   ),
@@ -366,6 +368,7 @@ class _CreateOrganizationScreenState
 
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -408,8 +411,8 @@ class _CreateOrganizationScreenState
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'New Organization',
+                      Text(
+                        l10n.orgCreateHeaderTitle,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -417,7 +420,7 @@ class _CreateOrganizationScreenState
                         ),
                       ),
                       Text(
-                        'Set up your fleet workspace',
+                        l10n.orgCreateHeaderSub,
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.white.withOpacity(0.75),
@@ -495,6 +498,7 @@ class _CreateOrganizationScreenState
   }
 
   Widget _buildSubmitButton(BuildContext context, ThemeData theme) {
+    final l10n = AppLocalizations.of(context);
     return SizedBox(
       width: double.infinity,
       height: 52,
@@ -514,13 +518,13 @@ class _CreateOrganizationScreenState
                   color: Colors.white,
                 ),
               )
-            : const Row(
+            : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(Icons.check_circle_outline, size: 20),
                   SizedBox(width: 10),
                   Text(
-                    'Create Organization',
+                    l10n.orgCreateTitle,
                     style: TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w600),
                   ),
@@ -642,6 +646,7 @@ class _LegalInfoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final color = Colors.purple;
 
     return Container(
@@ -687,7 +692,7 @@ class _LegalInfoSection extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Legal Information',
+                          l10n.orgCreateSecLegal,
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -695,7 +700,7 @@ class _LegalInfoSection extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'GSTIN & PAN — Optional',
+                          l10n.orgCreateLegalSub,
                           style: TextStyle(
                               fontSize: 11, color: Colors.grey[500]),
                         ),
@@ -713,7 +718,7 @@ class _LegalInfoSection extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          expanded ? 'Hide' : 'Add',
+                          expanded ? l10n.companyCreateHide : l10n.orgCreateAdd,
                           style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
@@ -758,18 +763,18 @@ class _LegalInfoSection extends StatelessWidget {
                         icon: Icons.receipt_long_outlined,
                         color: color,
                         validator: validateGSTIN,
-                        helper: '15 characters',
+                        helper: l10n.orgCreate15Chars,
                       ),
                       const SizedBox(height: 14),
                       _legalField(
                         context: context,
                         controller: panController,
-                        label: 'PAN Number',
+                        label: l10n.orgCreatePanNumber,
                         hint: 'ABCDE1234F',
                         icon: Icons.credit_card_outlined,
                         color: color,
                         validator: validatePAN,
-                        helper: '10 characters',
+                        helper: l10n.orgCreate10Chars,
                       ),
                     ],
                   ),
@@ -803,7 +808,7 @@ class _LegalInfoSection extends StatelessWidget {
       textCapitalization: TextCapitalization.characters,
       style: const TextStyle(fontSize: 14, letterSpacing: 1),
       decoration: InputDecoration(
-        labelText: '$label (Optional)',
+        labelText: AppLocalizations.of(context).orgCreateOptionalLabel(label),
         hintText: hint,
         helperText: helper,
         hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),

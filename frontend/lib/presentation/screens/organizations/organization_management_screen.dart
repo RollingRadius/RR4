@@ -4,6 +4,7 @@ import 'package:fleet_management/providers/organization_provider.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/data/services/organization_api.dart';
 import 'package:fleet_management/core/animations/app_animations.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class OrganizationManagementScreen extends ConsumerStatefulWidget {
   final String organizationId;
@@ -72,7 +73,7 @@ class _OrganizationManagementScreenState
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Failed to load organization data.';
+          _error = AppLocalizations.of(context).orgManageLoadFailed;
           _isLoading = false;
         });
       }
@@ -80,11 +81,12 @@ class _OrganizationManagementScreenState
   }
 
   Future<void> _approveUser(String userId, String username) async {
+    final l10n = AppLocalizations.of(context);
     final roleKey = await showDialog<String>(
       context: context,
       builder: (dialogContext) => _RoleSelectionDialog(
-        title: 'Approve $username',
-        subtitle: 'Select a role to assign',
+        title: l10n.orgManageApproveTitle(username),
+        subtitle: l10n.orgManageSelectRole,
       ),
     );
     if (roleKey != null && mounted) {
@@ -93,12 +95,12 @@ class _OrganizationManagementScreenState
         final orgApi = ref.read(organizationApiProvider);
         await orgApi.approveUser(widget.organizationId, userId, roleKey);
         if (mounted) {
-          _showSnack('$username approved successfully', Colors.green);
+          _showSnack(l10n.orgManageApproved(username), Colors.green);
           _loadData();
         }
       } catch (e) {
         if (mounted) {
-          _showSnack('Failed to approve user: $e', Colors.red);
+          _showSnack(l10n.orgManageApproveFailed('$e'), Colors.red);
           setState(() => _isLoading = false);
         }
       }
@@ -106,20 +108,21 @@ class _OrganizationManagementScreenState
   }
 
   Future<void> _rejectUser(String userId, String username) async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Reject User'),
-        content: Text('Reject $username\'s request to join?'),
+        title: Text(l10n.orgManageRejectUserTitle),
+        content: Text(l10n.orgManageRejectConfirm(username)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Reject'),
+            child: Text(l10n.orgManageReject),
           ),
         ],
       ),
@@ -130,12 +133,12 @@ class _OrganizationManagementScreenState
         final orgApi = ref.read(organizationApiProvider);
         await orgApi.rejectUser(widget.organizationId, userId);
         if (mounted) {
-          _showSnack('$username rejected', Colors.orange);
+          _showSnack(l10n.orgManageRejected(username), Colors.orange);
           _loadData();
         }
       } catch (e) {
         if (mounted) {
-          _showSnack('Failed to reject: $e', Colors.red);
+          _showSnack(l10n.orgManageRejectFailed('$e'), Colors.red);
           setState(() => _isLoading = false);
         }
       }
@@ -144,11 +147,12 @@ class _OrganizationManagementScreenState
 
   Future<void> _changeUserRole(
       String userId, String username, String currentRole) async {
+    final l10n = AppLocalizations.of(context);
     final roleKey = await showDialog<String>(
       context: context,
       builder: (dialogContext) => _RoleSelectionDialog(
-        title: 'Change Role',
-        subtitle: 'New role for $username',
+        title: l10n.orgManageChangeRole,
+        subtitle: l10n.orgManageNewRoleFor(username),
       ),
     );
     if (roleKey != null && mounted) {
@@ -157,12 +161,12 @@ class _OrganizationManagementScreenState
         final orgApi = ref.read(organizationApiProvider);
         await orgApi.updateUserRole(widget.organizationId, userId, roleKey);
         if (mounted) {
-          _showSnack('Role updated successfully', Colors.green);
+          _showSnack(l10n.orgManageRoleUpdated, Colors.green);
           _loadData();
         }
       } catch (e) {
         if (mounted) {
-          _showSnack('Failed to update role: $e', Colors.red);
+          _showSnack(l10n.orgManageRoleUpdateFailed('$e'), Colors.red);
           setState(() => _isLoading = false);
         }
       }
@@ -170,21 +174,22 @@ class _OrganizationManagementScreenState
   }
 
   Future<void> _removeUser(String userId, String username) async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Remove Member'),
-        content: Text(
-            'Remove $username from ${widget.organizationName}? They will lose access immediately.'),
+        title: Text(l10n.orgManageRemoveTitle),
+        content: Text(l10n.orgManageRemoveConfirm(
+            username, widget.organizationName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Remove'),
+            child: Text(l10n.orgManageRemove),
           ),
         ],
       ),
@@ -195,12 +200,12 @@ class _OrganizationManagementScreenState
         final orgApi = ref.read(organizationApiProvider);
         await orgApi.removeUser(widget.organizationId, userId);
         if (mounted) {
-          _showSnack('$username removed', Colors.green);
+          _showSnack(l10n.orgManageRemoved(username), Colors.green);
           _loadData();
         }
       } catch (e) {
         if (mounted) {
-          _showSnack('Failed to remove: $e', Colors.red);
+          _showSnack(l10n.orgManageRemoveFailed('$e'), Colors.red);
           setState(() => _isLoading = false);
         }
       }
@@ -227,6 +232,7 @@ class _OrganizationManagementScreenState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     final orgInitial = widget.organizationName.isNotEmpty
         ? widget.organizationName[0].toUpperCase()
         : '?';
@@ -248,7 +254,7 @@ class _OrganizationManagementScreenState
             actions: [
               IconButton(
                 icon: const Icon(Icons.refresh_outlined, color: Colors.white),
-                tooltip: 'Refresh',
+                tooltip: l10n.orgManageRefresh,
                 onPressed: _isLoading ? null : _loadData,
               ),
             ],
@@ -270,7 +276,7 @@ class _OrganizationManagementScreenState
                   tabs: [
                     Tab(
                       icon: const Icon(Icons.people_outline, size: 18),
-                      text: 'Members (${_members.length})',
+                      text: l10n.orgManageMembersTab(_members.length),
                     ),
                     Tab(
                       icon: _pendingUsers.isNotEmpty
@@ -283,7 +289,7 @@ class _OrganizationManagementScreenState
                             )
                           : const Icon(Icons.pending_actions_outlined,
                               size: 18),
-                      text: 'Pending (${_pendingUsers.length})',
+                      text: l10n.orgManagePendingTab(_pendingUsers.length),
                     ),
                   ],
                 ),
@@ -308,6 +314,7 @@ class _OrganizationManagementScreenState
 
   Widget _buildHeader(BuildContext context, String initial) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -369,7 +376,8 @@ class _OrganizationManagementScreenState
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          '${_members.length} members · ${_pendingUsers.length} pending',
+                          l10n.orgManageHeaderSummary(
+                              _members.length, _pendingUsers.length),
                           style: TextStyle(
                             fontSize: 12,
                             color: Colors.white.withOpacity(0.75),
@@ -391,6 +399,7 @@ class _OrganizationManagementScreenState
 
   Widget _buildMembersTab() {
     final filtered = _filteredMembers;
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         _buildSearchBar(),
@@ -399,11 +408,11 @@ class _OrganizationManagementScreenState
               ? _buildEmptyState(
                   icon: Icons.people_outline,
                   title: _searchQuery.isNotEmpty
-                      ? 'No results for "$_searchQuery"'
-                      : 'No members yet',
+                      ? l10n.orgManageNoResults(_searchQuery)
+                      : l10n.orgManageNoMembers,
                   subtitle: _searchQuery.isNotEmpty
                       ? null
-                      : 'Members will appear here',
+                      : l10n.orgManageMembersHint,
                 )
               : RefreshIndicator(
                   onRefresh: _loadData,
@@ -433,6 +442,7 @@ class _OrganizationManagementScreenState
 
   Widget _buildSearchBar() {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
       decoration: BoxDecoration(
@@ -444,7 +454,7 @@ class _OrganizationManagementScreenState
       child: TextField(
         controller: _searchController,
         decoration: InputDecoration(
-          hintText: 'Search members…',
+          hintText: l10n.orgManageSearchHint,
           hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
           prefixIcon:
               Icon(Icons.search, size: 20, color: Colors.grey[400]),
@@ -472,12 +482,13 @@ class _OrganizationManagementScreenState
   // ── Pending Tab ─────────────────────────────────────────────────────────────
 
   Widget _buildPendingTab() {
+    final l10n = AppLocalizations.of(context);
     if (_pendingUsers.isEmpty) {
       return _buildEmptyState(
         icon: Icons.check_circle_outline,
         iconColor: Colors.green,
-        title: 'All caught up!',
-        subtitle: 'No pending join requests',
+        title: l10n.orgManageAllCaughtUp,
+        subtitle: l10n.orgManageNoPending,
       );
     }
     return RefreshIndicator(
@@ -506,6 +517,7 @@ class _OrganizationManagementScreenState
   // ── Shared helpers ──────────────────────────────────────────────────────────
 
   Widget _buildErrorState() {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -521,14 +533,14 @@ class _OrganizationManagementScreenState
                   size: 48, color: Colors.red),
             ),
             const SizedBox(height: 20),
-            Text(_error ?? 'Unknown error',
+            Text(_error ?? l10n.stageCommonUnknownError,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: _loadData,
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
+              label: Text(l10n.commonRetry),
             ),
           ],
         ),
@@ -595,9 +607,10 @@ class _MemberCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fullName = member['full_name'] as String? ?? 'Unknown';
+    final l10n = AppLocalizations.of(context);
+    final fullName = member['full_name'] as String? ?? l10n.createTripUnknown;
     final username = member['username'] as String? ?? '';
-    final role = member['role'] as String? ?? 'No Role';
+    final role = member['role'] as String? ?? l10n.orgManageNoRole;
     final roleKey = member['role_key'] as String? ?? '';
     final isOwner = roleKey == 'logistic_partner' || roleKey == 'load_owner';
     final initial = fullName.isNotEmpty ? fullName[0].toUpperCase() : '?';
@@ -688,7 +701,7 @@ class _MemberCard extends StatelessWidget {
                         size: 13, color: Colors.amber[800]),
                     const SizedBox(width: 4),
                     Text(
-                      'Owner',
+                      l10n.orgManageOwner,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
@@ -705,21 +718,21 @@ class _MemberCard extends StatelessWidget {
                   if (v == 'remove') onRemove(member);
                 },
                 itemBuilder: (_) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'change_role',
                     child: Row(children: [
                       Icon(Icons.swap_horiz_outlined, size: 18),
                       SizedBox(width: 10),
-                      Text('Change Role'),
+                      Text(l10n.orgManageChangeRole),
                     ]),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'remove',
                     child: Row(children: [
                       Icon(Icons.person_remove_outlined,
                           size: 18, color: Colors.red),
                       SizedBox(width: 10),
-                      Text('Remove',
+                      Text(l10n.orgManageRemove,
                           style: TextStyle(color: Colors.red)),
                     ]),
                   ),
@@ -756,7 +769,8 @@ class _PendingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final fullName = user['full_name'] as String? ?? 'Unknown';
+    final l10n = AppLocalizations.of(context);
+    final fullName = user['full_name'] as String? ?? l10n.createTripUnknown;
     final username = user['username'] as String? ?? '';
     final email = user['email'] as String?;
     final phone = user['phone'] as String?;
@@ -819,7 +833,7 @@ class _PendingCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    'Pending',
+                    l10n.orgManagePendingBadge,
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
@@ -855,7 +869,7 @@ class _PendingCard extends StatelessWidget {
                           size: 14, color: theme.primaryColor),
                       const SizedBox(width: 6),
                       Text(
-                        'Requested: $requestedRole',
+                        l10n.orgManageRequestedRole(requestedRole),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -885,7 +899,7 @@ class _PendingCard extends StatelessWidget {
                       textStyle: const TextStyle(
                           fontSize: 12, fontWeight: FontWeight.w600),
                     ),
-                    child: const Text('Reject'),
+                    child: Text(l10n.orgManageReject),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -894,7 +908,7 @@ class _PendingCard extends StatelessWidget {
                   child: FilledButton.icon(
                     onPressed: onApprove,
                     icon: const Icon(Icons.check, size: 16),
-                    label: const Text('Approve & Assign Role'),
+                    label: Text(l10n.orgManageApproveAssign),
                     style: FilledButton.styleFrom(
                       backgroundColor: Colors.green,
                       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -995,40 +1009,41 @@ class _RoleSelectionDialog extends StatefulWidget {
 class _RoleSelectionDialogState extends State<_RoleSelectionDialog> {
   String? _selectedRole;
 
-  final List<Map<String, dynamic>> _roles = [
+  List<Map<String, dynamic>> _roles(AppLocalizations l10n) => [
     {
       'key': 'admin',
-      'name': 'Admin',
+      'name': l10n.orgManageRoleAdmin,
       'icon': Icons.admin_panel_settings_outlined,
       'color': Colors.red,
-      'description': 'Manage members & settings',
+      'description': l10n.orgManageRoleAdminDesc,
     },
     {
       'key': 'dispatcher',
-      'name': 'Dispatcher',
+      'name': l10n.orgManageRoleDispatcher,
       'icon': Icons.assignment_ind_outlined,
       'color': Colors.purple,
-      'description': 'Manage trips & assignments',
+      'description': l10n.orgManageRoleDispatcherDesc,
     },
     {
       'key': 'user',
-      'name': 'User',
+      'name': l10n.orgManageRoleUser,
       'icon': Icons.person_outline,
       'color': Colors.blue,
-      'description': 'Standard access to features',
+      'description': l10n.orgManageRoleUserDesc,
     },
     {
       'key': 'viewer',
-      'name': 'Viewer',
+      'name': l10n.orgManageRoleViewer,
       'icon': Icons.visibility_outlined,
       'color': Colors.blueGrey,
-      'description': 'Read-only access',
+      'description': l10n.orgManageRoleViewerDesc,
     },
   ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l10n = AppLocalizations.of(context);
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Padding(
@@ -1074,7 +1089,7 @@ class _RoleSelectionDialogState extends State<_RoleSelectionDialog> {
             const SizedBox(height: 12),
 
             // Role options
-            ..._roles.map((role) {
+            ..._roles(l10n).map((role) {
               final isSelected = _selectedRole == role['key'];
               final color = role['color'] as Color;
               return GestureDetector(
@@ -1158,7 +1173,7 @@ class _RoleSelectionDialogState extends State<_RoleSelectionDialog> {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: const Text('Cancel'),
+                    child: Text(l10n.commonCancel),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1170,7 +1185,7 @@ class _RoleSelectionDialogState extends State<_RoleSelectionDialog> {
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                     ),
-                    child: const Text('Assign Role'),
+                    child: Text(l10n.orgManageAssignRole),
                   ),
                 ),
               ],
