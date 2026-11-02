@@ -494,18 +494,22 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: _primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
+                    Flexible(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(_roleLabel(l10n, role),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: _primary)),
                       ),
-                      child: Text(_roleLabel(l10n, role),
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: _primary)),
                     ),
                     if (company.isNotEmpty) ...[
                       const SizedBox(width: 6),
@@ -576,12 +580,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 child: Icon(icon, size: 13, color: color),
               ),
               const SizedBox(width: 7),
-              Text(title.toUpperCase(),
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: color,
-                      letterSpacing: 0.7)),
+              Flexible(
+                child: Text(title.toUpperCase(),
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                        letterSpacing: 0.7)),
+              ),
             ],
           ),
         ),
@@ -1214,16 +1220,18 @@ class _ThemeSelector extends StatelessWidget {
                     color: Color(0xFF6366F1), size: 18),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l10n.settingsTheme,
-                      style: TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600)),
-                  Text(l10n.settingsThemeDesc,
-                      style: TextStyle(
-                          fontSize: 11, color: Color(0xFF94A3B8))),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.settingsTheme,
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w600)),
+                    Text(l10n.settingsThemeDesc,
+                        style: TextStyle(
+                            fontSize: 11, color: Color(0xFF94A3B8))),
+                  ],
+                ),
               ),
             ],
           ),
@@ -1325,16 +1333,18 @@ class _UpdateFrequencySelector extends StatelessWidget {
                     color: Color(0xFF06B6D4), size: 18),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(l10n.settingsUpdateFrequency,
-                      style: TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600)),
-                  Text(l10n.settingsUpdateFrequencyDesc,
-                      style: TextStyle(
-                          fontSize: 11, color: Color(0xFF94A3B8))),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.settingsUpdateFrequency,
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text(l10n.settingsUpdateFrequencyDesc,
+                        style: TextStyle(
+                            fontSize: 11, color: Color(0xFF94A3B8))),
+                  ],
+                ),
               ),
             ],
           ),
