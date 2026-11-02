@@ -5,6 +5,7 @@ import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/organization_provider.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   final Widget child;
@@ -20,11 +21,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   // Standard nav items: Fleet, Tasks, Roles, Reports, Settings
   static const _navItems = [
-    _NavItem(icon: Icons.local_shipping_outlined, activeIcon: Icons.local_shipping, label: 'Fleet'),
-    _NavItem(icon: Icons.assignment_outlined, activeIcon: Icons.assignment, label: 'Tasks'),
-    _NavItem(icon: Icons.groups_outlined, activeIcon: Icons.groups, label: 'Roles'),
-    _NavItem(icon: Icons.bar_chart_outlined, activeIcon: Icons.bar_chart, label: 'Reports'),
-    _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings, label: 'Settings'),
+    _NavItem(icon: Icons.local_shipping_outlined, activeIcon: Icons.local_shipping, labelOf: _navFleet),
+    _NavItem(icon: Icons.assignment_outlined, activeIcon: Icons.assignment, labelOf: _navTasks),
+    _NavItem(icon: Icons.groups_outlined, activeIcon: Icons.groups, labelOf: _navRoles),
+    _NavItem(icon: Icons.bar_chart_outlined, activeIcon: Icons.bar_chart, labelOf: _navReports),
+    _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings, labelOf: _navSettings),
   ];
 
   static const _routes = [
@@ -37,10 +38,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   // Maintenance Supervisor nav items: My Tasks, Inventory, Schedule, Settings
   static const _msNavItems = [
-    _NavItem(icon: Icons.task_alt_outlined, activeIcon: Icons.task_alt, label: 'My Tasks'),
-    _NavItem(icon: Icons.inventory_2_outlined, activeIcon: Icons.inventory_2, label: 'Inventory'),
-    _NavItem(icon: Icons.calendar_month_outlined, activeIcon: Icons.calendar_month, label: 'Schedule'),
-    _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings, label: 'Settings'),
+    _NavItem(icon: Icons.task_alt_outlined, activeIcon: Icons.task_alt, labelOf: _navMyTasks),
+    _NavItem(icon: Icons.inventory_2_outlined, activeIcon: Icons.inventory_2, labelOf: _navInventory),
+    _NavItem(icon: Icons.calendar_month_outlined, activeIcon: Icons.calendar_month, labelOf: _navSchedule),
+    _NavItem(icon: Icons.settings_outlined, activeIcon: Icons.settings, labelOf: _navSettings),
   ];
 
   static const _msRoutes = [
@@ -135,6 +136,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     // deleted (see _driverNavItems / _driverRoutes above).
     if (isDriverUser) return const SizedBox.shrink();
 
+    final l10n = AppLocalizations.of(context);
     final items =
         isMsUser ? _msNavItems : (isDriverUser ? _driverNavItems : _navItems);
     final isDark = isMsUser;
@@ -222,7 +224,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            item.label,
+                            item.labelOf?.call(l10n) ?? item.label,
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: sel
@@ -304,14 +306,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               Text(
                                 fullName.isNotEmpty
                                     ? fullName
-                                    : (user?.username ?? 'User'),
+                                    : (user?.username ?? l10n.mainNavUserFallback),
                                 style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 14,
                                     color: Color(0xFF0F172A)),
                               ),
                               Text(
-                                _capitalize(user?.role ?? 'User'),
+                                _roleText(user?.role as String?, l10n),
                                 style: const TextStyle(
                                     fontSize: 11,
                                     color: Color(0xFF64748B)),
@@ -323,19 +325,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     ),
                   ),
                   const PopupMenuDivider(),
-                  _popItem(Icons.person_rounded, 'My Profile', 'profile',
+                  _popItem(Icons.person_rounded, l10n.mainNavMyProfile, 'profile',
                       const Color(0xFFEC5B13)),
-                  _popItem(Icons.business_rounded, 'My Organizations',
+                  _popItem(Icons.business_rounded, l10n.mainNavMyOrganizations,
                       'organizations', const Color(0xFF6366F1)),
-                  _popItem(Icons.add_business_rounded, 'Create Organization',
+                  _popItem(Icons.add_business_rounded, l10n.mainNavCreateOrganization,
                       'create_organization', const Color(0xFF10B981)),
                   _popItem(Icons.admin_panel_settings_rounded,
-                      'Manage Organization', 'manage_organization',
+                      l10n.mainNavManageOrganization, 'manage_organization',
                       const Color(0xFF06B6D4)),
                   const PopupMenuDivider(),
-                  _popItem(Icons.settings_rounded, 'Settings', 'settings',
+                  _popItem(Icons.settings_rounded, l10n.feDashSettings, 'settings',
                       const Color(0xFF64748B)),
-                  _popItem(Icons.logout_rounded, 'Sign Out', 'logout',
+                  _popItem(Icons.logout_rounded, l10n.mainNavSignOut, 'logout',
                       const Color(0xFFEF4444)),
                 ],
                 child: Container(
@@ -399,27 +401,48 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
+  // Display text for the stored role key; unknown roles fall back to the raw text.
+  String _roleText(String? role, AppLocalizations l10n) {
+    switch (role) {
+      case 'logistic_partner':
+        return l10n.roleLogisticPartner;
+      case 'logistic_partner_worker':
+        return l10n.roleFieldExecutive;
+      case 'lp_rr_operations':
+        return l10n.roleRrOperations;
+      case 'load_owner':
+        return l10n.roleLoadOwner;
+      case 'independent_user':
+        return l10n.roleIndependentUser;
+      case 'driver':
+        return l10n.roleDriver;
+      default:
+        return _capitalize(role ?? 'User');
+    }
+  }
+
   String _capitalize(String s) {
     if (s.isEmpty) return s;
     return s[0].toUpperCase() + s.substring(1).replaceAll('_', ' ');
   }
 
   Future<void> _navigateToOrganizationManagement() async {
+    final l10n = AppLocalizations.of(context);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Row(
             children: [
-              SizedBox(
+              const SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
               ),
-              SizedBox(width: 16),
-              Text('Loading organizations...'),
+              const SizedBox(width: 16),
+              Text(l10n.mainNavLoadingOrganizations),
             ],
           ),
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -433,7 +456,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     if (orgState.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error loading organizations: ${orgState.error}'),
+          content: Text(l10n.mainNavLoadOrganizationsError(orgState.error.toString())),
           backgroundColor: Colors.red,
         ),
       );
@@ -442,12 +465,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     if (orgState.currentOrganizationId != null && orgState.currentOrganization != null) {
       final orgId = orgState.currentOrganizationId!;
-      final orgName = orgState.currentOrganization!['organization_name'] ?? 'Organization';
+      final orgName = orgState.currentOrganization!['organization_name'] ?? l10n.mainNavOrganizationFallback;
       context.push('/organizations/$orgId/manage', extra: {'name': orgName});
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No organization found. Please join or create one first.'),
+        SnackBar(
+          content: Text(l10n.mainNavNoOrganization),
           backgroundColor: Colors.orange,
         ),
       );
@@ -455,16 +478,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Future<void> _handleLogout() async {
+    final l10n = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to logout?'),
+        title: Text(l10n.feDashLogout, style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: Text(l10n.mainNavLogoutConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(l10n.commonCancel),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -472,7 +496,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               backgroundColor: Colors.red,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Logout'),
+            child: Text(l10n.feDashLogout),
           ),
         ],
       ),
@@ -489,10 +513,21 @@ class _NavItem {
   final IconData icon;
   final IconData activeIcon;
   final String label;
+  final String Function(AppLocalizations)? labelOf;
 
   const _NavItem({
     required this.icon,
     required this.activeIcon,
-    required this.label,
+    this.label = '',
+    this.labelOf,
   });
 }
+
+String _navFleet(AppLocalizations l10n) => l10n.lpDashNavFleet;
+String _navTasks(AppLocalizations l10n) => l10n.mainNavTasks;
+String _navRoles(AppLocalizations l10n) => l10n.mainNavRoles;
+String _navReports(AppLocalizations l10n) => l10n.mainNavReports;
+String _navSettings(AppLocalizations l10n) => l10n.feDashSettings;
+String _navMyTasks(AppLocalizations l10n) => l10n.mainNavMyTasks;
+String _navInventory(AppLocalizations l10n) => l10n.mainNavInventory;
+String _navSchedule(AppLocalizations l10n) => l10n.mainNavSchedule;

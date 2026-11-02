@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/presentation/screens/auth/login_screen.dart';
@@ -983,9 +984,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
     errorBuilder: (context, state) => Scaffold(
-      appBar: AppBar(title: const Text('Error')),
+      appBar: AppBar(title: Text(AppLocalizations.of(context).appRouterErrorTitle)),
       body: Center(
-        child: Text('Page not found: ${state.matchedLocation}'),
+        child: Text(AppLocalizations.of(context).appRouterPageNotFound(state.matchedLocation)),
       ),
     ),
   );
