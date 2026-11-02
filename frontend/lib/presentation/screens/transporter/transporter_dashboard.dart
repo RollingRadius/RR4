@@ -12,6 +12,7 @@ import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 
@@ -181,7 +182,7 @@ class _TransporterDashboardState extends ConsumerState<TransporterDashboard> {
     final state = ref.watch(transporterTripsProvider);
 
     return _ComingSoonDashboard(
-      role: 'Transporter',
+      role: AppLocalizations.of(context).transporterDashboardTitle,
       icon: Icons.local_shipping_outlined,
       onLogout: () async {
         await ref.read(authProvider.notifier).logout();
@@ -206,6 +207,7 @@ class _ComingSoonDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -216,8 +218,8 @@ class _ComingSoonDashboard extends StatelessWidget {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: _grey2),
             onSelected: (v) { if (v == 'logout') onLogout(); },
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'logout', child: Text('Logout')),
+            itemBuilder: (_) => [
+              PopupMenuItem(value: 'logout', child: Text(l10n.feDashLogout)),
             ],
           ),
         ],
@@ -245,7 +247,7 @@ class _ComingSoonDashboard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  'Coming Soon',
+                  l10n.pwRecoveryComingSoon,
                   style: GoogleFonts.inter(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
@@ -254,7 +256,7 @@ class _ComingSoonDashboard extends StatelessWidget {
               ),
               const SizedBox(height: 14),
               Text(
-                '$role Dashboard',
+                role,
                 style: GoogleFonts.manrope(
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
@@ -262,7 +264,7 @@ class _ComingSoonDashboard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Text(
-                'This dashboard is currently under\ndevelopment and will be available soon.',
+                l10n.transporterComingSoonBody,
                 style: GoogleFonts.inter(fontSize: 13, color: _grey2),
                 textAlign: TextAlign.center,
               ),
