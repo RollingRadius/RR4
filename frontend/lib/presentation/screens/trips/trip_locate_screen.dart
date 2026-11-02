@@ -584,9 +584,17 @@ class _GapBadge extends StatelessWidget {
                   color: _gapGreyDark,
                 ),
                 const SizedBox(width: 4),
-                Text(label,
-                    style: _inter(
-                        size: 10, weight: FontWeight.w700, color: _onSurface)),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(label,
+                        maxLines: 1,
+                        style: _inter(
+                            size: 10,
+                            weight: FontWeight.w700,
+                            color: _onSurface)),
+                  ),
+                ),
               ],
             ),
           ),
@@ -746,7 +754,12 @@ class _TrailLegend extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 5),
-          Text(l10n.tripLocateLegendTracked, style: _inter(size: 10, weight: FontWeight.w600)),
+          Flexible(
+            child: Text(l10n.tripLocateLegendTracked,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _inter(size: 10, weight: FontWeight.w600)),
+          ),
           const SizedBox(width: 12),
           for (var i = 0; i < 4; i++)
             Container(
@@ -759,8 +772,12 @@ class _TrailLegend extends StatelessWidget {
               ),
             ),
           const SizedBox(width: 3),
-          Text(l10n.tripLocateLegendLocationOff,
-              style: _inter(size: 10, weight: FontWeight.w600)),
+          Flexible(
+            child: Text(l10n.tripLocateLegendLocationOff,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: _inter(size: 10, weight: FontWeight.w600)),
+          ),
         ],
       ),
     );
