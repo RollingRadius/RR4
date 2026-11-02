@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
+import 'package:fleet_management/core/utils/vehicle_driver_labels.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
 
 class VehiclesListScreen extends ConsumerStatefulWidget {
@@ -98,6 +100,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
   }
 
   Widget _buildEnhancedHeader(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       color: AppTheme.bgPrimary,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -122,9 +125,9 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Fleet Vehicles',
-                    style: TextStyle(
+                  Text(
+                    l10n.vehListTitle,
+                    style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.textPrimary,
@@ -132,7 +135,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                     ),
                   ),
                   Text(
-                    '${ref.watch(vehicleProvider).vehicles.length} vehicles registered',
+                    l10n.vehListRegisteredCount(ref.watch(vehicleProvider).vehicles.length),
                     style: const TextStyle(
                       fontSize: 12,
                       color: AppTheme.textSecondary,
@@ -168,6 +171,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
   }
 
   Widget _buildSearchAndFilters(BuildContext context, List<Map<String, dynamic>> vehicles) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -195,7 +199,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
               controller: _searchController,
               style: const TextStyle(fontSize: 16),
               decoration: InputDecoration(
-                hintText: 'Search by registration, make, model...',
+                hintText: l10n.vehListSearchHint,
                 prefixIcon: Icon(
                   Icons.search_rounded,
                   color: AppTheme.primaryBlue,
@@ -230,7 +234,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
             child: Row(
               children: [
                 _ModernFilterChip(
-                  label: 'All Vehicles',
+                  label: l10n.vehListFilterAll,
                   count: vehicles.length,
                   isSelected: _selectedFilter == 'all',
                   color: AppTheme.primaryBlue,
@@ -239,7 +243,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                 ),
                 const SizedBox(width: 8),
                 _ModernFilterChip(
-                  label: 'Active',
+                  label: l10n.vehListStatusActive,
                   count: vehicles.where((v) => v['status'] == 'Active').length,
                   isSelected: _selectedFilter == 'active',
                   color: AppTheme.statusActive,
@@ -248,7 +252,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                 ),
                 const SizedBox(width: 8),
                 _ModernFilterChip(
-                  label: 'Maintenance',
+                  label: l10n.vehListStatusMaintenance,
                   count: vehicles.where((v) => v['status'] == 'Maintenance').length,
                   isSelected: _selectedFilter == 'maintenance',
                   color: AppTheme.statusWarning,
@@ -257,7 +261,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                 ),
                 const SizedBox(width: 8),
                 _ModernFilterChip(
-                  label: 'Inactive',
+                  label: l10n.vehListStatusInactive,
                   count: vehicles.where((v) => v['status'] == 'Inactive').length,
                   isSelected: _selectedFilter == 'inactive',
                   color: AppTheme.statusError,
@@ -273,6 +277,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
   }
 
   Widget _buildViewControls(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -305,11 +310,11 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
-              items: const [
-                DropdownMenuItem(value: 'registration', child: Text('Registration')),
-                DropdownMenuItem(value: 'make', child: Text('Make')),
-                DropdownMenuItem(value: 'status', child: Text('Status')),
-                DropdownMenuItem(value: 'mileage', child: Text('Mileage')),
+              items: [
+                DropdownMenuItem(value: 'registration', child: Text(l10n.vehListSortRegistration)),
+                DropdownMenuItem(value: 'make', child: Text(l10n.vehListSortMake)),
+                DropdownMenuItem(value: 'status', child: Text(l10n.driverDashBStatus)),
+                DropdownMenuItem(value: 'mileage', child: Text(l10n.vehListSortMileage)),
               ],
               onChanged: (value) => setState(() => _sortBy = value!),
             ),
@@ -504,7 +509,7 @@ class _VehiclesListScreenState extends ConsumerState<VehiclesListScreen>
               onPressed: () =>
                   ref.read(vehicleProvider.notifier).loadVehicles(),
               icon: const Icon(Icons.refresh, size: 18),
-              label: const Text('Retry'),
+              label: Text(AppLocalizations.of(context).commonRetry),
             ),
           ],
         ),
@@ -845,7 +850,7 @@ class _EnhancedVehicleCardState extends State<_EnhancedVehicleCard> {
                               Icon(_getStatusIcon(status), color: Colors.white, size: 12),
                               const SizedBox(width: 4),
                               Text(
-                                status,
+                                vehicleStatusLabel(AppLocalizations.of(context), status),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 11,
@@ -903,7 +908,7 @@ class _EnhancedVehicleCardState extends State<_EnhancedVehicleCard> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${widget.vehicle['year']} • ${widget.vehicle['type']}',
+                            '${widget.vehicle['year']} • ${vehicleTypeLabel(AppLocalizations.of(context), widget.vehicle['type'].toString())}',
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey[600],
@@ -921,7 +926,7 @@ class _EnhancedVehicleCardState extends State<_EnhancedVehicleCard> {
                             children: [
                               _CompactDetailItem(
                                 icon: Icons.local_gas_station_rounded,
-                                label: widget.vehicle['fuelType'] as String,
+                                label: fuelTypeLabel(AppLocalizations.of(context), widget.vehicle['fuelType'] as String),
                                 color: AppTheme.accentCyan,
                               ),
                               _CompactDetailItem(
@@ -980,7 +985,7 @@ class _EnhancedVehicleCardState extends State<_EnhancedVehicleCard> {
                                   Icon(Icons.person_off_outlined, size: 14, color: Colors.grey[500]),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'No driver',
+                                    AppLocalizations.of(context).vehListNoDriver,
                                     style: TextStyle(
                                       fontSize: 11,
                                       color: Colors.grey[600],
@@ -1206,7 +1211,7 @@ class _EnhancedVehicleListTileState extends State<_EnhancedVehicleListTile> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
-                                status,
+                                vehicleStatusLabel(AppLocalizations.of(context), status),
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,
@@ -1234,17 +1239,17 @@ class _EnhancedVehicleListTileState extends State<_EnhancedVehicleListTile> {
                           children: [
                             _ListDetailBadge(
                               icon: Icons.category_rounded,
-                              label: widget.vehicle['type'] as String,
+                              label: vehicleTypeLabel(AppLocalizations.of(context), widget.vehicle['type'] as String),
                               color: AppTheme.accentSky,
                             ),
                             _ListDetailBadge(
                               icon: Icons.local_gas_station_rounded,
-                              label: widget.vehicle['fuelType'] as String,
+                              label: fuelTypeLabel(AppLocalizations.of(context), widget.vehicle['fuelType'] as String),
                               color: AppTheme.accentCyan,
                             ),
                             _ListDetailBadge(
                               icon: Icons.speed_rounded,
-                              label: '${widget.vehicle['mileage']} km',
+                              label: AppLocalizations.of(context).vehListKm('${widget.vehicle['mileage']}'),
                               color: AppTheme.accentIndigo,
                             ),
                           ],
@@ -1283,7 +1288,7 @@ class _EnhancedVehicleListTileState extends State<_EnhancedVehicleListTile> {
                                   size: 14, color: Colors.grey[400]),
                               const SizedBox(width: 6),
                               Text(
-                                'No driver assigned',
+                                AppLocalizations.of(context).vehListNoDriverAssigned,
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey[500],
@@ -1459,6 +1464,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -1479,7 +1485,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Text(
-            searchQuery.isEmpty ? 'No Vehicles Yet' : 'No Vehicles Found',
+            searchQuery.isEmpty ? l10n.vehListEmptyTitle : l10n.vehListNotFoundTitle,
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: Colors.grey[800],
@@ -1488,8 +1494,8 @@ class _EmptyState extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             searchQuery.isEmpty
-                ? 'Add your first vehicle to get started'
-                : 'Try adjusting your search or filters',
+                ? l10n.vehListEmptyHint
+                : l10n.vehListNotFoundHint,
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 15,
@@ -1511,9 +1517,9 @@ class _EmptyState extends StatelessWidget {
                 ),
               ),
               icon: const Icon(Icons.add_rounded),
-              label: const Text(
-                'Add Vehicle',
-                style: TextStyle(
+              label: Text(
+                l10n.lpDashAddVehicle,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1534,9 +1540,9 @@ class _EmptyState extends StatelessWidget {
                 ),
               ),
               icon: const Icon(Icons.clear_all_rounded),
-              label: const Text(
-                'Clear Filters',
-                style: TextStyle(
+              label: Text(
+                l10n.vehListClearFilters,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),

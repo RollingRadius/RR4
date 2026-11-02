@@ -8,6 +8,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:fleet_management/data/services/vehicle_api.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/vehicle_provider.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
+import 'package:fleet_management/core/utils/vehicle_driver_labels.dart';
 
 class AddVehicleScreen extends ConsumerStatefulWidget {
   const AddVehicleScreen({super.key});
@@ -49,6 +51,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
   }
 
   Future<void> _pickPhoto() async {
+    final l10n = AppLocalizations.of(context);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -69,9 +72,9 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'Choose Photo',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              Text(
+                l10n.vehAddChoosePhoto,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
               ListTile(
@@ -83,7 +86,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                   ),
                   child: const Icon(Icons.photo_library_outlined, color: _primary),
                 ),
-                title: const Text('Choose from Gallery'),
+                title: Text(l10n.stageCommonChooseGallery),
                 onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
               ),
               ListTile(
@@ -95,7 +98,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                   ),
                   child: const Icon(Icons.camera_alt_outlined, color: _primary),
                 ),
-                title: const Text('Take a Photo'),
+                title: Text(l10n.vehAddTakePhoto),
                 onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
               ),
               if (_selectedImagePath != null)
@@ -108,8 +111,8 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                     ),
                     child: const Icon(Icons.delete_outline, color: Colors.red),
                   ),
-                  title: const Text('Remove Photo',
-                      style: TextStyle(color: Colors.red)),
+                  title: Text(l10n.vehAddRemovePhoto,
+                      style: const TextStyle(color: Colors.red)),
                   onTap: () {
                     Navigator.pop(sheetContext);
                     setState(() => _selectedImagePath = null);
@@ -139,6 +142,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
   }
 
   Future<void> _handleSubmit() async {
+    final l10n = AppLocalizations.of(context);
     final vehicleNumber = _vehicleNumberController.text.trim();
     final plate = _plateController.text.trim();
     final make = _makeController.text.trim();
@@ -148,8 +152,8 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
     if (vehicleNumber.isEmpty || plate.isEmpty || make.isEmpty ||
         model.isEmpty || yearText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields'),
+        SnackBar(
+          content: Text(l10n.vehAddFillRequired),
           backgroundColor: Colors.red,
         ),
       );
@@ -159,8 +163,8 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
     final year = int.tryParse(yearText);
     if (year == null || year < 1900 || year > DateTime.now().year + 1) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid year'),
+        SnackBar(
+          content: Text(l10n.vehAddInvalidYear),
           backgroundColor: Colors.red,
         ),
       );
@@ -210,15 +214,15 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
           // Show vehicle created but photo failed
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Vehicle created, but photo upload failed: $photoError'),
+              content: Text(l10n.vehAddPhotoFailed(photoError)),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 6),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Vehicle registered successfully!'),
+            SnackBar(
+              content: Text(l10n.vehAddSuccess),
               backgroundColor: Color(0xFF22C55E),
             ),
           );
@@ -241,6 +245,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
@@ -251,8 +256,8 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Add Vehicle',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        title: Text(l10n.lpDashAddVehicle,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         centerTitle: true,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(1),
@@ -265,38 +270,38 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildPhotoSection(),
-            _buildSection('Identification', Column(
+            _buildSection(l10n.vehAddSectionIdentification, Column(
               children: [
-                _buildField('Vehicle Number *', _vehicleNumberController,
-                    hint: 'e.g. VH-001'),
+                _buildField(l10n.vehAddVehicleNumber, _vehicleNumberController,
+                    hint: l10n.vehAddHintExample('VH-001')),
                 const SizedBox(height: 12),
-                _buildField('License Plate *', _plateController,
+                _buildField(l10n.vehAddLicensePlate, _plateController,
                     hint: 'ABC-1234'),
                 const SizedBox(height: 12),
-                _buildField('VIN (optional)', _vinController,
-                    hint: '17-character VIN'),
+                _buildField(l10n.vehAddVin, _vinController,
+                    hint: l10n.vehAddVinHint),
               ],
             )),
-            _buildSection('Specifications', Column(
+            _buildSection(l10n.vehAddSectionSpecifications, Column(
               children: [
-                _buildField('Make *', _makeController, hint: 'e.g. Ford'),
+                _buildField(l10n.vehAddMake, _makeController, hint: l10n.vehAddHintExample('Ford')),
                 const SizedBox(height: 12),
-                _buildField('Model *', _modelController, hint: 'e.g. F-150'),
+                _buildField(l10n.vehAddModel, _modelController, hint: l10n.vehAddHintExample('F-150')),
                 const SizedBox(height: 12),
-                _buildField('Year *', _yearController, hint: '2024',
+                _buildField(l10n.vehAddYear, _yearController, hint: '2024',
                     keyboardType: TextInputType.number),
               ],
             )),
-            _buildSection('Technical Details', Column(
+            _buildSection(l10n.vehAddSectionTechnical, Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Vehicle Type *',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(l10n.vehAddVehicleType,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 10),
                 _buildVehicleTypeSelector(),
                 const SizedBox(height: 16),
-                const Text('Fuel Type *',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                Text(l10n.vehAddFuelType,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 10),
                 _buildFuelToggle(),
                 const SizedBox(height: 16),
@@ -324,6 +329,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
   }
 
   Widget _buildPhotoPlaceholder() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 32),
@@ -344,10 +350,10 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                 color: _primary, size: 32),
           ),
           const SizedBox(height: 10),
-          const Text('Vehicle Photo',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(l10n.vehAddPhotoTitle,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 4),
-          Text('Upload or take a high-quality photo',
+          Text(l10n.vehAddPhotoSubtitle,
               style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
           const SizedBox(height: 14),
           Container(
@@ -355,8 +361,8 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                 const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
             decoration: BoxDecoration(
                 color: _primary, borderRadius: BorderRadius.circular(10)),
-            child: const Text('Choose File',
-                style: TextStyle(
+            child: Text(l10n.vehAddChooseFile,
+                style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 13)),
@@ -396,13 +402,13 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                 color: Colors.black54,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.edit, color: Colors.white, size: 14),
-                  SizedBox(width: 4),
-                  Text('Change',
-                      style: TextStyle(
+                  const Icon(Icons.edit, color: Colors.white, size: 14),
+                  const SizedBox(width: 4),
+                  Text(AppLocalizations.of(context).driverSelectVehicleChange,
+                      style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
                           fontWeight: FontWeight.w600)),
@@ -472,6 +478,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
   }
 
   Widget _buildVehicleTypeSelector() {
+    final l10n = AppLocalizations.of(context);
     const types = [
       ('car', Icons.directions_car_outlined),
       ('truck', Icons.local_shipping_outlined),
@@ -506,7 +513,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                     color: selected ? Colors.white : Colors.grey.shade600),
                 const SizedBox(width: 6),
                 Text(
-                  t.$1[0].toUpperCase() + t.$1.substring(1),
+                  vehicleTypeLabel(l10n, t.$1),
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -522,6 +529,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
   }
 
   Widget _buildFuelToggle() {
+    final l10n = AppLocalizations.of(context);
     const options = [
       ('diesel', 'Diesel'),
       ('petrol', 'Petrol'),
@@ -549,7 +557,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                   color: selected ? _primary : Colors.grey.shade300),
             ),
             child: Text(
-              opt.$2,
+              fuelTypeLabel(l10n, opt.$1),
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -566,8 +574,8 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Initial Odometer (km)',
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(AppLocalizations.of(context).vehAddOdometer,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
         TextFormField(
           controller: _odometerController,
@@ -613,7 +621,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'By adding this vehicle, it will be automatically synchronized with your maintenance schedule and fuel tracking logs. Ensure the VIN is correct to receive automated manufacturer recalls.',
+                AppLocalizations.of(context).vehAddInfoNote,
                 style: TextStyle(
                     fontSize: 11, color: Colors.grey.shade700, height: 1.5),
               ),
@@ -646,7 +654,7 @@ class _AddVehicleScreenState extends ConsumerState<AddVehicleScreen> {
                   ),
                 )
               : const Icon(Icons.save_outlined, size: 18),
-          label: Text(_isSubmitting ? 'Registering...' : 'Register Vehicle'),
+          label: Text(_isSubmitting ? AppLocalizations.of(context).vehAddRegistering : AppLocalizations.of(context).vehAddRegister),
           style: ElevatedButton.styleFrom(
             backgroundColor: _primary,
             foregroundColor: Colors.white,
