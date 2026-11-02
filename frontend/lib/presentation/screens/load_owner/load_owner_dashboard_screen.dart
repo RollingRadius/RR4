@@ -17,6 +17,7 @@ import 'package:fleet_management/presentation/screens/load_owner/upload_load_req
 import 'package:fleet_management/presentation/screens/load_owner/my_trips_screen.dart';
 import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 // ─── Typography helpers (Stitch: Manrope headline, Inter body) ────────────────
 TextStyle _manrope(
@@ -136,18 +137,19 @@ class _LoadOwnerHomeTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(authProvider).user;
-    final firstName = user?.fullName.split(' ').first ?? 'Load Owner';
+    final firstName = user?.fullName.split(' ').first ?? l10n.roleLoadOwner;
 
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Welcome back, $firstName',
+          Text(l10n.feDashWelcomeBack(firstName),
               style: GoogleFonts.manrope(fontSize: 22, fontWeight: FontWeight.w800, color: _onSurface)),
           const SizedBox(height: 2),
-          Text('Load Owner Panel', style: GoogleFonts.inter(fontSize: 13, color: _secondary)),
+          Text(l10n.loDashPanelTitle, style: GoogleFonts.inter(fontSize: 13, color: _secondary)),
           const SizedBox(height: 28),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
@@ -164,10 +166,10 @@ class _LoadOwnerHomeTab extends ConsumerWidget {
               children: [
                 const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 32),
                 const SizedBox(height: 14),
-                Text('Post a Load Requirement',
+                Text(l10n.loDashPostLoadTitle,
                     style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white)),
                 const SizedBox(height: 6),
-                Text('Send your load details to your preferred logistic partner and get it moving.',
+                Text(l10n.loDashPostLoadBody,
                     style: GoogleFonts.inter(fontSize: 13, color: Colors.white.withValues(alpha: 0.85))),
                 const SizedBox(height: 18),
                 SizedBox(
@@ -179,7 +181,7 @@ class _LoadOwnerHomeTab extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    child: Text('Create Load Requirement',
+                    child: Text(l10n.loDashCreateLoadButton,
                         style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w700, color: const Color(0xFFE55C00))),
                   ),
                 ),
@@ -195,12 +197,13 @@ class _LoadOwnerHomeTab extends ConsumerWidget {
 // ─── Coming Soon placeholder for gated tabs ──────────────────────────────────
 
 class _LoadOwnerComingSoonTab extends StatelessWidget {
-  final String label;
+  final String Function(AppLocalizations l10n) label;
   final IconData icon;
   const _LoadOwnerComingSoonTab({required this.label, required this.icon});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(40),
@@ -217,13 +220,13 @@ class _LoadOwnerComingSoonTab extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(color: _primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-              child: Text('Coming Soon',
+              child: Text(l10n.pwRecoveryComingSoon,
                   style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w700, color: _primary)),
             ),
             const SizedBox(height: 14),
-            Text(label, style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: _onSurface)),
+            Text(label(l10n), style: GoogleFonts.manrope(fontSize: 18, fontWeight: FontWeight.w800, color: _onSurface)),
             const SizedBox(height: 10),
-            Text('This section is under development\nand will be available soon.',
+            Text(l10n.lpDashComingSoonBody,
                 style: GoogleFonts.inter(fontSize: 13, color: _secondary), textAlign: TextAlign.center),
           ],
         ),
@@ -272,9 +275,9 @@ class _LoadOwnerDashboardScreenState
         onDone: () => _setNavIndex(0),
         onTrackTrips: () => _setNavIndex(0),
       ),
-      const _LoadOwnerComingSoonTab(label: 'Tracking', icon: Icons.local_shipping_outlined),
-      const _LoadOwnerComingSoonTab(label: 'Documents', icon: Icons.description_outlined),
-      const _LoadOwnerComingSoonTab(label: 'Profile', icon: Icons.person_outline_rounded),
+      _LoadOwnerComingSoonTab(label: (l) => l.loDashTabTracking, icon: Icons.local_shipping_outlined),
+      _LoadOwnerComingSoonTab(label: (l) => l.loDashTabDocuments, icon: Icons.description_outlined),
+      _LoadOwnerComingSoonTab(label: (l) => l.feDashNavProfile, icon: Icons.person_outline_rounded),
     ];
   }
 
@@ -286,6 +289,7 @@ class _LoadOwnerDashboardScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(authProvider).user;
 
     // Show a toast banner when a real-time notification arrives
@@ -335,7 +339,7 @@ class _LoadOwnerDashboardScreenState
       backgroundColor: _background,
       drawer: _AppDrawer(
         user: user,
-        role: 'Load Owner',
+        role: l10n.roleLoadOwner,
         navIndex: _navIndex,
         onNavTap: (i) {
           _scaffoldKey.currentState?.closeDrawer();
@@ -606,27 +610,28 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
   }
 
   Future<void> _confirmClearAll(BuildContext ctx, WidgetRef ref) async {
+    final l10n = AppLocalizations.of(ctx);
     final confirmed = await showDialog<bool>(
       context: ctx,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text('Clear all notifications?',
+        title: Text(l10n.loDashClearAllTitle,
             style: GoogleFonts.manrope(
                 fontSize: 16, fontWeight: FontWeight.w800)),
-        content: Text('This will permanently delete all notifications.',
+        content: Text(l10n.loDashClearAllBody,
             style: GoogleFonts.inter(fontSize: 13,
                 color: const Color(0xFF546067))),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(_).pop(false),
-            child: Text('Cancel',
+            child: Text(l10n.commonCancel,
                 style: GoogleFonts.manrope(
                     fontWeight: FontWeight.w600,
                     color: const Color(0xFF546067))),
           ),
           TextButton(
             onPressed: () => Navigator.of(_).pop(true),
-            child: Text('Clear All',
+            child: Text(l10n.loDashClearAll,
                 style: GoogleFonts.manrope(
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFFBA1A1A))),
@@ -641,6 +646,7 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final state = ref.watch(notificationsProvider);
     final items = state.items;
 
@@ -672,7 +678,7 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
               padding: const EdgeInsets.fromLTRB(20, 8, 16, 12),
               child: Row(
                 children: [
-                  Text('Notifications',
+                  Text(l10n.feDashNotifications,
                       style: GoogleFonts.manrope(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
@@ -696,7 +702,7 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(8)),
                       ),
-                      child: Text('Clear All',
+                      child: Text(l10n.loDashClearAll,
                           style: GoogleFonts.manrope(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -715,7 +721,7 @@ class _NotificationsSheetState extends ConsumerState<_NotificationsSheet> {
                           const Icon(Icons.notifications_none_rounded,
                               size: 48, color: Color(0xFF546067)),
                           const SizedBox(height: 12),
-                          Text('No notifications yet',
+                          Text(l10n.loDashNoNotifications,
                               style: GoogleFonts.manrope(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
@@ -806,7 +812,7 @@ class _NotifTile extends StatelessWidget {
                 if (notif.createdAt != null) ...[
                   const SizedBox(height: 6),
                   Text(
-                    _formatTime(notif.createdAt!),
+                    _formatTime(AppLocalizations.of(context), notif.createdAt!),
                     style: GoogleFonts.inter(
                         fontSize: 10,
                         color: const Color(0xFF546067)),
@@ -852,15 +858,15 @@ class _NotifTile extends StatelessWidget {
     ); // end Dismissible
   }
 
-  String _formatTime(String iso) {
+  String _formatTime(AppLocalizations l10n, String iso) {
     try {
       final dt = DateTime.parse(iso).toLocal();
       final now = DateTime.now();
       final diff = now.difference(dt);
-      if (diff.inMinutes < 1) return 'Just now';
-      if (diff.inHours < 1) return '${diff.inMinutes}m ago';
-      if (diff.inDays < 1) return '${diff.inHours}h ago';
-      return '${diff.inDays}d ago';
+      if (diff.inMinutes < 1) return l10n.feDashJustNow;
+      if (diff.inHours < 1) return l10n.feDashMinutesAgo(diff.inMinutes);
+      if (diff.inDays < 1) return l10n.feDashHoursAgo(diff.inHours);
+      return l10n.feDashDaysAgo(diff.inDays);
     } catch (_) {
       return '';
     }
@@ -887,16 +893,17 @@ class _AppDrawer extends ConsumerWidget {
   });
 
   // (icon, label, navIndex, comingSoon)
-  static const _navItems = [
-    (Icons.dashboard_rounded,      'Dashboard',  0, false),
-    (Icons.inventory_2_outlined,   'My Loads',   1, false),
-    (Icons.local_shipping_rounded, 'Tracking',   2, true),
-    (Icons.description_outlined,   'Documents',  3, true),
+  static List<(IconData, String, int, bool)> _navItems(AppLocalizations l10n) => [
+    (Icons.dashboard_rounded,      l10n.feDashNavDashboard,  0, false),
+    (Icons.inventory_2_outlined,   l10n.loDashNavMyLoads,    1, false),
+    (Icons.local_shipping_rounded, l10n.loDashTabTracking,   2, true),
+    (Icons.description_outlined,   l10n.loDashTabDocuments,  3, true),
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final name     = user?.fullName ?? 'Load Owner';
+    final l10n = AppLocalizations.of(context);
+    final name     = user?.fullName ?? l10n.roleLoadOwner;
     final company  = user?.companyName ?? '';
     final username = user?.username ?? '';
 
@@ -989,13 +996,13 @@ class _AppDrawer extends ConsumerWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                  child: Text('NAVIGATION',
+                  child: Text(l10n.feDashNavigation,
                       style: GoogleFonts.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
                           color: _secondary)),
                 ),
-                ..._navItems.map((item) {
+                ..._navItems(l10n).map((item) {
                   final (icon, label, index, comingSoon) = item;
                   final isActive = navIndex == index;
                   return _DrawerNavTile(
@@ -1008,7 +1015,7 @@ class _AppDrawer extends ConsumerWidget {
                 }),
                 _DrawerNavTile(
                   icon: Icons.person_outline_rounded,
-                  label: 'Profile',
+                  label: l10n.feDashNavProfile,
                   isActive: navIndex == 4,
                   comingSoon: true,
                   onTap: () => onProfileTap?.call(),
@@ -1021,7 +1028,7 @@ class _AppDrawer extends ConsumerWidget {
 
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-                  child: Text('MORE',
+                  child: Text(l10n.feDashMore,
                       style: GoogleFonts.inter(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
@@ -1029,12 +1036,12 @@ class _AppDrawer extends ConsumerWidget {
                 ),
                 _DrawerActionTile(
                   icon: Icons.help_outline_rounded,
-                  label: 'Help & Support',
+                  label: l10n.feDashHelpSupport,
                   onTap: () {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Help & Support coming soon.',
+                        content: Text(l10n.feDashHelpComingSoon,
                             style: GoogleFonts.inter(
                                 fontSize: 13, color: Colors.white)),
                         backgroundColor: _secondary,
@@ -1047,7 +1054,7 @@ class _AppDrawer extends ConsumerWidget {
                 ),
                 _DrawerActionTile(
                   icon: Icons.info_outline_rounded,
-                  label: 'About RR Logistics',
+                  label: l10n.feDashAboutRr,
                   onTap: () {
                     Navigator.pop(context);
                     showAboutDialog(
@@ -1060,7 +1067,7 @@ class _AppDrawer extends ConsumerWidget {
                 ),
                 _DrawerActionTile(
                   icon: Icons.privacy_tip_outlined,
-                  label: 'Privacy Policy',
+                  label: l10n.authPrivacyPolicy,
                   onTap: () => Navigator.pop(context),
                 ),
               ],
@@ -1086,7 +1093,7 @@ class _AppDrawer extends ConsumerWidget {
                   const Icon(Icons.logout_rounded,
                       color: Color(0xFFBA1A1A), size: 20),
                   const SizedBox(width: 14),
-                  Text('Log Out',
+                  Text(l10n.feDashLogOut,
                       style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -1192,6 +1199,7 @@ class _DrawerNavTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Opacity(
       opacity: comingSoon ? 0.5 : 1.0,
       child: InkWell(
@@ -1211,7 +1219,7 @@ class _DrawerNavTile extends StatelessWidget {
                 size: 20,
                 color: isActive ? _primary : _secondary),
             const SizedBox(width: 14),
-            Text(comingSoon ? '$label (Soon)' : label,
+            Text(comingSoon ? l10n.loDashSoonSuffix(label) : label,
                 style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight:
@@ -1275,16 +1283,18 @@ class _BottomNav extends StatelessWidget {
   const _BottomNav({required this.selectedIndex, required this.onTap});
 
   // (icon, label, comingSoon)
-  static const _items = [
-    (Icons.dashboard_rounded, 'DASHBOARD', false),
-    (Icons.inventory_2_outlined, 'LOADS', false),
-    (Icons.local_shipping_rounded, 'MY TRIPS', true),
-    (Icons.description_outlined, 'DOCS', true),
-    (Icons.person_outline, 'PROFILE', true),
+  static List<(IconData, String, bool)> _items(AppLocalizations l10n) => [
+    (Icons.dashboard_rounded, l10n.loDashBottomDashboard, false),
+    (Icons.inventory_2_outlined, l10n.loDashBottomLoads, false),
+    (Icons.local_shipping_rounded, l10n.loDashBottomMyTrips, true),
+    (Icons.description_outlined, l10n.loDashBottomDocs, true),
+    (Icons.person_outline, l10n.loDashBottomProfile, true),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final items = _items(l10n);
     return ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       child: BackdropFilter(
@@ -1314,8 +1324,8 @@ class _BottomNav extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: List.generate(_items.length, (i) {
-              final (icon, label, comingSoon) = _items[i];
+            children: List.generate(items.length, (i) {
+              final (icon, label, comingSoon) = items[i];
               final active = i == selectedIndex;
               return Opacity(
                 opacity: comingSoon ? 0.45 : 1.0,
@@ -1338,7 +1348,7 @@ class _BottomNav extends StatelessWidget {
                             color: active ? Colors.white : _secondary, size: 22),
                         const SizedBox(height: 3),
                         Text(
-                          comingSoon ? 'SOON' : label,
+                          comingSoon ? l10n.loDashBottomSoon : label,
                           style: TextStyle(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
