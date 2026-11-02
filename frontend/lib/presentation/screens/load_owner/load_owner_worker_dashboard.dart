@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 /// Load Owner Worker Dashboard — Coming Soon
 class LoadOwnerWorkerDashboard extends ConsumerWidget {
@@ -10,8 +11,9 @@ class LoadOwnerWorkerDashboard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(authProvider).user;
-    final name = user?.fullName.split(' ').first ?? 'Worker';
+    final name = user?.fullName.split(' ').first ?? l10n.loWorkerHomeFallbackName;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FB),
@@ -48,7 +50,7 @@ class LoadOwnerWorkerDashboard extends ConsumerWidget {
                 if (context.mounted) context.go(AppConstants.routeLogin);
               },
               icon: const Icon(Icons.logout),
-              label: const Text('Logout'),
+              label: Text(l10n.feDashLogout),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF6B00),
                 foregroundColor: Colors.white,
@@ -81,7 +83,7 @@ class LoadOwnerWorkerDashboard extends ConsumerWidget {
               ),
               const SizedBox(height: 28),
               Text(
-                'Welcome, $name!',
+                l10n.loWorkerHomeWelcome(name),
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
@@ -89,9 +91,9 @@ class LoadOwnerWorkerDashboard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Load Owner Worker Dashboard',
-                style: TextStyle(
+              Text(
+                l10n.loWorkerHomeTitle,
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: Color(0xFFFF6B00),
@@ -104,9 +106,9 @@ class LoadOwnerWorkerDashboard extends ConsumerWidget {
                   color: const Color(0xFFF2F4F6),
                   borderRadius: BorderRadius.circular(20),
                 ),
-                child: const Text(
-                  'Coming Soon',
-                  style: TextStyle(
+                child: Text(
+                  l10n.pwRecoveryComingSoon,
+                  style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF546067),
@@ -115,10 +117,10 @@ class LoadOwnerWorkerDashboard extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
-                'Your load owner worker workspace is being built. Check back soon.',
+              Text(
+                l10n.loWorkerHomeBuilding,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 14,
                   color: Color(0xFF546067),
                   height: 1.6,

@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/load_provider.dart';
 import 'package:fleet_management/data/services/location_search_service.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
+import 'package:fleet_management/core/utils/load_spec_labels.dart';
 
 class UploadLoadRequirementScreen extends ConsumerStatefulWidget {
   final bool embedded;
@@ -159,6 +161,7 @@ class _UploadLoadRequirementScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(authProvider).user;
     final initials = _initials(user?.fullName ?? 'JD');
 
@@ -175,10 +178,10 @@ class _UploadLoadRequirementScreenState
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
                   // ── Section 1: Entry Method ─────────────────────
-                  _sectionLabel('Entry Method'),
+                  _sectionLabel(l10n.loUploadEntryMethod),
                   const SizedBox(height: 4),
                   Text(
-                    'New Load',
+                    l10n.loUploadNewLoad,
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
@@ -249,13 +252,14 @@ class _UploadLoadRequirementScreenState
   // ── Entry Method Toggle ────────────────────────────────────────────────
 
   Widget _entryMethodToggle() {
+    final l10n = AppLocalizations.of(context);
     return Row(
       children: [
         Expanded(
           flex: 3,
           child: _entryMethodButton(
             icon: Icons.edit_note,
-            label: 'MANUAL',
+            label: l10n.loUploadMethodManual,
             key: 'manual',
           ),
         ),
@@ -264,7 +268,7 @@ class _UploadLoadRequirementScreenState
           flex: 2,
           child: _entryMethodButton(
             icon: Icons.upload_file,
-            label: 'BULK',
+            label: l10n.loUploadMethodBulk,
             key: 'bulk',
           ),
         ),
@@ -273,7 +277,7 @@ class _UploadLoadRequirementScreenState
           flex: 2,
           child: _entryMethodButton(
             icon: Icons.photo_camera,
-            label: 'PHOTO',
+            label: l10n.loUploadMethodPhoto,
             key: 'photo',
           ),
         ),
@@ -286,6 +290,7 @@ class _UploadLoadRequirementScreenState
     required String label,
     required String key,
   }) {
+    final l10n = AppLocalizations.of(context);
     final isActive = _entryMethod == key;
     final isComingSoon = key == 'bulk' || key == 'photo';
     return GestureDetector(
@@ -345,9 +350,9 @@ class _UploadLoadRequirementScreenState
                     color: const Color(0xFF592300),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Text(
-                    'SOON',
-                    style: TextStyle(
+                  child: Text(
+                    l10n.loUploadSoonBadge,
+                    style: const TextStyle(
                       fontSize: 7,
                       fontWeight: FontWeight.w800,
                       color: Colors.white,
@@ -453,6 +458,7 @@ class _UploadLoadRequirementScreenState
   // ── Route inputs with autocomplete ────────────────────────────────────────
 
   Widget _routeInputs() {
+    final l10n = AppLocalizations.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -493,8 +499,8 @@ class _UploadLoadRequirementScreenState
               _locationField(
                 key: _pickupKey,
                 controller: _pickupController,
-                label: 'Pickup Location',
-                hint: 'Enter Origin Hub',
+                label: l10n.createTripSectionPickup,
+                hint: l10n.loUploadPickupHint,
                 suggestions: _pickupSuggestions,
                 showDropdown: _showPickupDropdown,
                 onChanged: _onPickupChanged,
@@ -504,8 +510,8 @@ class _UploadLoadRequirementScreenState
               _locationField(
                 key: _dropKey,
                 controller: _dropController,
-                label: 'Drop Location',
-                hint: 'Enter Destination',
+                label: l10n.loUploadDropLocation,
+                hint: l10n.loUploadDropHint,
                 suggestions: _dropSuggestions,
                 showDropdown: _showDropDropdown,
                 onChanged: _onDropChanged,
@@ -627,11 +633,12 @@ class _UploadLoadRequirementScreenState
   }
 
   Widget _materialDropdown() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       key: _materialKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _fieldLabel('Material Type'),
+        _fieldLabel(l10n.loUploadMaterialType),
         const SizedBox(height: 4),
         Container(
           decoration: BoxDecoration(
@@ -643,16 +650,16 @@ class _UploadLoadRequirementScreenState
             child: DropdownButton<String>(
               value: _materialType,
               isExpanded: true,
-              hint: const Text(
-                'Select material',
-                style: TextStyle(fontSize: 14, color: Color(0xFF737780)),
+              hint: Text(
+                l10n.loUploadSelectMaterial,
+                style: const TextStyle(fontSize: 14, color: Color(0xFF737780)),
               ),
               style: const TextStyle(
                   fontSize: 14, color: Color(0xFF191C1E)),
               dropdownColor: _surfaceContainerLowest,
               borderRadius: BorderRadius.circular(10),
               items: _materials.map((m) {
-                return DropdownMenuItem(value: m, child: Text(m));
+                return DropdownMenuItem(value: m, child: Text(materialLabel(l10n, m)));
               }).toList(),
               onChanged: (v) => setState(() => _materialType = v),
             ),
@@ -663,11 +670,12 @@ class _UploadLoadRequirementScreenState
   }
 
   Widget _datePicker() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       key: _dateKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _fieldLabel('Entry Date'),
+        _fieldLabel(l10n.loUploadEntryDate),
         const SizedBox(height: 4),
         GestureDetector(
           onTap: () async {
@@ -702,7 +710,7 @@ class _UploadLoadRequirementScreenState
                 Text(
                   _entryDate != null
                       ? '${_entryDate!.day}/${_entryDate!.month}/${_entryDate!.year}'
-                      : 'Pick date',
+                      : l10n.loUploadPickDate,
                   style: TextStyle(
                     fontSize: 14,
                     color: _entryDate != null
@@ -719,6 +727,7 @@ class _UploadLoadRequirementScreenState
   }
 
   Widget _truckCountRow() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       key: _truckCountKey,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -732,7 +741,7 @@ class _UploadLoadRequirementScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _fieldLabel('Truck Count'),
+                _fieldLabel(l10n.loUploadTruckCount),
                 const SizedBox(height: 2),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -772,9 +781,9 @@ class _UploadLoadRequirementScreenState
                       ),
                     ),
                     const SizedBox(width: 4),
-                    const Text(
-                      'Units',
-                      style: TextStyle(
+                    Text(
+                      l10n.loUploadUnits,
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF43474F),
@@ -847,6 +856,7 @@ class _UploadLoadRequirementScreenState
   // ── Truck Requirements Section ────────────────────────────────────────
 
   Widget _truckSpecsSection() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       children: [
         GestureDetector(
@@ -864,10 +874,10 @@ class _UploadLoadRequirementScreenState
                 const Icon(Icons.local_shipping,
                     color: Color(0xFF001e40), size: 22),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Truck Requirements',
-                    style: TextStyle(
+                    l10n.loUploadTruckRequirements,
+                    style: const TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 15,
                       color: Color(0xFF001e40),
@@ -894,9 +904,10 @@ class _UploadLoadRequirementScreenState
                   const SizedBox(width: 10),
                   Expanded(child: _specDropdown(
                     key: _axleKey,
-                    label: 'Axle Type',
+                    label: l10n.tripCardLabelAxleType,
                     value: _selectedAxleType,
                     items: _axleTypes,
+                    labelOf: (v) => axleTypeLabel(l10n, v),
                     onChanged: (v) => setState(() => _selectedAxleType = v),
                   )),
                 ],
@@ -906,17 +917,19 @@ class _UploadLoadRequirementScreenState
                 children: [
                   Expanded(child: _specDropdown(
                     key: _bodyKey,
-                    label: 'Body',
+                    label: l10n.loUploadBody,
                     value: _selectedBodyType,
                     items: _bodyTypes,
+                    labelOf: (v) => bodyTypeLabel(l10n, v),
                     onChanged: (v) => setState(() => _selectedBodyType = v),
                   )),
                   const SizedBox(width: 10),
                   Expanded(child: _specDropdown(
                     key: _floorKey,
-                    label: 'Floor',
+                    label: l10n.loUploadFloor,
                     value: _selectedFloorType,
                     items: _floorTypes,
+                    labelOf: (v) => floorTypeLabel(l10n, v),
                     onChanged: (v) => setState(() => _selectedFloorType = v),
                   )),
                 ],
@@ -929,6 +942,7 @@ class _UploadLoadRequirementScreenState
   }
 
   Widget _capacityField() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       key: _capacityKey,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -942,9 +956,9 @@ class _UploadLoadRequirementScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'TRUCK WEIGHT (OPTIONAL)',
-            style: TextStyle(
+          Text(
+            l10n.loUploadTruckWeightOptional.toUpperCase(),
+            style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
@@ -1007,6 +1021,7 @@ class _UploadLoadRequirementScreenState
   }
 
   Widget _materialWeightField() {
+    final l10n = AppLocalizations.of(context);
     return Container(
       key: _materialWeightKey,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1020,9 +1035,9 @@ class _UploadLoadRequirementScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'MATERIAL WEIGHT',
-            style: TextStyle(
+          Text(
+            l10n.loUploadMaterialWeight.toUpperCase(),
+            style: const TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
@@ -1089,8 +1104,10 @@ class _UploadLoadRequirementScreenState
     required String label,
     required String? value,
     required List<String> items,
+    required String Function(String) labelOf,
     required ValueChanged<String?> onChanged,
   }) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       key: key,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1117,7 +1134,7 @@ class _UploadLoadRequirementScreenState
               isExpanded: true,
               isDense: true,
               hint: Text(
-                'Select',
+                l10n.loUploadSelect,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
@@ -1131,7 +1148,7 @@ class _UploadLoadRequirementScreenState
                 color: Color(0xFF001e40),
               ),
               items: items
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .map((e) => DropdownMenuItem(value: e, child: Text(labelOf(e))))
                   .toList(),
               onChanged: onChanged,
             ),
@@ -1200,11 +1217,12 @@ class _UploadLoadRequirementScreenState
   // ── Partner Target Section ────────────────────────────────────────────
 
   Widget _partnerTargetSection() {
+    final l10n = AppLocalizations.of(context);
     return Column(
       key: _partnerKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionLabel('Send To'),
+        _sectionLabel(l10n.loUploadSendTo),
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
@@ -1232,22 +1250,22 @@ class _UploadLoadRequirementScreenState
                     ),
                   ),
                   const SizedBox(width: 12),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Target Partners',
-                          style: TextStyle(
+                          l10n.loUploadTargetPartners,
+                          style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                             color: Color(0xFF001e40),
                           ),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
-                          'Leave empty to broadcast to all',
-                          style: TextStyle(
+                          l10n.loUploadBroadcastHint,
+                          style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFF43474F),
                           ),
@@ -1262,7 +1280,7 @@ class _UploadLoadRequirementScreenState
               // ── Logistic Partner search ──────────────────────────────
               _partnerTypeRow(
                 icon: Icons.local_shipping_outlined,
-                label: 'Logistic Partner',
+                label: l10n.roleLogisticPartner,
                 comingSoon: false,
                 child: Column(
                   children: [
@@ -1272,7 +1290,7 @@ class _UploadLoadRequirementScreenState
                       focusNode: _partnerFocusNode,
                       style: const TextStyle(fontSize: 14, color: Color(0xFF191C1E)),
                       decoration: InputDecoration(
-                        hintText: 'Search Logistic Partner here',
+                        hintText: l10n.loUploadSearchPartnerHint,
                         hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF737780)),
                         prefixIcon: _partnerSearchLoading
                             ? const SizedBox(
@@ -1433,7 +1451,7 @@ class _UploadLoadRequirementScreenState
                 const Divider(height: 1, color: Color(0xFFC3C6D1)),
                 const SizedBox(height: 12),
                 Text(
-                  'SELECTED',
+                  l10n.loUploadSelected.toUpperCase(),
                   style: const TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.w700,
@@ -1531,6 +1549,7 @@ class _UploadLoadRequirementScreenState
   // ── Submit Button ─────────────────────────────────────────────────────
 
   Widget _submitButton() {
+    final l10n = AppLocalizations.of(context);
     return SizedBox(
       width: double.infinity,
       height: 56,
@@ -1554,24 +1573,25 @@ class _UploadLoadRequirementScreenState
                     strokeWidth: 2, color: Colors.white),
               )
             : const Icon(Icons.send, size: 20),
-        label: Text(_isSubmitting ? 'Submitting…' : 'Submit Load Requirement'),
+        label: Text(_isSubmitting ? l10n.stageCommonSubmittingEllipsis : l10n.loUploadSubmitButton),
       ),
     );
   }
 
   // ── Bottom Navigation ─────────────────────────────────────────────────
 
-  static const _navItems = [
-    (Icons.dashboard_rounded,      'DASHBOARD'),
-    (Icons.local_shipping_rounded, 'LOADS'),
-    (Icons.explore_outlined,       'TRACKING'),
-    (Icons.description_outlined,   'DOCS'),
-    (Icons.person_outline,         'PROFILE'),
+  List<(IconData, String)> _navItems(AppLocalizations l10n) => [
+    (Icons.dashboard_rounded,      l10n.feDashNavDashboard.toUpperCase()),
+    (Icons.local_shipping_rounded, l10n.lpDashNavLoads.toUpperCase()),
+    (Icons.explore_outlined,       l10n.loUploadNavTracking.toUpperCase()),
+    (Icons.description_outlined,   l10n.loUploadNavDocs.toUpperCase()),
+    (Icons.person_outline,         l10n.feDashNavProfile.toUpperCase()),
   ];
 
   Widget _bottomNav() {
     // "LOADS" (index 1) is always active since this is the loads/upload screen
     const activeIndex = 1;
+    final navItems = _navItems(AppLocalizations.of(context));
     return ClipRect(
       child: Container(
         decoration: BoxDecoration(
@@ -1590,8 +1610,8 @@ class _UploadLoadRequirementScreenState
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(_navItems.length, (i) {
-                final (icon, label) = _navItems[i];
+              children: List.generate(navItems.length, (i) {
+                final (icon, label) = navItems[i];
                 final isActive = i == activeIndex;
                 return GestureDetector(
                   onTap: () {
@@ -1692,59 +1712,60 @@ class _UploadLoadRequirementScreenState
   }
 
   Future<void> _handleSubmit() async {
+    final l10n = AppLocalizations.of(context);
     final pickup = _pickupController.text.trim();
     final drop = _dropController.text.trim();
 
     // ── Validation with auto-scroll ──────────────────────────────────────────
     if (pickup.isEmpty) {
-      _scrollToAndWarn(_pickupKey, 'Please enter a pickup location');
+      _scrollToAndWarn(_pickupKey, l10n.loUploadValPickup);
       return;
     }
     if (drop.isEmpty) {
-      _scrollToAndWarn(_dropKey, 'Please enter a drop location');
+      _scrollToAndWarn(_dropKey, l10n.loUploadValDrop);
       return;
     }
     if (_materialType == null) {
-      _scrollToAndWarn(_materialKey, 'Please select a material type');
+      _scrollToAndWarn(_materialKey, l10n.loUploadValMaterial);
       return;
     }
     if (_entryDate == null) {
-      _scrollToAndWarn(_dateKey, 'Please select an entry date');
+      _scrollToAndWarn(_dateKey, l10n.loUploadValDate);
       return;
     }
     if (_truckCount <= 0) {
-      _scrollToAndWarn(_truckCountKey, 'Truck count can\'t be zero');
+      _scrollToAndWarn(_truckCountKey, l10n.loUploadValTruckCount);
       return;
     }
     // Truck weight is optional — only validate the format if something was entered.
     final capacity = _capacityController.text.trim();
     if (capacity.isNotEmpty && (double.tryParse(capacity) ?? 0) <= 0) {
-      _scrollToAndWarn(_capacityKey, 'Enter a valid truck weight, or leave it blank');
+      _scrollToAndWarn(_capacityKey, l10n.loUploadValTruckWeight);
       if (!_truckSpecsExpanded) setState(() => _truckSpecsExpanded = true);
       return;
     }
     final materialWeight = _materialWeightController.text.trim();
     if (materialWeight.isEmpty || (double.tryParse(materialWeight) ?? 0) <= 0) {
-      _scrollToAndWarn(_materialWeightKey, 'Please enter the material weight');
+      _scrollToAndWarn(_materialWeightKey, l10n.loUploadValMaterialWeight);
       return;
     }
     if (_selectedAxleType == null) {
-      _scrollToAndWarn(_axleKey, 'Please select an axle type');
+      _scrollToAndWarn(_axleKey, l10n.loUploadValAxle);
       if (!_truckSpecsExpanded) setState(() => _truckSpecsExpanded = true);
       return;
     }
     if (_selectedBodyType == null) {
-      _scrollToAndWarn(_bodyKey, 'Please select a body type');
+      _scrollToAndWarn(_bodyKey, l10n.loUploadValBody);
       if (!_truckSpecsExpanded) setState(() => _truckSpecsExpanded = true);
       return;
     }
     if (_selectedFloorType == null) {
-      _scrollToAndWarn(_floorKey, 'Please select a floor type');
+      _scrollToAndWarn(_floorKey, l10n.loUploadValFloor);
       if (!_truckSpecsExpanded) setState(() => _truckSpecsExpanded = true);
       return;
     }
     if (_selectedPartner == null) {
-      _scrollToAndWarn(_partnerKey, 'Please select a logistic partner');
+      _scrollToAndWarn(_partnerKey, l10n.loUploadValPartner);
       return;
     }
 
@@ -1781,7 +1802,7 @@ class _UploadLoadRequirementScreenState
 
     if (load == null) {
       // Show error from provider
-      final err = ref.read(loadProvider).error ?? 'Submission failed. Please try again.';
+      final err = ref.read(loadProvider).error ?? l10n.loUploadSubmitFailed;
       setState(() => _isSubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1854,6 +1875,7 @@ class _UploadLoadRequirementScreenState
   }
 
   void _showProfileMenu() {
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -1877,8 +1899,8 @@ class _UploadLoadRequirementScreenState
             ListTile(
               leading:
                   const Icon(Icons.logout, color: Color(0xFF001e40)),
-              title: const Text('Logout',
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              title: Text(l10n.feDashLogout,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
               onTap: () async {
                 Navigator.pop(context);
                 await ref.read(authProvider.notifier).logout();
@@ -2058,6 +2080,7 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
@@ -2075,7 +2098,7 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                       context.go(AppConstants.routeLoadOwnerHome);
                     },
                     icon: const Icon(Icons.arrow_back, size: 18),
-                    label: const Text('Dashboard'),
+                    label: Text(l10n.feDashNavDashboard),
                     style: TextButton.styleFrom(
                       foregroundColor: _primary,
                       textStyle: const TextStyle(
@@ -2136,10 +2159,10 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                       opacity: _contentFade,
                       child: Column(
                         children: [
-                          const Text(
-                            'Submission Successful',
+                          Text(
+                            l10n.loUploadSuccessTitle,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 30,
                               fontWeight: FontWeight.w900,
                               color: _primary,
@@ -2149,9 +2172,8 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            'Your load requirement for '
-                            '${widget.truckCount} units of ${widget.material} '
-                            'has been received. Our team is now assigning the fleet.',
+                            l10n.loUploadSuccessBody(widget.truckCount,
+                                materialLabel(l10n, widget.material)),
                             textAlign: TextAlign.center,
                             style: const TextStyle(
                               fontSize: 15,
@@ -2173,9 +2195,9 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                             ),
                             child: Column(
                               children: [
-                                const Text(
-                                  'REFERENCE ID',
-                                  style: TextStyle(
+                                Text(
+                                  l10n.loUploadReferenceId.toUpperCase(),
+                                  style: const TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 2.0,
@@ -2217,7 +2239,7 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                                 textStyle: const TextStyle(
                                     fontSize: 15, fontWeight: FontWeight.w700),
                               ),
-                              child: const Text('Track in My Trips'),
+                              child: Text(l10n.loUploadTrackInTrips),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -2238,7 +2260,7 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                                 textStyle: const TextStyle(
                                     fontSize: 15, fontWeight: FontWeight.w700),
                               ),
-                              child: const Text('New Load Requirement'),
+                              child: Text(l10n.loUploadNewLoadRequirement),
                             ),
                           ),
                         ],
@@ -2258,22 +2280,19 @@ class _SubmissionSuccessPageState extends State<_SubmissionSuccessPage>
                   child: Column(
                     children: [
                       _infoRow(
-                        label: 'PROCESS UPDATE',
-                        body:
-                            'Fleet optimization algorithms are calculating the most efficient route for your cargo.',
+                        label: l10n.loUploadProcessUpdate.toUpperCase(),
+                        body: l10n.loUploadProcessUpdateBody,
                       ),
                       const SizedBox(height: 20),
                       _infoRow(
-                        label: 'EXPECTED CONTACT',
-                        body:
-                            'Our logistics coordinator will reach out within 15 minutes for final verification.',
-                        highlight: '15 minutes',
+                        label: l10n.loUploadExpectedContact.toUpperCase(),
+                        body: l10n.loUploadExpectedContactBody,
+                        highlight: l10n.loUploadExpectedContactHighlight,
                       ),
                       const SizedBox(height: 20),
                       _infoRow(
-                        label: 'FLEET STATUS',
-                        body:
-                            '4 heavy-duty trailers are currently available in your pickup zone.',
+                        label: l10n.loUploadFleetStatus.toUpperCase(),
+                        body: l10n.loUploadFleetStatusBody,
                       ),
                     ],
                   ),

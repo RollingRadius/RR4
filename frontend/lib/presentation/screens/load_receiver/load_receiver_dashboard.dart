@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
 
 TextStyle _manrope({
   double size = 14,
@@ -27,6 +28,7 @@ class LoadReceiverDashboard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     final user = ref.watch(authProvider).user;
 
     return Scaffold(
@@ -50,9 +52,9 @@ class LoadReceiverDashboard extends ConsumerWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(user?.fullName ?? 'Load Receiver',
+                Text(user?.fullName ?? l10n.loReceiverRole,
                     style: _manrope(size: 14)),
-                Text('Load Receiver',
+                Text(l10n.loReceiverRole,
                     style: _inter(size: 11, color: _accent)),
               ],
             ),
@@ -77,11 +79,11 @@ class LoadReceiverDashboard extends ConsumerWidget {
               Icon(Icons.inventory_2_outlined,
                   size: 72, color: Colors.teal[100]),
               const SizedBox(height: 24),
-              Text('Load Receiver Dashboard',
+              Text(l10n.loReceiverDashboardTitle,
                   style: _manrope(size: 20, weight: FontWeight.w800)),
               const SizedBox(height: 12),
               Text(
-                'Your incoming deliveries will appear here.',
+                l10n.loReceiverEmpty,
                 style: _inter(size: 14),
                 textAlign: TextAlign.center,
               ),
