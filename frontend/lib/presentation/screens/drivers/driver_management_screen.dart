@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:fleet_management/core/theme/app_theme.dart';
 import 'package:fleet_management/data/models/driver_model.dart';
 import 'package:fleet_management/providers/driver_provider.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
+import 'package:fleet_management/core/utils/vehicle_driver_labels.dart';
 
 class DriverManagementScreen extends ConsumerStatefulWidget {
   const DriverManagementScreen({super.key});
@@ -113,6 +115,7 @@ class _DriverManagementScreenState
   }
 
   Widget _buildHeader(int total) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       color: AppTheme.bgPrimary,
       child: SafeArea(
@@ -138,9 +141,9 @@ class _DriverManagementScreenState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Drivers',
-                          style: TextStyle(
+                        Text(
+                          l10n.drvMgmtTitle,
+                          style: const TextStyle(
                             fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: AppTheme.textPrimary,
@@ -148,7 +151,7 @@ class _DriverManagementScreenState
                           ),
                         ),
                         Text(
-                          '$total total fleet members',
+                          l10n.drvMgmtTotalMembers(total),
                           style: const TextStyle(
                               fontSize: 12, color: AppTheme.textSecondary),
                         ),
@@ -184,7 +187,7 @@ class _DriverManagementScreenState
                   controller: _searchController,
                   onChanged: (v) => setState(() => _searchQuery = v),
                   decoration: InputDecoration(
-                    hintText: 'Search drivers, employee ID...',
+                    hintText: l10n.drvMgmtSearchHint,
                     hintStyle: const TextStyle(
                         color: AppTheme.textSecondary, fontSize: 14),
                     prefixIcon: const Icon(Icons.search_rounded,
@@ -244,7 +247,7 @@ class _DriverManagementScreenState
                             : null,
                       ),
                       child: Text(
-                        f,
+                        driverStatusLabel(l10n, f),
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -266,6 +269,7 @@ class _DriverManagementScreenState
   }
 
   Widget _buildError(String error) {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -286,7 +290,7 @@ class _DriverManagementScreenState
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Retry'),
+            label: Text(l10n.commonRetry),
           ),
         ],
       ),
@@ -294,6 +298,7 @@ class _DriverManagementScreenState
   }
 
   Widget _buildEmpty() {
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -302,14 +307,14 @@ class _DriverManagementScreenState
           const SizedBox(height: 16),
           Text(
             _searchQuery.isNotEmpty || _selectedFilter != 'All'
-                ? 'No drivers match your filter'
-                : 'No drivers yet',
+                ? l10n.drvMgmtNoMatch
+                : l10n.drvMgmtNoDrivers,
             style: TextStyle(fontSize: 16, color: Colors.grey[500]),
           ),
           if (_searchQuery.isEmpty && _selectedFilter == 'All') ...[
             const SizedBox(height: 6),
             Text(
-              'Tap + to add your first driver',
+              l10n.drvMgmtAddFirstHint,
               style: TextStyle(fontSize: 13, color: Colors.grey[400]),
             ),
           ],
@@ -331,7 +336,7 @@ class _DriverCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final info = _statusInfo(driver);
+    final info = _statusInfo(AppLocalizations.of(context), driver);
 
     return GestureDetector(
       onTap: onTap,
@@ -450,11 +455,11 @@ class _DriverCard extends StatelessWidget {
     );
   }
 
-  _StatusInfo _statusInfo(DriverModel d) {
+  _StatusInfo _statusInfo(AppLocalizations l10n, DriverModel d) {
     switch (d.status.toLowerCase()) {
       case 'active':
         return _StatusInfo(
-          label: 'Active',
+          label: l10n.drvMgmtStatusActive,
           dotColor: const Color(0xFF22C55E),
           badgeColor: const Color(0xFFDCFCE7),
           textColor: const Color(0xFF15803D),
@@ -463,16 +468,16 @@ class _DriverCard extends StatelessWidget {
         );
       case 'on_leave':
         return _StatusInfo(
-          label: 'On Leave',
+          label: l10n.drvMgmtStatusOnLeave,
           dotColor: AppTheme.primaryBlue,
           badgeColor: AppTheme.primaryBlue.withOpacity(0.1),
           textColor: AppTheme.primaryBlue,
           secondaryIcon: Icons.calendar_month_rounded,
-          secondaryText: 'Currently on leave',
+          secondaryText: l10n.drvMgmtCurrentlyOnLeave,
         );
       case 'terminated':
         return _StatusInfo(
-          label: 'Terminated',
+          label: l10n.drvMgmtStatusTerminated,
           dotColor: const Color(0xFFEF4444),
           badgeColor: const Color(0xFFFEE2E2),
           textColor: const Color(0xFFDC2626),
@@ -481,12 +486,12 @@ class _DriverCard extends StatelessWidget {
         );
       default:
         return _StatusInfo(
-          label: 'Available',
+          label: l10n.drvMgmtStatusAvailable,
           dotColor: const Color(0xFF3B82F6),
           badgeColor: const Color(0xFFDBEAFE),
           textColor: const Color(0xFF1D4ED8),
           secondaryIcon: Icons.location_on_rounded,
-          secondaryText: d.city ?? 'Main Depot',
+          secondaryText: d.city ?? l10n.drvMgmtMainDepot,
         );
     }
   }

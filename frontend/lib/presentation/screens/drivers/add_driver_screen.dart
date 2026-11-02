@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:fleet_management/providers/driver_provider.dart';
+import 'package:fleet_management/l10n/app_localizations.dart';
+import 'package:fleet_management/core/utils/vehicle_driver_labels.dart';
 
 class AddDriverScreen extends ConsumerStatefulWidget {
   const AddDriverScreen({super.key});
@@ -60,12 +62,7 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
 
   bool _isSubmitting = false;
 
-  final List<Map<String, String>> _licenseTypes = [
-    {'value': 'LMV', 'label': 'LMV (Light Motor Vehicle)'},
-    {'value': 'HMV', 'label': 'HMV (Heavy Motor Vehicle)'},
-    {'value': 'MCWG', 'label': 'MCWG (Motorcycle with Gear)'},
-    {'value': 'HPMV', 'label': 'HPMV (Heavy Passenger Motor Vehicle)'},
-  ];
+  static const _licenseTypes = ['LMV', 'HMV', 'MCWG', 'HPMV'];
 
 
   @override
@@ -91,45 +88,49 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
   // ── Validators ──────────────────────────────────────────────────────────────
 
   String? _validateRequired(String? value, String fieldName) {
-    if (value == null || value.isEmpty) return '$fieldName is required';
+    if (value == null || value.isEmpty) return AppLocalizations.of(context).drvAddFieldRequired(fieldName);
     return null;
   }
 
   String? _validateEmail(String? value) {
     if (value == null || value.isEmpty) return null;
     if (!RegExp(r'^[\w\.-]+@[\w\.-]+\.\w+$').hasMatch(value)) {
-      return 'Enter a valid email address';
+      return AppLocalizations.of(context).drvAddEmailInvalid;
     }
     return null;
   }
 
   String? _validatePhone(String? value) {
-    if (value == null || value.isEmpty) return 'Phone number is required';
-    if (!RegExp(r'^\d{10}$').hasMatch(value)) return 'Phone must be 10 digits';
+    final l10n = AppLocalizations.of(context);
+    if (value == null || value.isEmpty) return l10n.drvAddPhoneRequired;
+    if (!RegExp(r'^\d{10}$').hasMatch(value)) return l10n.drvAddPhoneDigits;
     return null;
   }
 
   String? _validateUsername(String? value) {
-    if (value == null || value.isEmpty) return 'Username is required';
+    final l10n = AppLocalizations.of(context);
+    if (value == null || value.isEmpty) return l10n.drvAddUsernameRequired;
     if (!RegExp(r'^[a-zA-Z0-9_]{3,50}$').hasMatch(value)) {
-      return 'Username: 3-50 chars (letters, numbers, underscore)';
+      return l10n.drvAddUsernameFormat;
     }
     return null;
   }
 
   String? _validatePassword(String? value) {
-    if (value == null || value.isEmpty) return 'Password is required';
-    if (value.length < 8) return 'Password must be at least 8 characters';
-    if (!RegExp(r'[A-Z]').hasMatch(value)) return 'Must include an uppercase letter';
-    if (!RegExp(r'[a-z]').hasMatch(value)) return 'Must include a lowercase letter';
-    if (!RegExp(r'\d').hasMatch(value)) return 'Must include a digit';
+    final l10n = AppLocalizations.of(context);
+    if (value == null || value.isEmpty) return l10n.drvAddPasswordRequired;
+    if (value.length < 8) return l10n.drvAddPasswordLength;
+    if (!RegExp(r'[A-Z]').hasMatch(value)) return l10n.drvAddPasswordUpper;
+    if (!RegExp(r'[a-z]').hasMatch(value)) return l10n.drvAddPasswordLower;
+    if (!RegExp(r'\d').hasMatch(value)) return l10n.drvAddPasswordDigit;
     return null;
   }
 
   String? _validateLicenseNumber(String? value) {
-    if (value == null || value.isEmpty) return 'License number is required';
+    final l10n = AppLocalizations.of(context);
+    if (value == null || value.isEmpty) return l10n.drvAddLicenseRequired;
     if (!RegExp(r'^[A-Z0-9\-]{10,50}$').hasMatch(value.toUpperCase())) {
-      return 'License must be 10-50 alphanumeric characters';
+      return l10n.drvAddLicenseFormat;
     }
     return null;
   }
@@ -170,37 +171,38 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
   // ── Submit ────────────────────────────────────────────────────────────────────
 
   Future<void> _submitForm() async {
+    final l10n = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fix the errors in the form')),
+        SnackBar(content: Text(l10n.drvAddFixErrors)),
       );
       return;
     }
 
     if (_issueDate == null || _expiryDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('License issue date and expiry date are required')),
+        SnackBar(content: Text(l10n.drvAddDatesRequired)),
       );
       return;
     }
 
     if (_expiryDate!.isBefore(_issueDate!)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('License expiry date must be after issue date')),
+        SnackBar(content: Text(l10n.drvAddExpiryAfterIssue)),
       );
       return;
     }
 
     if (_expiryDate!.isBefore(DateTime.now())) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('License expiry date must be in the future')),
+        SnackBar(content: Text(l10n.drvAddExpiryFuture)),
       );
       return;
     }
 
     if (_joinDate.isAfter(DateTime.now())) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Join date cannot be in the future')),
+        SnackBar(content: Text(l10n.drvAddJoinFuture)),
       );
       return;
     }
@@ -281,13 +283,13 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
       if (mounted) {
         if (photoError != null) {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text('Driver added, but photo upload failed: $photoError'),
+            content: Text(l10n.drvAddPhotoFailed(photoError)),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 6),
           ));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Driver added successfully!')),
+            SnackBar(content: Text(l10n.drvAddSuccess)),
           );
         }
         context.pop();
@@ -339,6 +341,7 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: _bg,
       body: Column(
@@ -359,11 +362,11 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                           icon: const Icon(Icons.arrow_back, color: _primary),
                           onPressed: () => Navigator.pop(context),
                         ),
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'Add New Driver',
+                            l10n.drvAddTitle,
                             textAlign: TextAlign.center,
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ),
                         const SizedBox(width: 48),
@@ -378,16 +381,16 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
-                              'REGISTRATION PROGRESS',
-                              style: TextStyle(
+                            Text(
+                              l10n.drvAddProgress,
+                              style: const TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                                 color: _primary,
                                 letterSpacing: 0.8,
                               ),
                             ),
-                            Text('Step 1 of 3',
+                            Text(l10n.drvAddStep,
                                 style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                           ],
                         ),
@@ -469,10 +472,10 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            _selectedPhoto != null ? 'Photo selected — tap to change' : 'Upload Profile Photo',
+                            _selectedPhoto != null ? l10n.drvAddPhotoSelected : l10n.drvAddUploadPhoto,
                             style: const TextStyle(color: _primary, fontWeight: FontWeight.w600, fontSize: 13),
                           ),
-                          Text('PNG, JPG up to 5MB',
+                          Text(l10n.drvAddPhotoHint,
                               style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                         ],
                       ),
@@ -481,28 +484,28 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   const SizedBox(height: 28),
 
                   // ── Section: Personal Information ──────────────────────────
-                  const _SectionHeader(icon: Icons.person, label: 'Personal Information'),
+                  _SectionHeader(icon: Icons.person, label: l10n.driverDashBPersonalInfo),
                   const SizedBox(height: 14),
                   Row(
                     children: [
                       Expanded(
                         child: _FieldWrap(
-                          label: 'First Name',
+                          label: l10n.drvAddFirstName,
                           child: TextFormField(
                             controller: _firstNameController,
-                            decoration: _inputDecor('e.g. Jonathan'),
-                            validator: (v) => _validateRequired(v, 'First name'),
+                            decoration: _inputDecor(l10n.drvAddHintExample('Jonathan')),
+                            validator: (v) => _validateRequired(v, l10n.drvAddFirstName),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _FieldWrap(
-                          label: 'Last Name',
+                          label: l10n.drvAddLastName,
                           child: TextFormField(
                             controller: _lastNameController,
-                            decoration: _inputDecor('e.g. Miller'),
-                            validator: (v) => _validateRequired(v, 'Last name'),
+                            decoration: _inputDecor(l10n.drvAddHintExample('Miller')),
+                            validator: (v) => _validateRequired(v, l10n.drvAddLastName),
                           ),
                         ),
                       ),
@@ -510,16 +513,16 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   ),
                   const SizedBox(height: 12),
                   _FieldWrap(
-                    label: 'Employee ID',
+                    label: l10n.driverDashBEmployeeId,
                     child: TextFormField(
                       controller: _employeeIdController,
-                      decoration: _inputDecor('e.g. DRV-001'),
-                      validator: (v) => _validateRequired(v, 'Employee ID'),
+                      decoration: _inputDecor(l10n.drvAddHintExample('DRV-001')),
+                      validator: (v) => _validateRequired(v, l10n.driverDashBEmployeeId),
                     ),
                   ),
                   const SizedBox(height: 12),
                   _FieldWrap(
-                    label: 'Email Address',
+                    label: l10n.drvAddEmail,
                     child: TextFormField(
                       controller: _emailController,
                       decoration: _inputDecor('driver@fleet.com'),
@@ -529,7 +532,7 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   ),
                   const SizedBox(height: 12),
                   _FieldWrap(
-                    label: 'Phone Number',
+                    label: l10n.authPhoneNumber,
                     child: TextFormField(
                       controller: _phoneController,
                       decoration: _inputDecor('+91 XXXXX XXXXX'),
@@ -539,7 +542,7 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   ),
                   const SizedBox(height: 12),
                   _FieldWrap(
-                    label: 'Join Date',
+                    label: l10n.drvAddJoinDate,
                     child: GestureDetector(
                       onTap: () => _pickDate(_joinDate, (d) => setState(() => _joinDate = d)),
                       child: _DateBox(label: _fmtDate(_joinDate)),
@@ -548,10 +551,10 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   const SizedBox(height: 28),
 
                   // ── Section: Login Credentials ─────────────────────────────
-                  const _SectionHeader(icon: Icons.lock_outline, label: 'Login Credentials'),
+                  _SectionHeader(icon: Icons.lock_outline, label: l10n.drvAddSectionLogin),
                   const SizedBox(height: 14),
                   _FieldWrap(
-                    label: 'Username',
+                    label: l10n.authUsername,
                     child: TextFormField(
                       controller: _usernameController,
                       decoration: _inputDecor('fleet_driver'),
@@ -560,11 +563,11 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   ),
                   const SizedBox(height: 12),
                   _FieldWrap(
-                    label: 'Password',
+                    label: l10n.authPassword,
                     child: TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      decoration: _inputDecor('Min 8 chars, with uppercase & digit').copyWith(
+                      decoration: _inputDecor(l10n.drvAddPasswordHint).copyWith(
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword ? Icons.visibility_off : Icons.visibility,
@@ -580,10 +583,10 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   const SizedBox(height: 28),
 
                   // ── Section: License Details ───────────────────────────────
-                  const _SectionHeader(icon: Icons.badge, label: 'License Details'),
+                  _SectionHeader(icon: Icons.badge, label: l10n.driverDashBLicenseDetails),
                   const SizedBox(height: 14),
                   _FieldWrap(
-                    label: 'License Number',
+                    label: l10n.driverDashBLicenseNumber,
                     child: TextFormField(
                       controller: _licenseNumberController,
                       decoration: _inputDecor('ABC-123456-XYZ'),
@@ -593,14 +596,14 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   ),
                   const SizedBox(height: 12),
                   _FieldWrap(
-                    label: 'License Class',
+                    label: l10n.drvAddLicenseClass,
                     child: DropdownButtonFormField<String>(
                       value: _licenseType,
                       decoration: _inputDecor(''),
                       items: _licenseTypes
                           .map((t) => DropdownMenuItem(
-                                value: t['value'],
-                                child: Text(t['label']!, style: const TextStyle(fontSize: 14)),
+                                value: t,
+                                child: Text(licenseClassLabel(l10n, t), style: const TextStyle(fontSize: 14)),
                               ))
                           .toList(),
                       onChanged: (v) => setState(() => _licenseType = v!),
@@ -631,9 +634,9 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('License Document Scan',
-                                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                              Text('Upload clear scan or photo',
+                              Text(l10n.drvAddLicenseScan,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                              Text(l10n.drvAddLicenseScanHint,
                                   style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                             ],
                           ),
@@ -641,8 +644,8 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                         TextButton(
                           onPressed: () {},
                           style: TextButton.styleFrom(padding: EdgeInsets.zero),
-                          child: const Text('UPLOAD',
-                              style: TextStyle(color: _primary, fontSize: 11, fontWeight: FontWeight.w700)),
+                          child: Text(l10n.recvDocsUpload.toUpperCase(),
+                              style: const TextStyle(color: _primary, fontSize: 11, fontWeight: FontWeight.w700)),
                         ),
                       ],
                     ),
@@ -652,22 +655,22 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                     children: [
                       Expanded(
                         child: _FieldWrap(
-                          label: 'Issue Date',
+                          label: l10n.driverDashBIssueDate,
                           child: GestureDetector(
                             onTap: () =>
                                 _pickDate(_issueDate, (d) => setState(() => _issueDate = d)),
-                            child: _DateBox(label: _issueDate != null ? _fmtDate(_issueDate!) : 'Select'),
+                            child: _DateBox(label: _issueDate != null ? _fmtDate(_issueDate!) : l10n.drvAddSelect),
                           ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _FieldWrap(
-                          label: 'Expiry Date',
+                          label: l10n.driverDashBExpiryDate,
                           child: GestureDetector(
                             onTap: () =>
                                 _pickDate(_expiryDate, (d) => setState(() => _expiryDate = d)),
-                            child: _DateBox(label: _expiryDate != null ? _fmtDate(_expiryDate!) : 'Select'),
+                            child: _DateBox(label: _expiryDate != null ? _fmtDate(_expiryDate!) : l10n.drvAddSelect),
                           ),
                         ),
                       ),
@@ -676,16 +679,16 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                   const SizedBox(height: 28),
 
                   // ── Section: Assignment & Role ─────────────────────────────
-                  const _SectionHeader(icon: Icons.assignment, label: 'Assignment & Role'),
+                  _SectionHeader(icon: Icons.assignment, label: l10n.drvAddSectionRole),
                   const SizedBox(height: 14),
                   _FieldWrap(
-                    label: 'System Role',
+                    label: l10n.drvAddSystemRole,
                     child: Row(
                       children: [
                         Expanded(
                           child: _RoleButton(
                             icon: Icons.drive_eta,
-                            label: 'Driver',
+                            label: driverSystemRoleLabel(l10n, 'driver'),
                             value: 'driver',
                             selected: _selectedRole,
                             onTap: () => setState(() => _selectedRole = 'driver'),
@@ -695,7 +698,7 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                         Expanded(
                           child: _RoleButton(
                             icon: Icons.local_shipping,
-                            label: 'Logistics',
+                            label: driverSystemRoleLabel(l10n, 'logistics'),
                             value: 'logistics',
                             selected: _selectedRole,
                             onTap: () => setState(() => _selectedRole = 'logistics'),
@@ -705,7 +708,7 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                         Expanded(
                           child: _RoleButton(
                             icon: Icons.support_agent,
-                            label: 'Support',
+                            label: driverSystemRoleLabel(l10n, 'support'),
                             value: 'support',
                             selected: _selectedRole,
                             onTap: () => setState(() => _selectedRole = 'support'),
@@ -754,7 +757,7 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
                       )
                     : const Icon(Icons.person_add, size: 18),
                 label: Text(
-                  _isSubmitting ? 'Adding Driver...' : 'Add Driver to Fleet',
+                  _isSubmitting ? l10n.drvAddAdding : l10n.drvAddButton,
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                 ),
                 style: ElevatedButton.styleFrom(
@@ -771,7 +774,7 @@ class _AddDriverScreenState extends ConsumerState<AddDriverScreen> {
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: Text(
-                'Cancel and return',
+                l10n.drvAddCancelReturn,
                 style: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.w600),
               ),
             ),
@@ -848,7 +851,7 @@ class _DateBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPlaceholder = label == 'Select';
+    final isPlaceholder = label == AppLocalizations.of(context).drvAddSelect;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
