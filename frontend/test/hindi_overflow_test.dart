@@ -4,12 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:fleet_management/l10n/app_localizations.dart';
-import 'package:fleet_management/presentation/screens/auth/login_screen.dart';
-import 'package:fleet_management/presentation/screens/drivers/add_driver_screen.dart';
-import 'package:fleet_management/presentation/screens/help/help_center_screen.dart';
-import 'package:fleet_management/presentation/screens/organizations/create_organization_screen.dart';
-import 'package:fleet_management/presentation/screens/settings/settings_screen.dart';
-import 'package:fleet_management/presentation/screens/vehicles/add_vehicle_screen.dart';
+import 'support/screen_registry.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/location_tracking_provider.dart';
 import 'package:fleet_management/providers/settings_provider.dart';
@@ -114,16 +109,9 @@ String _chainOf(String overflow) => overflow
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  // Phase 1-5 screens that build with only auth/GPS stand-ins. Screens that
-  // need live API data are left to a device pass.
-  final screens = <String, Widget Function()>{
-    'LoginScreen': () => const LoginScreen(),
-    'SettingsScreen': () => const SettingsScreen(),
-    'HelpCenterScreen': () => const HelpCenterScreen(),
-    'CreateOrganizationScreen': () => const CreateOrganizationScreen(),
-    'AddVehicleScreen': () => const AddVehicleScreen(),
-    'AddDriverScreen': () => const AddDriverScreen(),
-  };
+  // The screens come from test/support/screen_registry.dart. Add a new screen
+  // there (or to its skip list); screen_guard_test.dart fails until you do.
+  final screens = coveredScreens;
 
   // A small phone (360 wide), and the same phone with the system font at 130%.
   const scales = <double>[1.0, 1.3];
