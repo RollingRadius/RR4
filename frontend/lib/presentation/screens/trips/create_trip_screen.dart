@@ -2403,7 +2403,9 @@ class _SectionHeader extends StatelessWidget {
       Container(width: 3, height: 16,
           decoration: BoxDecoration(color: _primary, borderRadius: BorderRadius.circular(2))),
       const SizedBox(width: 8),
-      Text(label, style: _manrope(size: 14, weight: FontWeight.w800, color: _onSurface)),
+      Expanded(
+        child: Text(label, style: _manrope(size: 14, weight: FontWeight.w800, color: _onSurface)),
+      ),
     ]);
   }
 }
@@ -2810,7 +2812,9 @@ class _StepIndicator extends StatelessWidget {
         final labelColor  = active ? _primary : done ? _successClr : _secondary;
         return Expanded(
           child: Row(children: [
-            Column(children: [
+            Flexible(
+              flex: 2,
+              child: Column(children: [
               Container(
                 width: 28, height: 28,
                 decoration: BoxDecoration(
@@ -2826,8 +2830,12 @@ class _StepIndicator extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              Text(labels[i], style: _inter(size: 11, weight: FontWeight.w500, color: labelColor)),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(labels[i], style: _inter(size: 11, weight: FontWeight.w500, color: labelColor)),
+              ),
             ]),
+            ),
             if (i < 2)
               Expanded(
                 child: Container(

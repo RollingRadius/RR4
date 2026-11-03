@@ -345,7 +345,9 @@ class _CertDetailCardState extends State<_CertDetailCard> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(widget.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              Expanded(
+                child: Text(widget.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              ),
               const Icon(Icons.edit, color: _primary, size: 16),
             ],
           ),

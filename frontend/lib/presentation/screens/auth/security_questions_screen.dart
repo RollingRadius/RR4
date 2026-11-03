@@ -546,13 +546,16 @@ class _StepFooter extends StatelessWidget {
               const Icon(Icons.lock_outline,
                   size: 12, color: AppTheme.textTertiary),
               const SizedBox(width: 4),
-              Text(
-                l10n.secQuestionsEncrypted,
-                style: const TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textTertiary,
-                  letterSpacing: 1.5,
+              Flexible(
+                child: Text(
+                  l10n.secQuestionsEncrypted,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textTertiary,
+                    letterSpacing: 1.5,
+                  ),
                 ),
               ),
             ],

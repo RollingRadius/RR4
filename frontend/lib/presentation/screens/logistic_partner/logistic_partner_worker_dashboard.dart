@@ -546,7 +546,8 @@ class _WorkerBottomNav extends StatelessWidget {
                 children: navItems.map((item) {
                   final (icon, label, navIdx) = item;
                   final active = navIdx == selectedIndex;
-                  return GestureDetector(
+                  return Flexible(
+                    child: GestureDetector(
                     onTap: () => onTap(navIdx),
                     behavior: HitTestBehavior.opaque,
                     child: AnimatedContainer(
@@ -566,17 +567,21 @@ class _WorkerBottomNav extends StatelessWidget {
                               color: active ? Colors.white : _secondary,
                               size: 22),
                           const SizedBox(height: 3),
-                          Text(
-                            label,
-                            style: _inter(
-                              size: 9,
-                              weight: FontWeight.w700,
-                              color: active ? Colors.white : _secondary,
-                            ).copyWith(letterSpacing: 0.6),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              label,
+                              style: _inter(
+                                size: 9,
+                                weight: FontWeight.w700,
+                                color: active ? Colors.white : _secondary,
+                              ).copyWith(letterSpacing: 0.6),
+                            ),
                           ),
                         ],
                       ),
                     ),
+                  ),
                   );
                 }).toList(),
               ),

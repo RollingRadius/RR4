@@ -1511,12 +1511,14 @@ class _UploadLoadRequirementScreenState
           children: [
             Icon(icon, size: 16, color: comingSoon ? const Color(0xFF737780) : const Color(0xFF001e40)),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: comingSoon ? const Color(0xFF737780) : const Color(0xFF001e40),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: comingSoon ? const Color(0xFF737780) : const Color(0xFF001e40),
+                ),
               ),
             ),
             if (comingSoon) ...[

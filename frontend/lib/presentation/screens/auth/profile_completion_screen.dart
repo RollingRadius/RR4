@@ -517,7 +517,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                 ),
               ),
               if (comingSoon)
-                Container(
+                Flexible(child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.grey[200],
@@ -531,7 +531,7 @@ class _ProfileCompletionScreenState extends ConsumerState<ProfileCompletionScree
                       color: Colors.grey[600],
                     ),
                   ),
-                )
+                ))
               else if (isSelected)
                 Icon(
                   Icons.check_circle,
@@ -876,7 +876,7 @@ class _WorkerTypeCardInner extends StatelessWidget {
               ),
             ),
             if (comingSoon)
-              Container(
+              Flexible(child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
@@ -886,7 +886,7 @@ class _WorkerTypeCardInner extends StatelessWidget {
                   AppLocalizations.of(context).profileCompleteComingSoon,
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[600]),
                 ),
-              )
+              ))
             else if (isSelected)
               Icon(Icons.check_circle, color: color, size: 20),
           ],
@@ -1210,7 +1210,7 @@ class _CompanyTypeCardWrapper extends StatelessWidget {
               ),
             ),
             if (comingSoon)
-              Container(
+              Flexible(child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
@@ -1220,7 +1220,7 @@ class _CompanyTypeCardWrapper extends StatelessWidget {
                   AppLocalizations.of(context).profileCompleteComingSoon,
                   style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey[600]),
                 ),
-              )
+              ))
             else if (isSelected)
               Icon(Icons.check_circle, color: color, size: 22),
           ],
