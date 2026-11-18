@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fleet_management/core/utils/search_input_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -185,6 +186,7 @@ class _AddRrCompanyScreenState extends ConsumerState<AddRrCompanyScreen> {
                     RrSearchField<Map<String, dynamic>>(
                       label: l10n.companyCreateCityLabel,
                       controller: _cityCtrl,
+                      inputFormatters: cityNameInputFormatters,
                       search: _searchCities,
                       itemLabel: (c) => c['name'] as String? ?? '',
                       onSelected: (c) {

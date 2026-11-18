@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fleet_management/core/utils/search_input_formatters.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -478,6 +479,7 @@ class _AddMarketVehicleScreenState extends ConsumerState<AddMarketVehicleScreen>
                           label: l10n.stageS1RcNumber,
                           hintText: l10n.rrQuickAddRcHint,
                           controller: _rcSearchCtrl,
+                          inputFormatters: rcNumberInputFormatters,
                           search: _searchVehiclesByRc,
                           itemLabel: (v) => v['rc_number'] as String? ?? '',
                           itemSubtitle: (v) => v['owner_name'] as String? ?? '',

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/providers/trip_provider.dart' show tripProvider, pendingRrTripNumberProvider, pendingCreatedTripIdProvider;
+import 'package:fleet_management/core/utils/search_input_formatters.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/rr_session_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
@@ -1635,6 +1636,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
         hint: l10n.createTripSearchCity,
         loading: _pickupLoading,
         confirmed: _pickupCityId != null,
+        inputFormatters: cityNameInputFormatters,
         onChanged: _onPickupTyped,
         onClear: () => setState(() { _pickupCityId = null; _pickupCtrl.clear(); _pickupResults = []; }),
       ),
@@ -1797,6 +1799,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
         hint: l10n.createTripSearchCity,
         loading: _dropLoading,
         confirmed: _dropCityId != null,
+        inputFormatters: cityNameInputFormatters,
         onChanged: _onDropTyped,
         onClear: () => setState(() { _dropCityId = null; _dropCtrl.clear(); _dropResults = []; }),
       ),
@@ -2452,6 +2455,7 @@ class _SearchField extends StatelessWidget {
   final bool hasError;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _SearchField({
     required this.controller,
@@ -2461,6 +2465,7 @@ class _SearchField extends StatelessWidget {
     required this.onChanged,
     required this.onClear,
     this.hasError = false,
+    this.inputFormatters,
   });
 
   @override
@@ -2487,6 +2492,7 @@ class _SearchField extends StatelessWidget {
           child: TextField(
             controller: controller,
             onChanged: onChanged,
+            inputFormatters: inputFormatters,
             style: _inter(size: 13, color: _onSurface),
             decoration: InputDecoration(
               hintText: hint,

@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:fleet_management/presentation/widgets/language_switch_button.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -28,6 +29,7 @@ import 'package:fleet_management/presentation/screens/fleet/fleet_hub_screen.dar
 import 'package:fleet_management/presentation/screens/worker_requests/worker_requests_screen.dart';
 import 'package:fleet_management/presentation/screens/logistic_partner/lp_workers_screen.dart';
 import 'package:fleet_management/core/constants/app_constants.dart';
+import 'package:fleet_management/core/utils/search_input_formatters.dart';
 import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -400,6 +402,8 @@ class _TopBar extends ConsumerWidget {
                 ).copyWith(letterSpacing: 1.0),
               ),
             ),
+            const LanguageSwitchButton(color: _secondary),
+            const SizedBox(width: 12),
             GestureDetector(
               onTap: () => _showNotificationsSheet(context),
               child: Stack(
@@ -3583,6 +3587,7 @@ class _FulfillCityField extends StatelessWidget {
               child: TextField(
                 controller: controller,
                 onChanged: onChanged,
+                inputFormatters: cityNameInputFormatters,
                 style: _inter(size: 13, color: const Color(0xFF191C1E)),
                 decoration: InputDecoration(
                   border: InputBorder.none,
