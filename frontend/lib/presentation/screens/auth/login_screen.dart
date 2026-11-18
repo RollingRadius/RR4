@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:fleet_management/presentation/widgets/language_switch_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
@@ -175,14 +176,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 // Top bar
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  child: Text(
-                    l10n.loginTitle,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.textPrimary,
-                    ),
+                  child: Row(
+                    children: [
+                      const SizedBox(width: 56), // balances the language button so the title stays centred
+                      Expanded(
+                        child: Text(
+                          l10n.loginTitle,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const LanguageSwitchButton(),
+                    ],
                   ),
                 ),
 

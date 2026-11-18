@@ -3,6 +3,7 @@ import 'dart:ui';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:fleet_management/presentation/widgets/language_switch_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -435,6 +436,7 @@ class _ComingSoonDashboard extends StatelessWidget {
         elevation: 0,
         automaticallyImplyLeading: false,
         actions: [
+          const LanguageSwitchButton(color: _secondary),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: _secondary),
             onSelected: (v) { if (v == 'logout') onLogout(); },

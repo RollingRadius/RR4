@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:fleet_management/presentation/widgets/language_switch_button.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -339,6 +340,7 @@ class _LpRrOpsDashboardState extends ConsumerState<LpRrOpsDashboard> {
                 ),
               ),
               actions: [
+                const LanguageSwitchButton(color: Colors.white),
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert, color: Colors.white),
                   onSelected: (v) async {

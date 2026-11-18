@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:fleet_management/presentation/widgets/language_switch_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -287,6 +288,7 @@ class _Header extends StatelessWidget {
           _LocationPermissionToggle(),
           const SizedBox(width: 8),
           // Logout (driver dashboard is minimal — no notifications/settings for now)
+          const LanguageSwitchButton(color: _onSurface),
           _LogoutButton(),
         ],
       ),

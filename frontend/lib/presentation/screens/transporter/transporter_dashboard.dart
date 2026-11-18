@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:fleet_management/presentation/widgets/language_switch_button.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -53,9 +54,9 @@ class _TripsState {
       );
 
   // Trips without a slip yet — show in Dashboard fleet status
-  List<TripModel> get active => trips.where((t) => t.s2LoadingSlipUrl == null).toList();
+  List<TripModel> get active => trips.where((t) => !t.hasLoadingSlip).toList();
   // Trips with slip uploaded — show in Records
-  List<TripModel> get done   => trips.where((t) => t.s2LoadingSlipUrl != null).toList();
+  List<TripModel> get done   => trips.where((t) => t.hasLoadingSlip).toList();
 
   int get pendingCount => trips.where((t) => t.isAtLoadingSlipStage).length;
 }
@@ -215,6 +216,7 @@ class _ComingSoonDashboard extends StatelessWidget {
         elevation: 0,
         automaticallyImplyLeading: false,
         actions: [
+          const LanguageSwitchButton(color: _grey2),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: _grey2),
             onSelected: (v) { if (v == 'logout') onLogout(); },
@@ -941,7 +943,7 @@ class _AssignedTripCardState extends ConsumerState<_AssignedTripCard> {
   @override
   Widget build(BuildContext context) {
     final canUpload  = _trip.isAtLoadingSlipStage;
-    final waitStage  = !canUpload && _trip.s2LoadingSlipUrl == null && (_trip.currentStage ?? 0) < 2;
+    final waitStage  = !canUpload && !_trip.hasLoadingSlip && (_trip.currentStage ?? 0) < 2;
 
     return Container(
       decoration: BoxDecoration(
@@ -1161,7 +1163,7 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (trip.s2LoadingSlipUrl != null) {
+    if (trip.hasLoadingSlip) {
       return _Badge('SLIP DONE', _green, _greenL);
     }
     if (trip.isAtLoadingSlipStage) {

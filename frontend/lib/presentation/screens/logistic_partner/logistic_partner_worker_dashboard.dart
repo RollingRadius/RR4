@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:fleet_management/presentation/widgets/language_switch_button.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -177,6 +178,8 @@ class _WorkerTopBar extends ConsumerWidget {
                 ).copyWith(letterSpacing: 1.0),
               ),
             ),
+            const LanguageSwitchButton(color: _secondary),
+            const SizedBox(width: 12),
             GestureDetector(
               onTap: () => _showNotificationsSheet(context),
               child: Stack(
