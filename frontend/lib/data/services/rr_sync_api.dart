@@ -89,10 +89,17 @@ class RrSyncApi {
     required String tripId,
     String? rrToken,
     required String driverRrId,
+    // The user was warned this driver has another open trip and chose to reassign:
+    // the server unlinks him from that trip and tracks him on this one.
+    bool moveFromOpenTrip = false,
   }) async {
     final resp = await _apiService.dio.post(
       '/api/rr/reassign-driver/$tripId',
-      data: {if (rrToken != null) 'rr_token': rrToken, 'driver_rr_id': driverRrId},
+      data: {
+        if (rrToken != null) 'rr_token': rrToken,
+        'driver_rr_id': driverRrId,
+        if (moveFromOpenTrip) 'move_from_open_trip': true,
+      },
     );
     return Map<String, dynamic>.from(resp.data);
   }

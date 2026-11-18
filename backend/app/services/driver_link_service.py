@@ -111,6 +111,17 @@ def _driver_has_other_open_trip(db: Session, driver_id, exclude_trip_id) -> bool
     ).first() is not None
 
 
+def other_open_trips(db: Session, driver_id, exclude_trip_id) -> list:
+    """The driver's other open trips (same rule as _driver_has_other_open_trip)."""
+    return db.query(Trip).filter(
+        Trip.driver_id == driver_id,
+        Trip.status == 'ongoing',
+        ~Trip.is_stage5_complete,
+        ~Trip.driver_tracking_stopped,
+        Trip.id != exclude_trip_id,
+    ).all()
+
+
 def find_driver_by_phone(db: Session, phone: str) -> Driver | None:
     """Normalize `phone` and match against the expression index on
     drivers.phone (see alembic/versions/090_add_driver_phone_index.py —
@@ -164,7 +175,8 @@ async def resolve_local_driver(rr_driver_id: str, rr_token: str, db: Session) ->
     return True, (find_driver_by_phone(db, phone) if phone else None)
 
 
-async def link_driver_to_trip(trip: Trip, rr_driver_id: str, rr_token: str, db: Session) -> None:
+async def link_driver_to_trip(trip: Trip, rr_driver_id: str, rr_token: str, db: Session,
+                              move_from_open_trip: bool = False) -> None:
     """Best-effort: resolve the RR driver to a local Driver (see
     resolve_local_driver) and set trip.driver_id — but ONLY on a genuine,
     successful RR lookup. A transient RR failure (network error, non-200 —
@@ -180,6 +192,14 @@ async def link_driver_to_trip(trip: Trip, rr_driver_id: str, rr_token: str, db: 
         logger.warning(f"[Driver Link] Trip {trip.trip_number} — leaving trip.driver_id untouched")
         return
 
+    if matched and move_from_open_trip:
+        # The user saw "this driver has another open trip" and chose to reassign anyway (user, 2026-11-14):
+        # he is unlinked from that trip and tracked on this one.
+        for other in other_open_trips(db, matched.id, trip.id):
+            other.driver_id = None
+            logger.info(f"[Driver Link] Driver {matched.id} unlinked from open trip {other.trip_number} "
+                        f"(moved to {trip.trip_number} on reassign)")
+        db.flush()   # the app's sessions do not autoflush: the check below must see the unlink
     if matched and _driver_has_other_open_trip(db, matched.id, trip.id):
         # Don't silently steal a driver from a trip they're still open on —
         # treat this the same as "no local match" rather than raising, since

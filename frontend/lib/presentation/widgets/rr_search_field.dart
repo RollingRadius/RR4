@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fleet_management/l10n/app_localizations.dart';
 
@@ -21,6 +22,10 @@ class RrSearchField<T> extends StatefulWidget {
   final VoidCallback? onCleared;
   final TextInputType keyboardType;
   final String? hintText;
+  /// Optional action shown under "no matches" (e.g. an "Add driver" button), given what was typed.
+  final Widget Function(String query)? noMatchesAction;
+  /// Optional typing rules (e.g. only capitals and digits for an RC number). Null = any text.
+  final List<TextInputFormatter>? inputFormatters;
 
   const RrSearchField({
     super.key,
@@ -33,6 +38,8 @@ class RrSearchField<T> extends StatefulWidget {
     this.onCleared,
     this.keyboardType = TextInputType.text,
     this.hintText,
+    this.noMatchesAction,
+    this.inputFormatters,
   });
 
   @override
@@ -90,6 +97,7 @@ class _RrSearchFieldState<T> extends State<RrSearchField<T>> {
         TextField(
           controller: widget.controller,
           keyboardType: widget.keyboardType,
+          inputFormatters: widget.inputFormatters,
           decoration: InputDecoration(
             labelText: widget.label,
             hintText: widget.hintText,
@@ -113,6 +121,8 @@ class _RrSearchFieldState<T> extends State<RrSearchField<T>> {
             child: Text(AppLocalizations.of(context).rrSearchNoMatches,
                 style: GoogleFonts.inter(fontSize: 12, color: _secondary)),
           ),
+        if (_showResults && !_loading && _results.isEmpty && widget.noMatchesAction != null)
+          widget.noMatchesAction!(widget.controller.text.trim()),
         if (_results.isNotEmpty)
           Container(
             margin: const EdgeInsets.only(top: 6),

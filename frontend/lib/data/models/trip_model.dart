@@ -57,6 +57,8 @@ class TripModel {
   final String? s1PermitNumber;
   final String? s1Pan;
   final String? s1TaxDeclaration;
+  final String? s1PanNumber;              // truck owner's PAN number
+  final String? s1TaxDeclarationExpiry;   // yyyy-MM-dd, tax declaration valid till
   final String? s1CancelledCheque;
 
   // ── Stage 2 fields ───────────────────────────────────────────────────────────
@@ -180,6 +182,7 @@ class TripModel {
 
   // ── RR sync state ─────────────────────────────────────────────────────────────
   final String? rrTripId;
+  final String? rrTripCreatedAt;   // when the RR trip was created - RR refuses a bilty date before it
   final String? rrTripNumber;
   final String? rrParcelId;
   final String? rrBookingId;
@@ -257,6 +260,8 @@ class TripModel {
     this.s1PermitNumber,
     this.s1Pan,
     this.s1TaxDeclaration,
+    this.s1PanNumber,
+    this.s1TaxDeclarationExpiry,
     this.s1CancelledCheque,
     this.s2SpecsVerified,
     this.s2DocsVerified,
@@ -352,6 +357,7 @@ class TripModel {
     this.rrOpsUserId,
     this.transporterRrCompanyId,
     this.rrTripId,
+    this.rrTripCreatedAt,
     this.rrTripNumber,
     this.rrParcelId,
     this.rrBookingId,
@@ -435,6 +441,8 @@ class TripModel {
       s1PermitNumber: json['s1_permit_number'] as String?,
       s1Pan: json['s1_pan'] as String?,
       s1TaxDeclaration: json['s1_tax_declaration'] as String?,
+      s1PanNumber: json['s1_pan_number'] as String?,
+      s1TaxDeclarationExpiry: json['s1_tax_declaration_expiry'] as String?,
       s1CancelledCheque: json['s1_cancelled_cheque'] as String?,
       s2SpecsVerified: json['s2_specs_verified'] as bool?,
       s2DocsVerified: json['s2_docs_verified'] as bool?,
@@ -530,6 +538,7 @@ class TripModel {
       rrOpsUserId:             json['rr_ops_user_id'] as String?,
       transporterRrCompanyId:  json['transporter_rr_company_id'] as String?,
       rrTripId:                json['rr_trip_id'] as String?,
+      rrTripCreatedAt:         json['rr_trip_created_at'] as String?,
       rrTripNumber:            json['rr_trip_number'] as String?,
       rrParcelId:              json['rr_parcel_id'] as String?,
       rrBookingId:             json['rr_booking_id'] as String?,
@@ -553,9 +562,12 @@ class TripModel {
     );
   }
 
+  /// True once anyone (LP, RR-ops, FE or the transporter) has uploaded the loading slip.
+  bool get hasLoadingSlip => s2LoadingSlipUrl != null || rrLoadingSlipUrl != null;
+
   /// True when the trip is at the loading slip sub-stage (stage 2, slip not yet uploaded).
   bool get isAtLoadingSlipStage =>
-      currentStage == 2 && s2LoadingSlipUrl == null;
+      currentStage == 2 && !hasLoadingSlip;
 
   static List<String>? _parseUrlList(dynamic value) {
     if (value == null) return null;

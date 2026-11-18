@@ -4616,6 +4616,12 @@ abstract class AppLocalizations {
   /// **'Reassign'**
   String get stageS1Reassign;
 
+  /// Reassign dialog warning: the chosen driver is on another open trip
+  ///
+  /// In en, this message translates to:
+  /// **'This driver has another open trip ({trip}). If you reassign, he will be removed from that trip and tracked on this one.'**
+  String stageS1ReassignBusyWarning(String trip);
+
   /// Confirm dialog body; {name} is the selected driver name
   ///
   /// In en, this message translates to:
@@ -4717,6 +4723,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Upload PAN card'**
   String get stageS1UploadPan;
+
+  /// Stage 1 owner documents: the truck owner's PAN number (sent to RR with the PAN photo)
+  ///
+  /// In en, this message translates to:
+  /// **'PAN Number'**
+  String get stageS1PanNumber;
+
+  /// No description provided for @stageS1PanInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid PAN, like ABCDE1234F'**
+  String get stageS1PanInvalid;
+
+  /// No description provided for @stageS1PanNumberRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'PAN number is required with the PAN photo'**
+  String get stageS1PanNumberRequired;
+
+  /// Stage 1: last date the truck owner's tax declaration (TDS) is valid; RR uses it for TDS
+  ///
+  /// In en, this message translates to:
+  /// **'Tax Declaration Valid Till'**
+  String get stageS1TaxValidTill;
+
+  /// No description provided for @stageCommonSelectDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Select date'**
+  String get stageCommonSelectDate;
 
   /// No description provided for @stageS1UploadPermit.
   ///
@@ -5048,6 +5084,18 @@ abstract class AppLocalizations {
   /// **'Record the truck weight after loading is done.'**
   String get stageS3LoadedWeightNote;
 
+  /// Stage 3 weight box: only the goods weight (dharam kanta), sent to RR as the actual kanta weight
+  ///
+  /// In en, this message translates to:
+  /// **'Only Material Weight'**
+  String get stageS3MaterialWeight;
+
+  /// No description provided for @stageS3MaterialWeightNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter only the net material (goods) weight from the dharam kanta slip, not the truck weight.'**
+  String get stageS3MaterialWeightNote;
+
   /// No description provided for @stageS3LoadingCompleteBody.
   ///
   /// In en, this message translates to:
@@ -5203,6 +5251,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Bilty Date And Time (Optional)'**
   String get stageS4BiltyDate;
+
+  /// Stage 4: picked bilty date is earlier than the trip's creation (RR refuses it)
+  ///
+  /// In en, this message translates to:
+  /// **'Bilty date cannot be before the trip was created ({date})'**
+  String stageS4BiltyBeforeTrip(String date);
 
   /// No description provided for @stageS4BiltyNumber.
   ///

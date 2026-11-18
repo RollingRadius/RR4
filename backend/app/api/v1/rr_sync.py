@@ -7,6 +7,7 @@ All endpoints require authentication — RR details are never exposed to the cli
 import json
 import logging
 import re
+import unicodedata
 import uuid
 from datetime import datetime
 
@@ -23,14 +24,51 @@ from app.dependencies import get_current_user
 from app.models import UserOrganization
 from app.models.company import Organization
 from app.models.trip import Trip
+from app.models.role import Role
 from app.models.user import User
 from app.services.rr_org_token_service import get_org_rr_token
-from app.services.rr_sync_service import _json_header
+from app.services.trip_document_service import drop_unlinked_loading_slips, save_loading_slip
+from app.services.upload_storage import describe_upload, write_disk_copy
+from app.services.rr_sync_service import (RR_DEFAULT_VEHICLE_PROVIDER, _json_header, _read_upload,
+                                          fetch_owner_identities, fetch_owner_primary_bank, find_vehicle_owner, owner_doc_items, owner_item_pending,
+                                          pull_owner_documents)
 from app.services.driver_link_service import link_driver_to_trip
+from app.services.stage1_document_service import clear_driver_documents
 from app.utils.phone import normalize_phone
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+def _prefix_regex(q: str) -> str:
+    """Case-insensitive "starts with" pattern for an RR Mongo `$regex` search.
+
+    RR's API only takes Mongo filters, so typeahead searches are written as a
+    regex. The user's text is escaped so characters like ( [ * . + are matched
+    literally: unescaped, "(" broke the search with an RR error and a crafted
+    pattern could make RR's database work hard (security audit V-12).
+    """
+    return f"^{re.escape(q)}"
+
+
+def _clean_city_query(q: str) -> str:
+    """City search text: letters in any language (with vowel signs), spaces, "-" and "." only, max 50.
+    The app blocks other characters while typing; this also covers old APKs and the silent city
+    lookup from a picked address suggestion."""
+    kept = "".join(c for c in q if unicodedata.category(c)[0] in "LM" or c in " .-")
+    return kept.strip()[:50]
+
+
+def _clean_rc_query(q: str) -> str:
+    """Vehicle RC search text: capitals A-Z and digits only, max 12 (e.g. UP78AB1234)."""
+    return "".join(c for c in q.upper() if "A" <= c <= "Z" or "0" <= c <= "9")[:12]
+
+
+def _rc_prefix_regex(rc: str) -> str:
+    """RR does not enforce one RC format, so stored numbers may hold spaces or dashes
+    ("UP 78 AB 1234", "UP-78-AB-1234"). Allow an optional space/dash between characters so
+    "UP78AB" still finds them. `rc` is already cleaned to A-Z0-9, so nothing needs escaping."""
+    return "^" + r"[\s\-]*".join(rc)
 
 # Only LP owners and RR-ops workers may authenticate to RR / drive sync. LP-workers
 # (and drivers/transporters) can submit stage data locally but must never obtain or
@@ -110,7 +148,10 @@ async def get_rr_cities(
     Used silently when the user picks a LocationIQ autocomplete result.
     """
     import json
-    where = json.dumps({"name": {"$regex": f"^{q}", "$options": "i"}})
+    q = _clean_city_query(q)
+    if len(q) < 2:
+        return {"items": []}
+    where = json.dumps({"name": {"$regex": _prefix_regex(q), "$options": "i"}})
     try:
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=10) as client:
             resp = await client.get(
@@ -152,7 +193,7 @@ async def get_materials(
     import json
     params: dict = {"max_results": 20}
     if q:
-        params["where"] = json.dumps({"name": {"$regex": f"^{q}", "$options": "i"}})
+        params["where"] = json.dumps({"name": {"$regex": _prefix_regex(q), "$options": "i"}})
     token = await _resolve_org_rr_token(rr_token, db, current_user)
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     try:
@@ -621,6 +662,39 @@ async def get_identity_status(
                     "rr_file_id": rr_entries.get(item["id_name"]),
                 })
 
+        # The truck owner's PAN / tax declaration, read where RR keeps them: the owner of the trip's booking.
+        owner = await find_vehicle_owner(trip, client, token)
+        if owner is not None:
+            current = await fetch_owner_identities(owner, client, token)
+            rr_entries = {}
+            for entry in (current[0] if current else []):
+                photos = [p for p in (entry.get("photos") or []) if p.get("photo")]
+                if entry.get("id_name") and photos:
+                    rr_entries[entry["id_name"]] = str(photos[0].get("photo"))
+            synced = trip.rr_synced_doc_urls or {}
+            for item in owner_doc_items(trip, owner[0]):
+                results.append({
+                    "entity_type": "owner",
+                    "owner_kind": owner[0],
+                    "id_name": item["id_name"],
+                    "ours_synced": bool(item["front_url"])
+                                   and not any(owner_item_pending(item, synced, owner[0]).values()),
+                    "rr_has_entry": item["id_name"] in rr_entries,
+                    "rr_file_id": rr_entries.get(item["id_name"]),
+                })
+            # The cheque lives on the owner's primary bank record (banking_details.account_identity)
+            _readable, bank = await fetch_owner_primary_bank(owner, client, token)
+            cheque = str(bank.get("account_identity")) if bank and bank.get("account_identity") else None
+            results.append({
+                "entity_type": "owner",
+                "owner_kind": owner[0],
+                "id_name": "Cancelled Cheque",
+                "ours_synced": bool(trip.s1_cancelled_cheque)
+                               and synced.get("Owner Cheque::front") == trip.s1_cancelled_cheque,
+                "rr_has_entry": cheque is not None,
+                "rr_file_id": cheque,
+            })
+
     return {"items": results}
 
 
@@ -822,7 +896,7 @@ async def get_rr_file_preview(
 
 class RrIdentityOverrideRequest(BaseModel):
     trip_id: str
-    entity_type: str   # "driver" | "vehicle"
+    entity_type: str   # "driver" | "vehicle" | "owner" (the truck owner of the booking)
     id_name: str
 
 
@@ -847,8 +921,8 @@ async def override_identity(
 
     _require_rr_session_role(current_user, db)
 
-    if body.entity_type not in ("driver", "vehicle"):
-        raise HTTPException(status_code=400, detail="entity_type must be 'driver' or 'vehicle'")
+    if body.entity_type not in ("driver", "vehicle", "owner"):
+        raise HTTPException(status_code=400, detail="entity_type must be 'driver', 'vehicle' or 'owner'")
 
     user_org = db.query(UserOrganization).filter(
         UserOrganization.user_id == current_user.id,
@@ -867,6 +941,23 @@ async def override_identity(
     token = await get_org_rr_token(user_org.organization, db)
     if not token:
         raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
+    if body.entity_type == "owner":
+        # Replace RR's copy of the truck owner's document with ours: forget that this trip sent it, then send it
+        # to the owner of the booking (merged into his current documents, never wiping the others).
+        from app.services.rr_sync_service import _push_owner_cheque, _push_owner_documents
+        keys = {"PAN": "Owner PAN", "PAN Card": "Owner PAN", "Tax Declaration Slip": "Owner Tax Declaration",
+                "Cancelled Cheque": "Owner Cheque"}
+        if body.id_name not in keys:
+            raise HTTPException(status_code=400, detail=f"Unknown id_name: {body.id_name}")
+        trip.rr_synced_doc_urls = {k: v for k, v in (trip.rr_synced_doc_urls or {}).items()
+                                   if k != f"{keys[body.id_name]}::front"}
+        push = _push_owner_cheque if body.id_name == "Cancelled Cheque" else _push_owner_documents
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+            ok, err = await push(trip, client, token, db)
+        if not ok:
+            raise HTTPException(status_code=502, detail=err)
+        return {"success": True, "id_name": body.id_name}
 
     if body.entity_type == "driver":
         local_driver = db.query(Driver).filter(Driver.id == trip.driver_id).first() if trip.driver_id else None
@@ -1502,7 +1593,7 @@ def get_sync_ready(
 
 # ── Complete Trip (calls POST /create_trip on RR) ────────────────────────────
 
-_RR_DEFAULT_VEHICLE_PROVIDER = "62d66794e54f47829a886a1d"  # Rolling Radius LP company
+_RR_DEFAULT_VEHICLE_PROVIDER = RR_DEFAULT_VEHICLE_PROVIDER  # Rolling Radius LP company (one source: rr_sync_service)
 
 _RR_UNITS = {"TONNES", "KILOGRAMS", "LITRES", "BOX", "CUBIC METERS"}
 _UNIT_MAP  = {"TONS": "TONNES", "KG": "KILOGRAMS", "QUINTAL": "TONNES"}
@@ -1515,7 +1606,20 @@ class RrCompleteTripRequest(BaseModel):
     rr_token: str | None = None
 
 
-async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
+async def _collect_owner(trip, token: str, db, *, user, role_key: str, org_id) -> None:
+    """Collect the truck owner company's PAN, tax declaration and cheque from RR web into our database (+ New Trip /
+    Confirm Booking), only those we do not store for him yet (pull_owner_documents). Best-effort: never raises."""
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+            await pull_owner_documents(db, trip, client, token, user=user, role_key=role_key, org_id=org_id)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception(f"[Collect Owner] could not collect the truck owner's documents for {trip.trip_number}")
+
+
+async def _do_create_trip_in_rr(trip, rr_token: str, db, *, user=None, role_key: str | None = None,
+                                org_id=None) -> dict:
     """
     Core POST /create_trip logic. Auto-resolves vehicle/driver/provider IDs,
     calls RR, saves results back to trip.
@@ -1762,6 +1866,7 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
 
     # ── Save back to trip ─────────────────────────────────────────────────────
     trip.rr_trip_id     = rr_trip_id
+    trip.rr_trip_created_at = trip.rr_trip_created_at or _dt.now(__import__('datetime').timezone.utc)
     trip.rr_trip_number = rr_trip_number
     trip.rr_parcel_id   = rr_parcel_id
     trip.rr_parcel_etag = rr_parcel_etag
@@ -1773,12 +1878,17 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db) -> dict:
 
     # Best-effort local driver link (phone match) — never blocks trip-creation
     # success. Covers both the first-attempt path and the Stage-0 retry path
-    # (complete_trip_in_rr also calls this function).
+    # (complete_trip_in_rr also calls this function). No driver row is made and
+    # nothing is downloaded from RR for him (driver collection dropped, 2026-11-17):
+    # the trip is linked only to a driver who already has a local record.
     if rr_driver_id:
         try:
             await link_driver_to_trip(trip, rr_driver_id, rr_token, db)
         except Exception:
             logger.exception(f"[Create Trip] driver phone-link failed for {trip.trip_number}")
+    # The truck owner company's PAN, tax slip and cheque are still collected (F8; owner, not driver).
+    if user is not None:
+        await _collect_owner(trip, rr_token, db, user=user, role_key=role_key, org_id=org_id)
 
     logger.info(
         f"[Create Trip] {trip.trip_number} -> rr_trip_id={rr_trip_id}, "
@@ -1826,7 +1936,9 @@ async def complete_trip_in_rr(
         raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
 
     try:
-        result = await _do_create_trip_in_rr(trip, token, db)
+        result = await _do_create_trip_in_rr(
+            trip, token, db, user=current_user, org_id=user_org.organization_id,
+            role_key=db.query(Role.role_key).filter(Role.id == user_org.role_id).scalar())
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     except RuntimeError as exc:
@@ -2181,6 +2293,9 @@ class RrReassignDriverRequest(BaseModel):
     # not supplied, same as /sync/retry and /complete-trip.
     rr_token: str | None = None
     driver_rr_id: str
+    # The app warned that this driver has another open trip and the user chose to reassign anyway:
+    # unlink him from that trip and track him on this one (user, 2026-11-14).
+    move_from_open_trip: bool = False
 
 
 @router.post("/reassign-driver/{trip_id}", summary="Reassign the trip's driver via RR's add_vehicle_crew")
@@ -2262,12 +2377,17 @@ async def reassign_driver(
     trip.rr_dl_back_file_id = None
     trip.rr_aadhaar_file_id = None
     trip.rr_aadhaar_back_file_id = None
+    # The old driver's licence/Aadhaar files and numbers leave the trip (F3, kept by the user 2026-11-17). Nothing is
+    # stored for the new driver: the Stage 1 screen pre-fills him from RR web and saves him when Stage 1 is submitted.
+    clear_driver_documents(trip)
     db.commit()
 
     # Re-link (or clear) the local Driver used for GPS tracking — same
-    # phone-match as trip creation. Best-effort, never raises.
+    # phone-match as trip creation. Best-effort, never raises. When the user
+    # confirmed the "driver has another open trip" warning, he is moved here.
     try:
-        await link_driver_to_trip(trip, body.driver_rr_id, token, db)
+        await link_driver_to_trip(trip, body.driver_rr_id, token, db,
+                                  move_from_open_trip=body.move_from_open_trip)
     except Exception:
         logger.exception(f"[Reassign Driver] driver phone-link failed for {trip.trip_number}")
 
@@ -2342,9 +2462,9 @@ async def post_loading_slip(
 
     # ── Step 1: save locally ──────────────────────────────────────────────────
     trip_dir  = Path(settings.UPLOAD_DIR) / "trips" / trip_id
-    trip_dir.mkdir(parents=True, exist_ok=True)
     local_name = f"rr_loading_slip_{_uuid_mod.uuid4().hex[:8]}{ext}"
-    (trip_dir / local_name).write_bytes(file_bytes)
+    slip_upload = describe_upload(file_bytes, orig_name, file.content_type)
+    write_disk_copy(trip_dir / local_name, file_bytes)
     local_url = f"/uploads/trips/{trip_id}/{local_name}"
 
     auth_hdr = {"Authorization": f"Bearer {rr_token}"}
@@ -2391,6 +2511,10 @@ async def post_loading_slip(
     trip.rr_loading_slip_url     = local_url
     trip.rr_loading_slip_file_id = rr_file_id
     trip.s2_loading_slip_url     = local_url   # also set stage field for consistency
+    save_loading_slip(db, trip=trip, doc_type='loading_slip', url_path=local_url,
+                      file_name=local_name, upload=slip_upload, user=current_user,
+                      role_key=db.query(Role.role_key).filter(Role.id == user_org.role_id).scalar(),
+                      org_id=user_org.organization_id, uploaded_via='rr_sync', rr_file_id=rr_file_id)
     trip.rr_sync_status          = "loading_slip_synced"
     trip.rr_synced_at            = _dt.datetime.utcnow()
     db.commit()
@@ -2439,13 +2563,12 @@ async def sync_loading_slip_from_local(
     if not trip.rr_loading_slip_url:
         raise HTTPException(status_code=409, detail="No loading slip uploaded yet. LP Worker must upload first.")
 
-    file_path = Path(settings.UPLOAD_DIR) / trip.rr_loading_slip_url[len("/uploads/"):]
-    if not file_path.exists():
+    found = await _read_upload(trip.rr_loading_slip_url)
+    if found is None:
         raise HTTPException(status_code=404, detail="Loading slip file not found on server")
 
-    file_bytes = file_path.read_bytes()
-    file_name  = file_path.name
-    mime_type  = mimetypes.guess_type(file_name)[0] or "image/jpeg"
+    file_bytes, stored_type, file_name = found
+    mime_type  = stored_type or mimetypes.guess_type(file_name)[0] or "image/jpeg"
     auth_hdr   = {"Authorization": f"Bearer {rr_token}"}
 
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
@@ -2486,6 +2609,10 @@ async def sync_loading_slip_from_local(
 
     trip.rr_loading_slip_file_id = rr_file_id
     trip.s2_loading_slip_url     = trip.rr_loading_slip_url
+    from app.services.rr_sync_service import _mark_stored_as_sent
+    _mark_stored_as_sent(db, [(trip.rr_loading_slip_url, rr_file_id)])   # the manual sync will not send it again
+    drop_unlinked_loading_slips(db, trip, user=current_user,
+                                role_key=db.query(Role.role_key).filter(Role.id == user_org.role_id).scalar())
     trip.rr_sync_status          = "loading_slip_synced"
     trip.rr_synced_at            = _dt.datetime.utcnow()
     db.commit()
@@ -2561,7 +2688,7 @@ async def search_rr_companies(
     _require_rr_session_role(current_user, db)
     token = await _resolve_org_rr_token(rr_token, db, current_user)
     headers = {"Authorization": f"Bearer {token}"} if token else {}
-    match = json.dumps({"name": {"$regex": f"^{q}", "$options": "-i"}})
+    match = json.dumps({"name": {"$regex": _prefix_regex(q), "$options": "-i"}})
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
         resp = await client.get(
             f"{settings.RR_API_BASE}/get_all_companies",
@@ -2588,7 +2715,7 @@ async def search_vehicle_engine_models(
     _require_rr_session_role(current_user, db)
     token = await _resolve_org_rr_token(rr_token, db, current_user)
     headers = {"Authorization": f"Bearer {token}"} if token else {}
-    where = json.dumps({"name": {"$regex": f"^{q}", "$options": "i"}})
+    where = json.dumps({"name": {"$regex": _prefix_regex(q), "$options": "i"}})
     async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=15) as client:
         resp = await client.get(
             f"{settings.RR_API_BASE}/vehicle_engine_models",
@@ -2837,6 +2964,7 @@ async def create_rr_user(
     if resp.status_code not in (200, 201):
         raise HTTPException(status_code=502, detail=f"RR user creation failed: {resp.text[:400]}")
     data = resp.json()
+    # The driver is created in RR web only; no row in our drivers table (driver collection dropped, 2026-11-17).
     return {"user_id": str(data.get("_id") or ""), "name": body.name, "phone": body.phone}
 
 
@@ -3099,12 +3227,15 @@ async def search_vehicles_by_rc(
     DL/Aadhaar — so this needs an $elemMatch, not a plain field regex.
     """
     _require_rr_session_role(current_user, db)
+    q = _clean_rc_query(q)
+    if len(q) < 2:
+        return {"items": []}
     token = await _resolve_org_rr_token(rr_token, db, current_user)
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     where = json.dumps({
         "identities": {"$elemMatch": {
             "id_name": "Registration Certificate",
-            "number": {"$regex": f"^{q}", "$options": "i"},
+            "number": {"$regex": _rc_prefix_regex(q), "$options": "i"},
         }}
     })
     embedded = json.dumps({"engine.model": 1, "created_by": 1, "created_by_company": 1})

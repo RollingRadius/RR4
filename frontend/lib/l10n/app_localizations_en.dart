@@ -2498,6 +2498,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get stageS1Reassign => 'Reassign';
 
   @override
+  String stageS1ReassignBusyWarning(String trip) {
+    return 'This driver has another open trip ($trip). If you reassign, he will be removed from that trip and tracked on this one.';
+  }
+
+  @override
   String stageS1ReassignBody(String name) {
     return 'This trip will be reassigned to $name on RR — the My Trips list and crew records will update to reflect this.';
   }
@@ -2551,6 +2556,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get stageS1UploadPan => 'Upload PAN card';
+
+  @override
+  String get stageS1PanNumber => 'PAN Number';
+
+  @override
+  String get stageS1PanInvalid => 'Enter a valid PAN, like ABCDE1234F';
+
+  @override
+  String get stageS1PanNumberRequired =>
+      'PAN number is required with the PAN photo';
+
+  @override
+  String get stageS1TaxValidTill => 'Tax Declaration Valid Till';
+
+  @override
+  String get stageCommonSelectDate => 'Select date';
 
   @override
   String get stageS1UploadPermit => 'Upload permit document';
@@ -2736,6 +2757,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Record the truck weight after loading is done.';
 
   @override
+  String get stageS3MaterialWeight => 'Only Material Weight';
+
+  @override
+  String get stageS3MaterialWeightNote =>
+      'Enter only the net material (goods) weight from the dharam kanta slip, not the truck weight.';
+
+  @override
   String get stageS3LoadingCompleteBody =>
       'Loading complete. Proceed to factory exit.';
 
@@ -2821,6 +2849,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get stageS4BiltyDate => 'Bilty Date And Time (Optional)';
+
+  @override
+  String stageS4BiltyBeforeTrip(String date) {
+    return 'Bilty date cannot be before the trip was created ($date)';
+  }
 
   @override
   String get stageS4BiltyNumber => 'Bilty Number (4 digits)';

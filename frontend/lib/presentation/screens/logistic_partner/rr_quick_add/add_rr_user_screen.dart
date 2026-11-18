@@ -26,7 +26,11 @@ TextStyle _inter({double size = 13, FontWeight weight = FontWeight.w400, Color c
 /// AddUserScreen (name + phone only) — writes straight to RR, no local RR4
 /// database row, since Create Trip's driver picker reads RR live anyway.
 class AddRrUserScreen extends ConsumerStatefulWidget {
-  const AddRrUserScreen({super.key});
+  /// Optional pre-fill, e.g. what was typed in a driver search that found nobody.
+  final String? initialName;
+  final String? initialPhone;
+
+  const AddRrUserScreen({super.key, this.initialName, this.initialPhone});
 
   @override
   ConsumerState<AddRrUserScreen> createState() => _AddRrUserScreenState();
@@ -37,6 +41,13 @@ class _AddRrUserScreenState extends ConsumerState<AddRrUserScreen> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl.text = widget.initialName ?? '';
+    _phoneCtrl.text = widget.initialPhone ?? '';
+  }
 
   @override
   void dispose() {

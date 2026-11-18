@@ -27,6 +27,7 @@ import 'package:fleet_management/core/config/app_config.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/rr_sync_provider.dart';
 import 'package:fleet_management/presentation/widgets/rr_search_field.dart';
+import 'package:fleet_management/presentation/screens/logistic_partner/rr_quick_add/add_rr_user_screen.dart';
 import 'package:fleet_management/providers/notification_provider.dart';
 import 'package:fleet_management/data/models/notification_model.dart';
 import 'package:fleet_management/l10n/app_localizations.dart';
@@ -870,6 +871,10 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   final _fitnessNumber  = TextEditingController();
   final _permitNumber   = TextEditingController();
   final _insuranceNumber = TextEditingController();
+  // Truck owner's PAN number and tax declaration valid-till date (sent to the booking owner in RR)
+  final _panNumber = TextEditingController();
+  DateTime? _taxExpiry;
+  bool _taxExpiryMissing = false;
 
   // ── Focus nodes (for auto-scroll on validation error) ─────────────────────
   final _driverNameFocus     = FocusNode();
@@ -943,6 +948,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     _fitnessNumber.addListener(()  { if (_applyingPrefill) return; _touchField('fitness_number');  _onFieldChanged(); });
     _permitNumber.addListener(()   { if (_applyingPrefill) return; _touchField('permit_number');   _onFieldChanged(); });
     _insuranceNumber.addListener(() { if (_applyingPrefill) return; _touchField('insurance_number'); _onFieldChanged(); });
+    _panNumber.addListener(()      { if (_applyingPrefill) return; _touchField('pan_number');      _onFieldChanged(); });
     // Only restore photos from the OLD draft's file ids when no fresh
     // pre-fill fetch is about to happen — if the driver/vehicle assignment
     // has changed, _maybeLoadRrPrefill will fetch every current photo itself
@@ -1129,6 +1135,25 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   // docs (if any) so LP/RR-ops doesn't need to re-enter anything, overwriting
   // whatever the previous driver's fields showed (this is a deliberate
   // reassignment, not the initial fresh-load pre-fill).
+  // The driver search found nobody in RR: open Add New Driver pre-filled with what was typed (a number goes
+  // to the phone, anything else to the name). It is the same Add New Driver screen as the side menu
+  // (/rr/add-user) and creates the driver in RR web ONLY (no row in our drivers table, driver collection
+  // dropped 2026-11-17). He comes back selected and pre-filled from RR, ready to Reassign.
+  Future<void> _addNewRrDriver(String typed) async {
+    final compact = typed.replaceAll(' ', '');
+    final isPhone = compact.isNotEmpty && RegExp(r'^\+?\d+$').hasMatch(compact);
+    final digits = compact.replaceAll(RegExp(r'\D'), '');
+    final result = await Navigator.of(context).push<Map<String, dynamic>>(MaterialPageRoute(
+      builder: (_) => AddRrUserScreen(
+        initialName: isPhone ? null : typed,
+        initialPhone: isPhone ? (digits.length > 10 ? digits.substring(digits.length - 10) : digits) : null,
+      ),
+    ));
+    if (!mounted || result == null || ((result['user_id'] as String?) ?? '').isEmpty) return;
+    _newDriverSearchCtrl.text = (result['name'] as String?) ?? '';
+    await _onNewDriverSelected(result);
+  }
+
   Future<void> _onNewDriverSelected(Map<String, dynamic> u) async {
     setState(() => _pendingNewDriver = u);
     final driverRrId = u['user_id'] as String?;
@@ -1149,13 +1174,45 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     if (driverRrId == null || driverRrId.isEmpty) return;
 
     final l10n = AppLocalizations.of(context);
+    // Same check + New Trip makes: is this driver busy on another open trip? (best-effort)
+    String? busyTrip;
+    try {
+      final resp = await ref.read(dioProvider).get('/api/trips/driver-account-check',
+          queryParameters: {'rr_driver_id': driverRrId, 'exclude_trip_id': widget.trip.id});
+      if (resp.data['driver_busy_elsewhere'] == true) {
+        busyTrip = (resp.data['busy_trip_number'] as String?) ?? '';
+      }
+    } catch (_) {}
+    if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: Text(l10n.stageS1ReassignTitle, style: _inter(size: 16, weight: FontWeight.w700, color: _onSurface)),
-        content: Text(
-          l10n.stageS1ReassignBody('${newDriver['name'] ?? l10n.stageS1SelectedDriver}'),
-          style: _inter(size: 13, color: _secondary),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.stageS1ReassignBody('${newDriver['name'] ?? l10n.stageS1SelectedDriver}'),
+              style: _inter(size: 13, color: _secondary),
+            ),
+            if (busyTrip != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, size: 18, color: Color(0xFFB26A00)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      l10n.stageS1ReassignBusyWarning(busyTrip),
+                      style: _inter(size: 13, color: const Color(0xFFB26A00), weight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.commonCancel)),
@@ -1171,6 +1228,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       await runRrAction(context, ref, () => ref.read(rrSyncApiProvider).reassignDriver(
         tripId: widget.trip.id,
         driverRrId: driverRrId,
+        moveFromOpenTrip: busyTrip != null,
       ));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -1242,6 +1300,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       _fitnessNumber.text  = d['fitness_number']  as String? ?? '';
       _permitNumber.text   = d['permit_number']   as String? ?? '';
       _insuranceNumber.text = d['insurance_number'] as String? ?? '';
+      _panNumber.text      = d['pan_number']      as String? ?? '';
+      _taxExpiry           = _parseDay(d['tax_declaration_expiry'] as String?);
       _dlDoc              = _restoreFile(d, 'dl_doc');
       _dlBackDoc          = _restoreFile(d, 'dl_back_doc');
       _aadhaarDoc         = _restoreFile(d, 'aadhaar_doc');
@@ -1281,6 +1341,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       _fitnessNumber.text  = trip.s1FitnessNumber ?? '';
       _permitNumber.text   = trip.s1PermitNumber ?? '';
       _insuranceNumber.text = trip.s1InsuranceNumber ?? '';
+      _panNumber.text      = trip.s1PanNumber ?? '';
+      _taxExpiry           = _parseDay(trip.s1TaxDeclarationExpiry);
       // File URLs are shown via _serverUrl fields — no bytes to restore
     }
   }
@@ -1325,6 +1387,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
           'fitness_number':  _fitnessNumber.text.trim(),
           'permit_number':   _permitNumber.text.trim(),
           'insurance_number': _insuranceNumber.text.trim(),
+          'pan_number':      _panNumber.text.trim(),
+          if (_taxExpiry != null) 'tax_declaration_expiry': _dayString(_taxExpiry!),
           if (_rrPrefillAttemptedFor != null) '_rr_prefill_for': _rrPrefillAttemptedFor,
           if (_rrPreviewFileIds.isNotEmpty) '_rr_preview_file_ids': _rrPreviewFileIds,
           ..._fileDraftEntry(_dlDoc,              'dl_doc'),
@@ -1362,7 +1426,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     }
     for (final c in [
       _driverName, _driverPhone, _drivingLicense, _aadhaar,
-      _rcNumber, _pucNumber, _fitnessNumber, _permitNumber, _insuranceNumber,
+      _rcNumber, _pucNumber, _fitnessNumber, _permitNumber, _insuranceNumber, _panNumber,
       _newDriverSearchCtrl,
     ]) {
       c.dispose();
@@ -1420,6 +1484,22 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   // value, since a real RC number is always a mix of both. RR also enforces
   // a cross-vehicle uniqueness check server-side that can't be replicated
   // client-side without a live lookup — this only covers the format half.
+  // RR's is_pan_valid: 5 letters, 4 digits, 1 letter. Needed whenever a new PAN photo is attached
+  // (RR refuses a PAN without its number).
+  String? _validatePanNumber(String? v) {
+    final l10n = AppLocalizations.of(context);
+    final cleaned = (v ?? '').trim().toUpperCase();
+    if (cleaned.isEmpty) return _panDoc != null ? l10n.stageS1PanNumberRequired : null;
+    if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(cleaned)) return l10n.stageS1PanInvalid;
+    return null;
+  }
+
+  static DateTime? _parseDay(String? s) =>
+      (s == null || s.length < 10) ? null : DateTime.tryParse(s.substring(0, 10));
+
+  static String _dayString(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   String? _validateRcNumber(String? v) {
     if (v == null || v.trim().isEmpty) return null; // optional
     final cleaned = v.trim();
@@ -1551,6 +1631,21 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       return;
     }
 
+    if (_taxDeclDoc != null && _taxExpiry == null) {
+      setState(() => _taxExpiryMissing = true);
+      final l10n = AppLocalizations.of(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(l10n.stageCommonFieldRequired(l10n.stageS1TaxValidTill),
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+
     final dlCleaned = _drivingLicense.text.trim()
         .replaceAll(RegExp(r'[\s/\-]'), '').toUpperCase();
 
@@ -1564,6 +1659,9 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       'fitness_number':  _fitnessNumber.text.trim(),
       'permit_number':   _permitNumber.text.trim(),
       'insurance_number': _insuranceNumber.text.trim(),
+      if (_panNumber.text.trim().isNotEmpty) 'pan_number': _panNumber.text.trim().toUpperCase(),
+      // A plain calendar date (no time, no time zone) - RR keeps it as that day
+      if (_taxExpiry != null) 'tax_declaration_expiry': _dayString(_taxExpiry!),
     };
 
     void _addFile(String key, ({Uint8List bytes, String name})? f) {
@@ -1750,6 +1848,14 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                           itemSubtitle: (u) => u['phone'] as String? ?? '',
                           onSelected: (u) => _onNewDriverSelected(u),
                           onCleared: () => setState(() => _pendingNewDriver = null),
+                          noMatchesAction: (q) => Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: () => _addNewRrDriver(q),
+                              icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                              label: Text(l10n.rrQuickAddAddDriverButton),
+                            ),
+                          ),
                         ),
                         if (_pendingNewDriver != null) ...[
                           const SizedBox(height: 8),
@@ -1967,6 +2073,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
 
             // ── Owner Documents ────────────────────────────────────────────────
             _SectionHeader(icon: Icons.business_outlined, title: l10n.stageS1SecOwnerDocs),
+            _numberField(l10n.stageS1PanNumber, _panNumber, 'pan_number', validator: _validatePanNumber),
             _uploadTile('PAN', l10n.stageS1UploadPan,
               _panDoc, (f) => _panDoc = f,
               () { setState(() => _panDoc = null); _onUploadChanged(); },
@@ -1975,6 +2082,17 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               _taxDeclDoc, (f) => _taxDeclDoc = f,
               () { setState(() => _taxDeclDoc = null); _onUploadChanged(); },
               existingUrl: widget.trip.s1TaxDeclaration, fieldKey: 'tax_decl_doc'),
+            _DateTimeField(
+              label: l10n.stageS1TaxValidTill,
+              value: _taxExpiry,
+              dateOnly: true,
+              showError: _taxExpiryMissing && _taxExpiry == null,
+              onChanged: (dt) {
+                setState(() { _taxExpiry = dt; _taxExpiryMissing = false; });
+                _touchField('tax_declaration_expiry');
+                _onFieldChanged();
+              },
+            ),
             const SizedBox(height: 8),
 
             // ── Truck Owner Payment Details ────────────────────────────────────
@@ -4153,9 +4271,9 @@ class _Stage3FormState extends ConsumerState<_Stage3Form> {
           // Loaded weight + Bilty + Material Documents + Complete Stage
           _WeighField(
               controller: _loadedTruckWeight,
-              label: l10n.stageS3LoadedWeight,
+              label: l10n.stageS3MaterialWeight,
               hint: l10n.stageCommonEg('28.5'),
-              note: l10n.stageS3LoadedWeightNote,
+              note: l10n.stageS3MaterialWeightNote,
               enabled: !widget.readOnly,
               unitNotifier: _loadedWeightUnit,
               existingSlipUrl: _weightSlipData == null ? widget.trip.s3LoadedWeightSlipUrl : null,
@@ -4809,6 +4927,10 @@ class _DateTimeField extends StatelessWidget {
   // first place. RR's loading.* fields have no such restriction.
   final bool disallowFuture;
   final bool enabled;
+  // Pick a calendar day only (no time), e.g. a document's valid-till date.
+  final bool dateOnly;
+  // Earliest allowed moment (e.g. the bilty date cannot be before the trip was created - RR refuses it).
+  final DateTime? notBefore;
 
   const _DateTimeField({
     required this.label,
@@ -4818,17 +4940,27 @@ class _DateTimeField extends StatelessWidget {
     this.fieldKey,
     this.disallowFuture = false,
     this.enabled = true,
+    this.dateOnly = false,
+    this.notBefore,
   });
 
   Future<void> _pick(BuildContext context) async {
     final now = DateTime.now();
+    final first = notBefore != null && notBefore!.isBefore(now)
+        ? DateTime(notBefore!.year, notBefore!.month, notBefore!.day)
+        : DateTime(now.year - 1);
+    final last = disallowFuture ? now : DateTime(now.year + 1);
     final date = await showDatePicker(
       context: context,
-      initialDate: (value != null && (!disallowFuture || !value!.isAfter(now))) ? value! : now,
-      firstDate: DateTime(now.year - 1),
-      lastDate: disallowFuture ? now : DateTime(now.year + 1),
+      initialDate: (value != null && !value!.isBefore(first) && !value!.isAfter(last)) ? value! : now,
+      firstDate: first,
+      lastDate: last,
     );
     if (date == null || !context.mounted) return;
+    if (dateOnly) {
+      onChanged(DateTime(date.year, date.month, date.day));
+      return;
+    }
     final time = await showTimePicker(
       context: context,
       initialTime: value != null ? TimeOfDay.fromDateTime(value!) : TimeOfDay.now(),
@@ -4846,11 +4978,23 @@ class _DateTimeField extends StatelessWidget {
       }
       picked = now;
     }
+    if (notBefore != null && picked.isBefore(notBefore!)) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(AppLocalizations.of(context).stageS4BiltyBeforeTrip(_format(notBefore!)),
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+      return;   // not taken - the user picks again
+    }
     onChanged(picked);
   }
 
   String _format(DateTime dt) {
     final two = (int n) => n.toString().padLeft(2, '0');
+    if (dateOnly) return '${two(dt.day)}/${two(dt.month)}/${dt.year}';
     return '${two(dt.day)}/${two(dt.month)}/${dt.year} ${two(dt.hour)}:${two(dt.minute)}';
   }
 
@@ -4878,7 +5022,11 @@ class _DateTimeField extends StatelessWidget {
             helperText: enabled ? null : AppLocalizations.of(context).stageCommonLockedSynced,
           ),
           child: Text(
-            hasValue ? _format(value!) : AppLocalizations.of(context).stageCommonSelectDateTime,
+            hasValue
+                ? _format(value!)
+                : (dateOnly
+                    ? AppLocalizations.of(context).stageCommonSelectDate
+                    : AppLocalizations.of(context).stageCommonSelectDateTime),
             style: _manrope(
               size: 14,
               weight: FontWeight.w600,
@@ -6698,6 +6846,9 @@ class _Stage4FormState extends ConsumerState<_Stage4Form> {
               label: l10n.stageS4BiltyDate,
               value: _biltyDate,
               showError: false,
+              // RR refuses a bilty date before its trip was created or in the future
+              disallowFuture: true,
+              notBefore: DateTime.tryParse(widget.trip.rrTripCreatedAt ?? widget.trip.createdAt ?? '')?.toLocal(),
               enabled: !widget.readOnly && !_biltyLocked,
               onChanged: (dt) {
                 setState(() => _biltyDate = dt);
@@ -8439,7 +8590,7 @@ class _RrIdentityDocsSheetState extends ConsumerState<RrIdentityDocsSheet> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                '${item['entity_type'] == 'driver' ? 'Driver' : 'Vehicle'} — ${item['id_name']}',
+                                '${item['entity_type'] == 'driver' ? 'Driver' : item['entity_type'] == 'owner' ? 'Owner' : 'Vehicle'} — ${item['id_name']}',
                                 style: _manrope(size: 13, weight: FontWeight.w700),
                               ),
                               const SizedBox(height: 2),

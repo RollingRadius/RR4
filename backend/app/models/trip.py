@@ -98,6 +98,9 @@ class Trip(Base):
     s1_pan                  = Column(Text, nullable=True)
     s1_tax_declaration      = Column(Text, nullable=True)
     s1_cancelled_cheque     = Column(Text, nullable=True)
+    # Truck owner's PAN number and tax declaration (TDS) valid-till date - sent to the booking owner in RR
+    s1_pan_number             = Column(String(10), nullable=True)
+    s1_tax_declaration_expiry = Column(Date, nullable=True)
     s1_submitted_at         = Column(TIMESTAMP(timezone=True), nullable=True)
     # Number fields for vehicle docs — mirror s1_driving_license/s1_aadhaar
     # (driver-side numbers), which existed for years before the vehicle side
@@ -297,6 +300,7 @@ class Trip(Base):
 
     # RR trip cross-reference
     rr_trip_id     = Column(String(24), nullable=True)   # RR MongoDB trip _id
+    rr_trip_created_at = Column(TIMESTAMP(timezone=True), nullable=True)   # when the RR trip was created (bilty date floor)
     rr_trip_number = Column(String(30), nullable=True)   # RR generated number e.g. "rr1235"
 
     # RR parcel reference (auto-created by RR alongside trip)
@@ -408,6 +412,8 @@ class Trip(Base):
             "s1_permit_number": self.s1_permit_number,
             "s1_pan": self.s1_pan,
             "s1_tax_declaration": self.s1_tax_declaration,
+            "s1_pan_number": self.s1_pan_number,
+            "s1_tax_declaration_expiry": self.s1_tax_declaration_expiry.isoformat() if self.s1_tax_declaration_expiry else None,
             "s1_cancelled_cheque": self.s1_cancelled_cheque,
             "s1_submitted_at": self.s1_submitted_at.isoformat() if self.s1_submitted_at else None,
             # Stage 2
@@ -486,6 +492,7 @@ class Trip(Base):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             # RR sync state
             "rr_trip_id":     self.rr_trip_id,
+            "rr_trip_created_at": self.rr_trip_created_at.isoformat() if self.rr_trip_created_at else None,
             "rr_trip_number": self.rr_trip_number,
             "rr_parcel_id":   self.rr_parcel_id,
             "rr_booking_id":           self.rr_booking_id,

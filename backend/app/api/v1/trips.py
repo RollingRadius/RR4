@@ -3,6 +3,7 @@ Trips API
 Endpoints for managing trips — accessible by both fleet_manager and load_owner roles.
 """
 
+import re
 import random
 import string
 from typing import Optional, List, Union
@@ -28,6 +29,9 @@ from app.models.driver import Driver
 from app.models.tracking import DriverLocation
 from app.services import fcm_service
 from app.services.gap_trail_service import TrailPing, build_trail_gaps, gaps_tracked_elsewhere
+from app.services.stage1_document_service import refresh_stage1_numbers, save_stage1_document
+from app.services.trip_document_service import save_loading_slip, save_trip_document, save_trip_document_list
+from app.services.upload_storage import describe_upload, write_disk_copy
 
 router = APIRouter()
 
@@ -384,6 +388,7 @@ def get_transporter_trips_early(
 @router.get("/trips/driver-account-check")
 async def check_driver_account(
     rr_driver_id: str = Query(...),
+    exclude_trip_id: Optional[str] = Query(None, description="Reassign: the trip being changed (not counted as busy)"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -407,9 +412,17 @@ async def check_driver_account(
     lookup_ok, matched = await resolve_local_driver(rr_driver_id, rr_token, db)
     if not lookup_ok:
         return {"has_local_account": None, "driver_busy_elsewhere": None}
-    if not matched:
-        return {"has_local_account": False, "driver_busy_elsewhere": None}
-    return {"has_local_account": True, "driver_busy_elsewhere": _driver_has_open_trip(db, matched.id)}
+    if not matched or matched.user_id is None:
+        # No RR4 app account (a driver collected from RR has a local record but no app): no tracking possible,
+        # so no "busy on another open trip" warning either (user, 2026-11-14).
+        return {"has_local_account": False, "driver_busy_elsewhere": None, "busy_trip_number": None}
+    from app.services.driver_link_service import other_open_trips
+    exclude = _parse_uuid(exclude_trip_id) if exclude_trip_id else None
+    busy = other_open_trips(db, matched.id, exclude) if exclude else \
+        db.query(Trip).filter(Trip.driver_id == matched.id, Trip.status == 'ongoing', ~Trip.is_stage5_complete,
+                              ~Trip.driver_tracking_stopped).all()
+    return {"has_local_account": True, "driver_busy_elsewhere": bool(busy),
+            "busy_trip_number": busy[0].trip_number if busy else None}
 
 
 @router.get("/trips/{trip_id}")
@@ -571,7 +584,8 @@ async def create_trip(
         if settings.RR_SYNC_ENABLED:
             from app.api.v1.rr_sync import _do_create_trip_in_rr
             try:
-                await _do_create_trip_in_rr(trip, rr_token, db)
+                await _do_create_trip_in_rr(trip, rr_token, db, user=current_user, role_key=role_key,
+                                            org_id=user_org.organization_id)
             except Exception as exc:
                 trip.rr_sync_status = "failed"
                 trip.rr_sync_error  = str(exc)[:500]
@@ -940,6 +954,29 @@ def move_trip_to_records(
     return {"success": True, "trip": _enrich(trip, db)}
 
 
+_PAN_FORMAT = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")   # RR's is_pan_valid
+
+
+def _check_owner_doc_fields(pan_number: Optional[str], tax_expiry: Optional[str], *, new_pan: bool, new_tax: bool):
+    """(PAN number in RR's format, tax declaration valid-till date) from the Stage 1 form, or 422.
+    A new PAN photo needs its number and a new tax declaration its valid-till date (RR web needs both)."""
+    from datetime import date as _date
+    pan = (pan_number or "").strip().upper() or None
+    if pan and not _PAN_FORMAT.match(pan):
+        raise HTTPException(status_code=422, detail="PAN number must be 10 characters like ABCDE1234F")
+    if new_pan and not pan:
+        raise HTTPException(status_code=422, detail="Enter the PAN number with the PAN photo")
+    expiry = None
+    if (tax_expiry or "").strip():
+        try:
+            expiry = _date.fromisoformat(tax_expiry.strip())
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Tax declaration valid-till date must be YYYY-MM-DD")
+    if new_tax and not expiry:
+        raise HTTPException(status_code=422, detail="Enter the tax declaration valid-till date with the tax declaration")
+    return pan, expiry
+
+
 @router.post("/trips/{trip_id}/stage/1", status_code=200)
 async def submit_stage1(
     trip_id: str,
@@ -968,11 +1005,21 @@ async def submit_stage1(
     fitness_number:       Optional[str] = Form(None),
     permit_number:        Optional[str] = Form(None),
     insurance_number:     Optional[str] = Form(None),
+    # Truck owner's PAN number (needed with a new PAN photo) and tax declaration valid-till date
+    # (YYYY-MM-DD, needed with a new tax declaration) - RR web keeps both on the booking owner
+    pan_number:              Optional[str] = Form(None),
+    tax_declaration_expiry:  Optional[str] = Form(None),
     current_user: User = Depends(get_current_user),
 ):
     """Stage 1 — Truck Detail Registration. Accepts multipart/form-data."""
     from datetime import datetime, timezone
     from app.config import settings
+
+    pan_number, tax_expiry = _check_owner_doc_fields(
+        pan_number, tax_declaration_expiry,
+        new_pan=bool(pan_doc and pan_doc.filename),
+        new_tax=bool(tax_declaration_doc and tax_declaration_doc.filename),
+    )
 
     # Phase 1 — quick checks on a short-lived session, closed before file I/O
     db = SessionLocal()
@@ -994,16 +1041,19 @@ async def submit_stage1(
     # Phase 2 — slow file I/O, no DB session held
     # Helper: save an uploaded file and return its URL path.
     # Returns None (leave existing) if no new file was uploaded.
+    stage1_uploads = {}   # url -> (file name, StoredUpload), stored in the database in phase 3
+
     async def _save_doc(upload: Optional[UploadFile], prefix: str) -> Optional[str]:
         if upload is None or not upload.filename:
             return None
         ext = Path(upload.filename).suffix or '.jpg'
         trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
-        trip_dir.mkdir(parents=True, exist_ok=True)
         filename = f"{prefix}_{_uuid_module.uuid4().hex}{ext}"
-        with open(trip_dir / filename, "wb") as f:
-            f.write(await upload.read())
-        return f"/uploads/trips/{trip_id}/{filename}"
+        content = await upload.read()
+        url = f"/uploads/trips/{trip_id}/{filename}"
+        stage1_uploads[url] = (filename, describe_upload(content, upload.filename, upload.content_type))
+        write_disk_copy(trip_dir / filename, content)
+        return url
 
     new_dl           = await _save_doc(driving_license_doc,       "dl")
     new_dl_back      = await _save_doc(driving_license_doc_back,  "dl_back")
@@ -1039,6 +1089,8 @@ async def submit_stage1(
         if fitness_number:   trip.s1_fitness_number   = fitness_number
         if permit_number:    trip.s1_permit_number    = permit_number
         if insurance_number: trip.s1_insurance_number = insurance_number
+        if pan_number:       trip.s1_pan_number       = pan_number
+        if tax_expiry:       trip.s1_tax_declaration_expiry = tax_expiry
 
         if new_dl           is not None: trip.s1_driving_license_url      = new_dl
         if new_dl_back      is not None: trip.s1_driving_license_back_url = new_dl_back
@@ -1053,6 +1105,21 @@ async def submit_stage1(
         if new_pan     is not None: trip.s1_pan                 = new_pan
         if new_tax     is not None: trip.s1_tax_declaration     = new_tax
         if new_chq     is not None: trip.s1_cancelled_cheque    = new_chq
+
+        # Store each uploaded file once, on its owner (driver, vehicle, vehicle owner), in the database
+        for column, url in (
+            ('s1_driving_license_url', new_dl), ('s1_driving_license_back_url', new_dl_back),
+            ('s1_aadhaar_url', new_aadhaar), ('s1_aadhaar_back_url', new_aadhaar_back),
+            ('s1_rc', new_rc), ('s1_rc_back', new_rc_back), ('s1_insurance', new_ins),
+            ('s1_pollution', new_pol), ('s1_fitness', new_fit), ('s1_permit', new_permit),
+            ('s1_pan', new_pan), ('s1_tax_declaration', new_tax), ('s1_cancelled_cheque', new_chq),
+        ):
+            if url is not None:
+                file_name, stored_upload = stage1_uploads[url]
+                save_stage1_document(db, trip=trip, column=column, url_path=url, file_name=file_name,
+                                     upload=stored_upload, user=current_user, role_key=role_key,
+                                     org_id=user_org.organization_id)
+        refresh_stage1_numbers(db, trip)
 
         was_already_submitted = trip.current_stage >= 1
 
@@ -1156,10 +1223,10 @@ async def submit_stage2(
     if loading_slip and loading_slip.filename:
         ext = Path(loading_slip.filename).suffix or '.jpg'
         trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
-        trip_dir.mkdir(parents=True, exist_ok=True)
         filename = f"loading_slip_{_uuid_module.uuid4().hex}{ext}"
-        with open(trip_dir / filename, "wb") as f:
-            f.write(await loading_slip.read())
+        content = await loading_slip.read()
+        loading_slip_upload = describe_upload(content, loading_slip.filename, loading_slip.content_type)
+        write_disk_copy(trip_dir / filename, content)
         loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
 
     # Phase 3 — quick write on a fresh session, opened only now
@@ -1176,6 +1243,9 @@ async def submit_stage2(
 
         if loading_slip_url:
             trip.s2_loading_slip_url = loading_slip_url
+            save_loading_slip(db, trip=trip, doc_type='loading_slip', url_path=loading_slip_url,
+                              file_name=Path(loading_slip_url).name, upload=loading_slip_upload,
+                              user=current_user, role_key=role_key, org_id=user_org.organization_id)
             _apply_attributions(trip, ['loading_slip'], current_user, role_key)
 
         # Flush draft attributions before clearing
@@ -1291,39 +1361,39 @@ async def submit_stage3(
 
     # Phase 2 — slow file I/O, no DB session held
     # Save loaded weight slip file
+    trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
     loaded_weight_slip_url = None
     if loaded_weight_slip and loaded_weight_slip.filename:
         ext = Path(loaded_weight_slip.filename).suffix or '.jpg'
-        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
-        trip_dir.mkdir(parents=True, exist_ok=True)
         filename = f"weight_slip_{_uuid_module.uuid4().hex}{ext}"
-        with open(trip_dir / filename, "wb") as f:
-            f.write(await loaded_weight_slip.read())
+        content = await loaded_weight_slip.read()
+        weight_slip_upload = describe_upload(content, loaded_weight_slip.filename, loaded_weight_slip.content_type)
+        write_disk_copy(trip_dir / filename, content)
         loaded_weight_slip_url = f"/uploads/trips/{trip_id}/{filename}"
 
     # Save e-way bill file
     eway_bill_url = None
     if eway_bill and eway_bill.filename:
         ext = Path(eway_bill.filename).suffix or '.jpg'
-        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
-        trip_dir.mkdir(parents=True, exist_ok=True)
         filename = f"eway_bill_{_uuid_module.uuid4().hex}{ext}"
-        with open(trip_dir / filename, "wb") as f:
-            f.write(await eway_bill.read())
+        content = await eway_bill.read()
+        eway_bill_upload = describe_upload(content, eway_bill.filename, eway_bill.content_type)
+        write_disk_copy(trip_dir / filename, content)
         eway_bill_url = f"/uploads/trips/{trip_id}/{filename}"
 
     # Save material doc files
     material_urls = []
+    material_items = []   # (url, file name, upload) in order, one trip_documents slot each
     if material_docs:
-        trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
-        trip_dir.mkdir(parents=True, exist_ok=True)
         for doc in material_docs:
             if doc and doc.filename:
                 ext = Path(doc.filename).suffix or '.jpg'
                 filename = f"material_{_uuid_module.uuid4().hex}{ext}"
-                with open(trip_dir / filename, "wb") as f:
-                    f.write(await doc.read())
+                content = await doc.read()
+                material_upload = describe_upload(content, doc.filename, doc.content_type)
+                write_disk_copy(trip_dir / filename, content)
                 material_urls.append(f"/uploads/trips/{trip_id}/{filename}")
+                material_items.append((material_urls[-1], filename, material_upload))
 
     # Phase 3 — quick write on a fresh session, opened only now
     db = SessionLocal()
@@ -1359,10 +1429,16 @@ async def submit_stage3(
         trip.s3_empty_truck_weight_unit  = empty_truck_weight_unit or 'kg'
         trip.s3_loaded_truck_weight_kg   = loaded_truck_weight_kg
         trip.s3_loaded_truck_weight_unit = loaded_truck_weight_unit or 'kg'
+        stored = {"trip_id": trip_id, "stage": 3, "user": current_user, "role_key": role_key,
+                  "org_id": user_org.organization_id}
         if loaded_weight_slip_url:
             trip.s3_loaded_weight_slip_url = loaded_weight_slip_url
+            save_trip_document(db, doc_type='loaded_weight_slip', url_path=loaded_weight_slip_url,
+                               file_name=Path(loaded_weight_slip_url).name, upload=weight_slip_upload, **stored)
         if eway_bill_url:
             trip.s3_eway_bill_url = eway_bill_url
+            save_trip_document(db, doc_type='eway_bill', url_path=eway_bill_url,
+                               file_name=Path(eway_bill_url).name, upload=eway_bill_upload, **stored)
         if eway_bill_number:
             trip.s3_eway_bill_number = eway_bill_number
         if invoice_number:
@@ -1385,6 +1461,7 @@ async def submit_stage3(
             trip.s3_eway_bill_expiry_date = parsed_eway_expiry_dt
         if material_urls:
             trip.s3_material_doc_urls = json.dumps(material_urls)
+            save_trip_document_list(db, doc_type='material_doc', items=material_items, **stored)
         trip.s3_vehicle_reach_datetime   = parsed_vehicle_reach_dt
         trip.s3_submitted_by             = current_user.id
         trip.s3_claimed_by               = None  # release claim on submit
@@ -1604,19 +1681,49 @@ async def submit_stage4_diesel(
                 parsed_bilty_date = datetime.fromisoformat(bilty_date)
             except ValueError:
                 raise HTTPException(status_code=400, detail="Invalid date/time format for bilty date")
+
+        if parsed_bilty_date is not None:
+            # RR refuses a bilty date before its trip was created or in the future (get_and_update_bilty_number);
+            # refuse it here already, so it never fails at sync time (user, 2026-11-14). Only a new or changed date is
+            # checked - an older stored one never blocks saving the rest of Stage 4.
+            from datetime import timedelta
+
+            def _as_utc(dt):
+                return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+            new_date = _as_utc(parsed_bilty_date)
+            if trip.s4_bilty_date is None or new_date != _as_utc(trip.s4_bilty_date):
+                floor = trip.rr_trip_created_at or trip.created_at
+                if floor is not None and new_date < _as_utc(floor):
+                    raise HTTPException(status_code=400, detail=(
+                        "Bilty date cannot be before the trip was created "
+                        f"({_as_utc(floor).strftime('%d-%m-%Y %H:%M')} UTC)"))
+                if new_date > datetime.now(timezone.utc) + timedelta(minutes=5):
+                    raise HTTPException(status_code=400, detail="Bilty date cannot be in the future")
+
+        if trip.s4_bilty_synced:
+            # RR assigns the bilty number once per parcel (get_and_update_bilty_number): after the first sync it can
+            # never change there, so it cannot change here either (the app locks the fields too) - user, 2026-11-14.
+            def _utc(dt):
+                return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+            number_changed = bool(bilty_number) and bilty_number.strip() != (trip.s4_bilty_number or "")
+            date_changed = parsed_bilty_date is not None and (
+                trip.s4_bilty_date is None or _utc(parsed_bilty_date) != _utc(trip.s4_bilty_date))
+            if number_changed or date_changed:
+                raise HTTPException(status_code=409,
+                                    detail="Bilty number and date are already synced to RR and cannot be changed")
     finally:
         db.close()
 
     # Phase 2 — slow file I/O, no DB session held
     trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
-    trip_dir.mkdir(parents=True, exist_ok=True)
 
     receipt_url = None
     if receipt and receipt.filename:
         ext = Path(receipt.filename).suffix or '.jpg'
         filename = f"diesel_receipt_{_uuid_module.uuid4().hex}{ext}"
         content = await receipt.read()
-        (trip_dir / filename).write_bytes(content)
+        receipt_upload = describe_upload(content, receipt.filename, receipt.content_type)
+        write_disk_copy(trip_dir / filename, content)
         receipt_url = f"/uploads/trips/{trip_id}/{filename}"
 
     bilty_url = None
@@ -1624,7 +1731,8 @@ async def submit_stage4_diesel(
         ext = Path(bilty_doc.filename).suffix or '.jpg'
         bilty_filename = f"bilty_{_uuid_module.uuid4().hex}{ext}"
         bilty_content = await bilty_doc.read()
-        (trip_dir / bilty_filename).write_bytes(bilty_content)
+        bilty_upload = describe_upload(bilty_content, bilty_doc.filename, bilty_doc.content_type)
+        write_disk_copy(trip_dir / bilty_filename, bilty_content)
         bilty_url = f"/uploads/trips/{trip_id}/{bilty_filename}"
 
     material_verification_url = None
@@ -1632,23 +1740,33 @@ async def submit_stage4_diesel(
         ext = Path(material_verification_sheet.filename).suffix or '.jpg'
         mv_filename = f"material_verification_{_uuid_module.uuid4().hex}{ext}"
         mv_content = await material_verification_sheet.read()
-        (trip_dir / mv_filename).write_bytes(mv_content)
+        mv_upload = describe_upload(mv_content, material_verification_sheet.filename,
+                                    material_verification_sheet.content_type)
+        write_disk_copy(trip_dir / mv_filename, mv_content)
         material_verification_url = f"/uploads/trips/{trip_id}/{mv_filename}"
 
     # Phase 3 — quick write on a fresh session, opened only now
     db = SessionLocal()
     try:
         trip = _get_fleet_trip(trip_id, user_org, db)
+        stored = {"trip_id": trip_id, "stage": 4, "user": current_user, "role_key": role_key,
+                  "org_id": user_org.organization_id}
         if receipt_url:
             trip.s4_diesel_receipt_url = receipt_url
+            save_trip_document(db, doc_type='diesel_receipt', url_path=receipt_url,
+                               file_name=Path(receipt_url).name, upload=receipt_upload, **stored)
         if bilty_number:
             trip.s4_bilty_number = bilty_number.strip()
         if bilty_url:
             trip.s4_bilty_url = bilty_url
+            save_trip_document(db, doc_type='bilty', url_path=bilty_url,
+                               file_name=Path(bilty_url).name, upload=bilty_upload, **stored)
         if parsed_bilty_date:
             trip.s4_bilty_date = parsed_bilty_date
         if material_verification_url:
             trip.s4_material_verification_url = material_verification_url
+            save_trip_document(db, doc_type='material_verification', url_path=material_verification_url,
+                               file_name=Path(material_verification_url).name, upload=mv_upload, **stored)
         _apply_attributions(trip, ['diesel_receipt', 'bilty_number', 'bilty_doc', 'material_verification_sheet'], current_user, role_key)
         db.commit()
         db.refresh(trip)
@@ -1705,11 +1823,11 @@ async def submit_stage5(
     pod_url = None
     if pod and pod.filename:
         trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
-        trip_dir.mkdir(parents=True, exist_ok=True)
         ext = Path(pod.filename).suffix or '.jpg'
         filename = f"pod_{_uuid_module.uuid4().hex}{ext}"
         content = await pod.read()
-        (trip_dir / filename).write_bytes(content)
+        pod_upload = describe_upload(content, pod.filename, pod.content_type)
+        write_disk_copy(trip_dir / filename, content)
         pod_url = f"/uploads/trips/{trip_id}/{filename}"
 
     # Phase 3 — quick write on a fresh session, opened only now
@@ -1729,6 +1847,9 @@ async def submit_stage5(
         if pod_url:
             _apply_attributions(trip, ['pod_doc'], current_user, role_key)
             trip.s5_pod_url = pod_url
+            save_trip_document(db, trip_id=trip_id, doc_type='pod', stage=5, url_path=pod_url,
+                               file_name=Path(pod_url).name, upload=pod_upload, user=current_user,
+                               role_key=role_key, org_id=user_org.organization_id)
         if halting_charge and halting_charge.strip():
             try:
                 trip.s5_halting_charge = decimal.Decimal(halting_charge.strip())
@@ -1775,6 +1896,7 @@ async def upload_loading_slip_local(
     db = SessionLocal()
     try:
         user_org = _get_user_org(current_user, db)
+        role_key = _get_role_key(user_org, db)
         trip = db.query(Trip).filter(
             Trip.id == trip_id,
             Trip.organization_id == user_org.organization_id,
@@ -1791,9 +1913,9 @@ async def upload_loading_slip_local(
     ext = Path(file.filename or "slip.jpg").suffix or ".jpg"
 
     trip_dir = Path(settings.UPLOAD_DIR) / "trips" / trip_id
-    trip_dir.mkdir(parents=True, exist_ok=True)
     local_name = f"loading_slip_{_uuid_mod.uuid4().hex[:8]}{ext}"
-    (trip_dir / local_name).write_bytes(file_bytes)
+    slip_upload = describe_upload(file_bytes, file.filename or local_name, file.content_type)
+    write_disk_copy(trip_dir / local_name, file_bytes)
     local_url = f"/uploads/trips/{trip_id}/{local_name}"
 
     # Phase 3 — quick write on a fresh session, opened only now
@@ -1806,6 +1928,9 @@ async def upload_loading_slip_local(
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
         trip.rr_loading_slip_url = local_url
+        save_loading_slip(db, trip=trip, doc_type='rr_loading_slip', url_path=local_url,
+                          file_name=local_name, upload=slip_upload, user=current_user, role_key=role_key,
+                          org_id=user_org.organization_id)
         db.commit()
         return {"success": True, "local_url": local_url, "trip": trip.to_dict()}
     finally:
@@ -2385,18 +2510,21 @@ async def transporter_upload_loading_slip(
     if trip.current_stage < 2:
         raise HTTPException(status_code=409, detail="Trip is not yet at the loading slip stage.")
 
-    if trip.s2_loading_slip_url:
+    if trip.s2_loading_slip_url or trip.rr_loading_slip_url:
         raise HTTPException(status_code=409, detail="Loading slip has already been uploaded.")
 
     upload_dir = Path(f"uploads/trips/{trip_id}")
-    upload_dir.mkdir(parents=True, exist_ok=True)
     ext = Path(slip.filename).suffix if slip.filename else '.jpg'
     filename = f"loading_slip_{_uuid_module.uuid4().hex}{ext}"
     file_path = upload_dir / filename
     content = await slip.read()
-    file_path.write_bytes(content)
+    slip_upload = describe_upload(content, slip.filename, slip.content_type)
+    write_disk_copy(file_path, content)
 
     trip.s2_loading_slip_url = f"/uploads/trips/{trip_id}/{filename}"
+    save_loading_slip(db, trip=trip, doc_type='loading_slip', url_path=trip.s2_loading_slip_url,
+                      file_name=filename, upload=slip_upload, user=current_user, role_key=role_key,
+                      org_id=user_org.organization_id, uploaded_via='transporter')
     db.commit()
     db.refresh(trip)
 

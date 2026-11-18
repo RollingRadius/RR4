@@ -2486,6 +2486,11 @@ class AppLocalizationsHi extends AppLocalizations {
   String get stageS1Reassign => 'बदलें';
 
   @override
+  String stageS1ReassignBusyWarning(String trip) {
+    return 'यह चालक दूसरी चालू ट्रिप ($trip) पर है। बदलने पर उसे उस ट्रिप से हटाकर इस ट्रिप पर ट्रैक किया जाएगा।';
+  }
+
+  @override
   String stageS1ReassignBody(String name) {
     return 'यह ट्रिप RR पर $name को सौंप दी जाएगी — मेरी ट्रिप्स की सूची और क्रू रिकॉर्ड इसी हिसाब से बदल जाएंगे।';
   }
@@ -2539,6 +2544,21 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get stageS1UploadPan => 'PAN कार्ड अपलोड करें';
+
+  @override
+  String get stageS1PanNumber => 'PAN नंबर';
+
+  @override
+  String get stageS1PanInvalid => 'सही PAN डालें, जैसे ABCDE1234F';
+
+  @override
+  String get stageS1PanNumberRequired => 'PAN फ़ोटो के साथ PAN नंबर ज़रूरी है';
+
+  @override
+  String get stageS1TaxValidTill => 'टैक्स डिक्लेरेशन कब तक मान्य है';
+
+  @override
+  String get stageCommonSelectDate => 'तारीख चुनें';
 
   @override
   String get stageS1UploadPermit => 'परमिट डॉक्यूमेंट अपलोड करें';
@@ -2727,6 +2747,13 @@ class AppLocalizationsHi extends AppLocalizations {
   String get stageS3LoadedWeightNote => 'लोडिंग के बाद ट्रक का वज़न दर्ज करें।';
 
   @override
+  String get stageS3MaterialWeight => 'सिर्फ़ माल का वज़न';
+
+  @override
+  String get stageS3MaterialWeightNote =>
+      'धर्मकांटा पर्ची से सिर्फ़ माल का वज़न डालें, ट्रक का वज़न नहीं।';
+
+  @override
   String get stageS3LoadingCompleteBody =>
       'लोडिंग पूरी हुई। अब फैक्ट्री से निकासी पर जाएं।';
 
@@ -2810,6 +2837,11 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get stageS4BiltyDate => 'बिल्टी की तारीख और समय (ज़रूरी नहीं)';
+
+  @override
+  String stageS4BiltyBeforeTrip(String date) {
+    return 'बिल्टी की तारीख ट्रिप बनने ($date) से पहले की नहीं हो सकती';
+  }
 
   @override
   String get stageS4BiltyNumber => 'बिल्टी नंबर (4 अंक)';
