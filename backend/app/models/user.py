@@ -3,9 +3,9 @@ User Model
 Represents user accounts with support for email and security questions authentication
 """
 
-from sqlalchemy import Column, String, Boolean, Integer, DateTime, CheckConstraint
+from sqlalchemy import Column, String, Boolean, Integer, DateTime, CheckConstraint, LargeBinary
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import deferred, relationship
 from sqlalchemy.sql import func
 import uuid
 
@@ -31,6 +31,9 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=True, index=True)
     phone = Column(String(20), nullable=False)
     profile_picture_url = Column(String(500), nullable=True)
+    profile_picture_content = deferred(Column(LargeBinary, nullable=True))
+    profile_picture_content_type = Column(String(100), nullable=True)
+    profile_picture_sha256 = Column(String(64), nullable=True)
 
     # Authentication
     password_hash = Column(String(255), nullable=False)

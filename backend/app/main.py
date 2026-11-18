@@ -235,7 +235,7 @@ from app.api.v1 import (
     auth, company, driver, user, organization, reports, capabilities,
     custom_roles, templates, vehicles, profile, roles, organization_management,
     tracking, expenses, invoices, payments, budgets, branding, loads, trips,
-    notifications, workers, rr_sync, receiving_documents,
+    notifications, workers, rr_sync, receiving_documents, uploads,
 )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -274,15 +274,19 @@ if settings.PROMETHEUS_ENABLED:
     setup_prometheus(app)
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Mount static files for uploads (logos, vehicle photos, etc.)
-uploads_path = os.path.join(os.getcwd(), settings.UPLOAD_DIR)
-os.makedirs(uploads_path, exist_ok=True)
-for subdir in ("logos", "vehicles", "trips", "receiving_documents"):
-    try:
-        os.makedirs(os.path.join(uploads_path, subdir), exist_ok=True)
-    except PermissionError:
-        pass  # subdirs will be created on first use if permissions allow
-app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
+# Uploads (logos, vehicle photos, trip documents, etc.): from the database when
+# UPLOADS_FROM_DB is on, from the disk (static mount) otherwise.
+if settings.UPLOADS_FROM_DB:
+    app.include_router(uploads.router, tags=["Uploads"])
+else:
+    uploads_path = os.path.join(os.getcwd(), settings.UPLOAD_DIR)
+    os.makedirs(uploads_path, exist_ok=True)
+    for subdir in ("logos", "vehicles", "trips", "receiving_documents"):
+        try:
+            os.makedirs(os.path.join(uploads_path, subdir), exist_ok=True)
+        except PermissionError:
+            pass  # subdirs will be created on first use if permissions allow
+    app.mount("/uploads", StaticFiles(directory=uploads_path), name="uploads")
 
 
 if __name__ == "__main__":

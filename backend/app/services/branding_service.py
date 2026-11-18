@@ -18,6 +18,7 @@ from app.models.organization_branding import OrganizationBranding
 from app.models.audit_log import AuditLog
 from app.schemas.branding import BrandingColors
 from app.config import settings
+from app.services.upload_storage import describe_upload, write_disk_copy
 
 
 # Audit actions
@@ -189,6 +190,7 @@ class BrandingService:
         # Read file content to check size
         file_content = file.file.read()
         file_size = len(file_content)
+        stored = describe_upload(file_content, file.filename, file.content_type)
 
         if file_size > MAX_LOGO_SIZE:
             raise HTTPException(
@@ -203,21 +205,19 @@ class BrandingService:
         if branding.logo_url:
             self._delete_logo_file(branding.logo_url)
 
-        # Create upload directory structure
-        org_logo_dir = Path(settings.UPLOAD_DIR) / "logos" / str(org_id)
-        org_logo_dir.mkdir(parents=True, exist_ok=True)
-
         # Generate unique filename
         timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
         filename = f"logo_{timestamp}{file_ext}"
-        file_path = org_logo_dir / filename
+        file_path = Path(settings.UPLOAD_DIR) / "logos" / str(org_id) / filename
 
-        # Save file
-        with open(file_path, "wb") as f:
-            f.write(file_content)
+        # Disk copy for the old static mount (skipped once the database serves /uploads)
+        write_disk_copy(file_path, file_content)
 
         # Update branding
         branding.logo_url = f"/uploads/logos/{org_id}/{filename}"
+        branding.logo_content = stored.content
+        branding.logo_content_type = stored.content_type
+        branding.logo_sha256 = stored.sha256
         branding.logo_filename = filename
         branding.logo_size_bytes = file_size
         branding.logo_uploaded_at = datetime.utcnow()
@@ -278,6 +278,9 @@ class BrandingService:
 
         # Update branding
         branding.logo_url = None
+        branding.logo_content = None
+        branding.logo_content_type = None
+        branding.logo_sha256 = None
         branding.logo_filename = None
         branding.logo_size_bytes = None
         branding.logo_uploaded_at = None
@@ -318,7 +321,9 @@ class BrandingService:
         relative_path = logo_url.lstrip('/')
         file_path = Path(relative_path)
 
-        # Delete file if exists
+        # Delete file if exists (not once the database serves /uploads)
+        if settings.UPLOADS_FROM_DB:
+            return
         if file_path.exists():
             try:
                 file_path.unlink()

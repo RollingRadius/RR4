@@ -3,7 +3,7 @@ Driver and DriverLicense Models
 Represents drivers and their license information in the fleet management system
 """
 
-from sqlalchemy import Column, String, Text, Date, DateTime, Boolean, ForeignKey, CheckConstraint, Index, LargeBinary
+from sqlalchemy import Column, String, Text, Date, DateTime, Boolean, ForeignKey, CheckConstraint, Index, LargeBinary, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -154,6 +154,8 @@ class Driver(Base):
             name='check_emergency_phone_format'
         ),
         Index('idx_driver_org_employee', 'organization_id', 'employee_id', unique=True),
+        # One local record per RR driver (migration 108).
+        Index('uq_drivers_rr_user_id', 'rr_user_id', unique=True, postgresql_where=text('rr_user_id IS NOT NULL')),
     )
 
     def __repr__(self):

@@ -23,6 +23,7 @@ from app.schemas.profile import (
     ChangePasswordResponse
 )
 from app.services.profile_service import ProfileService
+from app.services.upload_storage import describe_upload, write_disk_copy
 from app.services.recovery_service import RecoveryService
 
 router = APIRouter()
@@ -281,17 +282,16 @@ async def upload_profile_picture(
 
     # No DB session held during the slow file I/O — see db-pool-session-pattern.
     ext = Path(picture.filename or "").suffix or ".jpg"
-    pictures_dir = Path(settings.UPLOAD_DIR) / "profile_pictures"
-    pictures_dir.mkdir(parents=True, exist_ok=True)
     filename = f"{current_user.id}_{_uuid_module.uuid4().hex}{ext}"
-    with open(pictures_dir / filename, "wb") as f:
-        f.write(await picture.read())
+    content = await picture.read()
+    upload = describe_upload(content, picture.filename, picture.content_type)
+    write_disk_copy(Path(settings.UPLOAD_DIR) / "profile_pictures" / filename, content)
     picture_url = f"/uploads/profile_pictures/{filename}"
 
     db = SessionLocal()
     try:
         profile_service = ProfileService(db)
-        result = profile_service.set_profile_picture(current_user.id, picture_url)
+        result = profile_service.set_profile_picture(current_user.id, picture_url, upload)
     finally:
         db.close()
 

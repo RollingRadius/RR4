@@ -8,6 +8,7 @@ from sqlalchemy.orm import relationship
 import uuid
 
 from app.database import Base
+from app.models.document import VehicleDocument  # re-exported: app.models.vehicle.VehicleDocument
 
 
 class Vehicle(Base):
@@ -194,70 +195,4 @@ class Vehicle(Base):
             "assigned_at": self.assigned_at.isoformat() if self.assigned_at else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
-        }
-
-
-class VehicleDocument(Base):
-    """Vehicle document model for storing vehicle-related documents."""
-
-    __tablename__ = "vehicle_documents"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    vehicle_id = Column(UUID(as_uuid=True), ForeignKey("vehicles.id", ondelete="CASCADE"), nullable=False)
-    document_type = Column(String(50), nullable=False)
-    document_name = Column(String(255), nullable=False)
-    file_path = Column(String(500), nullable=False)
-    file_size = Column(Integer, nullable=False)
-    mime_type = Column(String(100), nullable=False)
-    expiry_date = Column(Date, nullable=True)
-    uploaded_by = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    uploaded_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    notes = Column(Text, nullable=True)
-
-    # Relationships
-    vehicle = relationship("Vehicle", back_populates="documents")
-    uploader = relationship("User", foreign_keys=[uploaded_by])
-
-    # Check constraints
-    __table_args__ = (
-        CheckConstraint(
-            "document_type IN ('registration', 'insurance', 'pollution_cert', 'fitness_cert', 'permit', 'tax_receipt', 'other')",
-            name="check_document_type"
-        ),
-    )
-
-    def is_expired(self) -> bool:
-        """Check if document has expired."""
-        if not self.expiry_date:
-            return False
-        return self.expiry_date < date.today()
-
-    def is_expiring_soon(self, days: int = 30) -> bool:
-        """Check if document is expiring within specified days."""
-        if not self.expiry_date:
-            return False
-        threshold_date = date.today() + timedelta(days=days)
-        return self.expiry_date <= threshold_date
-
-    def days_until_expiry(self) -> int:
-        """Get number of days until expiry."""
-        if not self.expiry_date:
-            return None
-        return (self.expiry_date - date.today()).days
-
-    def to_dict(self) -> dict:
-        """Convert document to dictionary."""
-        return {
-            "id": str(self.id),
-            "vehicle_id": str(self.vehicle_id),
-            "document_type": self.document_type,
-            "document_name": self.document_name,
-            "file_path": self.file_path,
-            "file_size": self.file_size,
-            "mime_type": self.mime_type,
-            "expiry_date": self.expiry_date.isoformat() if self.expiry_date else None,
-            "uploaded_by": str(self.uploaded_by) if self.uploaded_by else None,
-            "uploaded_at": self.uploaded_at.isoformat() if self.uploaded_at else None,
-            "is_expired": self.is_expired(),
-            "days_until_expiry": self.days_until_expiry(),
         }

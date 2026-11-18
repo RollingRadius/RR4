@@ -3,9 +3,9 @@ Organization Branding Model
 Stores white-label branding configuration for organizations
 """
 
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, LargeBinary
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import deferred, relationship
 from sqlalchemy.sql import func
 import uuid
 
@@ -38,6 +38,9 @@ class OrganizationBranding(Base):
     logo_filename = Column(String(255), nullable=True)
     logo_size_bytes = Column(Integer, nullable=True)
     logo_uploaded_at = Column(DateTime, nullable=True)
+    logo_content = deferred(Column(LargeBinary, nullable=True))
+    logo_content_type = Column(String(100), nullable=True)
+    logo_sha256 = Column(String(64), nullable=True)
 
     # Color Fields (hex format: #RRGGBB)
     primary_color = Column(String(7), nullable=False, default='#1E40AF')

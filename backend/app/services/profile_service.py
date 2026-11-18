@@ -20,6 +20,7 @@ from app.models.audit_log import AuditLog
 from app.models.notification import Notification
 from app.utils.constants import *
 from app.utils.phone import normalize_phone
+from app.services.upload_storage import StoredUpload
 
 
 class ProfileService:
@@ -756,8 +757,9 @@ class ProfileService:
         # Return updated profile status
         return self.get_profile_status(user_id)
 
-    def set_profile_picture(self, user_id: uuid.UUID, picture_url: Optional[str]) -> dict:
-        """Set (or clear, if picture_url is None) the user's profile picture URL."""
+    def set_profile_picture(self, user_id: uuid.UUID, picture_url: Optional[str],
+                            upload: Optional[StoredUpload] = None) -> dict:
+        """Set (or clear, if picture_url is None) the user's profile picture URL and its stored bytes."""
         user = self.db.query(User).filter(User.id == user_id).first()
 
         if not user:
@@ -767,6 +769,9 @@ class ProfileService:
             )
 
         user.profile_picture_url = picture_url
+        user.profile_picture_content = upload.content if upload else None
+        user.profile_picture_content_type = upload.content_type if upload else None
+        user.profile_picture_sha256 = upload.sha256 if upload else None
         self.db.commit()
         self.db.refresh(user)
 

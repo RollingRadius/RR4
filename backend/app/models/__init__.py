@@ -34,6 +34,7 @@ from .material_type import MaterialType
 from .refresh_token import RefreshToken
 from .receiving_document import ReceivingDocument
 from .trip_trail_gap import TripTrailGap
+from .document import DriverDocument, OwnerDocument, TripDocument, DocumentHistory
 
 __all__ = [
     "User",
@@ -80,4 +81,8 @@ __all__ = [
     "RefreshToken",
     "ReceivingDocument",
     "TripTrailGap",
+    "DriverDocument",
+    "OwnerDocument",
+    "TripDocument",
+    "DocumentHistory",
 ]

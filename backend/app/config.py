@@ -75,6 +75,10 @@ class Settings(BaseSettings):
     # File Upload
     MAX_UPLOAD_SIZE: int = 10485760  # 10MB
     UPLOAD_DIR: str = "./uploads"
+    # Serve /uploads/... from the database instead of the disk. Keep OFF until every upload
+    # endpoint writes to the database and the older trips' URLs are repointed; the disk is
+    # not read at all when this is on.
+    UPLOADS_FROM_DB: bool = False
 
     # Logging
     LOG_LEVEL: str = "INFO"

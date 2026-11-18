@@ -21,6 +21,7 @@ from app.models.user import User
 from app.models.role import Role
 from app.models.user_organization import UserOrganization
 from app.models.receiving_document import ReceivingDocument
+from app.services.upload_storage import describe_upload, remove_disk_copy, replacement_entry, write_disk_copy
 
 router = APIRouter(prefix="/receiving-documents", tags=["Receiving Documents"])
 
@@ -68,12 +69,11 @@ async def upload_receiving_document(
         db.close()
 
     # Phase 2 — slow file I/O, no DB session held
-    doc_dir = Path(settings.UPLOAD_DIR) / "receiving_documents"
-    doc_dir.mkdir(parents=True, exist_ok=True)
     ext = (Path(file.filename).suffix or '.jpg') if file.filename else '.jpg'
     filename = f"{uuid_module.uuid4().hex}{ext}"
     content = await file.read()
-    (doc_dir / filename).write_bytes(content)
+    upload = describe_upload(content, file.filename, file.content_type)
+    write_disk_copy(Path(settings.UPLOAD_DIR) / "receiving_documents" / filename, content)
     file_url = f"/uploads/receiving_documents/{filename}"
 
     # Phase 3 — fresh session, insert document
@@ -81,6 +81,10 @@ async def upload_receiving_document(
     try:
         doc = ReceivingDocument(
             file_url=file_url,
+            content=upload.content,
+            content_type=upload.content_type,
+            size_bytes=upload.size_bytes,
+            sha256=upload.sha256,
             doc_date=doc_date,
             organization_id=org_id,
             uploaded_by=current_user.id,
@@ -94,12 +98,8 @@ async def upload_receiving_document(
 
 
 def _remove_file(file_url: str) -> None:
-    """Best-effort delete of an uploaded receiving-sheet image."""
-    try:
-        path = Path(settings.UPLOAD_DIR) / "receiving_documents" / Path(file_url).name
-        path.unlink(missing_ok=True)
-    except OSError:
-        pass
+    """Best-effort delete of an uploaded receiving-sheet image's disk copy."""
+    remove_disk_copy(Path(settings.UPLOAD_DIR) / "receiving_documents" / Path(file_url).name)
 
 
 @router.patch("/{document_id}")
@@ -114,6 +114,7 @@ async def update_receiving_document(
     try:
         user_org = _verify_owner_org(current_user, db)
         org_id = user_org.organization_id
+        role_key = db.query(Role.role_key).filter(Role.id == user_org.role_id).scalar()
         doc = db.query(ReceivingDocument).filter(
             ReceivingDocument.id == document_id,
             ReceivingDocument.organization_id == org_id,
@@ -124,12 +125,13 @@ async def update_receiving_document(
         db.close()
 
     new_file_url = None
+    new_upload = None
     if file is not None and file.filename:
-        doc_dir = Path(settings.UPLOAD_DIR) / "receiving_documents"
-        doc_dir.mkdir(parents=True, exist_ok=True)
         ext = Path(file.filename).suffix or '.jpg'
         filename = f"{uuid_module.uuid4().hex}{ext}"
-        (doc_dir / filename).write_bytes(await file.read())
+        content = await file.read()
+        new_upload = describe_upload(content, file.filename, file.content_type)
+        write_disk_copy(Path(settings.UPLOAD_DIR) / "receiving_documents" / filename, content)
         new_file_url = f"/uploads/receiving_documents/{filename}"
 
     db = SessionLocal()
@@ -144,7 +146,21 @@ async def update_receiving_document(
         if doc_date is not None:
             doc.doc_date = doc_date
         if new_file_url:
+            # Replaced in place: the old bytes are overwritten, one history entry records what was replaced.
+            old_uploader = (db.query(User.username).filter(User.id == doc.uploaded_by).scalar()
+                            if doc.uploaded_by else None)
+            db.add(replacement_entry(
+                kind='receiving', document_id=doc.id, owner_ref=str(org_id), doc_type='receiving_document',
+                old_sha256=doc.sha256, old_size_bytes=doc.size_bytes, old_uploaded_by=doc.uploaded_by,
+                old_uploader_username=old_uploader, old_uploaded_at=doc.created_at,
+                replaced_by=current_user.id, replaced_by_username=current_user.username,
+                replaced_by_role=role_key,
+            ))
             doc.file_url = new_file_url
+            doc.content = new_upload.content
+            doc.content_type = new_upload.content_type
+            doc.size_bytes = new_upload.size_bytes
+            doc.sha256 = new_upload.sha256
         db.commit()
         db.refresh(doc)
         if new_file_url:
