@@ -42,6 +42,11 @@ class BackgroundTrackingService {
   /// these, and this service keeps running regardless of app login state.
   static const String trackingRefreshTokenKey = 'tracking_refresh_token';
   static const String trackingDriverIdKey = 'tracking_driver_id';
+  /// '1' when the stored credential is the server's tracking-only login (V-39:
+  /// can only send GPS points and renew itself). Written on every mint and every
+  /// renewal from the server's `scope`, so an older full-power credential is
+  /// spotted and replaced the next time the app starts tracking.
+  static const String trackingScopedKey = 'tracking_scoped';
 
   static const _storage = FlutterSecureStorage();
 
@@ -104,12 +109,14 @@ class BackgroundTrackingService {
   static Future<bool> startForDriver({
     required String driverId,
     required String refreshToken,
+    bool scoped = false,
   }) async {
     // Credential is still worth persisting on web (harmless, and keeps
     // currentDriverId()'s foreign-driver check meaningful), but there's no
     // actual background service to start there.
     await _storage.write(key: trackingDriverIdKey, value: driverId);
     await _storage.write(key: trackingRefreshTokenKey, value: refreshToken);
+    await _storage.write(key: trackingScopedKey, value: scoped ? '1' : '0');
     if (kIsWeb) return false;
     final service = FlutterBackgroundService();
     if (await service.isRunning()) return true;
@@ -123,7 +130,12 @@ class BackgroundTrackingService {
     await stop();
     await _storage.delete(key: trackingDriverIdKey);
     await _storage.delete(key: trackingRefreshTokenKey);
+    await _storage.delete(key: trackingScopedKey);
   }
+
+  /// True when the stored credential is the tracking-only login (V-39).
+  static Future<bool> hasTrackingOnlyCredential() async =>
+      await _storage.read(key: trackingScopedKey) == '1';
 
   /// Start the service using whatever credential is already persisted —
   /// use this once startForDriver() has already been called for the current
@@ -228,6 +240,8 @@ class BackgroundTrackingService {
       final newRefresh = data['refresh_token'] as String?;
       if (newRefresh != null && newRefresh.isNotEmpty) {
         await _storage.write(key: trackingRefreshTokenKey, value: newRefresh);
+        await _storage.write(
+            key: trackingScopedKey, value: data['scope'] == 'tracking' ? '1' : '0');
       }
       return data['access_token'] as String?;
     } on DioException catch (e) {
@@ -298,6 +312,7 @@ class BackgroundTrackingService {
       await positionSub?.cancel();
       await _storage.delete(key: trackingDriverIdKey);
       await _storage.delete(key: trackingRefreshTokenKey);
+      await _storage.delete(key: trackingScopedKey);
       service.stopSelf();
     }
 

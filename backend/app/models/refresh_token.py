@@ -24,3 +24,6 @@ class RefreshToken(Base):
     created_at = Column(TIMESTAMP(timezone=True), nullable=False)
     expires_at = Column(TIMESTAMP(timezone=True), nullable=False)
     revoked = Column(Boolean, nullable=False, default=False)
+    # "tracking" = made for the background tracker (core.security.TRACKING_SCOPE); kept on every
+    # renewal so a tracker login never turns back into a full one. NULL = normal full login.
+    scope = Column(String(20), nullable=True)

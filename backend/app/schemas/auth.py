@@ -200,6 +200,8 @@ class LoginResponse(BaseModel):
     company_id: Optional[str]
     company_name: Optional[str]
     business_type: Optional[str] = None
+    # "tracking" for the background tracker's login (send GPS points + renew only); None = full login.
+    scope: Optional[str] = None
 
 
 # Email Verification Schemas

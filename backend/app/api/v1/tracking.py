@@ -39,7 +39,7 @@ from app.schemas.tracking import (
     DriverTrackingStatusResponse,
     TrackingAnalyticsSummary
 )
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, get_current_user_for_tracking
 from app.services.capability_service import CapabilityService
 
 router = APIRouter(prefix="/tracking", tags=["GPS Tracking"])
@@ -211,7 +211,9 @@ async def create_location(
 )
 async def create_locations_batch(
     batch_data: LocationBatchCreate,
-    current_user: User = Depends(get_current_user),
+    # Also accepts the background tracker's tracking-only login (V-39): this is the one
+    # route that login is for.
+    current_user: User = Depends(get_current_user_for_tracking),
     db: Session = Depends(get_db),
     tracking_service: TrackingService = Depends(get_tracking_service)
 ):

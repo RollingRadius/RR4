@@ -346,7 +346,12 @@ Future<void> _ensureBackgroundTrackingStarted(WidgetRef ref, String userId) asyn
   await _ensureBatteryOptimizationExemption();
 
   final persistedDriverId = await BackgroundTrackingService.currentDriverId();
-  if (persistedDriverId == userId) {
+  // Same driver with a tracking-only credential: just make sure it runs. A
+  // credential from before V-39 (full power) falls through and is replaced by
+  // a fresh tracking-only one; the running service picks it up on its next
+  // renewal, so tracking does not stop.
+  if (persistedDriverId == userId &&
+      await BackgroundTrackingService.hasTrackingOnlyCredential()) {
     await BackgroundTrackingService.start();
     return;
   }
@@ -357,6 +362,7 @@ Future<void> _ensureBackgroundTrackingStarted(WidgetRef ref, String userId) asyn
       await BackgroundTrackingService.startForDriver(
         driverId: userId,
         refreshToken: refreshToken,
+        scoped: session['scope'] == 'tracking',
       );
     }
   } catch (e) {

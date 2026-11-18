@@ -11,7 +11,7 @@ from typing import Optional
 from app.database import get_db
 from app.models.user import User
 from app.models.user_organization import UserOrganization
-from app.core.security import decode_access_token
+from app.core.security import TRACKING_SCOPE, decode_access_token
 
 
 # HTTP Bearer token security scheme
@@ -25,6 +25,9 @@ def get_current_user(
     """
     Dependency to get the current authenticated user from JWT token.
 
+    Refuses a tracking-only login (the background tracker's, V-39): that login
+    may only upload GPS points, through get_current_user_for_tracking.
+
     Args:
         credentials: HTTP Authorization credentials with Bearer token
         db: Database session
@@ -35,8 +38,20 @@ def get_current_user(
     Raises:
         HTTPException: If token is invalid or user not found
     """
-    token = credentials.credentials
+    return _user_from_token(credentials.credentials, db, allow_tracking_scope=False)
 
+
+def get_current_user_for_tracking(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> User:
+    """Same as get_current_user, but also accepts the background tracker's
+    tracking-only login. Use ONLY on the GPS upload route(s) the tracker calls."""
+    return _user_from_token(credentials.credentials, db, allow_tracking_scope=True)
+
+
+def _user_from_token(token: str, db: Session, allow_tracking_scope: bool) -> User:
+    """Shared body of get_current_user / get_current_user_for_tracking."""
     # Decode JWT token
     payload = decode_access_token(token)
     if not payload:
@@ -44,6 +59,14 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    # A tracking-only login (V-39) is refused everywhere except the GPS upload.
+    # 403, not 401: a 401 would make the app try a token refresh.
+    if payload.get("scope") == TRACKING_SCOPE and not allow_tracking_scope:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This login can only send tracking locations"
         )
 
     # Extract user ID from token

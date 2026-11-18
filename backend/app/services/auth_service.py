@@ -23,7 +23,7 @@ from app.models.driver import Driver
 from app.models.refresh_token import RefreshToken
 from app.core.security import (
     hash_password, verify_password, create_access_token,
-    generate_refresh_token, hash_refresh_token, REFRESH_TOKEN_EXPIRE_DAYS,
+    generate_refresh_token, hash_refresh_token, REFRESH_TOKEN_EXPIRE_DAYS, TRACKING_SCOPE,
 )
 from app.core.encryption import generate_salt, encrypt_answer, decrypt_and_compare
 from app.services.token_service import TokenService
@@ -314,12 +314,16 @@ class AuthService:
 
         return self._issue_session(user, audit_action=AUDIT_ACTION_USER_LOGIN)
 
-    def _issue_session(self, user: User, audit_action: str) -> dict:
+    def _issue_session(self, user: User, audit_action: str, scope: Optional[str] = None) -> dict:
         """
         Build a fresh access + refresh token pair for an already-authenticated
         user (password verified by login(), or refresh token verified by
         refresh_session()) — shared so both paths return an identical shape
         and apply the same org/role/driver resolution.
+
+        `scope` = TRACKING_SCOPE marks the background tracker's login: it goes
+        into the access token and onto the refresh-token row, so a renewal
+        keeps it (see refresh_session). None = a normal full login.
         """
         # Get user's organization and role
         user_org = self.db.query(UserOrganization).filter(
@@ -371,6 +375,8 @@ class AuthService:
             "company_id": str(company.id) if company else None,
             "token_version": user.token_version
         }
+        if scope:
+            token_data["scope"] = scope
 
         access_token = create_access_token(token_data)
 
@@ -386,6 +392,7 @@ class AuthService:
             created_at=now,
             expires_at=now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
             revoked=False,
+            scope=scope,
         ))
         self.db.commit()
 
@@ -403,7 +410,8 @@ class AuthService:
             "role_key": effective_role_key,
             "company_id": str(company.id) if company else None,
             "company_name": company.company_name if company else None,
-            "business_type": company.business_type if company else None
+            "business_type": company.business_type if company else None,
+            "scope": scope,
         }
 
     def refresh_session(self, raw_refresh_token: str) -> dict:
@@ -436,7 +444,8 @@ class AuthService:
         record.revoked = True
         self.db.commit()
 
-        return self._issue_session(user, audit_action=AUDIT_ACTION_USER_LOGIN)
+        # Keep the scope: a renewed tracker login stays tracking-only (V-39).
+        return self._issue_session(user, audit_action=AUDIT_ACTION_USER_LOGIN, scope=record.scope)
 
     def revoke_refresh_token(self, raw_refresh_token: str) -> None:
         """Called on logout so an explicit sign-out actually ends the session
@@ -466,7 +475,10 @@ class AuthService:
         touching/revoking any of the user's other existing tokens, so this
         new token rotates entirely on its own from here on — no more race.
         """
-        return self._issue_session(user, audit_action=AUDIT_ACTION_TRACKING_SESSION_ISSUED)
+        # Tracking-only (V-39): this login can upload GPS points and renew itself, nothing else.
+        return self._issue_session(
+            user, audit_action=AUDIT_ACTION_TRACKING_SESSION_ISSUED, scope=TRACKING_SCOPE
+        )
 
     def verify_email(self, token: str) -> dict:
         """Verify user's email using verification token"""
