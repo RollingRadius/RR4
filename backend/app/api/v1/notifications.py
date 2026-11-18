@@ -7,6 +7,8 @@ Notifications API
     PATCH /api/notifications/{id}/read – mark one notification as read
 """
 
+import asyncio
+
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -16,7 +18,12 @@ from app.models.user import User
 from app.models.role import Role
 from app.models.user_organization import UserOrganization
 from app.models.notification import Notification
-from app.services.ws_manager import manager
+from app.services.ws_manager import CLOSE_ACCESS_ENDED, manager
+
+# How often an open notification connection re-checks that its user may still receive
+# notifications (account active, password unchanged, still an active member of that company).
+# Security audit V-41.
+WS_RECHECK_SECONDS = 300
 
 router = APIRouter()
 
@@ -25,9 +32,12 @@ router = APIRouter()
 
 def _get_user_from_token(token: str, db: Session):
     """Resolve JWT token to (User, UserOrganization) or (None, None)."""
-    from app.core.security import decode_access_token
+    from app.core.security import TRACKING_SCOPE, decode_access_token
     payload = decode_access_token(token)
     if not payload:
+        return None, None
+    # The background tracker's tracking-only login may not receive notifications (V-39).
+    if payload.get("scope") == TRACKING_SCOPE:
         return None, None
     user_id = payload.get("sub")
     if not user_id:
@@ -80,10 +90,14 @@ async def notifications_ws(
             # Transporter or user without org — key by user id
             conn_key = f"user:{str(user.id)}"
             role_key = 'transporter'
+        user_id = str(user.id)
+        org_id = str(user_org.organization_id) if user_org else None
+        token_version = user.token_version
     finally:
         db.close()
 
-    await manager.connect(conn_key, role_key, websocket)
+    await manager.connect(conn_key, role_key, websocket, user_id=user_id)
+    recheck = asyncio.create_task(_recheck_access(websocket, conn_key, user_id, org_id, token_version))
     try:
         while True:
             await websocket.receive_text()
@@ -91,6 +105,48 @@ async def notifications_ws(
         manager.disconnect(conn_key, websocket)
     except Exception:
         manager.disconnect(conn_key, websocket)
+    finally:
+        recheck.cancel()
+
+
+def _still_allowed(user_id: str, org_id, token_version: int) -> bool:
+    """Same checks as at connect time, against the database now: the account can still log in,
+    the password was not changed since (token_version) and, for a company connection, the user
+    is still an active member of that company. The token's own 24 h expiry is deliberately not
+    re-checked, so an idle app is not cut off."""
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user or not user.can_login() or user.token_version != token_version:
+            return False
+        if org_id is None:
+            return True
+        return db.query(UserOrganization).filter(
+            UserOrganization.user_id == user_id,
+            UserOrganization.organization_id == org_id,
+            UserOrganization.status == "active",
+        ).first() is not None
+    finally:
+        db.close()
+
+
+async def _recheck_access(websocket: WebSocket, conn_key: str, user_id: str, org_id, token_version: int):
+    """Every WS_RECHECK_SECONDS: close the connection once its user may no longer receive this
+    company's notifications (V-41). Removal from a company also closes it at once
+    (manager.close_user); this catches every other way access ends."""
+    while True:
+        await asyncio.sleep(WS_RECHECK_SECONDS)
+        try:
+            allowed = await asyncio.to_thread(_still_allowed, user_id, org_id, token_version)
+        except Exception:
+            continue   # a database hiccup must not drop a valid connection
+        if not allowed:
+            manager.disconnect(conn_key, websocket)
+            try:
+                await websocket.close(code=CLOSE_ACCESS_ENDED)
+            except Exception:
+                pass
+            return
 
 
 # ─── REST endpoints ───────────────────────────────────────────────────────────

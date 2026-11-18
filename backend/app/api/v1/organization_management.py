@@ -18,6 +18,7 @@ from app.models.company import Organization
 from app.models.driver import Driver
 from app.models.refresh_token import RefreshToken
 from app.dependencies import get_current_user
+from app.services.ws_manager import manager
 
 router = APIRouter()
 
@@ -349,8 +350,12 @@ def remove_employee(
     # reusing it here would risk a duplicate row when they complete the
     # profile again.
     removed_user.profile_completed = False
+    # No more updates for a removed employee (V-40 / V-41): forget their phone's push
+    # token and close their live notification connections now.
+    removed_user.fcm_token = None
     db.delete(emp_org)
     db.commit()
+    manager.close_user_from_sync(str(removed_user.id))
 
     return {
         "success": True,

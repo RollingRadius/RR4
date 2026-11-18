@@ -28,7 +28,15 @@ def save_fcm_token(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Store FCM token for the current user (for targeted push notifications)."""
+    """Store FCM token for the current user (for targeted push notifications).
+
+    A phone token belongs to one user only (V-40): it is first removed from every other
+    user, so after B logs in on A's old phone, A's pushes stop reaching that phone. This
+    also covers old APKs and phones that never logged out properly."""
+    db.query(User).filter(
+        User.fcm_token == body.fcm_token,
+        User.id != current_user.id,
+    ).update({"fcm_token": None}, synchronize_session=False)
     current_user.fcm_token = body.fcm_token
     db.commit()
     return {"success": True}

@@ -14,6 +14,7 @@ from app.models.user_organization import UserOrganization
 from app.models.user import User
 from app.models.role import Role
 from app.models.audit_log import AuditLog
+from app.services.ws_manager import manager
 from app.utils.constants import (
     AUDIT_ACTION_USER_APPROVED,
     AUDIT_ACTION_USER_REJECTED,
@@ -569,9 +570,15 @@ class OrganizationService:
 
         self.db.add(audit_log)
 
+        # No more updates for a removed user (V-40 / V-41): forget their phone's push token,
+        # then close their live notification connections once the removal is saved.
+        if user_org.user:
+            user_org.user.fcm_token = None
+
         # Delete the relationship
         self.db.delete(user_org)
         self.db.commit()
+        manager.close_user_from_sync(str(user_id))
 
         return {
             "success": True,
