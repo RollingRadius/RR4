@@ -1,54 +1,75 @@
+# Exact versions (security audit V-55 / V-56, 2026-11-17). They are the versions PROD (fc3) ran on 2026-11-16
+# (read-only `pip freeze`), so pinning changes nothing that is already proven there, except:
+#   - python-jose (unmaintained, unfixed flaw PYSEC-2026-4298) replaced by PyJWT (already installed on prod
+#     through firebase-admin); this also drops ecdsa (unfixed Minerva flaw, only python-jose needed it)
+#   - known flaws fixed: certifi, pyasn1, dnspython, opentelemetry-* (pinned below even when only pulled in by
+#     another package, so a rebuild can never bring the flawed versions back)
+# Update on purpose: change a version here, run the tests, check with `pip-audit -r requirements.txt`.
+
 # FastAPI Framework
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
+fastapi==0.143.1
+starlette==1.8.0
+uvicorn[standard]==0.54.0
 
 # Database
-sqlalchemy>=2.0.36,<2.1
-greenlet>=3.0.0
-psycopg2-binary>=2.9.10
-asyncpg>=0.30.0
-alembic>=1.14.0
+sqlalchemy==2.0.54
+greenlet==3.5.6
+psycopg2-binary==2.9.13
+asyncpg==0.32.0
+alembic==1.20.0
 
 # Validation & Settings
-pydantic>=2.10.0
-pydantic-settings>=2.7.0
-email-validator>=2.2.0
+pydantic==2.14.1
+pydantic-settings==2.16.0
+email-validator==2.3.0
+dnspython==2.9.2               # via email-validator; CVE-2026-128089 fixed in 2.9.2
 
 # Security & Authentication
-passlib[bcrypt]>=1.7.4
-argon2-cffi>=25.1.0
-python-jose[cryptography]>=3.3.0
-cryptography>=44.0.0
+passlib[bcrypt]==1.7.4
+bcrypt==5.0.0
+argon2-cffi==25.1.0
+PyJWT==2.15.1                  # replaces python-jose (V-55)
+cryptography==50.0.2
 
 # Utilities
-python-dotenv>=1.0.1
-python-multipart>=0.0.20
-aiofiles>=24.1.0
+python-dotenv==1.2.4
+python-multipart==0.0.32
+aiofiles==25.1.0
+requests==2.34.2
+certifi==2026.10.23            # via requests/httpx; PYSEC-2026-4320 (compromised CA) fixed in 2026.10.18
 
 # GPS Tracking & Geospatial
-geoalchemy2>=0.14.0
-shapely>=2.0.0
-geopy>=2.4.0
-polyline>=2.0.0
-redis>=5.0.0
-requests>=2.31.0
+geoalchemy2==0.20.0
+shapely==2.2.0
+geopy==2.5.0
+polyline==2.0.4
+
+# Cache
+redis==8.1.0
 
 # Firebase Admin SDK (push notifications)
-firebase-admin>=6.5.0
+firebase-admin==7.7.0
+pyasn1==0.6.5                  # via firebase-admin/google-auth; CVE-2026-119194..119197 fixed in 0.6.5
 
-# Observability — OpenTelemetry → SigNoz
-opentelemetry-sdk>=1.20.0
-opentelemetry-api>=1.20.0
-opentelemetry-exporter-otlp-proto-grpc>=1.20.0
-opentelemetry-instrumentation-fastapi>=0.41b0
-opentelemetry-instrumentation-sqlalchemy>=0.41b0
-opentelemetry-instrumentation-redis>=0.41b0
-opentelemetry-instrumentation-requests>=0.41b0
+# Observability — OpenTelemetry → SigNoz (one family: 1.45.2 / 0.66b2; CVE-2026-126360 fixed in api 1.45.2)
+opentelemetry-api==1.45.2
+opentelemetry-sdk==1.45.2
+opentelemetry-proto==1.45.2
+opentelemetry-exporter-otlp-proto-common==1.45.2
+opentelemetry-exporter-otlp-proto-grpc==1.45.2
+opentelemetry-instrumentation==0.66b2
+opentelemetry-instrumentation-asgi==0.66b2
+opentelemetry-instrumentation-fastapi==0.66b2
+opentelemetry-instrumentation-sqlalchemy==0.66b2
+opentelemetry-instrumentation-redis==0.66b2
+opentelemetry-instrumentation-requests==0.66b2
+opentelemetry-semantic-conventions==0.66b2
+opentelemetry-util-http==0.66b2
 
 # Observability — Prometheus metrics
-prometheus-fastapi-instrumentator>=6.0.0
+prometheus-fastapi-instrumentator==8.1.0
 
 # Testing (optional for development)
-pytest>=8.3.0
-pytest-asyncio>=0.24.0
-httpx>=0.28.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
+httpx==0.28.1

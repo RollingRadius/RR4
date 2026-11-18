@@ -7,8 +7,9 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
+
+import jwt
 from passlib.context import CryptContext
-from jose import JWTError, jwt
 
 from app.config import settings
 
@@ -17,6 +18,12 @@ from app.config import settings
 # be revoked/rotated instantly server-side, unlike a self-contained JWT
 # which stays "valid" until its own expiry no matter what the server wants.
 REFRESH_TOKEN_EXPIRE_DAYS = 90
+
+# Scope of a login made for the driver app's background tracker (POST /api/auth/tracking-session).
+# Such a login may only upload GPS points and renew itself; every other route refuses it
+# (security audit V-39). Logins without a scope (the normal app login, and tracker logins made
+# before this existed) keep full power.
+TRACKING_SCOPE = "tracking"
 
 
 def generate_refresh_token() -> str:
@@ -139,7 +146,9 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
             algorithms=[settings.ALGORITHM]
         )
         return payload
-    except JWTError:
+    except jwt.PyJWTError:
+        # PyJWT replaces python-jose (unmaintained, unfixed flaw PYSEC-2026-4298; security audit V-55).
+        # Same HS256 tokens and secret, so tokens issued before the switch keep working.
         return None
 
 
