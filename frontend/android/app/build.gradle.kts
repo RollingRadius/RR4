@@ -34,6 +34,15 @@ android {
         versionName = flutter.versionName
     }
 
+    lint {
+        // Windows Gradle bug: lintVitalAnalyzeRelease intermittently fails with
+        // "FileSystemException: ...lint-cache\...jar: The process cannot access
+        // the file because it is being used by another process" (AGP file-lock
+        // race on Windows, same class as the native-symbol-extraction bug below).
+        // Skipping the release lint-vital pass avoids the broken task.
+        checkReleaseBuilds = false
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
