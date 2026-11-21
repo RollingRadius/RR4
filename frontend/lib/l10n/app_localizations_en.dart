@@ -6834,4 +6834,167 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vehListTitle => 'Fleet Vehicles';
+
+  @override
+  String get bookingActionFailed => 'Could not complete the action - try again';
+
+  @override
+  String get bookingReasonLabel => 'Reason (required)';
+
+  @override
+  String get bookingReasonHint => 'Write why this is being cancelled';
+
+  @override
+  String get bookingAreYouSure => 'Are you sure?';
+
+  @override
+  String get bookingNoGoBack => 'No, go back';
+
+  @override
+  String get bookingWeightRecorded =>
+      'The truck is loaded (weight recorded), so this booking can\'t be cancelled.';
+
+  @override
+  String get bookingCancelTitle => 'Cancel truck booking';
+
+  @override
+  String get bookingCancelPointRr =>
+      'The booking is cancelled in RR web right away, with your reason.';
+
+  @override
+  String get bookingCancelPointTrip =>
+      'This trip loses the truck, driver and truck owner, their Stage 1 papers and the Stage 2-3 truck checks. The loading slip, e-way bill and invoice stay.';
+
+  @override
+  String get bookingCancelPointNext =>
+      'Then book another truck, or cancel the trip.';
+
+  @override
+  String get bookingCancelPointNoUndo => 'This cannot be undone.';
+
+  @override
+  String bookingCancelSure(String vehicle) {
+    return 'Cancel the booking of truck $vehicle? This cannot be undone.';
+  }
+
+  @override
+  String get bookingCancelYes => 'Yes, cancel booking';
+
+  @override
+  String get bookingCancelDone => 'Booking cancelled';
+
+  @override
+  String get bookingCancelTripBookedFirst => 'Cancel the booking first';
+
+  @override
+  String get bookingCancelTripTitle => 'Cancel trip';
+
+  @override
+  String get bookingCancelTripPointRr =>
+      'The trip is cancelled in RR web right away.';
+
+  @override
+  String get bookingCancelTripPointReason =>
+      'Your reason is kept in this app (RR web has no field for it).';
+
+  @override
+  String get bookingCancelTripPointNoUndo =>
+      'A cancelled trip can never be booked or synced again.';
+
+  @override
+  String bookingCancelTripSure(String trip) {
+    return 'Cancel trip $trip? This cannot be undone.';
+  }
+
+  @override
+  String get bookingCancelTripYes => 'Yes, cancel trip';
+
+  @override
+  String get bookingCancelTripDone => 'Trip cancelled';
+
+  @override
+  String get bookingRebookTitle => 'Book another truck';
+
+  @override
+  String bookingRebookIntro(String trip) {
+    return 'Trip $trip: pick the truck owner\'s company, the truck, its driver and the booking amount. The truck is booked in RR web right away; then fill Stage 1 for the new truck.';
+  }
+
+  @override
+  String get bookingRebookProviderPhone => 'Truck provider\'s phone number';
+
+  @override
+  String get bookingRebookFind => 'Find';
+
+  @override
+  String get bookingRebookCompany => 'Truck owner company';
+
+  @override
+  String get bookingRebookNoCompany => 'This person has no company in RR';
+
+  @override
+  String get bookingRebookTruck => 'Truck';
+
+  @override
+  String get bookingRebookNoTrucks => 'This company has no trucks in RR';
+
+  @override
+  String get bookingRebookDriver => 'Driver';
+
+  @override
+  String get bookingRebookDriverHint =>
+      'This truck has no driver in RR - search a driver by name or phone';
+
+  @override
+  String get bookingRebookAmount => 'Booking Amount';
+
+  @override
+  String bookingRebookSure(String vehicle, String driver) {
+    return 'Book truck $vehicle with driver $driver in RR web now?';
+  }
+
+  @override
+  String get bookingRebookYes => 'Book truck';
+
+  @override
+  String get bookingRebookDone => 'Truck booked - now fill Stage 1';
+
+  @override
+  String get bookingMenuCancelBooking => 'Cancel booking';
+
+  @override
+  String get bookingMenuNoCancelWeight =>
+      'Booking can\'t be cancelled (weight recorded)';
+
+  @override
+  String get bookingMenuRebook => 'Book another truck';
+
+  @override
+  String get bookingMenuCancelTrip => 'Cancel trip';
+
+  @override
+  String get bookingMenuCancelTripDisabled =>
+      'Cancel trip (cancel the booking first)';
+
+  @override
+  String get bookingMoreActions => 'More actions';
+
+  @override
+  String get bookingBannerCancelled => 'Booking cancelled - book another truck';
+
+  @override
+  String get bookingHistoryTitle => 'Cancellations';
+
+  @override
+  String bookingHistoryWhenBy(String when, String user) {
+    return '$when · by $user';
+  }
+
+  @override
+  String bookingHistoryReason(String reason) {
+    return 'Reason: $reason';
+  }
+
+  @override
+  String get stageS1AadhaarStart => 'Aadhaar number cannot start with 0 or 1';
 }

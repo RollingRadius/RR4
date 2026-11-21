@@ -6809,4 +6809,167 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get vehListTitle => 'फ्लीट वाहन';
+
+  @override
+  String get bookingActionFailed => 'काम पूरा नहीं हो सका - फिर कोशिश करें';
+
+  @override
+  String get bookingReasonLabel => 'कारण (ज़रूरी)';
+
+  @override
+  String get bookingReasonHint => 'लिखें कि क्यों रद्द किया जा रहा है';
+
+  @override
+  String get bookingAreYouSure => 'क्या आप पक्का हैं?';
+
+  @override
+  String get bookingNoGoBack => 'नहीं, वापस जाएं';
+
+  @override
+  String get bookingWeightRecorded =>
+      'ट्रक लोड हो चुका है (वज़न दर्ज है), इसलिए यह बुकिंग रद्द नहीं हो सकती।';
+
+  @override
+  String get bookingCancelTitle => 'ट्रक की बुकिंग रद्द करें';
+
+  @override
+  String get bookingCancelPointRr =>
+      'बुकिंग RR web में तुरंत आपके कारण के साथ रद्द हो जाएगी।';
+
+  @override
+  String get bookingCancelPointTrip =>
+      'इस ट्रिप से ट्रक, चालक और ट्रक ओनर, उनके स्टेज 1 के कागज़ और स्टेज 2-3 की ट्रक जांच हट जाएंगी। लोडिंग स्लिप, ई-वे बिल और इनवॉइस रहेंगे।';
+
+  @override
+  String get bookingCancelPointNext =>
+      'फिर दूसरा ट्रक बुक करें या ट्रिप रद्द करें।';
+
+  @override
+  String get bookingCancelPointNoUndo => 'यह वापस नहीं हो सकता।';
+
+  @override
+  String bookingCancelSure(String vehicle) {
+    return 'ट्रक $vehicle की बुकिंग रद्द करें? यह वापस नहीं हो सकता।';
+  }
+
+  @override
+  String get bookingCancelYes => 'हां, बुकिंग रद्द करें';
+
+  @override
+  String get bookingCancelDone => 'बुकिंग रद्द हो गई';
+
+  @override
+  String get bookingCancelTripBookedFirst => 'पहले बुकिंग रद्द करें';
+
+  @override
+  String get bookingCancelTripTitle => 'ट्रिप रद्द करें';
+
+  @override
+  String get bookingCancelTripPointRr =>
+      'ट्रिप RR web में तुरंत रद्द हो जाएगी।';
+
+  @override
+  String get bookingCancelTripPointReason =>
+      'आपका कारण इस ऐप में रखा जाएगा (RR web में इसकी जगह नहीं है)।';
+
+  @override
+  String get bookingCancelTripPointNoUndo =>
+      'रद्द हुई ट्रिप फिर कभी बुक या सिंक नहीं हो सकती।';
+
+  @override
+  String bookingCancelTripSure(String trip) {
+    return 'ट्रिप $trip रद्द करें? यह वापस नहीं हो सकता।';
+  }
+
+  @override
+  String get bookingCancelTripYes => 'हां, ट्रिप रद्द करें';
+
+  @override
+  String get bookingCancelTripDone => 'ट्रिप रद्द हो गई';
+
+  @override
+  String get bookingRebookTitle => 'दूसरा ट्रक बुक करें';
+
+  @override
+  String bookingRebookIntro(String trip) {
+    return 'ट्रिप $trip: ट्रक ओनर की कंपनी, ट्रक, उसका चालक और बुकिंग रकम चुनें। ट्रक RR web में तुरंत बुक होगा; फिर नए ट्रक के लिए स्टेज 1 भरें।';
+  }
+
+  @override
+  String get bookingRebookProviderPhone => 'ट्रक देने वाले का फ़ोन नंबर';
+
+  @override
+  String get bookingRebookFind => 'खोजें';
+
+  @override
+  String get bookingRebookCompany => 'ट्रक ओनर की कंपनी';
+
+  @override
+  String get bookingRebookNoCompany => 'इस व्यक्ति की RR में कोई कंपनी नहीं है';
+
+  @override
+  String get bookingRebookTruck => 'ट्रक';
+
+  @override
+  String get bookingRebookNoTrucks => 'इस कंपनी के RR में कोई ट्रक नहीं हैं';
+
+  @override
+  String get bookingRebookDriver => 'चालक';
+
+  @override
+  String get bookingRebookDriverHint =>
+      'इस ट्रक का RR में कोई चालक नहीं है - नाम या फ़ोन से चालक खोजें';
+
+  @override
+  String get bookingRebookAmount => 'बुकिंग रकम';
+
+  @override
+  String bookingRebookSure(String vehicle, String driver) {
+    return 'ट्रक $vehicle को चालक $driver के साथ अभी RR web में बुक करें?';
+  }
+
+  @override
+  String get bookingRebookYes => 'ट्रक बुक करें';
+
+  @override
+  String get bookingRebookDone => 'ट्रक बुक हो गया - अब स्टेज 1 भरें';
+
+  @override
+  String get bookingMenuCancelBooking => 'बुकिंग रद्द करें';
+
+  @override
+  String get bookingMenuNoCancelWeight =>
+      'बुकिंग रद्द नहीं हो सकती (वज़न दर्ज है)';
+
+  @override
+  String get bookingMenuRebook => 'दूसरा ट्रक बुक करें';
+
+  @override
+  String get bookingMenuCancelTrip => 'ट्रिप रद्द करें';
+
+  @override
+  String get bookingMenuCancelTripDisabled =>
+      'ट्रिप रद्द करें (पहले बुकिंग रद्द करें)';
+
+  @override
+  String get bookingMoreActions => 'और विकल्प';
+
+  @override
+  String get bookingBannerCancelled => 'बुकिंग रद्द है - दूसरा ट्रक बुक करें';
+
+  @override
+  String get bookingHistoryTitle => 'रद्द करने का रिकॉर्ड';
+
+  @override
+  String bookingHistoryWhenBy(String when, String user) {
+    return '$when · $user द्वारा';
+  }
+
+  @override
+  String bookingHistoryReason(String reason) {
+    return 'कारण: $reason';
+  }
+
+  @override
+  String get stageS1AadhaarStart => 'आधार नंबर 0 या 1 से शुरू नहीं हो सकता';
 }

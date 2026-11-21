@@ -12331,6 +12331,288 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Fleet Vehicles'**
   String get vehListTitle;
+
+  /// No description provided for @bookingActionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not complete the action - try again'**
+  String get bookingActionFailed;
+
+  /// No description provided for @bookingReasonLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (required)'**
+  String get bookingReasonLabel;
+
+  /// No description provided for @bookingReasonHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write why this is being cancelled'**
+  String get bookingReasonHint;
+
+  /// No description provided for @bookingAreYouSure.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure?'**
+  String get bookingAreYouSure;
+
+  /// No description provided for @bookingNoGoBack.
+  ///
+  /// In en, this message translates to:
+  /// **'No, go back'**
+  String get bookingNoGoBack;
+
+  /// No description provided for @bookingWeightRecorded.
+  ///
+  /// In en, this message translates to:
+  /// **'The truck is loaded (weight recorded), so this booking can\'t be cancelled.'**
+  String get bookingWeightRecorded;
+
+  /// No description provided for @bookingCancelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel truck booking'**
+  String get bookingCancelTitle;
+
+  /// No description provided for @bookingCancelPointRr.
+  ///
+  /// In en, this message translates to:
+  /// **'The booking is cancelled in RR web right away, with your reason.'**
+  String get bookingCancelPointRr;
+
+  /// No description provided for @bookingCancelPointTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'This trip loses the truck, driver and truck owner, their Stage 1 papers and the Stage 2-3 truck checks. The loading slip, e-way bill and invoice stay.'**
+  String get bookingCancelPointTrip;
+
+  /// No description provided for @bookingCancelPointNext.
+  ///
+  /// In en, this message translates to:
+  /// **'Then book another truck, or cancel the trip.'**
+  String get bookingCancelPointNext;
+
+  /// No description provided for @bookingCancelPointNoUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'This cannot be undone.'**
+  String get bookingCancelPointNoUndo;
+
+  /// No description provided for @bookingCancelSure.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel the booking of truck {vehicle}? This cannot be undone.'**
+  String bookingCancelSure(String vehicle);
+
+  /// No description provided for @bookingCancelYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, cancel booking'**
+  String get bookingCancelYes;
+
+  /// No description provided for @bookingCancelDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking cancelled'**
+  String get bookingCancelDone;
+
+  /// No description provided for @bookingCancelTripBookedFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel the booking first'**
+  String get bookingCancelTripBookedFirst;
+
+  /// No description provided for @bookingCancelTripTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel trip'**
+  String get bookingCancelTripTitle;
+
+  /// No description provided for @bookingCancelTripPointRr.
+  ///
+  /// In en, this message translates to:
+  /// **'The trip is cancelled in RR web right away.'**
+  String get bookingCancelTripPointRr;
+
+  /// No description provided for @bookingCancelTripPointReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Your reason is kept in this app (RR web has no field for it).'**
+  String get bookingCancelTripPointReason;
+
+  /// No description provided for @bookingCancelTripPointNoUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'A cancelled trip can never be booked or synced again.'**
+  String get bookingCancelTripPointNoUndo;
+
+  /// No description provided for @bookingCancelTripSure.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel trip {trip}? This cannot be undone.'**
+  String bookingCancelTripSure(String trip);
+
+  /// No description provided for @bookingCancelTripYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, cancel trip'**
+  String get bookingCancelTripYes;
+
+  /// No description provided for @bookingCancelTripDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip cancelled'**
+  String get bookingCancelTripDone;
+
+  /// No description provided for @bookingRebookTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Book another truck'**
+  String get bookingRebookTitle;
+
+  /// No description provided for @bookingRebookIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip {trip}: pick the truck owner\'s company, the truck, its driver and the booking amount. The truck is booked in RR web right away; then fill Stage 1 for the new truck.'**
+  String bookingRebookIntro(String trip);
+
+  /// No description provided for @bookingRebookProviderPhone.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck provider\'s phone number'**
+  String get bookingRebookProviderPhone;
+
+  /// No description provided for @bookingRebookFind.
+  ///
+  /// In en, this message translates to:
+  /// **'Find'**
+  String get bookingRebookFind;
+
+  /// No description provided for @bookingRebookCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck owner company'**
+  String get bookingRebookCompany;
+
+  /// No description provided for @bookingRebookNoCompany.
+  ///
+  /// In en, this message translates to:
+  /// **'This person has no company in RR'**
+  String get bookingRebookNoCompany;
+
+  /// No description provided for @bookingRebookTruck.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck'**
+  String get bookingRebookTruck;
+
+  /// No description provided for @bookingRebookNoTrucks.
+  ///
+  /// In en, this message translates to:
+  /// **'This company has no trucks in RR'**
+  String get bookingRebookNoTrucks;
+
+  /// No description provided for @bookingRebookDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver'**
+  String get bookingRebookDriver;
+
+  /// No description provided for @bookingRebookDriverHint.
+  ///
+  /// In en, this message translates to:
+  /// **'This truck has no driver in RR - search a driver by name or phone'**
+  String get bookingRebookDriverHint;
+
+  /// No description provided for @bookingRebookAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking Amount'**
+  String get bookingRebookAmount;
+
+  /// No description provided for @bookingRebookSure.
+  ///
+  /// In en, this message translates to:
+  /// **'Book truck {vehicle} with driver {driver} in RR web now?'**
+  String bookingRebookSure(String vehicle, String driver);
+
+  /// No description provided for @bookingRebookYes.
+  ///
+  /// In en, this message translates to:
+  /// **'Book truck'**
+  String get bookingRebookYes;
+
+  /// No description provided for @bookingRebookDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck booked - now fill Stage 1'**
+  String get bookingRebookDone;
+
+  /// No description provided for @bookingMenuCancelBooking.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel booking'**
+  String get bookingMenuCancelBooking;
+
+  /// No description provided for @bookingMenuNoCancelWeight.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking can\'t be cancelled (weight recorded)'**
+  String get bookingMenuNoCancelWeight;
+
+  /// No description provided for @bookingMenuRebook.
+  ///
+  /// In en, this message translates to:
+  /// **'Book another truck'**
+  String get bookingMenuRebook;
+
+  /// No description provided for @bookingMenuCancelTrip.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel trip'**
+  String get bookingMenuCancelTrip;
+
+  /// No description provided for @bookingMenuCancelTripDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel trip (cancel the booking first)'**
+  String get bookingMenuCancelTripDisabled;
+
+  /// No description provided for @bookingMoreActions.
+  ///
+  /// In en, this message translates to:
+  /// **'More actions'**
+  String get bookingMoreActions;
+
+  /// No description provided for @bookingBannerCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking cancelled - book another truck'**
+  String get bookingBannerCancelled;
+
+  /// No description provided for @bookingHistoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancellations'**
+  String get bookingHistoryTitle;
+
+  /// No description provided for @bookingHistoryWhenBy.
+  ///
+  /// In en, this message translates to:
+  /// **'{when} · by {user}'**
+  String bookingHistoryWhenBy(String when, String user);
+
+  /// No description provided for @bookingHistoryReason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason: {reason}'**
+  String bookingHistoryReason(String reason);
+
+  /// No description provided for @stageS1AadhaarStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Aadhaar number cannot start with 0 or 1'**
+  String get stageS1AadhaarStart;
 }
 
 class _AppLocalizationsDelegate

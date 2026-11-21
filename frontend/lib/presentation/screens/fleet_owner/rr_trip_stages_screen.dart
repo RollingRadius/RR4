@@ -1458,8 +1458,17 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     if (v == null || v.trim().isEmpty) return null; // optional
     final cleaned = v.trim().replaceAll(' ', '');
     if (!RegExp(r'^\d{12}$').hasMatch(cleaned)) return AppLocalizations.of(context).stageS1AadhaarLength;
+    // RR web's validateAadhaar: the first digit is 2-9.
+    if (!RegExp(r'^[2-9]').hasMatch(cleaned)) return AppLocalizations.of(context).stageS1AadhaarStart;
     return null;
   }
+
+  // RR web's state codes for a driving licence (shared-validation.service.ts stateCodes).
+  static const _rrDlStateCodes = {
+    'AD', 'AR', 'AS', 'AP', 'BR', 'CG', 'DL', 'DD', 'DN', 'GA', 'GJ', 'HR', 'HP', 'JK', 'JH', 'KA', 'KL', 'LD', 'MP',
+    'MH', 'MN', 'ML', 'MZ', 'NL', 'OD', 'PY', 'PB', 'RJ', 'SK', 'TN', 'TS', 'TR', 'UP', 'UK', 'UA', 'WB', 'AN', 'CH',
+    'LA', 'OT',
+  };
 
   // Matches RR's own server-side format exactly (rrbc-api/app/rr_utils/
   // common_functions.py's is_driving_licence_valid): state code (2 letters)
@@ -1476,6 +1485,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     if (!RegExp(r'^[A-Z]{2}[0-9]{2}[A-Z]?(19|20)[0-9]{2}[0-9]{7}$').hasMatch(cleaned)) {
       return l10n.stageS1DlInvalid;
     }
+    // RR web also checks the state code (its stateCodes list); both forms above pass RR's API too.
+    if (!_rrDlStateCodes.contains(cleaned.substring(0, 2))) return l10n.stageS1DlInvalid;
     return null;
   }
 

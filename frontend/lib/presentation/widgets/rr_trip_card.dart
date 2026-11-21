@@ -15,6 +15,7 @@ import 'package:fleet_management/l10n/app_localizations.dart';
 import 'package:fleet_management/presentation/screens/fleet_owner/rr_trip_stages_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/create_trip_screen.dart';
 import 'package:fleet_management/presentation/screens/trips/trip_locate_screen.dart';
+import 'package:fleet_management/presentation/widgets/rr_booking_actions.dart';
 import 'package:fleet_management/presentation/widgets/rr_login_dialog.dart';
 import 'package:fleet_management/providers/auth_provider.dart';
 import 'package:fleet_management/providers/trip_provider.dart';
@@ -77,6 +78,8 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   /// the parent's next refresh brings back an updated TripModel.
   bool? _s1RequiredOverride;
   Offset? _lastTapPosition;
+  /// Booking / trip cancels of this trip (reason, who, when); null = not loaded yet.
+  List<Map<String, dynamic>>? _cancelEvents;
 
   TripModel get trip => widget.trip;
 
@@ -466,9 +469,99 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
                 color: alreadyInRecords ? _secondary : _onSurface),
           ),
         ),
+        ..._bookingMenuItems(l10n),
       ],
     );
-    if (selected == 'move_to_records') await _moveToRecords();
+    await _handleMenuChoice(selected);
+  }
+
+  /// Cancel booking / Book another truck / Cancel trip (trips in RR web only; md/RR_BOOKING_CANCEL_RULES.md).
+  List<PopupMenuEntry<String>> _bookingMenuItems(AppLocalizations l10n) {
+    if (trip.rrTripId == null || trip.status == 'cancelled') return const [];
+    PopupMenuItem<String> item(String value, String label, bool enabled, {bool danger = false}) => PopupMenuItem(
+          value: value,
+          enabled: enabled,
+          child: Text(label, style: _inter(size: 13, weight: FontWeight.w600,
+              color: !enabled ? _secondary : (danger ? Colors.red.shade700 : _onSurface))),
+        );
+    return [
+      const PopupMenuDivider(),
+      if (trip.isBookingCancelled)
+        item('rebook', l10n.bookingMenuRebook, canRebook(trip))
+      else
+        item('cancel_booking',
+            tripHasLoadedWeight(trip) ? l10n.bookingMenuNoCancelWeight : l10n.bookingMenuCancelBooking,
+            canCancelBooking(trip), danger: true),
+      item('cancel_trip', canCancelTrip(trip) ? l10n.bookingMenuCancelTrip : l10n.bookingMenuCancelTripDisabled,
+          canCancelTrip(trip), danger: true),
+    ];
+  }
+
+  Future<void> _handleMenuChoice(String? selected) async {
+    if (selected == null || !mounted) return;
+    var changed = false;
+    switch (selected) {
+      case 'move_to_records':
+        await _moveToRecords();
+        return;
+      case 'cancel_booking':
+        changed = await runCancelBooking(context, ref, trip);
+      case 'rebook':
+        changed = await runRebook(context, ref, trip);
+      case 'cancel_trip':
+        changed = await runCancelTrip(context, ref, trip);
+    }
+    if (!changed || !mounted) return;
+    try {
+      await ref.read(tripProvider.notifier).fetchSingleTrip(trip.id);
+    } catch (_) {}
+    widget.onRefresh?.call();
+    if (_tripInfoExpanded) await _loadCancelEvents();
+  }
+
+  Future<void> _showMoreMenu(BuildContext anchorContext) async {
+    final l10n = AppLocalizations.of(context);
+    final box = anchorContext.findRenderObject() as RenderBox;
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final pos = box.localToGlobal(Offset(0, box.size.height), ancestor: overlay);
+    final selected = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(pos & const Size(1, 1), Offset.zero & overlay.size),
+      items: _bookingMenuItems(l10n).where((e) => e is! PopupMenuDivider).toList(),
+    );
+    await _handleMenuChoice(selected);
+  }
+
+  Widget _buildBookingCancelledBanner() {
+    final l10n = AppLocalizations.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      color: const Color(0xFFFFEBEE),
+      // Text on its own line and the button below it: side by side they do not fit a narrow phone at a large font.
+      child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Icon(Icons.cancel_outlined, color: Colors.red.shade700, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: Text(l10n.bookingBannerCancelled,
+              style: _inter(size: 12, weight: FontWeight.w600, color: Colors.red.shade700))),
+        ]),
+        if (_canManageRr && canRebook(trip)) ...[
+          const SizedBox(height: 8),
+          ElevatedButton(
+            onPressed: () => _handleMenuChoice('rebook'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(l10n.bookingMenuRebook, style: _manrope(size: 12, color: Colors.white)),
+          ),
+        ],
+      ]),
+    );
   }
 
   @override
@@ -498,6 +591,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
             children: [
               _buildHeader(),
               if (_needsBookingConfirmation && _canManageRr) _buildConfirmBookingBanner(),
+              if (trip.isBookingCancelled && trip.status != 'cancelled') _buildBookingCancelledBanner(),
               _buildS1ToggleRow(),
               const Divider(height: 1, thickness: 1, color: Color(0xFFF0F4F8)),
               _buildStep1Tile(),
@@ -593,6 +687,18 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
               ),
             ),
           ],
+          if (_canManageRr && !_isRecordsTrip && trip.rrTripId != null && trip.status != 'cancelled')
+            Builder(builder: (anchor) => Tooltip(
+              message: l10n.bookingMoreActions,
+              child: InkWell(
+                onTap: () => _showMoreMenu(anchor),
+                borderRadius: BorderRadius.circular(16),
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(Icons.more_vert, color: _white, size: 18),
+                ),
+              ),
+            )),
         ]),
         const SizedBox(height: 8),
         Row(children: [
@@ -671,7 +777,10 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
   Widget _buildStep1Tile() {
     final l10n = AppLocalizations.of(context);
     return InkWell(
-      onTap: () => setState(() => _tripInfoExpanded = !_tripInfoExpanded),
+      onTap: () {
+        setState(() => _tripInfoExpanded = !_tripInfoExpanded);
+        if (_tripInfoExpanded) _loadCancelEvents();
+      },
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
         child: Row(children: [
@@ -679,14 +788,18 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           const SizedBox(width: 10),
           Expanded(child: Text(l10n.tripCardTripInfo,
               style: _manrope(size: 13, weight: FontWeight.w700, color: _onSurface))),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: _doneBg,
-              borderRadius: BorderRadius.circular(20),
+          // Flexible: in Hindi at a large font on a narrow phone the badge did not fit next to the title.
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: _doneBg,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(l10n.tripCardSyncedToRr,
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: _inter(size: 11, weight: FontWeight.w600, color: _done)),
             ),
-            child: Text(l10n.tripCardSyncedToRr,
-                style: _inter(size: 11, weight: FontWeight.w600, color: _done)),
           ),
           const SizedBox(width: 6),
           Icon(
@@ -698,6 +811,53 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
           ),
         ]),
       ),
+    );
+  }
+
+  // ── Cancellations (booking / trip cancelled from the app) ───────────────────
+  // Reason, who and when of every booking cancel and trip cancel (GET /api/rr/booking-events; RR web keeps no such
+  // history - md/RR_BOOKING_CANCEL_RULES.md). Loaded when Trip Info is opened.
+
+  Future<void> _loadCancelEvents() async {
+    if (trip.rrTripId == null || !trip.hasCancellations) return;   // never cancelled: no request at all
+    try {
+      final r = await ref.read(dioProvider).get('/api/rr/booking-events/${trip.id}');
+      final all = ((r.data as Map)['events'] as List? ?? []).cast<Map<String, dynamic>>();
+      if (!mounted) return;
+      setState(() => _cancelEvents = all
+          .where((e) => e['event'] == 'booking_cancelled' || e['event'] == 'trip_cancelled')
+          .toList());
+    } catch (_) {
+      // Best-effort: Trip Info still shows everything else.
+    }
+  }
+
+  Widget _buildCancelEvents(AppLocalizations l10n) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(l10n.bookingHistoryTitle,
+            style: _manrope(size: 13, weight: FontWeight.w700, color: Colors.red.shade700)),
+        const SizedBox(height: 6),
+        for (final e in _cancelEvents!)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.cancel_outlined, size: 16, color: Colors.red.shade700),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(e['event'] == 'trip_cancelled' ? l10n.bookingCancelTripDone : l10n.bookingCancelDone,
+                      style: _inter(size: 12, weight: FontWeight.w700, color: _onSurface)),
+                  Text(l10n.bookingHistoryWhenBy(_fmtCreatedAt(e['at'] as String?), (e['by'] as String?) ?? '—'),
+                      style: _inter(size: 11)),
+                  Text(l10n.bookingHistoryReason((e['reason'] as String?) ?? '—'),
+                      style: _inter(size: 12, color: _onSurface)),
+                ]),
+              ),
+            ]),
+          ),
+      ]),
     );
   }
 
@@ -773,6 +933,10 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
         _InfoRow(icon: Icons.schedule_outlined, label: l10n.tripCardLabelCreatedAt,
             value: _fmtCreatedAt(trip.createdAt)),
         _Divider(),
+        if ((_cancelEvents ?? const []).isNotEmpty) ...[
+          _buildCancelEvents(l10n),
+          _Divider(),
+        ],
 
         // Parties
         if (trip.consignorName != null || trip.consigneeName != null) ...[
