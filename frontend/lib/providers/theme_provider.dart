@@ -327,6 +327,7 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
       ),
 
       // Progress Indicator with custom primary color
+      snackBarTheme: AppTheme.snackBarTheme,
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: primary,
         linearTrackColor: const Color(0xFFE2E8F0),

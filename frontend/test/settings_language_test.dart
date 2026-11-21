@@ -90,6 +90,10 @@ void main() {
     await tester.tap(find.text('हिंदी'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Continue · जारी रखें'));   // the redesigned dialog: pick, then Continue
+
+    await tester.pumpAndSettle();
+
     expect(find.text(hiSubtitle), findsOneWidget, reason: 'now in Hindi');
     expect(find.text(enSubtitle), findsNothing);
     expect(find.text(hiTitle), findsWidgets);
@@ -99,6 +103,8 @@ void main() {
     await tester.tap(find.text(hiSubtitle));
     await tester.pumpAndSettle();
     await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue · जारी रखें'));   // the redesigned dialog: pick, then Continue
     await tester.pumpAndSettle();
 
     expect(find.text(enSubtitle), findsOneWidget);

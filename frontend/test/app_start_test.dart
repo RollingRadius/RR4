@@ -77,11 +77,44 @@ void main() {
     await tester.tap(find.text('हिंदी'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('Continue · जारी रखें'));   // the redesigned dialog: pick, then Continue
+
+    await tester.pumpAndSettle();
+
     expect(find.byType(LoginScreen), findsOneWidget);
     expect(find.text(_arbText('app_hi.arb', 'loginForgotPassword')),
         findsOneWidget);
     expect(find.text(_arbText('app_en.arb', 'loginForgotPassword')),
         findsNothing);
     expect(prefs.getString('app_locale'), 'hi');
+  });
+
+  testWidgets(
+      'first launch: closing the app without choosing a language asks again on the next open '
+      '(user, 2026-11-21)', (tester) async {
+    var prefs = await _pumpApp(tester, {});
+    await tester.pump(const Duration(milliseconds: 2500));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose your language'), findsOneWidget);
+
+    // tries to get past without choosing: tap outside, Back
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Please choose a language · कृपया एक भाषा चुनें'), findsOneWidget);
+    expect(prefs.getString('app_locale'), isNull, reason: 'nothing saved');
+
+    // the app is closed and opened again with what the phone saved
+    final saved = {for (final k in prefs.getKeys()) k: prefs.get(k)!};
+    await tester.pumpWidget(const SizedBox());
+    prefs = await _pumpApp(tester, saved);
+    await tester.pump(const Duration(milliseconds: 2500));
+    await tester.pumpAndSettle();
+    expect(find.text('Choose your language'), findsOneWidget, reason: 'asked again');
+    final checks = tester.widgetList<AnimatedOpacity>(
+        find.ancestor(of: find.byIcon(Icons.check_circle_rounded), matching: find.byType(AnimatedOpacity)));
+    expect(checks.every((o) => o.opacity == 0), isTrue, reason: 'nothing pre-selected');
+    expect(find.byType(LoginScreen), findsNothing);
   });
 }

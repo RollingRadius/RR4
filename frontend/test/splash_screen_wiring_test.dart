@@ -87,6 +87,10 @@ void main() {
 
     await tester.tap(find.text('हिंदी'));
     await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Continue · जारी रखें'));   // the redesigned dialog: pick, then Continue
+
+    await tester.pumpAndSettle();
     expect(find.text('LOGIN_PAGE'), findsOneWidget);
   });
 }

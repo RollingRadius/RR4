@@ -68,6 +68,20 @@ class AppTheme {
     colors: [Color(0xFFFFF7F4), Color(0xFFFFFFFF)],
   );
 
+  // ==================== ON-SCREEN MESSAGES (SnackBars) ====================
+  /// One modern look for every on-screen message (user, 2026-11-21): floating above the bottom edge with a margin,
+  /// rounded corners (12, like the screens that already set a shape), a soft shadow and clear white text. Used by the
+  /// default and the branded themes; a screen's own colour / behaviour still wins where it sets one.
+  static const SnackBarThemeData snackBarTheme = SnackBarThemeData(
+    behavior: SnackBarBehavior.floating,
+    backgroundColor: Color(0xFF1F2933),
+    elevation: 6,
+    insetPadding: EdgeInsets.fromLTRB(16, 0, 16, 20),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+    contentTextStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.white, height: 1.35),
+    actionTextColor: Color(0xFF7DD3FC),
+  );
+
   // ==================== LIGHT THEME ====================
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
@@ -281,6 +295,8 @@ class AppTheme {
     ),
 
     // ==================== PROGRESS INDICATOR ====================
+    snackBarTheme: snackBarTheme,
+
     progressIndicatorTheme: const ProgressIndicatorThemeData(
       color: primaryBlue,
       linearTrackColor: Color(0xFFE2E0E0),
