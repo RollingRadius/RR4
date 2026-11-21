@@ -35,6 +35,7 @@ from .refresh_token import RefreshToken
 from .receiving_document import ReceivingDocument
 from .trip_trail_gap import TripTrailGap
 from .document import DriverDocument, OwnerDocument, TripDocument, DocumentHistory
+from .trip_booking_event import TripBookingEvent
 
 __all__ = [
     "User",
@@ -85,4 +86,5 @@ __all__ = [
     "OwnerDocument",
     "TripDocument",
     "DocumentHistory",
+    "TripBookingEvent",
 ]

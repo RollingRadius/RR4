@@ -38,6 +38,12 @@ class Trip(Base):
     # ── Status ───────────────────────────────────────────────────────────────────
     status = Column(String(20), nullable=False, default='ongoing')
     # Values: pending | ongoing | completed | cancelled
+    # NULL = booked as before (never cancelled); 'booking_cancelled' = the truck booking was cancelled from the app and
+    # no truck is booked now; 'rebooked' = booked again after a cancel (migration 111, md/RR_BOOKING_CANCEL_RULES.md).
+    # Any value = the trip has had a cancel (the app shows its Cancellations list).
+    booking_status = Column(String(30), nullable=True)
+    # A running RR sync claims the trip until this time (one sync per trip at a time; expires by itself, migration 112)
+    rr_sync_lock_until = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # ── Relations ────────────────────────────────────────────────────────────────
     # Fleet owner's organisation (who runs the vehicle)
@@ -376,6 +382,7 @@ class Trip(Base):
             "trip_amount": float(self.trip_amount) if self.trip_amount is not None else None,
             "invoice_number": self.invoice_number,
             "status": self.status,
+            "booking_status": self.booking_status,
             "organization_id": str(self.organization_id),
             "load_owner_org_id": str(self.load_owner_org_id) if self.load_owner_org_id else None,
             "vehicle_id": str(self.vehicle_id) if self.vehicle_id else None,
