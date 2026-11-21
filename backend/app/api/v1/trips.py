@@ -27,7 +27,7 @@ from app.models.trip import Trip
 from app.models.role import Role
 from app.models.driver import Driver
 from app.models.tracking import DriverLocation
-from app.services import fcm_service
+from app.services import fcm_service, rr_change_marks
 from app.services.gap_trail_service import TrailPing, build_trail_gaps, gaps_tracked_elsewhere
 from app.services.stage1_document_service import refresh_stage1_numbers, save_stage1_document
 from app.services.trip_document_service import save_loading_slip, save_trip_document, save_trip_document_list
@@ -830,6 +830,15 @@ def _form_bool(v: str) -> bool:
 
 # ─── Stage Endpoints ──────────────────────────────────────────────────────────
 
+def _refuse_stage_save(trip: Trip) -> None:
+    """No stage is saved on a cancelled trip, or while its truck booking is cancelled (no truck / driver / owner on
+    the trip: papers would be filed under nobody). md/RR_BOOKING_CANCEL_RULES.md"""
+    if trip.status == 'cancelled':
+        raise HTTPException(status_code=423, detail="This trip is cancelled - stages can no longer be saved")
+    if trip.booking_status == 'booking_cancelled':
+        raise HTTPException(status_code=423, detail="The truck booking was cancelled - book another truck first")
+
+
 def _get_fleet_trip(trip_id: str, user_org, db: Session) -> Trip:
     """Fetch a trip that belongs to the current fleet org. Raises 404/403."""
     from datetime import datetime
@@ -955,6 +964,31 @@ def move_trip_to_records(
 
 
 _PAN_FORMAT = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")   # RR's is_pan_valid
+# Driving licence: the forms BOTH RR web and RR's API accept - 15 characters without a space (RR's API adds the space
+# itself before checking) or with the series letter (16) - and RR web's state codes (shared-validation.service.ts).
+_DL_FORMAT = re.compile(r"^[A-Z]{2}[0-9]{2}[A-Z]?(19|20)[0-9]{2}[0-9]{7}$")
+_RR_DL_STATE_CODES = {
+    "AD", "AR", "AS", "AP", "BR", "CG", "DL", "DD", "DN", "GA", "GJ", "HR", "HP", "JK", "JH", "KA", "KL", "LD", "MP",
+    "MH", "MN", "ML", "MZ", "NL", "OD", "PY", "PB", "RJ", "SK", "TN", "TS", "TR", "UP", "UK", "UA", "WB", "AN", "CH",
+    "LA", "OT",
+}
+_AADHAAR_FORMAT = re.compile(r"^[2-9][0-9]{11}$")         # RR web's validateAadhaar (RR's API: 12 digits)
+
+
+def _check_identity_numbers(trip: "Trip", driving_license: Optional[str], aadhaar: Optional[str]) -> None:
+    """Licence and Aadhaar numbers in the format RR web and RR's API accept (2026-11-21). Checked only when the number
+    changed, so a number pulled from RR in another accepted style (e.g. with a space) still saves unchanged."""
+    def norm(v):
+        return re.sub(r"[\s/\-]", "", (v or "")).upper()
+    dl = norm(driving_license)
+    if dl and dl != norm(trip.s1_driving_license):
+        if not _DL_FORMAT.match(dl) or dl[:2] not in _RR_DL_STATE_CODES:
+            raise HTTPException(status_code=422, detail=(
+                "Driving licence number format is not accepted by RR - e.g. RJ1420230012345 "
+                "(state code + RTO + year + 7 digits) or with a series letter, e.g. UP32A20180012345"))
+    aa = re.sub(r"\s", "", aadhaar or "")
+    if aa and aa != re.sub(r"\s", "", trip.s1_aadhaar or "") and not _AADHAAR_FORMAT.match(aa):
+        raise HTTPException(status_code=422, detail="Aadhaar number must be 12 digits and cannot start with 0 or 1")
 
 
 def _check_owner_doc_fields(pan_number: Optional[str], tax_expiry: Optional[str], *, new_pan: bool, new_tax: bool):
@@ -1030,6 +1064,8 @@ async def submit_stage1(
             raise HTTPException(status_code=403, detail="Fleet managers only")
 
         trip = _get_fleet_trip(trip_id, user_org, db)
+        _refuse_stage_save(trip)
+        _check_identity_numbers(trip, driving_license, aadhaar)
 
         # Stage lock: first worker to submit owns this stage; owners can always re-edit
         if trip.s1_submitted_by is not None and role_key == 'logistic_partner_worker':
@@ -1073,6 +1109,8 @@ async def submit_stage1(
     db = SessionLocal()
     try:
         trip = _get_fleet_trip(trip_id, user_org, db)
+        _refuse_stage_save(trip)
+        before = rr_change_marks.snapshot(trip)
 
         # Re-check stage lock in case another worker claimed it mid-upload
         if trip.s1_submitted_by is not None and role_key == 'logistic_partner_worker':
@@ -1154,6 +1192,7 @@ async def submit_stage1(
         if trip.current_stage < 1:
             trip.current_stage = 1
         trip.draft_data = None  # clear draft on submit
+        rr_change_marks.record_changes(trip, before)   # only what changed here goes to RR on the next sync
 
         db.commit()
         db.refresh(trip)
@@ -1204,6 +1243,7 @@ async def submit_stage2(
             raise HTTPException(status_code=403, detail="Fleet managers only")
 
         trip = _get_fleet_trip(trip_id, user_org, db)
+        _refuse_stage_save(trip)
         if trip.current_stage < 1 and trip.s1_required:
             raise HTTPException(status_code=409, detail="Complete Stage 1 first")
 
@@ -1233,6 +1273,8 @@ async def submit_stage2(
     db = SessionLocal()
     try:
         trip = _get_fleet_trip(trip_id, user_org, db)
+        _refuse_stage_save(trip)
+        before = rr_change_marks.snapshot(trip)
 
         # Re-check stage lock in case another worker claimed it mid-upload
         if trip.s2_submitted_by is not None and role_key == 'logistic_partner_worker':
@@ -1273,6 +1315,7 @@ async def submit_stage2(
         if trip.current_stage < 2:
             trip.current_stage = 2
         trip.draft_data = None
+        rr_change_marks.record_changes(trip, before)   # only what changed here goes to RR on the next sync
 
         db.commit()
         db.refresh(trip)
@@ -1349,6 +1392,7 @@ async def submit_stage3(
             raise HTTPException(status_code=400, detail="Invalid date/time format for e-way bill issue or expiry date")
 
         trip = _get_fleet_trip(trip_id, user_org, db)
+        _refuse_stage_save(trip)
         if trip.current_stage < 2:
             raise HTTPException(status_code=409, detail="Complete Stage 2 first")
 
@@ -1399,6 +1443,8 @@ async def submit_stage3(
     db = SessionLocal()
     try:
         trip = _get_fleet_trip(trip_id, user_org, db)
+        _refuse_stage_save(trip)
+        before = rr_change_marks.snapshot(trip)
 
         # Re-check stage lock in case another worker claimed it mid-upload
         if trip.s3_submitted_by is not None and role_key == 'logistic_partner_worker':
@@ -1471,6 +1517,7 @@ async def submit_stage3(
             trip.current_stage = 3
         trip.status                      = 'ongoing'
         trip.draft_data                  = None  # clear draft on submit
+        rr_change_marks.record_changes(trip, before)   # only what changed here goes to RR on the next sync
 
         db.commit()
         db.refresh(trip)
@@ -1525,6 +1572,7 @@ async def forward_truck_report(
             raise HTTPException(status_code=400, detail="phone_number is required")
 
         trip = _get_fleet_trip(trip_id, user_org, db)
+        _refuse_stage_save(trip)
         fields = {
             'phone_number': phone_number.strip(),
             'reported_by': f"RR4 - {trip.trip_number}",
@@ -1591,6 +1639,7 @@ def submit_stage4(
         raise HTTPException(status_code=403, detail="Fleet managers only")
 
     trip = _get_fleet_trip(trip_id, user_org, db)
+    _refuse_stage_save(trip)
     if trip.current_stage < 3:
         raise HTTPException(status_code=409, detail="Complete Stage 3 first")
 
@@ -1605,6 +1654,7 @@ def submit_stage4(
         raise HTTPException(status_code=400, detail="Invalid date/time format for vehicle exit")
 
     was_already_submitted = trip.current_stage >= 4
+    before = rr_change_marks.snapshot(trip)
 
     _draft_flush_attributions(trip, current_user, role_key)
 
@@ -1621,6 +1671,7 @@ def submit_stage4(
     if trip.current_stage < 4:
         trip.current_stage = 4
     trip.draft_data           = None  # clear draft on submit
+    rr_change_marks.record_changes(trip, before)   # only what changed here goes to RR on the next sync
 
     db.commit()
     db.refresh(trip)
@@ -1666,6 +1717,7 @@ async def submit_stage4_diesel(
             raise HTTPException(status_code=403, detail="Fleet managers only")
 
         trip = _get_fleet_trip(trip_id, user_org, db)
+        _refuse_stage_save(trip)
         if trip.current_stage < 4:
             raise HTTPException(status_code=409, detail="Complete exit checklist first")
 
@@ -1749,6 +1801,8 @@ async def submit_stage4_diesel(
     db = SessionLocal()
     try:
         trip = _get_fleet_trip(trip_id, user_org, db)
+        _refuse_stage_save(trip)
+        before = rr_change_marks.snapshot(trip)
         stored = {"trip_id": trip_id, "stage": 4, "user": current_user, "role_key": role_key,
                   "org_id": user_org.organization_id}
         if receipt_url:
@@ -1768,6 +1822,7 @@ async def submit_stage4_diesel(
             save_trip_document(db, doc_type='material_verification', url_path=material_verification_url,
                                file_name=Path(material_verification_url).name, upload=mv_upload, **stored)
         _apply_attributions(trip, ['diesel_receipt', 'bilty_number', 'bilty_doc', 'material_verification_sheet'], current_user, role_key)
+        rr_change_marks.record_changes(trip, before)   # only what changed here goes to RR on the next sync
         db.commit()
         db.refresh(trip)
         return {"success": True, "message": "Diesel receipt uploaded.", "trip": _enrich(trip, db)}
@@ -1798,6 +1853,7 @@ async def submit_stage5(
             raise HTTPException(status_code=403, detail="Fleet managers only")
 
         trip = _get_fleet_trip(trip_id, user_org, db)
+        _refuse_stage_save(trip)
         if trip.current_stage < 4:
             raise HTTPException(status_code=409, detail="Complete Stage 4 first")
         if not trip.s4_diesel_receipt_url:
@@ -1834,6 +1890,8 @@ async def submit_stage5(
     db = SessionLocal()
     try:
         trip = _get_fleet_trip(trip_id, user_org, db)
+        _refuse_stage_save(trip)
+        before = rr_change_marks.snapshot(trip)
 
         # Re-check stage lock in case another worker claimed it mid-upload
         if trip.s5_submitted_by is not None and role_key == 'logistic_partner_worker':
@@ -1868,6 +1926,7 @@ async def submit_stage5(
         trip.draft_data      = None
         if trip.current_stage < 5:
             trip.current_stage = 5
+        rr_change_marks.record_changes(trip, before)   # only what changed here goes to RR on the next sync
 
         db.commit()
         db.refresh(trip)
@@ -2200,6 +2259,13 @@ async def cancel_trip(
         raise HTTPException(status_code=409, detail="Trip is already cancelled.")
     if trip.status == 'completed':
         raise HTTPException(status_code=409, detail="Completed trips cannot be cancelled.")
+    if trip.rr_trip_id:
+        # This cancel is local only; a trip in RR web is cancelled through RR (POST /api/rr/cancel-trip) by LP /
+        # RR-ops, so RR and our app never disagree (user, 2026-11-20).
+        raise HTTPException(status_code=423, detail=(
+            "This trip is in RR web - ask the fleet manager (LP / RR Ops) to cancel it from the trip's menu."
+            if role_key == 'load_owner' else
+            "This trip is in RR web - use Cancel trip in the trip's menu (cancels it in RR too)."))
 
     trip.status = 'cancelled'
 

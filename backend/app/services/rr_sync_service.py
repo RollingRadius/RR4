@@ -31,6 +31,7 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.core.document_map import OWNER
+from app.services import rr_change_marks
 from app.services.stage1_document_service import (link_owner_documents, resolve_owner, save_stage1_document,
                                                   stored_owner_document)
 from app.services.stored_file_service import load_stored_file
@@ -347,6 +348,11 @@ async def _push_driver_identities(
         need_front = bool(it["front_url"]) and synced_urls.get(_front_key(it)) != it["front_url"]
         need_back = bool(it["back_url"]) and synced_urls.get(_back_key(it)) != it["back_url"]
         idx = existing_by_name.get(it["id_name"])
+        current = existing[idx] if idx is not None else None
+        if need_front and _rr_holds_file(db, it["front_url"], _side_photo(current, "Front")):
+            need_front = False   # RR already shows exactly this stored photo
+        if need_back and _rr_holds_file(db, it["back_url"], _side_photo(current, "Back")):
+            need_back = False
 
         front_id = back_id = None
         if need_front:
@@ -425,6 +431,60 @@ def _mark_stored_as_sent(db, sent_files: list[tuple[str, str]]) -> None:
         for table in ("driver_documents", "vehicle_documents", "owner_documents", "trip_documents"):
             db.execute(text(f"UPDATE {table} SET rr_file_id = :f, rr_synced_sha256 = sha256 WHERE url_path = :u"),
                        {"f": rr_file_id, "u": url})
+
+
+def _side_photo(entry: dict | None, side: str):
+    """RR's current photo id on one side ("Front"/"Back") of an identity entry; an unlabelled first photo is the front."""
+    photos = (entry or {}).get("photos") or []
+    for p in photos:
+        if p.get("side") == side:
+            return p.get("photo")
+    if side == "Front" and photos and not any(p.get("side") for p in photos):
+        return photos[0].get("photo")
+    return None
+
+
+def _rr_holds_file(db, url: str | None, rr_photo_id) -> bool:
+    """True when RR's current photo (rr_photo_id) is exactly the stored document at `url`: the sync sent these bytes
+    before (rr_file_id recorded by _mark_stored_as_sent, not replaced since). Such a photo is not sent again."""
+    if not (url and rr_photo_id):
+        return False
+    result = db.execute(text(
+        "SELECT 1 FROM (SELECT url_path, rr_file_id, rr_synced_sha256, sha256 FROM driver_documents UNION ALL "
+        "SELECT url_path, rr_file_id, rr_synced_sha256, sha256 FROM vehicle_documents UNION ALL "
+        "SELECT url_path, rr_file_id, rr_synced_sha256, sha256 FROM owner_documents) d "
+        "WHERE url_path = :u AND rr_file_id = :f AND rr_synced_sha256 = sha256"), {"u": url, "f": str(rr_photo_id)})
+    return bool(result is not None and result.first())
+
+
+# Trip columns of each Stage 1 identity document: (front photo, back photo or None, number).
+_ITEM_COLUMNS = {
+    "Driving Licence": ("s1_driving_license_url", "s1_driving_license_back_url", "s1_driving_license"),
+    "Aadhaar Card": ("s1_aadhaar_url", "s1_aadhaar_back_url", "s1_aadhaar"),
+    "Registration Certificate": ("s1_rc", "s1_rc_back", "s1_rc_number"),
+    "PUC Certificate": ("s1_pollution", None, "s1_puc_number"),
+    "Fitness Certificate": ("s1_fitness", None, "s1_fitness_number"),
+    "Permit": ("s1_permit", None, "s1_permit_number"),
+}
+
+
+def _only_changed_items(trip, items: list[dict], synced_before: bool) -> list[dict]:
+    """The identity items with every part (front, back, number) that did not change since the last successful Stage 1
+    sync left out (rr_change_marks). Before a first successful sync every part goes, as before."""
+    if not synced_before:
+        return items
+    out = []
+    for it in items:
+        front, back, number = _ITEM_COLUMNS[it["id_name"]]
+        g = dict(it)
+        if not rr_change_marks.should_send(trip, front, True):
+            g["front_url"] = None
+        if back is None or not rr_change_marks.should_send(trip, back, True):
+            g["back_url"] = None
+        if not rr_change_marks.should_send(trip, number, True):
+            g["number"] = None
+        out.append(g)
+    return out
 
 
 async def _rr_file_for(url: str, client: httpx.AsyncClient, token: str, db) -> tuple[str | None, bool]:
@@ -507,6 +567,11 @@ async def _push_identities(
         need_front = bool(it["front_url"]) and synced_urls.get(_front_key(it)) != it["front_url"]
         need_back = bool(it["back_url"]) and synced_urls.get(_back_key(it)) != it["back_url"]
         idx = existing_by_name.get(it["id_name"])
+        current = identities[idx] if idx is not None else None
+        if need_front and _rr_holds_file(db, it["front_url"], _side_photo(current, "Front")):
+            need_front = False   # RR already shows exactly this stored photo
+        if need_back and _rr_holds_file(db, it["back_url"], _side_photo(current, "Back")):
+            need_back = False
 
         front_id = back_id = None
         if need_front:
@@ -613,6 +678,8 @@ async def _push_vehicle_insurance(
     etag = data.get("_etag")
     current = dict(data.get("insurance") or {})
 
+    if needs_photo and _rr_holds_file(db, front_url, _side_photo(current, "Front")):
+        needs_photo = False   # RR already shows exactly this stored photo
     needs_number = bool(policy_number) and current.get("policy_number") != policy_number
     if not needs_photo and not needs_number:
         return True, None  # RR already matches what we have — nothing changed
@@ -751,7 +818,13 @@ async def fetch_owner_identities(owner: tuple[str, str], client: httpx.AsyncClie
     return list(data.get("identities") or []), data.get("_etag")
 
 
-async def _push_owner_documents(trip, client: httpx.AsyncClient, token: str, db) -> tuple[bool, str | None]:
+_OWNER_ITEM_COLUMNS = {   # owner document key -> (photo column, number column, valid-till column)
+    "Owner PAN": ("s1_pan", "s1_pan_number", None),
+    "Owner Tax Declaration": ("s1_tax_declaration", None, "s1_tax_declaration_expiry"),
+}
+
+
+async def _push_owner_documents(trip, client: httpx.AsyncClient, token: str, db, send=None) -> tuple[bool, str | None]:
     """Send the truck owner's PAN / tax declaration to the owner of the trip's booking in RR (see above).
 
     Only a document this trip has not sent yet goes. The owner's current documents are read first and the new
@@ -767,6 +840,11 @@ async def _push_owner_documents(trip, client: httpx.AsyncClient, token: str, db)
     to_push = []
     for it in owner_doc_items(trip, kind):
         pending = owner_item_pending(it, synced, kind)
+        if send is not None:   # after a first successful sync: only what changed and was saved since
+            photo_col, number_col, expiry_col = _OWNER_ITEM_COLUMNS[it["key"]]
+            pending = {"photo": pending["photo"] and send(photo_col),
+                       "number": pending["number"] and bool(number_col) and send(number_col),
+                       "expiry": pending["expiry"] and bool(expiry_col) and send(expiry_col)}
         if any(pending.values()):
             to_push.append((it, pending))
     if not to_push:
@@ -777,9 +855,13 @@ async def _push_owner_documents(trip, client: httpx.AsyncClient, token: str, db)
     identities, etag = current
 
     sent_files: list[tuple[str, str]] = []
-    for it, pending in to_push:
+    for n, (it, pending) in enumerate(to_push):
         idx = next((i for i, e in enumerate(identities) if e.get("id_name") == it["id_name"]), None)
         entry = dict(identities[idx]) if idx is not None else {"id_name": it["id_name"]}
+        if pending["photo"] and _rr_holds_file(db, it["front_url"], _side_photo(entry, "Front")):
+            # RR already shows exactly this stored photo: nothing to upload, and its valid-till date stays (P7)
+            pending = {**pending, "photo": False}
+            to_push[n] = (it, pending)
         if it["key"] == "Owner PAN" and not (it["number"] or entry.get("number")):
             # RR refuses a PAN without its number: nothing is sent until Stage 1 has it.
             return False, "truck owner's PAN number is missing - add it in Stage 1, then sync again"
@@ -792,9 +874,9 @@ async def _push_owner_documents(trip, client: httpx.AsyncClient, token: str, db)
                 # A new slip without a known valid-till date never keeps the old slip's date.
                 entry.pop("expiry_date", None)
             sent_files.append((it["front_url"], file_id))
-        if it["number"]:
+        if it["number"] and (send is None or pending["number"] or not entry.get("number")):
             entry["number"] = it["number"]
-        if it["expiry"] and kind == "company":
+        if it["expiry"] and kind == "company" and (send is None or pending["expiry"]):
             entry["expiry_date"] = it["expiry"]
         if idx is None:
             identities.append(entry)
@@ -863,6 +945,8 @@ async def _push_owner_cheque(trip, client: httpx.AsyncClient, token: str, db) ->
         return False, "could not read the truck owner's bank account in RR - cheque not sent"
     if bank is None:
         return False, "truck owner has no bank account in RR - add it in RR web, then sync again (cheque not sent)"
+    if _rr_holds_file(db, url, bank.get("account_identity")):
+        return True, None   # RR's primary bank record already shows exactly this stored cheque
     file_id = await _upload_file(url, client, token)
     if not file_id:
         return False, "Owner Cheque upload to RR failed"
@@ -1020,6 +1104,10 @@ async def _override_identity(
 
     data = get_resp.json()
     etag = data.get("_etag")
+    # RR's current entry for this document: its other details (expiry date etc.) are kept, only the photos and - when
+    # we have one - the number are replaced with ours (2026-11-20: the override used to write photos only and erased
+    # the number, leaving RR with neither RR's nor our number).
+    current = next((i for i in (data.get("identities") or []) if i.get("id_name") == item["id_name"]), {})
     identities = [i for i in (data.get("identities") or []) if i.get("id_name") != item["id_name"]]
 
     front_id = await _upload_file(item["front_url"], client, token)
@@ -1033,7 +1121,11 @@ async def _override_identity(
         if back_id:
             photos.append({"photo": back_id, "side": "Back"})
 
-    identities.append({"id_name": item["id_name"], "photos": photos})
+    entry = {k: v for k, v in current.items() if k not in ("photos", "_id")}
+    entry.update({"id_name": item["id_name"], "photos": photos})
+    if item.get("number"):
+        entry["number"] = item["number"]
+    identities.append(entry)
 
     try:
         patch_resp = await client.patch(
@@ -1093,12 +1185,16 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
 
     errors: list[str] = []
     attempted = False
+    # Changed and saved -> sent; saved but not changed -> not sent (rr_change_marks). Until Stage 1 synced
+    # successfully once, everything goes as before.
+    synced_before = trip.rr_s1_sync_status == "synced"
+    send = (lambda col: rr_change_marks.should_send(trip, col, True)) if synced_before else None
 
     if driver_entity is not None:
         attempted = True
         ok, err = await _push_driver_identities(
             driver_entity, driver_rr_id, vehicle_rr_id, trip.transporter_rr_company_id,
-            driver_doc_items(trip), client, token, db, trip,
+            _only_changed_items(trip, driver_doc_items(trip), synced_before), client, token, db, trip,
         )
         if not ok:
             errors.append(f"Driver docs: {err}")
@@ -1108,12 +1204,15 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
     if vehicle_entity is not None:
         attempted = True
         ok, err = await _push_identities(vehicle_entity, "vehicles", vehicle_rr_id,
-                                          vehicle_doc_items(trip), client, token, db, trip)
+                                          _only_changed_items(trip, vehicle_doc_items(trip), synced_before),
+                                          client, token, db, trip)
         if not ok:
             errors.append(f"Vehicle docs: {err}")
 
         ok, err = await _push_vehicle_insurance(
-            vehicle_entity, vehicle_rr_id, trip.s1_insurance_number, trip.s1_insurance,
+            vehicle_entity, vehicle_rr_id,
+            trip.s1_insurance_number if send is None or send("s1_insurance_number") else None,
+            trip.s1_insurance if send is None or send("s1_insurance") else None,
             client, token, db, trip,
         )
         if not ok:
@@ -1123,15 +1222,16 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
 
     if trip.s1_pan or trip.s1_tax_declaration:
         attempted = True
-        ok, err = await _push_owner_documents(trip, client, token, db)
+        ok, err = await _push_owner_documents(trip, client, token, db, send=send)
         if not ok:
             errors.append(f"Owner docs: {err}")
 
     if trip.s1_cancelled_cheque:
         attempted = True
-        ok, err = await _push_owner_cheque(trip, client, token, db)
-        if not ok:
-            errors.append(f"Owner cheque: {err}")
+        if send is None or send("s1_cancelled_cheque"):
+            ok, err = await _push_owner_cheque(trip, client, token, db)
+            if not ok:
+                errors.append(f"Owner cheque: {err}")
 
     if not attempted and not errors:
         return  # neither vehicle nor driver resolvable yet — nothing to do
@@ -1143,6 +1243,7 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
         trip.rr_s1_sync_status = "synced"
         trip.rr_s1_synced_at = datetime.utcnow()
         trip.rr_s1_sync_error = None
+        rr_change_marks.clear(trip, rr_change_marks.STAGE_COLUMNS[1])
     db.commit()
     logger.info(f"[RR Sync S1] Trip {trip.trip_number} stage1 doc sync: status={trip.rr_s1_sync_status}")
 
@@ -1165,6 +1266,11 @@ async def _sync_loading_slip(trip, client: httpx.AsyncClient, token: str, db) ->
         db.commit()
         return
 
+    # Changed and saved -> sent; saved but not changed -> not sent (rr_change_marks). Files copied from the disk have no
+    # RR file id yet, so F6 alone would send them again although RR has them.
+    if not rr_change_marks.should_send(trip, "s2_loading_slip_url", trip.rr_s2_sync_status == "synced"):
+        return
+
     rr_file_id, is_new = await _rr_file_for(trip.s2_loading_slip_url, client, token, db)
     if not rr_file_id:
         trip.rr_s2_sync_status = "failed"
@@ -1175,6 +1281,7 @@ async def _sync_loading_slip(trip, client: httpx.AsyncClient, token: str, db) ->
         # RR already holds this exact slip: nothing to send (F6)
         trip.rr_s2_sync_status = "synced"
         trip.rr_s2_sync_error = None
+        rr_change_marks.clear(trip, rr_change_marks.STAGE_COLUMNS[2])
         db.commit()
         return
 
@@ -1198,6 +1305,7 @@ async def _sync_loading_slip(trip, client: httpx.AsyncClient, token: str, db) ->
         trip.rr_s2_sync_status = "synced"
         trip.rr_s2_synced_at = datetime.utcnow()
         trip.rr_s2_sync_error = None
+        rr_change_marks.clear(trip, rr_change_marks.STAGE_COLUMNS[2])
         _mark_stored_as_sent(db, [(trip.s2_loading_slip_url, rr_file_id)])
         db.commit()
         logger.info(
@@ -1238,6 +1346,10 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
 
     documents: dict = {}
     new_files: list[tuple[str, str]] = []   # uploaded now; marked as sent once RR saved the parcel
+    # Changed and saved -> sent; saved but not changed -> not sent (rr_change_marks; RR merges nested fields on PATCH).
+    synced_before = trip.rr_s3_sync_status == "synced"
+    send = lambda col: rr_change_marks.should_send(trip, col, synced_before)   # noqa: E731
+    weight_changed = send("s3_loaded_truck_weight_kg") or send("s3_loaded_truck_weight_unit")
 
     async def rr_file(url):
         file_id, is_new = await _rr_file_for(url, client, token, db)
@@ -1249,27 +1361,27 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
     # documents.eway_bill on RR's parcels resource — confirmed via RR's own
     # source (settings.py) and its Angular upload-ewaybill component's PATCH shape.
     eway_bill: dict = {}
-    if trip.s3_eway_bill_number:
+    if trip.s3_eway_bill_number and send("s3_eway_bill_number"):
         eway_bill["number"] = trip.s3_eway_bill_number
-    if trip.s3_eway_bill_url:
+    if trip.s3_eway_bill_url and send("s3_eway_bill_url"):
         rr_eway_id = await rr_file(trip.s3_eway_bill_url)
         if rr_eway_id:
             eway_bill["photos"] = [{"photo": rr_eway_id, "side": "Front"}]
-    if trip.s3_eway_bill_issue_date:
+    if trip.s3_eway_bill_issue_date and send("s3_eway_bill_issue_date"):
         eway_bill["issue_date"] = trip.s3_eway_bill_issue_date.strftime("%Y-%m-%dT%H:%M:%S")
-    if trip.s3_eway_bill_expiry_date:
+    if trip.s3_eway_bill_expiry_date and send("s3_eway_bill_expiry_date"):
         eway_bill["expiry_date"] = trip.s3_eway_bill_expiry_date.strftime("%Y-%m-%dT%H:%M:%S")
     if eway_bill:
         documents["eway_bill"] = eway_bill
 
     # ── Weight receipt ────────────────────────────────────────────────────────
     weight_receipt: dict = {}
-    if trip.s3_loaded_truck_weight_kg:
+    if trip.s3_loaded_truck_weight_kg and weight_changed:
         try:
             weight_receipt["truck_weight_after_loading"] = float(trip.s3_loaded_truck_weight_kg)
         except (ValueError, TypeError):
             pass
-    if trip.s3_loaded_weight_slip_url:
+    if trip.s3_loaded_weight_slip_url and send("s3_loaded_weight_slip_url"):
         rr_slip_id = await rr_file(trip.s3_loaded_weight_slip_url)
         if rr_slip_id:
             weight_receipt["photos"] = [{"photo": rr_slip_id, "side": "Front"}]
@@ -1281,7 +1393,7 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
     # reads/writes index 0 (parcel-documents.component.ts) — so only the first
     # doc is actually used on RR's side. We mirror that with a single doc.
     consignor_invoice: dict = {}
-    if trip.s3_material_doc_urls:
+    if trip.s3_material_doc_urls and send("s3_material_doc_urls"):
         try:
             mat_urls = (
                 json.loads(trip.s3_material_doc_urls)
@@ -1297,16 +1409,16 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
                 photos.append({"photo": rr_file_id, "side": "Front"})
         if photos:
             consignor_invoice["photos"] = photos
-    if trip.s3_invoice_number:
+    if trip.s3_invoice_number and send("s3_invoice_number"):
         consignor_invoice["number"] = trip.s3_invoice_number.upper()
     if consignor_invoice:
         documents["consignor_invoice"] = consignor_invoice
 
     # ── Loading reach/start datetimes ───────────────────────────────────────────
     loading: dict = {}
-    if trip.s3_vehicle_reach_datetime:
+    if trip.s3_vehicle_reach_datetime and send("s3_vehicle_reach_datetime"):
         loading["truck_reach_datetime"] = trip.s3_vehicle_reach_datetime.strftime("%Y-%m-%dT%H:%M:%S")
-    if trip.s3_loading_start_datetime:
+    if trip.s3_loading_start_datetime and send("s3_loading_start_datetime"):
         loading["start_datetime"] = trip.s3_loading_start_datetime.strftime("%Y-%m-%dT%H:%M:%S")
 
     # ── Actual Dharam Kanta weight ────────────────────────────────────────────
@@ -1314,7 +1426,7 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
     # parcels.actual_kanta_weight field — NOT documents.weight_receipt above
     # (that's just the receipt photo's metadata). Mirrors our loaded truck weight.
     actual_kanta_weight = None
-    if trip.s3_loaded_truck_weight_kg:
+    if trip.s3_loaded_truck_weight_kg and weight_changed:
         try:
             unit_map = {"tons": "TONNES", "kg": "KILOGRAMS"}
             actual_kanta_weight = {
@@ -1326,7 +1438,7 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
 
     # ── Real invoice value (entered once the actual invoice is uploaded,
     # replacing the placeholder sent at trip creation) ──────────────────────
-    if trip.s3_actual_invoice_value:
+    if trip.s3_actual_invoice_value and send("s3_actual_invoice_value"):
         patch_body_cost = float(trip.s3_actual_invoice_value)
     else:
         patch_body_cost = None
@@ -1375,6 +1487,7 @@ async def _sync_stage3(trip, client: httpx.AsyncClient, token: str, db) -> None:
     trip.rr_s3_sync_status = "synced"
     trip.rr_s3_synced_at = datetime.utcnow()
     trip.rr_s3_sync_error = None
+    rr_change_marks.clear(trip, rr_change_marks.STAGE_COLUMNS[3])
     _mark_stored_as_sent(db, new_files)
     db.commit()
     logger.info(
@@ -1407,9 +1520,12 @@ async def _sync_stage4_fuel_slip(trip, client: httpx.AsyncClient, token: str, db
 
     errors: list[str] = []
     attempted = False
+    # Changed and saved -> sent; saved but not changed -> not sent (rr_change_marks). Files copied from the disk have no
+    # RR file id yet, so F6 alone would send them again although RR has them.
+    s4_synced_before = trip.rr_s4_sync_status == "synced"
 
     # ── Fuel slip photo ──────────────────────────────────────────────────────────
-    if trip.s4_diesel_receipt_url:
+    if trip.s4_diesel_receipt_url and rr_change_marks.should_send(trip, "s4_diesel_receipt_url", s4_synced_before):
         attempted = True
         if not trip.rr_trip_id:
             trip.rr_s4_sync_status = "pending_trip_creation"
@@ -1437,7 +1553,9 @@ async def _sync_stage4_fuel_slip(trip, client: httpx.AsyncClient, token: str, db
                     logger.info(f"[RR Sync S4] Trip {trip.trip_number} fuel slip synced (rr_file_id={rr_file_id})")
 
     # ── Vehicle exit datetime (loading.end_datetime) ─────────────────────────────
-    if trip.s4_vehicle_exit_datetime:
+    # Changed and saved -> sent; saved but not changed -> not sent (rr_change_marks).
+    if trip.s4_vehicle_exit_datetime and rr_change_marks.should_send(trip, "s4_vehicle_exit_datetime",
+                                                                     trip.rr_s4_sync_status == "synced"):
         attempted = True
         if not trip.rr_parcel_id:
             trip.rr_s4_sync_status = "pending_trip_creation"
@@ -1504,7 +1622,7 @@ async def _sync_stage4_fuel_slip(trip, client: httpx.AsyncClient, token: str, db
                 errors.append(f"get_and_update_bilty_number HTTP {bilty_resp.status_code}: {bilty_resp.text[:300]}")
 
     # ── Manual bilty photo ────────────────────────────────────────────────────────
-    if trip.s4_bilty_url:
+    if trip.s4_bilty_url and rr_change_marks.should_send(trip, "s4_bilty_url", s4_synced_before):
         attempted = True
         if not trip.rr_parcel_id:
             trip.rr_s4_sync_status = "pending_trip_creation"
@@ -1546,6 +1664,7 @@ async def _sync_stage4_fuel_slip(trip, client: httpx.AsyncClient, token: str, db
         trip.rr_s4_sync_status = "synced"
         trip.rr_s4_synced_at = datetime.utcnow()
         trip.rr_s4_sync_error = None
+        rr_change_marks.clear(trip, rr_change_marks.STAGE_COLUMNS[4])
     db.commit()
 
 
@@ -1580,8 +1699,12 @@ async def _sync_stage5(trip, client: httpx.AsyncClient, token: str, db) -> None:
         return
 
     patch_body: dict = {}
+    # Changed and saved -> sent; saved but not changed -> not sent (rr_change_marks; RR merges nested fields on PATCH).
+    synced_before = trip.rr_s5_sync_status == "synced"
+    send = lambda col: rr_change_marks.should_send(trip, col, synced_before)   # noqa: E731
+    rr_pod_id, pod_is_new = None, False
 
-    if trip.s5_pod_url:
+    if trip.s5_pod_url and send("s5_pod_url"):
         rr_pod_id, pod_is_new = await _rr_file_for(trip.s5_pod_url, client, token, db)
         if not rr_pod_id:
             logger.error(f"[RR Sync S5] POD file upload failed for trip {trip.trip_number}")
@@ -1598,13 +1721,13 @@ async def _sync_stage5(trip, client: httpx.AsyncClient, token: str, db) -> None:
         }
 
     unloading: dict = {}
-    if trip.s5_halting_charge is not None:
+    if trip.s5_halting_charge is not None and send("s5_halting_charge"):
         unloading["halting_charge"] = float(trip.s5_halting_charge)
-    if trip.s5_vehicle_reach_datetime:
+    if trip.s5_vehicle_reach_datetime and send("s5_vehicle_reach_datetime"):
         unloading["truck_reach_datetime"] = trip.s5_vehicle_reach_datetime.strftime("%Y-%m-%dT%H:%M:%S")
-    if trip.s5_unloading_start_datetime:
+    if trip.s5_unloading_start_datetime and send("s5_unloading_start_datetime"):
         unloading["start_datetime"] = trip.s5_unloading_start_datetime.strftime("%Y-%m-%dT%H:%M:%S")
-    if trip.s5_unloading_end_datetime:
+    if trip.s5_unloading_end_datetime and send("s5_unloading_end_datetime"):
         unloading["end_datetime"] = trip.s5_unloading_end_datetime.strftime("%Y-%m-%dT%H:%M:%S")
     if unloading:
         patch_body["unloading"] = unloading
@@ -1632,6 +1755,7 @@ async def _sync_stage5(trip, client: httpx.AsyncClient, token: str, db) -> None:
         trip.rr_s5_sync_status = "synced"
         trip.rr_s5_synced_at = datetime.utcnow()
         trip.rr_s5_sync_error = None
+        rr_change_marks.clear(trip, rr_change_marks.STAGE_COLUMNS[5])
         if trip.s5_pod_url and pod_is_new:
             _mark_stored_as_sent(db, [(trip.s5_pod_url, rr_pod_id)])
         db.commit()
@@ -1976,6 +2100,68 @@ _STAGE_STATUS_FIELDS = {
 }
 _AUTH_REQUIRED_MSG = "RR login required — ask LP or RR Ops to sign in to RR"
 
+# ── One sync per trip at a time (migration 112) ─────────────────────────────────
+# Two syncs of the same trip at once both PATCHed RR's parcel and RR refused one (412), leaving a failed stage although
+# RR had the data. A sync claims the trip with one short UPDATE (no DB connection held during RR calls); another sync
+# of the same trip waits for it. The claim expires by itself (a crashed sync cannot block the trip).
+SYNC_LOCK_MINUTES = 10
+SYNC_LOCK_WAIT_SECONDS = 240
+SYNC_BUSY_MSG = "Another sync of this trip is still running - press Sync again in a minute."
+
+
+def _claim_trip_sync(db, trip_id) -> bool:
+    row = db.execute(text(
+        "UPDATE trips SET rr_sync_lock_until = now() + make_interval(mins => :m) "
+        "WHERE id = :id AND (rr_sync_lock_until IS NULL OR rr_sync_lock_until < now()) RETURNING id"),
+        {"id": str(trip_id), "m": SYNC_LOCK_MINUTES}).first()
+    db.commit()
+    return row is not None
+
+
+def _release_trip_sync(db, trip_id) -> None:
+    try:
+        db.rollback()
+        db.execute(text("UPDATE trips SET rr_sync_lock_until = NULL WHERE id = :id"), {"id": str(trip_id)})
+        db.commit()
+    except Exception:
+        logger.exception(f"[RR Sync] could not release the sync claim of trip {trip_id} (expires by itself)")
+
+
+async def _wait_and_claim_trip_sync(db, trip_id) -> bool:
+    """True once this sync owns the trip; False when another sync kept it for SYNC_LOCK_WAIT_SECONDS."""
+    waited = 0
+    while not _claim_trip_sync(db, trip_id):
+        if waited >= SYNC_LOCK_WAIT_SECONDS:
+            return False
+        await asyncio.sleep(2)
+        waited += 2
+    return True
+
+
+# ── Plain-language sync errors ──────────────────────────────────────────────────
+# Technical failures (RR unreachable, RR's etag / concurrency refusals, RR server errors) are shown in words a user can
+# act on; RR's own business messages (e.g. a bilty number already used) are kept as they are.
+RR_UNREACHABLE_MSG = "RR server could not be reached - nothing more was sent. Press Sync again in a few minutes."
+RR_CHANGED_MSG = "The trip was changed in RR at the same moment - press Sync again."
+RR_SERVER_ERROR_MSG = "RR server had an error - press Sync again later. If it keeps failing, tell the RR team."
+
+
+def friendly_sync_error(err: str | None) -> str | None:
+    if not err:
+        return err
+    low = err.lower()
+    if any(s in low for s in ("could not fetch parcel etag", "all connection attempts failed", "connecterror",
+                              "connection refused", "timed out", "timeout", "could not reach rr",
+                              "name or service not known", "temporarily unavailable")):
+        return RR_UNREACHABLE_MSG
+    if "http 412" in low or "etags don't match" in low or "etag" in low and "match" in low:
+        return RR_CHANGED_MSG
+    if any(f"http {c}" in low for c in (500, 502, 503, 504)):
+        return RR_SERVER_ERROR_MSG
+    if "http 401" in low:
+        return _AUTH_REQUIRED_MSG
+    return err
+
 
 async def sync_stage(trip_id: str, stage: int) -> None:
     """
@@ -1993,6 +2179,7 @@ async def sync_stage(trip_id: str, stage: int) -> None:
     from app.services.rr_org_token_service import get_org_rr_token
 
     db = SessionLocal()
+    claimed = False
     try:
         trip = db.query(Trip).filter(Trip.id == trip_id).first()
         if not trip:
@@ -2013,7 +2200,25 @@ async def sync_stage(trip_id: str, stage: int) -> None:
             logger.info(f"[RR Sync Stage {stage}] Trip {trip.trip_number} — no RR session available, marked auth_required")
             return
 
+        status_field, error_field = _STAGE_STATUS_FIELDS[stage]
+        if not await _wait_and_claim_trip_sync(db, trip.id):
+            setattr(trip, status_field, "failed")
+            setattr(trip, error_field, SYNC_BUSY_MSG)
+            db.commit()
+            return
+        claimed = True
+        db.refresh(trip)   # what the previous sync of this trip left (its "already sent" marks)
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+            # Never send anything for a cancelled trip / booking, or when RR's booked truck is not ours any more
+            # (booking changed in RR web) - papers would land on the wrong records (md/RR_BOOKING_CANCEL_RULES.md).
+            from app.services.rr_booking_service import booking_guard
+            blocked = await booking_guard(trip, client, token)
+            if blocked:
+                setattr(trip, status_field, "failed")
+                setattr(trip, error_field, blocked)
+                db.commit()
+                logger.info(f"[RR Sync Stage {stage}] Trip {trip.trip_number} not synced: {blocked}")
+                return
             if stage == 1:
                 await _sync_stage1_docs(trip, client, token, db)
             elif stage == 2:
@@ -2024,9 +2229,17 @@ async def sync_stage(trip_id: str, stage: int) -> None:
                 await _sync_stage4_fuel_slip(trip, client, token, db)
             elif stage == 5:
                 await _sync_stage5(trip, client, token, db)
+        raw = getattr(trip, error_field)
+        nice = friendly_sync_error(raw)
+        if nice != raw:
+            logger.info(f"[RR Sync Stage {stage}] Trip {trip.trip_number} error shown as plain text; was: {raw}")
+            setattr(trip, error_field, nice)
+            db.commit()
     except Exception as exc:
         logger.exception(f"[RR Sync Stage {stage}] Unexpected error for trip {trip_id}: {exc}")
     finally:
+        if claimed:
+            _release_trip_sync(db, trip_id)
         db.close()
 
 
@@ -2054,6 +2267,7 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
     from app.models.company import Organization
 
     db = SessionLocal()
+    claimed = False
     try:
         trip = db.query(Trip).filter(Trip.id == trip_id).first()
         if not trip:
@@ -2070,6 +2284,14 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
             logger.error(f"[RR Sync All] No RR token for trip {trip.trip_number}")
             return
 
+        if not await _wait_and_claim_trip_sync(db, trip.id):
+            trip.rr_sync_status = "failed"
+            trip.rr_sync_error = SYNC_BUSY_MSG
+            db.commit()
+            return
+        claimed = True
+        db.refresh(trip)
+
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
 
             # ── Trip must already exist in RR via complete-trip ────────────────
@@ -2080,11 +2302,29 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                 )
                 return
 
+            from app.services.rr_booking_service import booking_guard
+            blocked = await booking_guard(trip, client, token)
+            if blocked:
+                trip.rr_sync_status = "failed"
+                trip.rr_sync_error = blocked
+                db.commit()
+                logger.info(f"[RR Sync All] Trip {trip.trip_number} not synced: {blocked}")
+                return
+
             await _sync_stage1_docs(trip, client, token, db)
             await _sync_loading_slip(trip, client, token, db)
             await _sync_stage3(trip, client, token, db)
             await _sync_stage4_fuel_slip(trip, client, token, db)
             await _sync_stage5(trip, client, token, db)
+        changed = False
+        for _, error_field in _STAGE_STATUS_FIELDS.values():
+            raw = getattr(trip, error_field)
+            nice = friendly_sync_error(raw)
+            if nice != raw:
+                setattr(trip, error_field, nice)
+                changed = True
+        if changed:
+            db.commit()
 
     except Exception as exc:
         logger.exception(f"[RR Sync All] Unexpected error for trip {trip_id}: {exc}")
@@ -2092,11 +2332,13 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
             trip = db.query(Trip).filter(Trip.id == trip_id).first()
             if trip:
                 trip.rr_sync_status = "failed"
-                trip.rr_sync_error = f"Unexpected error: {str(exc)[:400]}"
+                trip.rr_sync_error = friendly_sync_error(f"Unexpected error: {str(exc)[:400]}")
                 db.commit()
         except Exception:
             pass
     finally:
+        if claimed:
+            _release_trip_sync(db, trip_id)
         db.close()
 
 

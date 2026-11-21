@@ -110,6 +110,15 @@ def _require_rr_session_role(current_user: User, db: Session) -> None:
         )
 
 
+
+def _refuse_locked_trip(trip, trip_level: bool) -> None:
+    """Nothing is sent to RR for a cancelled trip; while no truck is booked (booking cancelled) only trip-level data
+    (loading slip, parcel details) may go - never driver / truck / owner data (md/RR_BOOKING_CANCEL_RULES.md)."""
+    if trip.status == "cancelled":
+        raise HTTPException(status_code=423, detail="This trip is cancelled - nothing is sent to RR")
+    if not trip_level and trip.booking_status == "booking_cancelled":
+        raise HTTPException(status_code=423, detail="The truck booking was cancelled - book another truck first")
+
 async def _resolve_org_rr_token(rr_token: str, db: Session, current_user: User) -> str:
     """
     Read-only proxies accept an explicit rr_token from the client, but fall back to
@@ -479,6 +488,11 @@ async def trigger_sync(
     if not token:
         raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
 
+    if trip.status == "cancelled":
+        raise HTTPException(status_code=423, detail="This trip is cancelled - nothing is synced")
+    if trip.booking_status == "booking_cancelled":
+        raise HTTPException(status_code=423, detail="The truck booking was cancelled - book another truck first")
+
     # Reset failed status so sync will retry
     if trip.rr_sync_status == "failed":
         trip.rr_sync_status = "not_synced"
@@ -544,6 +558,11 @@ async def retry_stage_sync(
     from app.services.rr_org_token_service import get_org_rr_token
     if not await get_org_rr_token(user_org.organization, db):
         raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+
+    if trip.status == "cancelled":
+        raise HTTPException(status_code=423, detail="This trip is cancelled - nothing is synced")
+    if trip.booking_status == "booking_cancelled":
+        raise HTTPException(status_code=423, detail="The truck booking was cancelled - book another truck first")
 
     from app.services.rr_sync_service import sync_stage
     stages_to_sync = [s for s in (1, 2, 3, 4, 5) if s <= (trip.current_stage or 0)]
@@ -937,6 +956,7 @@ async def override_identity(
     ).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
+    _refuse_locked_trip(trip, trip_level=False)
 
     token = await get_org_rr_token(user_org.organization, db)
     if not token:
@@ -1928,6 +1948,7 @@ async def complete_trip_in_rr(
     ).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
+    _refuse_locked_trip(trip, trip_level=False)
     if trip.rr_trip_id:
         raise HTTPException(status_code=409, detail="Trip already exists in RR")
 
@@ -2160,6 +2181,42 @@ def _rr_error_text(resp: httpx.Response) -> str:
     return (reason if isinstance(reason, str) else json.dumps(reason))[:300]
 
 
+def _rr_issue_leaves(issues, path="") -> list[tuple[str, str]]:
+    """RR / Eve `_issues` flattened to (field path, message) pairs."""
+    if isinstance(issues, dict):
+        return [x for k, v in issues.items() for x in _rr_issue_leaves(v, f"{path}.{k}" if path else str(k))]
+    if isinstance(issues, list):
+        return [x for v in issues for x in _rr_issue_leaves(v, path)]
+    return [(path, str(issues))]
+
+
+def _rr_refusal(resp: httpx.Response, action: str) -> HTTPException:
+    """RR's refusal in words a user can act on (2026-11-21: RR's raw JSON was shown, e.g. for a duplicate phone).
+    RR server errors -> 502; RR's own refusals -> 422 with RR's sentence (409 stays reserved for 'RR login required')."""
+    if resp.status_code >= 500:
+        return HTTPException(status_code=502, detail=f"RR server had an error while {action} - try again later.")
+    try:
+        body = resp.json()
+    except ValueError:
+        body = None
+    issues = body.get("_issues") if isinstance(body, dict) else None
+    texts = []
+    for path, msg in _rr_issue_leaves(issues) if issues else []:
+        if "not unique" in msg:
+            if "phone" in path or "username" in path:
+                texts.append("This phone number is already registered in RR - search for the person instead of adding them again.")
+            else:
+                texts.append(f"{path.split('.')[0].replace('_', ' ').capitalize()} already exists in RR.")
+        else:
+            texts.append(msg)
+    if not texts and isinstance(body, dict):
+        msg = body.get("statusText") or (body.get("_error") or {}).get("message")
+        if isinstance(msg, str) and msg:
+            texts.append(msg)
+    text_ = " ".join(dict.fromkeys(texts)) or (resp.text or "")[:200]
+    return HTTPException(status_code=422, detail=f"RR refused {action}: {text_}")
+
+
 @router.patch("/edit-trip/{trip_id}", summary="Edit a trip's parcel details and push them to RR")
 async def edit_trip(
     trip_id: str,
@@ -2197,6 +2254,7 @@ async def edit_trip(
         ).first()
         if not trip:
             raise HTTPException(status_code=404, detail="Trip not found")
+        _refuse_locked_trip(trip, trip_level=True)
         if trip.moved_to_records_at is not None:
             raise HTTPException(status_code=423, detail="This trip is in Records and can no longer be edited")
 
@@ -2334,6 +2392,7 @@ async def reassign_driver(
     ).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
+    _refuse_locked_trip(trip, trip_level=False)
     if not trip.rr_trip_id:
         raise HTTPException(status_code=409, detail="Trip must be created on RR first (Confirm Booking)")
     if not trip.rr_vehicle_id:
@@ -2417,6 +2476,242 @@ async def reassign_driver(
     return {"success": True, "trip": trip.to_dict()}
 
 
+# ── Cancel booking / re-book / cancel trip (md/RR_BOOKING_CANCEL_RULES.md) ────
+# Each runs at once (no separate sync): RR first, our trip only after RR accepted. HTTP 409 stays reserved for
+# "RR login required" (the app's runRrAction opens the RR login on any 409); refusals use 423 (state) / 422 (input,
+# RR's own refusal) / 502 (RR unreachable).
+
+class RrCancelBookingRequest(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=500)
+
+
+class RrRebookRequest(BaseModel):
+    rr_vehicle_id: str = Field(..., min_length=24, max_length=24)
+    vehicle_number: str | None = Field(None, max_length=30)
+    transporter_rr_company_id: str = Field(..., min_length=24, max_length=24)   # the truck's owner company (picker)
+    rr_driver_id: str = Field(..., min_length=24, max_length=24)
+    booking_amount: float = Field(..., gt=0, le=999999999)
+    move_from_open_trip: bool = False
+
+
+class RrCancelTripRequest(BaseModel):
+    reason: str = Field(..., min_length=1, max_length=1000)
+
+
+async def _booking_action_trip(trip_id: str, current_user: User, db: Session):
+    """(user_org, trip, CSR token) for a booking action, or the right refusal."""
+    _require_rr_session_role(current_user, db)
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id, UserOrganization.status == "active").first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+    trip = db.query(Trip).filter(Trip.id == trip_id, Trip.organization_id == user_org.organization_id).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    if not trip.rr_trip_id:
+        raise HTTPException(status_code=423, detail="This trip is not in RR web")
+    if trip.status == "cancelled":
+        raise HTTPException(status_code=423, detail="This trip is cancelled - nothing can be booked or cancelled")
+    token = await get_org_rr_token(user_org.organization, db)
+    if not token:
+        raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
+    from app.services.rr_booking_service import is_csr_token
+    if not is_csr_token(token):
+        raise HTTPException(status_code=423, detail="Log in to RR with a CSR account to cancel or book")
+    return user_org, trip, token
+
+
+def _booking_event(trip, event: str, reason: str | None, user: User, **extra):
+    from app.models.trip_booking_event import TripBookingEvent
+    return TripBookingEvent(trip_id=trip.id, event=event, reason=reason, created_by=user.id,
+                            rr_trip_id=trip.rr_trip_id, **extra)
+
+
+async def _notify_booking_change(trip, title: str, body: str) -> None:
+    try:
+        from app.services.ws_manager import manager
+        await manager.send_to_org(str(trip.organization_id), {
+            "type": "booking_changed", "id": str(uuid.uuid4()), "trip_id": str(trip.id), "title": title,
+            "body": body, "is_read": False, "created_at": datetime.utcnow().isoformat()})
+    except Exception:
+        pass   # best-effort
+
+
+def _unlink_driver(trip, db: Session) -> None:
+    """The trip's local driver (GPS) is unlinked and his app told to refresh."""
+    if not trip.driver_id:
+        return
+    from app.models.driver import Driver
+    from app.services.driver_link_service import _nudge_driver_refresh
+    old = db.query(Driver).filter(Driver.id == trip.driver_id).first()
+    trip.driver_id = None
+    if old:
+        try:
+            _nudge_driver_refresh(old, trip)
+        except Exception:
+            logger.exception(f"[Booking] driver refresh nudge failed for {trip.trip_number}")
+
+
+@router.post("/cancel-booking/{trip_id}", summary="Cancel the trip's truck booking in RR and on our trip")
+async def cancel_booking(trip_id: str, body: RrCancelBookingRequest, db: Session = Depends(get_db),
+                         current_user: User = Depends(get_current_user)):
+    """Same rules as RR web's Cancel Booking: blocked for ever once a loaded weight / weight slip exists (in RR or on
+    our trip). RR first (`cancel_vehicle_booking_by_trip_owner`, reason = cancel_remark); then the old truck, driver
+    and owner leave our trip completely (rr_booking_service.reset_trip_after_booking_cancel)."""
+    from app.services import rr_booking_service as bs
+    from app.models.trip_booking_event import BOOKING_CANCELLED
+    reason = body.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=422, detail="Enter the reason for cancelling the booking")
+    user_org, trip, token = await _booking_action_trip(trip_id, current_user, db)
+    if trip.booking_status == bs.BOOKING_CANCELLED:
+        raise HTTPException(status_code=423, detail="The booking is already cancelled")
+    if bs.weight_recorded_locally(trip):
+        raise HTTPException(status_code=423, detail=bs.WEIGHT_RECORDED_MSG)
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+            parcels = await bs.rr_parcels(client, token, trip.rr_trip_id)
+            if parcels is None:
+                raise HTTPException(status_code=502, detail="Could not read the trip from RR - nothing was changed")
+            if bs.weight_recorded_in_rr(parcels):
+                raise HTTPException(status_code=423, detail=bs.WEIGHT_RECORDED_MSG)
+            read_ok, offer = await bs.rr_booked_offer(client, token, trip.rr_trip_id)
+            if not read_ok:
+                raise HTTPException(status_code=502, detail="Could not read the booking from RR - nothing was changed")
+            already_cancelled_in_rr = offer is None
+            if not already_cancelled_in_rr:
+                ok, msg = await bs.cancel_booking_in_rr(client, token, trip.rr_trip_id, reason)
+                if not ok:
+                    raise HTTPException(status_code=422, detail=f"RR refused: {msg}")
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Could not reach RR server - nothing was changed ({exc})")
+
+    event = _booking_event(
+        trip, BOOKING_CANCELLED,
+        reason + (" [booking was already cancelled in RR web]" if already_cancelled_in_rr else ""), current_user,
+        rr_booking_id=trip.rr_booking_id, old_rr_vehicle_id=trip.rr_vehicle_id, old_vehicle_number=trip.vehicle_number,
+        old_rr_driver_id=trip.rr_driver_id, old_driver_name=trip.s1_driver_name,
+        old_owner_rr_company_id=trip.transporter_rr_company_id, booking_amount=trip.booking_amount)
+    _unlink_driver(trip, db)
+    bs.reset_trip_after_booking_cancel(trip)
+    db.add(event)
+    db.commit()
+    db.refresh(trip)
+    await _notify_booking_change(trip, "Booking cancelled", f"Trip {trip.trip_number}: the truck booking was cancelled.")
+    return {"success": True, "already_cancelled_in_rr": already_cancelled_in_rr, "trip": trip.to_dict()}
+
+
+@router.post("/rebook/{trip_id}", summary="Book another truck on the trip in RR after a cancelled booking")
+async def rebook_truck(trip_id: str, body: RrRebookRequest, db: Session = Depends(get_db),
+                       current_user: User = Depends(get_current_user)):
+    """RR web's booking order: truck offer -> offline price -> award -> driver on the truck's crew -> book. Our trip
+    gets the new truck / driver / booking owner only after RR booked it; Stage 1 is then filled again and its first
+    sync sends everything to the NEW records."""
+    from app.services import rr_booking_service as bs
+    from app.models.trip_booking_event import REBOOKED
+    user_org, trip, token = await _booking_action_trip(trip_id, current_user, db)
+    if trip.booking_status != bs.BOOKING_CANCELLED:
+        raise HTTPException(status_code=423, detail="Cancel the current booking first")
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+            read_ok, offer = await bs.rr_booked_offer(client, token, trip.rr_trip_id)
+            if not read_ok:
+                raise HTTPException(status_code=502, detail="Could not read the booking from RR - nothing was changed")
+            if offer is not None:
+                raise HTTPException(status_code=423, detail="RR web already has a booked truck on this trip")
+            ok, msg, _pv = await bs.book_truck_in_rr(
+                client, token, rr_trip_id=trip.rr_trip_id, rr_vehicle_id=body.rr_vehicle_id,
+                owner_rr_company_id=body.transporter_rr_company_id, rr_driver_id=body.rr_driver_id,
+                booking_amount=body.booking_amount)
+            if not ok:
+                raise HTTPException(status_code=422, detail=f"RR refused: {msg}")
+            booking_id = await bs.rr_booking_id(client, token, trip.rr_trip_id)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Could not reach RR server ({exc})")
+
+    bs.apply_rebooking(trip, rr_vehicle_id=body.rr_vehicle_id, vehicle_number=body.vehicle_number,
+                       rr_driver_id=body.rr_driver_id, owner_rr_company_id=body.transporter_rr_company_id,
+                       booking_id=booking_id, booking_amount=body.booking_amount)
+    db.add(_booking_event(
+        trip, REBOOKED, None, current_user, rr_booking_id=booking_id, new_rr_vehicle_id=body.rr_vehicle_id,
+        new_vehicle_number=body.vehicle_number, new_rr_driver_id=body.rr_driver_id,
+        new_owner_rr_company_id=body.transporter_rr_company_id, booking_amount=body.booking_amount))
+    db.commit()
+    # Same follow-ups as trip creation: GPS link to the new driver, and the NEW booking owner's papers from RR
+    # (pull_owner_documents collects only when RR's booking owner == the trip's owner company).
+    try:
+        await link_driver_to_trip(trip, body.rr_driver_id, token, db, move_from_open_trip=body.move_from_open_trip)
+    except Exception:
+        logger.exception(f"[Rebook] driver phone-link failed for {trip.trip_number}")
+    await _collect_owner(trip, token, db, user=current_user, org_id=user_org.organization_id,
+                         role_key=db.query(Role.role_key).filter(Role.id == user_org.role_id).scalar())
+    db.refresh(trip)
+    await _notify_booking_change(trip, "Truck booked", f"Trip {trip.trip_number}: another truck was booked.")
+    return {"success": True, "trip": trip.to_dict()}
+
+
+@router.post("/cancel-trip/{trip_id}", summary="Cancel the trip in RR and on our trip (no booked truck)")
+async def cancel_trip_rr(trip_id: str, body: RrCancelTripRequest, db: Session = Depends(get_db),
+                         current_user: User = Depends(get_current_user)):
+    """RR's rule: only while no truck is booked ('Cancel the booking first'). RR's call takes no reason - ours is kept
+    in our database only (user, 2026-11-20). A cancelled trip can never be booked or synced again."""
+    from app.services import rr_booking_service as bs
+    from app.models.trip_booking_event import TRIP_CANCELLED
+    reason = body.reason.strip()
+    if not reason:
+        raise HTTPException(status_code=422, detail="Enter the reason for cancelling the trip")
+    user_org, trip, token = await _booking_action_trip(trip_id, current_user, db)
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+            read_ok, offer = await bs.rr_booked_offer(client, token, trip.rr_trip_id)
+            if not read_ok:
+                raise HTTPException(status_code=502, detail="Could not read the booking from RR - nothing was changed")
+            if offer is not None:
+                raise HTTPException(status_code=423, detail="Cancel the booking first")
+            ok, msg = await bs.cancel_trip_in_rr(client, token, trip.rr_trip_id)
+            if not ok:
+                raise HTTPException(status_code=422, detail=f"RR refused: {msg}")
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Could not reach RR server - nothing was changed ({exc})")
+
+    if trip.booking_status != bs.BOOKING_CANCELLED:
+        # RR had no booked truck although our trip still showed one (cancelled in RR web): drop it here too.
+        _unlink_driver(trip, db)
+        bs.reset_trip_after_booking_cancel(trip)
+    trip.status = "cancelled"
+    if getattr(trip, "load_requirement_id", None):
+        from app.models.load_requirement import LoadRequirement
+        linked = db.query(LoadRequirement).filter(LoadRequirement.id == trip.load_requirement_id,
+                                                  LoadRequirement.status == "assigned").first()
+        if linked:
+            linked.status = "cancelled"
+    db.add(_booking_event(trip, TRIP_CANCELLED, reason, current_user))
+    db.commit()
+    db.refresh(trip)
+    await _notify_booking_change(trip, "Trip cancelled", f"Trip {trip.trip_number} was cancelled.")
+    return {"success": True, "trip": trip.to_dict()}
+
+
+@router.get("/booking-events/{trip_id}", summary="The trip's booking cancel / re-book / trip cancel history")
+def booking_events(trip_id: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    from app.models.trip_booking_event import TripBookingEvent
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id, UserOrganization.status == "active").first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+    trip = db.query(Trip).filter(Trip.id == trip_id, Trip.organization_id == user_org.organization_id).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    rows = db.query(TripBookingEvent, User.username).outerjoin(User, User.id == TripBookingEvent.created_by) \
+        .filter(TripBookingEvent.trip_id == trip.id).order_by(TripBookingEvent.created_at.desc()).all()
+    return {"events": [{
+        "event": e.event, "reason": e.reason, "by": name, "at": e.created_at.isoformat() if e.created_at else None,
+        "old_vehicle_number": e.old_vehicle_number, "old_driver_name": e.old_driver_name,
+        "new_vehicle_number": e.new_vehicle_number, "rr_booking_id": e.rr_booking_id,
+        "booking_amount": float(e.booking_amount) if e.booking_amount is not None else None,
+    } for e, name in rows]}
+
+
 # ── Loading slip upload ───────────────────────────────────────────────────────
 
 @router.post("/sync/loading-slip/{trip_id}", summary="Upload loading slip to RR")
@@ -2452,6 +2747,7 @@ async def post_loading_slip(
     ).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
+    _refuse_locked_trip(trip, trip_level=True)
     if not trip.rr_trip_id:
         raise HTTPException(status_code=409, detail="Trip has not been synced to RR yet")
 
@@ -2558,6 +2854,7 @@ async def sync_loading_slip_from_local(
     ).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
+    _refuse_locked_trip(trip, trip_level=True)
     if not trip.rr_trip_id:
         raise HTTPException(status_code=409, detail="Trip has not been synced to RR yet")
     if not trip.rr_loading_slip_url:
@@ -2783,7 +3080,7 @@ async def create_rr_vehicle(
             headers=_json_header(token),
         )
     if resp.status_code not in (200, 201):
-        raise HTTPException(status_code=502, detail=f"RR vehicle creation failed: {resp.text[:400]}")
+        raise _rr_refusal(resp, "adding the vehicle")
     data = resp.json()
     return {"vehicle_id": str(data.get("_id") or ""), "rc_number": body.rc_number}
 
@@ -2912,7 +3209,7 @@ async def create_rr_company(
             headers=_json_header(token),
         )
     if resp.status_code not in (200, 201):
-        raise HTTPException(status_code=502, detail=f"RR company creation failed: {resp.text[:400]}")
+        raise _rr_refusal(resp, "adding the company")
     data = resp.json()
     company = data.get("company") if isinstance(data, dict) and "company" in data else data
     return {
@@ -2962,7 +3259,7 @@ async def create_rr_user(
             headers=_json_header(token),
         )
     if resp.status_code not in (200, 201):
-        raise HTTPException(status_code=502, detail=f"RR user creation failed: {resp.text[:400]}")
+        raise _rr_refusal(resp, "adding the person")
     data = resp.json()
     # The driver is created in RR web only; no row in our drivers table (driver collection dropped, 2026-11-17).
     return {"user_id": str(data.get("_id") or ""), "name": body.name, "phone": body.phone}
@@ -3073,7 +3370,7 @@ async def create_vehicle_hire_request(
             headers=_json_header(token),
         )
     if resp.status_code not in (200, 201):
-        raise HTTPException(status_code=502, detail=f"RR hire request failed: {resp.text[:400]}")
+        raise _rr_refusal(resp, "the hire request")
     data = resp.json()
     return {"market_vehicle_id": str(data.get("_id") or ""), "status": "Requested"}
 
@@ -3406,5 +3703,5 @@ async def review_vehicle_hire_request(
             headers=_json_header(token),
         )
     if resp.status_code not in (200, 201):
-        raise HTTPException(status_code=502, detail=f"RR review failed: {resp.text[:400]}")
+        raise _rr_refusal(resp, "the review")
     return {"market_vehicle_id": market_vehicle_id, "status": body.status}
