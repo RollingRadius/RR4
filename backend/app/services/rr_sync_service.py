@@ -1723,6 +1723,9 @@ async def _sync_stage5(trip, client: httpx.AsyncClient, token: str, db) -> None:
     unloading: dict = {}
     if trip.s5_halting_charge is not None and send("s5_halting_charge"):
         unloading["halting_charge"] = float(trip.s5_halting_charge)
+        # As RR web's unloading dialog saves a typed amount (user, 2026-11-24). Off for 0: RR's verify asks for an
+        # amount whenever the override is on.
+        unloading["halting_override"] = unloading["halting_charge"] > 0
     if trip.s5_vehicle_reach_datetime and send("s5_vehicle_reach_datetime"):
         unloading["truck_reach_datetime"] = trip.s5_vehicle_reach_datetime.strftime("%Y-%m-%dT%H:%M:%S")
     if trip.s5_unloading_start_datetime and send("s5_unloading_start_datetime"):
