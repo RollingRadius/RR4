@@ -2449,6 +2449,7 @@ async def reassign_driver(
                                   move_from_open_trip=body.move_from_open_trip)
     except Exception:
         logger.exception(f"[Reassign Driver] driver phone-link failed for {trip.trip_number}")
+    await _pull_from_rr(trip, token, db)   # the new driver's papers from RR at once (plan section 10)
 
     db.refresh(trip)
 
@@ -2535,6 +2536,16 @@ async def _notify_booking_change(trip, title: str, body: str) -> None:
             "body": body, "is_read": False, "created_at": datetime.utcnow().isoformat()})
     except Exception:
         pass   # best-effort
+
+
+async def _pull_from_rr(trip, token: str, db: Session) -> None:
+    """Best-effort: copy what RR holds for this trip's papers / fields into it (rr_pull_service). Never raises."""
+    try:
+        from app.services.rr_pull_service import pull_trips
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+            await pull_trips(db, [trip], client, token)
+    except Exception:
+        logger.exception(f"[RR Pull] after the booking change of {trip.trip_number}")
 
 
 def _unlink_driver(trip, db: Session) -> None:
@@ -2645,6 +2656,7 @@ async def rebook_truck(trip_id: str, body: RrRebookRequest, db: Session = Depend
         logger.exception(f"[Rebook] driver phone-link failed for {trip.trip_number}")
     await _collect_owner(trip, token, db, user=current_user, org_id=user_org.organization_id,
                          role_key=db.query(Role.role_key).filter(Role.id == user_org.role_id).scalar())
+    await _pull_from_rr(trip, token, db)   # the new driver's / truck's / owner's papers from RR at once
     db.refresh(trip)
     await _notify_booking_change(trip, "Truck booked", f"Trip {trip.trip_number}: another truck was booked.")
     return {"success": True, "trip": trip.to_dict()}
@@ -2705,11 +2717,62 @@ def booking_events(trip_id: str, db: Session = Depends(get_db), current_user: Us
     rows = db.query(TripBookingEvent, User.username).outerjoin(User, User.id == TripBookingEvent.created_by) \
         .filter(TripBookingEvent.trip_id == trip.id).order_by(TripBookingEvent.created_at.desc()).all()
     return {"events": [{
-        "event": e.event, "reason": e.reason, "by": name, "at": e.created_at.isoformat() if e.created_at else None,
+        "event": e.event, "reason": e.reason,
+        "by": name or ("RR web" if (e.event or "").startswith("rr_web_") else None),
+        "at": e.created_at.isoformat() if e.created_at else None,
         "old_vehicle_number": e.old_vehicle_number, "old_driver_name": e.old_driver_name,
-        "new_vehicle_number": e.new_vehicle_number, "rr_booking_id": e.rr_booking_id,
+        "new_vehicle_number": e.new_vehicle_number, "new_driver_name": e.new_driver_name,
+        "rr_booking_id": e.rr_booking_id,
         "booking_amount": float(e.booking_amount) if e.booking_amount is not None else None,
     } for e, name in rows]}
+
+
+# ── Follow RR web (md/RR_TWO_WAY_SYNC_PLAN.md) ─────────────────────────────────
+# Trip opened / dashboard refresh: read RR and apply what RR web changed (cancel / truck / driver) with the app's
+# own code. Any active member may trigger it (it only reads RR with the org's login); RR down or no RR login ->
+# nothing changes and no error is shown.
+
+class RrRefreshTripsRequest(BaseModel):
+    trip_ids: list[str] = Field(..., max_length=200)
+
+
+def _member_org(current_user: User, db: Session):
+    user_org = db.query(UserOrganization).filter(
+        UserOrganization.user_id == current_user.id, UserOrganization.status == "active").first()
+    if not user_org:
+        raise HTTPException(status_code=403, detail="User must be in an active organization")
+    return user_org
+
+
+@router.post("/refresh-trip/{trip_id}", summary="Follow RR web's changes to this trip (trip opened)")
+async def refresh_trip_from_rr(trip_id: str, db: Session = Depends(get_db),
+                               current_user: User = Depends(get_current_user)):
+    from app.services.rr_follow_service import follow_org_trips
+    user_org = _member_org(current_user, db)
+    trip = db.query(Trip).filter(Trip.id == trip_id, Trip.organization_id == user_org.organization_id).first()
+    if not trip:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    applied = await follow_org_trips(db, user_org.organization, [trip])
+    db.refresh(trip)
+    return {"changed": [kind for _, kind in applied], "trip": trip.to_dict()}
+
+
+@router.post("/refresh-trips", summary="Follow RR web's changes to these trips (dashboard refresh)")
+async def refresh_trips_from_rr(body: RrRefreshTripsRequest, db: Session = Depends(get_db),
+                                current_user: User = Depends(get_current_user)):
+    from app.services.rr_follow_service import NOT_FOLLOWED_STATUSES, follow_org_trips
+    user_org = _member_org(current_user, db)
+    ids = [i for i in body.trip_ids if i]
+    if not ids:
+        return {"changed": []}
+    try:
+        trips = db.query(Trip).filter(Trip.id.in_(ids), Trip.organization_id == user_org.organization_id,
+                                      Trip.rr_trip_id.isnot(None), Trip.status.notin_(NOT_FOLLOWED_STATUSES)).all()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=422, detail="Invalid trip ids")
+    applied = await follow_org_trips(db, user_org.organization, trips)
+    return {"changed": [{"trip_id": str(t.id), "change": kind} for t, kind in applied]}
 
 
 # ── Loading slip upload ───────────────────────────────────────────────────────

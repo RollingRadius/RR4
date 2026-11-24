@@ -125,7 +125,7 @@ class OwnerDocument(DocumentFileMixin, Base):
     doc_type = Column(String(30), nullable=False)
     side = Column(String(5), nullable=False, default="front", server_default="front")
     number = Column(String(50), nullable=True)
-    expiry_date = Column(Date, nullable=True)
+    expiry_date = Column(TIMESTAMP(timezone=True), nullable=True)   # tax declaration: date + time, UTC (migration 114)
 
     __table_args__ = (
         CheckConstraint(

@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     RR_API_BASE: str = "https://35.244.19.78:8042"   # test; change to https://rollingradius.com:8042 for prod
     RR_SYNC_ENABLED: bool = True                       # master kill-switch for all RR sync
     RR_SSL_VERIFY: bool = False                        # test server uses self-signed cert
+    RR_FOLLOW_INTERVAL_MINUTES: int = 15               # background check of RR web changes to our trips; 0 = off
 
     # Truck-photo forwarding — Stage 3 truck exterior photos are forwarded to
     # trucks-app (FreightDesk) for OCR-based plate/company identification.

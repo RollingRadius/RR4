@@ -217,6 +217,9 @@ async def startup_event():
     import asyncio
     from app.services import tracking_watchdog
     app.state.tracking_watchdog_task = asyncio.create_task(tracking_watchdog.run_forever())
+    # Our trips follow RR web's booking changes (md/RR_TWO_WAY_SYNC_PLAN.md) - same single-worker assumption.
+    from app.services import rr_follow_service
+    app.state.rr_follow_task = asyncio.create_task(rr_follow_service.run_forever())
 
 
 # Application shutdown event
@@ -225,9 +228,10 @@ async def shutdown_event():
     """Cleanup on shutdown"""
     logger.info(f"Shutting down {settings.APP_NAME}")
 
-    task = getattr(app.state, "tracking_watchdog_task", None)
-    if task is not None:
-        task.cancel()
+    for name in ("tracking_watchdog_task", "rr_follow_task"):
+        task = getattr(app.state, name, None)
+        if task is not None:
+            task.cancel()
 
 
 # Import and include API routers

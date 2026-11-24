@@ -31,6 +31,7 @@ from sqlalchemy import text
 
 from app.config import settings
 from app.core.document_map import OWNER
+from app.core.rr_time import from_rr, to_rr
 from app.services import rr_change_marks
 from app.services.stage1_document_service import (link_owner_documents, resolve_owner, save_stage1_document,
                                                   stored_owner_document)
@@ -754,8 +755,8 @@ def owner_doc_items(trip, owner_kind: str) -> list[dict]:
         {"id_name": "Tax Declaration Slip", "key": "Owner Tax Declaration",
          "front_url": trip.s1_tax_declaration, "front_attr": "rr_tax_declaration_file_id", "back_url": None, "back_attr": None,
          "number": None,
-         # RR keeps expiry_date as a date-time (format "%Y-%m-%dT%H:%M:%S"); RR web shows the date.
-         "expiry": f"{expiry.isoformat()}T00:00:00" if expiry else None},
+         # RR keeps expiry_date as a UTC date-time "%Y-%m-%dT%H:%M:%S"; RR web shows it in India time (app/core/rr_time).
+         "expiry": to_rr(expiry)},
     ]
 
 
@@ -980,8 +981,6 @@ async def pull_owner_documents(db, trip, client: httpx.AsyncClient, token: str, 
     in Stage 1 go to RR on the manual sync); one we do not have gets RR's copy, marked as already in RR. The trip
     then shows his stored documents. Company owners only; the booking owner must be the company our owner
     documents are stored under (else nothing is collected). The caller commits."""
-    from datetime import date as _date
-
     owner = await find_vehicle_owner(trip, client, token)
     if owner is None or owner[0] != "company":
         return
@@ -1006,10 +1005,9 @@ async def pull_owner_documents(db, trip, client: httpx.AsyncClient, token: str, 
             if column == "s1_pan" and entry.get("number") and not trip.s1_pan_number:
                 trip.s1_pan_number = str(entry["number"]).strip().upper()[:10]
             if column == "s1_tax_declaration" and entry.get("expiry_date") and not trip.s1_tax_declaration_expiry:
-                try:
-                    trip.s1_tax_declaration_expiry = _date.fromisoformat(str(entry["expiry_date"])[:10])
-                except ValueError:
-                    pass
+                # the full UTC date-time (taking only its first 10 characters gave the day before for times picked
+                # before 05:30 AM India time)
+                trip.s1_tax_declaration_expiry = from_rr(entry["expiry_date"])
             await _store_owner_rr_file(db, trip, client, token, str(photo["photo"]), column, prefix,
                                        user=user, role_key=role_key, org_id=org_id)
     if cheque_wanted:
@@ -2212,6 +2210,10 @@ async def sync_stage(trip_id: str, stage: int) -> None:
         claimed = True
         db.refresh(trip)   # what the previous sync of this trip left (its "already sent" marks)
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+            # First follow what RR web changed (cancel / truck / driver) - we hold the claim (md/RR_TWO_WAY_SYNC_PLAN.md)
+            from app.services.rr_follow_service import follow_trips
+            await follow_trips(db, [trip], client, token, claim=False)
+            db.refresh(trip)
             # Never send anything for a cancelled trip / booking, or when RR's booked truck is not ours any more
             # (booking changed in RR web) - papers would land on the wrong records (md/RR_BOOKING_CANCEL_RULES.md).
             from app.services.rr_booking_service import booking_guard
@@ -2305,6 +2307,9 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                 )
                 return
 
+            from app.services.rr_follow_service import follow_trips
+            await follow_trips(db, [trip], client, token, claim=False)
+            db.refresh(trip)
             from app.services.rr_booking_service import booking_guard
             blocked = await booking_guard(trip, client, token)
             if blocked:

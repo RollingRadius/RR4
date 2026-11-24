@@ -14,6 +14,11 @@ from app.database import Base
 BOOKING_CANCELLED = "booking_cancelled"
 REBOOKED = "rebooked"
 TRIP_CANCELLED = "trip_cancelled"
+# Done on RR web; our trip followed (rr_follow_service, migration 113). created_by is NULL ("RR web").
+RR_WEB_TRIP_CANCELLED = "rr_web_trip_cancelled"
+RR_WEB_BOOKING_CANCELLED = "rr_web_booking_cancelled"
+RR_WEB_REBOOKED = "rr_web_rebooked"
+RR_WEB_DRIVER_CHANGED = "rr_web_driver_changed"
 
 
 class TripBookingEvent(Base):

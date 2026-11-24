@@ -44,6 +44,8 @@ class Trip(Base):
     booking_status = Column(String(30), nullable=True)
     # A running RR sync claims the trip until this time (one sync per trip at a time; expires by itself, migration 112)
     rr_sync_lock_until = Column(TIMESTAMP(timezone=True), nullable=True)
+    # When RR web last changed this trip's booking facts and our trip followed (migration 113, rr_follow_service)
+    rr_web_changed_at = Column(TIMESTAMP(timezone=True), nullable=True)
 
     # ── Relations ────────────────────────────────────────────────────────────────
     # Fleet owner's organisation (who runs the vehicle)
@@ -106,7 +108,7 @@ class Trip(Base):
     s1_cancelled_cheque     = Column(Text, nullable=True)
     # Truck owner's PAN number and tax declaration (TDS) valid-till date - sent to the booking owner in RR
     s1_pan_number             = Column(String(10), nullable=True)
-    s1_tax_declaration_expiry = Column(Date, nullable=True)
+    s1_tax_declaration_expiry = Column(TIMESTAMP(timezone=True), nullable=True)  # date + time, UTC (like RR web, migration 114)
     s1_submitted_at         = Column(TIMESTAMP(timezone=True), nullable=True)
     # Number fields for vehicle docs — mirror s1_driving_license/s1_aadhaar
     # (driver-side numbers), which existed for years before the vehicle side
@@ -383,6 +385,7 @@ class Trip(Base):
             "invoice_number": self.invoice_number,
             "status": self.status,
             "booking_status": self.booking_status,
+            "rr_web_changed_at": self.rr_web_changed_at.isoformat() if self.rr_web_changed_at else None,
             "organization_id": str(self.organization_id),
             "load_owner_org_id": str(self.load_owner_org_id) if self.load_owner_org_id else None,
             "vehicle_id": str(self.vehicle_id) if self.vehicle_id else None,

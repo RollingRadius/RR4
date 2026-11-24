@@ -221,9 +221,15 @@ async def book_truck_in_rr(client, token, *, rr_trip_id: str, rr_vehicle_id: str
     r = await client.post(f"{base}/v2/save_potential_vehicle_to_be_hired", headers=_hdr(token, True),
                           json={"vehicle_id": rr_vehicle_id, "trip_id": rr_trip_id,
                                 "participant_company_id": owner_rr_company_id})
-    if r.status_code != 200 or not r.json().get("potential_vehicle_id"):
+    pv = r.json().get("potential_vehicle_id") if r.status_code == 200 else None
+    old_bid = None
+    if not pv and "booking is canceled" in rr_message(r).lower():
+        # The same truck again: RR refuses a new offer and RR web re-awards the old cancelled one instead
+        # (md/RR_WEB_TEST_WALKTHROUGH F8 / F32 - RR then books with no live purchase order; MIGHT CHANGE, to discuss
+        # with the RR web team, user 2026-11-24).
+        pv, old_bid = await _cancelled_offer_of_truck(client, token, rr_trip_id, rr_vehicle_id)
+    if not pv:
         return False, f"Adding the truck to the trip failed: {rr_message(r)}", None
-    pv = r.json()["potential_vehicle_id"]
     steps = (
         ("Saving the booking amount", "submit_offline_bid_by_trip_owner", {"potential_vehicle_id": pv, "amount": booking_amount}),
         ("Awarding the truck", "award_bidding", {"potential_vehicle_id": pv}),
@@ -233,10 +239,24 @@ async def book_truck_in_rr(client, token, *, rr_trip_id: str, rr_vehicle_id: str
         ("Booking the truck", "award_vehicle", {"trip_id": rr_trip_id, "potential_vehicle_id": pv}),
     )
     for label, path, body in steps:
+        if path == "submit_offline_bid_by_trip_owner" and old_bid is not None and float(old_bid) == float(booking_amount):
+            continue   # re-awarding the old offer at its own price: RR refuses the same bid again (RR web skips it too)
         r = await client.post(f"{base}/{path}", headers=_hdr(token, True), json=body)
         if r.status_code != 200:
             return False, f"{label} failed: {rr_message(r)}", pv
     return True, rr_message(r), pv
+
+
+async def _cancelled_offer_of_truck(client, token, rr_trip_id: str, rr_vehicle_id: str):
+    """(offer id, its last bid) of the trip's offer for this truck whose booking the trip owner cancelled (RR web's
+    re-award path), or (None, None)."""
+    resp = await client.get(f"{settings.RR_API_BASE}/potential_vehicles", headers=_hdr(token), params={
+        "where": json.dumps({"trip_id": rr_trip_id, "vehicle": rr_vehicle_id,
+                             "vehicle_status": "Booking Canceled By Trip Owner"}), "max_results": 1})
+    if resp.status_code != 200:
+        return None, None
+    items = resp.json().get("_items", [])
+    return (str(items[0]["_id"]), items[0].get("last_bid")) if items else (None, None)
 
 
 async def rr_booking_id(client, token, rr_trip_id: str) -> str | None:

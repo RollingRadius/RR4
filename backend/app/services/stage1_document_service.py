@@ -210,7 +210,8 @@ def link_owner_documents(db: Session, trip: Trip) -> None:
             if col.number_column and row.number:
                 synced[f"{base}::number"] = row.number
             if col.expiry_column and row.expiry_date:
-                synced[f"{base}::expiry"] = f"{row.expiry_date.isoformat()}T00:00:00"
+                from app.core.rr_time import to_rr
+                synced[f"{base}::expiry"] = to_rr(row.expiry_date)   # the same UTC string the sync sends
             if cache_attr:
                 setattr(trip, cache_attr, row.rr_file_id)
     trip.rr_synced_doc_urls = synced

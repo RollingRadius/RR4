@@ -343,6 +343,8 @@ def list_trips(
         query = query.filter(Trip.s4_bilty_number.ilike(f"%{_like_escape(bilty.strip())}%", escape="\\"))
 
     total = query.count()
+    # The dashboards also list cancelled trips (marked Cancelled, user 2026-11-24); their header counts active ones.
+    active_total = query.filter(Trip.status != 'cancelled').count() if status_filter and 'cancelled' in status_filter else total
     trips = query.order_by(Trip.created_at.desc()).offset(offset).limit(limit).all()
 
     # Piggyback the "turn on location" follow-up reminder on this endpoint —
@@ -362,6 +364,7 @@ def list_trips(
 
     return {
         "total": total,
+        "active_total": active_total,
         "trips": _enrich_bulk(trips, db),
     }
 
@@ -994,7 +997,7 @@ def _check_identity_numbers(trip: "Trip", driving_license: Optional[str], aadhaa
 def _check_owner_doc_fields(pan_number: Optional[str], tax_expiry: Optional[str], *, new_pan: bool, new_tax: bool):
     """(PAN number in RR's format, tax declaration valid-till date) from the Stage 1 form, or 422.
     A new PAN photo needs its number and a new tax declaration its valid-till date (RR web needs both)."""
-    from datetime import date as _date
+    from app.core.rr_time import from_form
     pan = (pan_number or "").strip().upper() or None
     if pan and not _PAN_FORMAT.match(pan):
         raise HTTPException(status_code=422, detail="PAN number must be 10 characters like ABCDE1234F")
@@ -1003,9 +1006,9 @@ def _check_owner_doc_fields(pan_number: Optional[str], tax_expiry: Optional[str]
     expiry = None
     if (tax_expiry or "").strip():
         try:
-            expiry = _date.fromisoformat(tax_expiry.strip())
+            expiry = from_form(tax_expiry)   # date + time in UTC (the app sends what was picked in India time)
         except ValueError:
-            raise HTTPException(status_code=422, detail="Tax declaration valid-till date must be YYYY-MM-DD")
+            raise HTTPException(status_code=422, detail="Tax declaration valid-till must be a date and time")
     if new_tax and not expiry:
         raise HTTPException(status_code=422, detail="Enter the tax declaration valid-till date with the tax declaration")
     return pan, expiry
@@ -2009,6 +2012,7 @@ def save_draft(
     user_org = _get_user_org(current_user, db)
     role_key = _get_role_key(user_org, db)
     trip = _get_fleet_trip(trip_id, user_org, db)
+    _refuse_stage_save(trip)   # no stage draft either on a cancelled trip / booking (user, 2026-11-24)
 
     # Merge per-field attributions in draft (field_key → resolved username)
     existing_draft = trip.draft_data or {}
