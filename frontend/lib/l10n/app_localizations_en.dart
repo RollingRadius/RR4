@@ -2514,6 +2514,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get stageS1ReassignTitle => 'Reassign Driver?';
 
   @override
+  String stageS1ReassignPending(String name) {
+    return 'New driver $name is selected but not reassigned yet. Tap \"Reassign to $name\" to continue, then save.';
+  }
+
+  @override
   String stageS1ReassignTo(String name) {
     return 'Reassign to $name';
   }
@@ -6997,4 +7002,56 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get stageS1AadhaarStart => 'Aadhaar number cannot start with 0 or 1';
+
+  @override
+  String get tripCardFeBookingCancelled => 'Truck booking cancelled';
+
+  @override
+  String get tripCardFeBookingCancelledHint =>
+      'Let another truck be booked first';
+
+  @override
+  String get tripCardFeTripCancelled => 'Trip cancelled';
+
+  @override
+  String get tripCardFeTripCancelledHint => 'Fill other open trips';
+
+  @override
+  String get stageBookingCancelledHint => 'Book another vehicle owner first';
+
+  @override
+  String get bookingHistoryTitleAll => 'Booking history';
+
+  @override
+  String get rrWebUpdatedEntry => 'Updated on RR web';
+
+  @override
+  String rrWebChangedFields(String fields) {
+    return 'Changed: $fields';
+  }
+
+  @override
+  String get rrWebTripCancelled => 'Trip cancelled on RR web';
+
+  @override
+  String get rrWebBookingCancelled => 'Booking cancelled on RR web';
+
+  @override
+  String get rrWebRebooked => 'Another truck booked on RR web';
+
+  @override
+  String get rrWebDriverChanged => 'Driver changed on RR web';
+
+  @override
+  String rrWebTruckChange(String oldTruck, String newTruck) {
+    return 'Truck: $oldTruck → $newTruck';
+  }
+
+  @override
+  String rrWebNewDriver(String name) {
+    return 'New driver: $name';
+  }
+
+  @override
+  String get rrWebUpdated => 'Changed on RR web - trip updated';
 }

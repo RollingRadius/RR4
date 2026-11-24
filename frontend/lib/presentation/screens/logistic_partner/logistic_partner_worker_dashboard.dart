@@ -97,7 +97,7 @@ class _LogisticPartnerWorkerDashboardState
       if (prev == null || next.items.length <= (prev.items.length)) return;
       final newest = next.items.first;
       if (newest.type == 'trip_cancelled' || newest.type == 'load_cancelled') {
-        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending');
+        ref.read(tripProvider.notifier).silentRefresh(statusFilter: 'ongoing,pending', rrWeb: true);
       }
     });
 
@@ -640,7 +640,8 @@ class _WorkerHomeTabState extends ConsumerState<_WorkerHomeTab> {
     // explicitly moved to Records (moved_to_records_at is null) — no extra
     // client-side filtering here. Finishing Stage 5 sync does NOT remove a
     // trip from this list; only the long-press "Move to Records" action does.
-    final ongoingTrips = tripState.activeTrips;
+    // cancelled trips stay in the list, marked Cancelled (user, 2026-11-24)
+    final ongoingTrips = tripState.trips.where((t) => t.isOngoing || t.isPending || t.isCancelled).toList();
     final filteredTrips = latestUnlessSearching(
       ongoingTrips
           .where((t) => matchesTripSearch(_query, t.tripNumber, t.rrTripNumber))

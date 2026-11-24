@@ -118,6 +118,8 @@ class TripNotifier extends StateNotifier<TripState> {
     String? bilty,
   }) async {
     final activeList = _isActiveList(statusFilter, rrOnly);
+    // The RR dashboards keep cancelled trips in the list, marked Cancelled (user, 2026-11-24).
+    final requestStatus = (rrWeb && activeList) ? '$statusFilter,cancelled' : statusFilter;
     if (activeList) {
       if (query != null) _query = query.trim();
       if (bilty != null) _bilty = bilty.trim();
@@ -136,7 +138,7 @@ class TripNotifier extends StateNotifier<TripState> {
       final resp = await _apiService.dio.get(
         '/api/trips',
         queryParameters: {
-          if (statusFilter != null) 'status': statusFilter,
+          if (requestStatus != null) 'status': requestStatus,
           if (rrOnly) 'rr_only': true,
           if (rrWeb) 'rr_web': true,
           if (activeList) 'limit': searching ? _searchResultLimit : kLatestTripsShown,
@@ -152,11 +154,18 @@ class TripNotifier extends StateNotifier<TripState> {
       state = state.copyWith(
         trips: trips,
         // the header count: every active trip, which a search result is not
-        activeTotal: activeList && !searching ? (data['total'] as num?)?.toInt() ?? trips.length : null,
+        activeTotal: activeList && !searching
+            ? ((data['active_total'] ?? data['total']) as num?)?.toInt() ?? trips.length
+            : null,
         isLoading: false,
         isRefreshing: false,
         lastUpdated: DateTime.now(),
       );
+      // Dashboard opened / pulled to refresh (not the silent 30s poll): follow what RR web changed on these trips
+      // (cancel / truck / driver - md/RR_TWO_WAY_SYNC_PLAN.md) and show the result.
+      if (rrWeb && !silent && await _followRrWeb(trips) && mounted && seq == _requestSeq) {
+        await loadTrips(statusFilter: statusFilter, rrOnly: rrOnly, rrWeb: rrWeb, silent: true);
+      }
     } catch (e) {
       if (seq != _requestSeq || !mounted) return;
       state = state.copyWith(
@@ -164,6 +173,19 @@ class TripNotifier extends StateNotifier<TripState> {
         isLoading: false,
         isRefreshing: false,
       );
+    }
+  }
+
+  /// True when RR web had changed one of these trips and our trip was updated. Best-effort: RR down or no RR login
+  /// -> false, no error shown.
+  Future<bool> _followRrWeb(List<TripModel> trips) async {
+    final ids = [for (final t in trips) if (t.rrTripId != null) t.id];
+    if (ids.isEmpty) return false;
+    try {
+      final r = await _apiService.dio.post('/api/rr/refresh-trips', data: {'trip_ids': ids});
+      return ((r.data as Map)['changed'] as List? ?? const []).isNotEmpty;
+    } catch (_) {
+      return false;
     }
   }
 

@@ -259,6 +259,30 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
       );
       return;
     }
+    // FE cannot fill the stages of a trip whose booking or trip is cancelled - in the app or on RR web (user,
+    // 2026-11-24); the server refuses those saves for everyone anyway.
+    if (!_canManageRr && (trip.status == 'cancelled' || trip.isBookingCancelled)) {
+      final l10n = AppLocalizations.of(context);
+      final tripCancelled = trip.status == 'cancelled';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Row(children: [
+          Icon(tripCancelled ? Icons.cancel_outlined : Icons.local_shipping_outlined, color: Colors.white, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tripCancelled ? l10n.tripCardFeTripCancelled : l10n.tripCardFeBookingCancelled,
+                  style: _inter(size: 14, weight: FontWeight.w700, color: Colors.white)),
+              const SizedBox(height: 2),
+              Text(tripCancelled ? l10n.tripCardFeTripCancelledHint : l10n.tripCardFeBookingCancelledHint,
+                  style: _inter(size: 13, color: Colors.white)),
+            ]),
+          ),
+        ]),
+        backgroundColor: Colors.red.shade700,
+        behavior: SnackBarBehavior.floating,
+      ));
+      return;
+    }
     if (_needsBookingConfirmation && !_canManageRr) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(AppLocalizations.of(context).tripCardAwaitCompanyConfirm,
@@ -532,35 +556,65 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
     await _handleMenuChoice(selected);
   }
 
-  Widget _buildBookingCancelledBanner() {
-    final l10n = AppLocalizations.of(context);
+  /// Soft red panel shared by the booking-cancelled and trip-cancelled marks (user, 2026-11-24): round icon badge,
+  /// bold title, short line, optional action below (stacked: side by side they do not fit a narrow phone at a large
+  /// font).
+  Widget _cancelPanel({required IconData icon, required String title, String? subtitle, Widget? action}) {
+    final red = Colors.red.shade700;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-      color: const Color(0xFFFFEBEE),
-      // Text on its own line and the button below it: side by side they do not fit a narrow phone at a large font.
-      child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Icon(Icons.cancel_outlined, color: Colors.red.shade700, size: 18),
-          const SizedBox(width: 8),
-          Expanded(child: Text(l10n.bookingBannerCancelled,
-              style: _inter(size: 12, weight: FontWeight.w600, color: Colors.red.shade700))),
-        ]),
-        if (_canManageRr && canRebook(trip)) ...[
-          const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: () => _handleMenuChoice('rebook'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(l10n.bookingMenuRebook, style: _manrope(size: 12, color: Colors.white)),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      color: const Color(0xFFFFF1F1),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(color: const Color(0xFFFFE0E0), shape: BoxShape.circle),
+            child: Icon(icon, color: red, size: 19),
           ),
-        ],
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(title, style: _manrope(size: 13, weight: FontWeight.w800, color: red)),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(subtitle, style: _inter(size: 12, color: const Color(0xFF8E2B2B))),
+              ],
+            ]),
+          ),
+        ]),
+        if (action != null) ...[const SizedBox(height: 10), action],
       ]),
+    );
+  }
+
+  /// A cancelled trip stays in the dashboard list, marked like this (user, 2026-11-24).
+  Widget _buildTripCancelledBanner() {
+    final l10n = AppLocalizations.of(context);
+    return _cancelPanel(icon: Icons.block_rounded, title: l10n.tripCardFeTripCancelled);
+  }
+
+  Widget _buildBookingCancelledBanner() {
+    final l10n = AppLocalizations.of(context);
+    return _cancelPanel(
+      icon: Icons.local_shipping_outlined,
+      title: l10n.tripCardFeBookingCancelled,
+      subtitle: l10n.tripCardFeBookingCancelledHint,
+      action: (_canManageRr && canRebook(trip))
+          ? FilledButton.icon(
+              onPressed: () => _handleMenuChoice('rebook'),
+              icon: const Icon(Icons.add_road_rounded, size: 18),
+              label: Text(l10n.bookingMenuRebook, style: _manrope(size: 13, weight: FontWeight.w700, color: Colors.white)),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red.shade700,
+                foregroundColor: Colors.white,
+                shape: const StadiumBorder(),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 11),
+                elevation: 0,
+              ),
+            )
+          : null,
     );
   }
 
@@ -592,6 +646,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
               _buildHeader(),
               if (_needsBookingConfirmation && _canManageRr) _buildConfirmBookingBanner(),
               if (trip.isBookingCancelled && trip.status != 'cancelled') _buildBookingCancelledBanner(),
+              if (trip.status == 'cancelled') _buildTripCancelledBanner(),
               _buildS1ToggleRow(),
               const Divider(height: 1, thickness: 1, color: Color(0xFFF0F4F8)),
               _buildStep1Tile(),
@@ -820,39 +875,65 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
 
   Future<void> _loadCancelEvents() async {
     if (trip.rrTripId == null || !trip.hasCancellations) return;   // never cancelled: no request at all
+    if (!_canManageRr) return;   // the booking history is for LP / RR-ops only (user, 2026-11-24)
     try {
       final r = await ref.read(dioProvider).get('/api/rr/booking-events/${trip.id}');
       final all = ((r.data as Map)['events'] as List? ?? []).cast<Map<String, dynamic>>();
       if (!mounted) return;
       setState(() => _cancelEvents = all
-          .where((e) => e['event'] == 'booking_cancelled' || e['event'] == 'trip_cancelled')
+          .where((e) => e['event'] == 'booking_cancelled' || e['event'] == 'trip_cancelled' ||
+              (e['event'] as String? ?? '').startsWith('rr_web_'))
           .toList());
     } catch (_) {
       // Best-effort: Trip Info still shows everything else.
     }
   }
 
+  String _bookingEventTitle(AppLocalizations l10n, String? event) => switch (event) {
+        'trip_cancelled' => l10n.bookingCancelTripDone,
+        'rr_web_trip_cancelled' => l10n.rrWebTripCancelled,
+        'rr_web_booking_cancelled' => l10n.rrWebBookingCancelled,
+        'rr_web_rebooked' => l10n.rrWebRebooked,
+        'rr_web_driver_changed' => l10n.rrWebDriverChanged,
+        'rr_web_updated' => l10n.rrWebUpdatedEntry,
+        _ => l10n.bookingCancelDone,
+      };
+
   Widget _buildCancelEvents(AppLocalizations l10n) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(l10n.bookingHistoryTitle,
+        Text(
+            _cancelEvents!.any((e) => (e['event'] as String? ?? '').startsWith('rr_web_'))
+                ? l10n.bookingHistoryTitleAll
+                : l10n.bookingHistoryTitle,
             style: _manrope(size: 13, weight: FontWeight.w700, color: Colors.red.shade700)),
         const SizedBox(height: 6),
         for (final e in _cancelEvents!)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(Icons.cancel_outlined, size: 16, color: Colors.red.shade700),
+              Icon((e['event'] as String? ?? '').startsWith('rr_web_') ? Icons.sync_alt_rounded : Icons.cancel_outlined,
+                  size: 16, color: Colors.red.shade700),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(e['event'] == 'trip_cancelled' ? l10n.bookingCancelTripDone : l10n.bookingCancelDone,
+                  Text(_bookingEventTitle(l10n, e['event'] as String?),
                       style: _inter(size: 12, weight: FontWeight.w700, color: _onSurface)),
                   Text(l10n.bookingHistoryWhenBy(_fmtCreatedAt(e['at'] as String?), (e['by'] as String?) ?? '—'),
                       style: _inter(size: 11)),
-                  Text(l10n.bookingHistoryReason((e['reason'] as String?) ?? '—'),
-                      style: _inter(size: 12, color: _onSurface)),
+                  if (e['event'] == 'rr_web_rebooked')
+                    Text(l10n.rrWebTruckChange((e['old_vehicle_number'] as String?) ?? '—',
+                        (e['new_vehicle_number'] as String?) ?? '—'), style: _inter(size: 12, color: _onSurface)),
+                  if (e['event'] == 'rr_web_rebooked' || e['event'] == 'rr_web_driver_changed')
+                    Text(l10n.rrWebNewDriver((e['new_driver_name'] as String?) ?? '—'),
+                        style: _inter(size: 12, color: _onSurface)),
+                  if ((e['reason'] as String?)?.isNotEmpty ?? false)
+                    Text(
+                        e['event'] == 'rr_web_updated'
+                            ? l10n.rrWebChangedFields(e['reason'] as String)
+                            : l10n.bookingHistoryReason(e['reason'] as String),
+                        style: _inter(size: 12, color: _onSurface)),
                 ]),
               ),
             ]),
@@ -933,7 +1014,7 @@ class _RrTripCardState extends ConsumerState<RrTripCard> {
         _InfoRow(icon: Icons.schedule_outlined, label: l10n.tripCardLabelCreatedAt,
             value: _fmtCreatedAt(trip.createdAt)),
         _Divider(),
-        if ((_cancelEvents ?? const []).isNotEmpty) ...[
+        if (_canManageRr && (_cancelEvents ?? const []).isNotEmpty) ...[   // LP / RR-ops only (user, 2026-11-24)
           _buildCancelEvents(l10n),
           _Divider(),
         ],

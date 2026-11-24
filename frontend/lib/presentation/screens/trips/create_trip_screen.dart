@@ -1319,6 +1319,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
 
   Widget _editPage(ScrollController ctrl, List<Widget> children) => ListView(
         controller: ctrl,
+        cacheExtent: 100000,   // all fields built, so the scroll to an unfilled required field finds it (as the steps)
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: children,
       );
@@ -1917,6 +1918,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
             // ═══════════════════════════════════════════════════════════
             if (_currentStep == 0) Expanded(child: ListView(
               controller: _scrollCtrl0,
+              // Keep every field of the step built (a ListView drops fields far off screen): the scroll to the first
+              // unfilled required field needs its key mounted, else it silently did nothing (user 2026-11-24).
+              cacheExtent: 100000,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               children: [
 
@@ -1978,6 +1982,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
             // ═══════════════════════════════════════════════════════════
             if (_currentStep == 1) Expanded(child: ListView(
               controller: _scrollCtrl1,
+              // Keep every field of the step built (a ListView drops fields far off screen): the scroll to the first
+              // unfilled required field needs its key mounted, else it silently did nothing (user 2026-11-24).
+              cacheExtent: 100000,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               children: [
 
@@ -2340,6 +2347,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
             // ═══════════════════════════════════════════════════════════
             if (_currentStep == 2) Expanded(child: ListView(
               controller: _scrollCtrl2,
+              // Keep every field of the step built (a ListView drops fields far off screen): the scroll to the first
+              // unfilled required field needs its key mounted, else it silently did nothing (user 2026-11-24).
+              cacheExtent: 100000,
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
               children: [
 

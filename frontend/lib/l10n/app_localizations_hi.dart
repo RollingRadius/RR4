@@ -2502,6 +2502,11 @@ class AppLocalizationsHi extends AppLocalizations {
   String get stageS1ReassignTitle => 'चालक बदलें?';
 
   @override
+  String stageS1ReassignPending(String name) {
+    return 'नया चालक $name चुना है पर अभी बदला नहीं गया। आगे बढ़ने के लिए \"$name को चालक बनाएं\" दबाएं, फिर सेव करें।';
+  }
+
+  @override
   String stageS1ReassignTo(String name) {
     return '$name को चालक बनाएं';
   }
@@ -6972,4 +6977,55 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get stageS1AadhaarStart => 'आधार नंबर 0 या 1 से शुरू नहीं हो सकता';
+
+  @override
+  String get tripCardFeBookingCancelled => 'ट्रक की बुकिंग रद्द है';
+
+  @override
+  String get tripCardFeBookingCancelledHint => 'पहले दूसरा ट्रक बुक होने दें';
+
+  @override
+  String get tripCardFeTripCancelled => 'ट्रिप रद्द है';
+
+  @override
+  String get tripCardFeTripCancelledHint => 'दूसरी खुली ट्रिप भरें';
+
+  @override
+  String get stageBookingCancelledHint => 'पहले दूसरे वाहन ओनर को बुक करें';
+
+  @override
+  String get bookingHistoryTitleAll => 'बुकिंग का रिकॉर्ड';
+
+  @override
+  String get rrWebUpdatedEntry => 'RR वेब पर अपडेट हुआ';
+
+  @override
+  String rrWebChangedFields(String fields) {
+    return 'बदला गया: $fields';
+  }
+
+  @override
+  String get rrWebTripCancelled => 'RR वेब पर ट्रिप रद्द हुई';
+
+  @override
+  String get rrWebBookingCancelled => 'RR वेब पर बुकिंग रद्द हुई';
+
+  @override
+  String get rrWebRebooked => 'RR वेब पर दूसरा ट्रक बुक हुआ';
+
+  @override
+  String get rrWebDriverChanged => 'RR वेब पर चालक बदला गया';
+
+  @override
+  String rrWebTruckChange(String oldTruck, String newTruck) {
+    return 'ट्रक: $oldTruck → $newTruck';
+  }
+
+  @override
+  String rrWebNewDriver(String name) {
+    return 'नया चालक: $name';
+  }
+
+  @override
+  String get rrWebUpdated => 'RR वेब पर बदलाव हुआ - ट्रिप अपडेट हो गई';
 }

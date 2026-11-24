@@ -4640,6 +4640,12 @@ abstract class AppLocalizations {
   /// **'Reassign Driver?'**
   String get stageS1ReassignTitle;
 
+  /// Stage 1 Save pressed with a driver picked in Appoint New Driver but not reassigned
+  ///
+  /// In en, this message translates to:
+  /// **'New driver {name} is selected but not reassigned yet. Tap \"Reassign to {name}\" to continue, then save.'**
+  String stageS1ReassignPending(String name);
+
   /// Button to confirm driver reassignment
   ///
   /// In en, this message translates to:
@@ -12613,6 +12619,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Aadhaar number cannot start with 0 or 1'**
   String get stageS1AadhaarStart;
+
+  /// No description provided for @tripCardFeBookingCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck booking cancelled'**
+  String get tripCardFeBookingCancelled;
+
+  /// No description provided for @tripCardFeBookingCancelledHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Let another truck be booked first'**
+  String get tripCardFeBookingCancelledHint;
+
+  /// No description provided for @tripCardFeTripCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip cancelled'**
+  String get tripCardFeTripCancelled;
+
+  /// No description provided for @tripCardFeTripCancelledHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Fill other open trips'**
+  String get tripCardFeTripCancelledHint;
+
+  /// LP / RR-ops on the stages screen of a trip whose truck booking is cancelled (stages cannot be filled)
+  ///
+  /// In en, this message translates to:
+  /// **'Book another vehicle owner first'**
+  String get stageBookingCancelledHint;
+
+  /// Heading of the trip's booking list when it also holds RR web changes (driver / truck), not only cancellations
+  ///
+  /// In en, this message translates to:
+  /// **'Booking history'**
+  String get bookingHistoryTitleAll;
+
+  /// No description provided for @rrWebUpdatedEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Updated on RR web'**
+  String get rrWebUpdatedEntry;
+
+  /// History entry: which papers / stage fields RR web changed and the trip took over
+  ///
+  /// In en, this message translates to:
+  /// **'Changed: {fields}'**
+  String rrWebChangedFields(String fields);
+
+  /// History entry: RR web staff cancelled the trip; our app followed (2026-11-24)
+  ///
+  /// In en, this message translates to:
+  /// **'Trip cancelled on RR web'**
+  String get rrWebTripCancelled;
+
+  /// No description provided for @rrWebBookingCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Booking cancelled on RR web'**
+  String get rrWebBookingCancelled;
+
+  /// No description provided for @rrWebRebooked.
+  ///
+  /// In en, this message translates to:
+  /// **'Another truck booked on RR web'**
+  String get rrWebRebooked;
+
+  /// No description provided for @rrWebDriverChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Driver changed on RR web'**
+  String get rrWebDriverChanged;
+
+  /// No description provided for @rrWebTruckChange.
+  ///
+  /// In en, this message translates to:
+  /// **'Truck: {oldTruck} → {newTruck}'**
+  String rrWebTruckChange(String oldTruck, String newTruck);
+
+  /// No description provided for @rrWebNewDriver.
+  ///
+  /// In en, this message translates to:
+  /// **'New driver: {name}'**
+  String rrWebNewDriver(String name);
+
+  /// Message when opening a trip pulled RR web's changes (cancel / truck / driver)
+  ///
+  /// In en, this message translates to:
+  /// **'Changed on RR web - trip updated'**
+  String get rrWebUpdated;
 }
 
 class _AppLocalizationsDelegate

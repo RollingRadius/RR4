@@ -143,14 +143,15 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
       _editingStage = widget.initialStage;
       if (widget.initialStage == 4) _showStage4 = true;
     }
-    // Fetch fresh data after first frame so ref is available
-    WidgetsBinding.instance.addPostFrameCallback((_) => _fetchFreshTrip());
+    // Fetch fresh data after first frame so ref is available - first following what RR web changed on this trip
+    // (cancel / truck / driver, md/RR_TWO_WAY_SYNC_PLAN.md)
+    WidgetsBinding.instance.addPostFrameCallback((_) => _followRrWebThenFetch());
 
-    // Real-time: if LP/RR-ops reassigns this trip's driver from elsewhere
-    // while this screen is open, re-fetch — _tripFreshness's ValueKey scheme
-    // then fully remounts the stage forms with the new driver's data.
+    // Real-time: if LP/RR-ops reassigns this trip's driver from elsewhere, or the booking changes (from the app or
+    // on RR web), while this screen is open, re-fetch — _tripFreshness's ValueKey scheme then fully remounts the
+    // stage forms with the new data.
     _driverReassignSub = ref.read(notificationWsServiceProvider).stream.listen((n) {
-      if (n.type == 'driver_reassigned' && n.tripId == widget.trip.id) {
+      if ((n.type == 'driver_reassigned' || n.type == 'booking_changed') && n.tripId == widget.trip.id) {
         _fetchFreshTrip();
       }
     });
@@ -160,6 +161,22 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
   void dispose() {
     _driverReassignSub?.cancel();
     super.dispose();
+  }
+
+  /// Trip opened: RR web's booking changes are applied first (best-effort - RR down / no RR login changes nothing,
+  /// no error), then the trip is fetched as before.
+  Future<void> _followRrWebThenFetch() async {
+    if (_trip.rrTripId != null) {
+      try {
+        final r = await ref.read(dioProvider).post('/api/rr/refresh-trip/${widget.trip.id}');
+        final changed = ((r.data as Map)['changed'] as List? ?? const []).isNotEmpty;
+        if (changed && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(AppLocalizations.of(context).rrWebUpdated)));
+        }
+      } catch (_) {}
+    }
+    await _fetchFreshTrip();
   }
 
   /// Returns true on a genuinely successful fetch, false otherwise — callers
@@ -323,6 +340,42 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
     return user?.isLogisticPartnerWorker == true;
   }
 
+  /// Flat red notice above the stages of a cancelled trip / cancelled booking (same look as the trip card's mark).
+  Widget _cancelledNotice() {
+    final l10n = AppLocalizations.of(context);
+    final tripCancelled = _trip.status == 'cancelled';
+    final red = Colors.red.shade700;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      color: const Color(0xFFFFF1F1),
+      child: Row(children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: const BoxDecoration(color: Color(0xFFFFE0E0), shape: BoxShape.circle),
+          child: Icon(tripCancelled ? Icons.block_rounded : Icons.local_shipping_outlined, color: red, size: 19),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tripCancelled ? l10n.tripCardFeTripCancelled : l10n.tripCardFeBookingCancelled,
+                style: _manrope(size: 13, weight: FontWeight.w800, color: red)),
+            if (!tripCancelled) ...[
+              const SizedBox(height: 2),
+              Text(l10n.stageBookingCancelledHint, style: _inter(size: 12, color: const Color(0xFF8E2B2B))),
+            ],
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  /// Read-only when opened so, or when the trip or its booking is cancelled - in the app or on RR web (user,
+  /// 2026-11-24). FE cannot even open such a trip (trip card); the server refuses those stage saves for every role.
+  bool get _readOnly => widget.readOnly || _trip.status == 'cancelled' || _trip.isBookingCancelled;
+
   /// True when this FE should never see Stage 1 for this trip — LP/RR-ops
   /// decided the selected driver/vehicle's docs already exist on RR web, so
   /// FE lands straight on Stage 2 instead. LP/RR-ops are never affected.
@@ -363,7 +416,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
           providerKey: _providerKey,
           trip: _trip,
           onEditDone: _exitEditMode,
-          readOnly: widget.readOnly,
+          readOnly: _readOnly,
         );
       case 1:
         return _Stage2Form(
@@ -371,7 +424,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
           providerKey: _providerKey,
           trip: _trip,
           onEditDone: _exitEditMode,
-          readOnly: widget.readOnly,
+          readOnly: _readOnly,
         );
       case 2:
         return _Stage3Form(
@@ -379,13 +432,13 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
           providerKey: _providerKey,
           trip: _trip,
           onEditDone: _exitEditMode,
-          readOnly: widget.readOnly,
+          readOnly: _readOnly,
         );
       case 3:
         return _Stage4Form(
           key: ValueKey('edit_s4_${_trip.id}_$_tripFreshness'),
           trip: _trip,
-          readOnly: widget.readOnly,
+          readOnly: _readOnly,
           onComplete: (updated) {
             // Only leave the stage form on a genuine first-time completion —
             // re-saving an already-completed stage (e.g. updating the Bilty
@@ -405,7 +458,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
         return _Stage5Form(
           key: ValueKey('edit_s5_${_trip.id}_$_tripFreshness'),
           trip: _trip,
-          readOnly: widget.readOnly,
+          readOnly: _readOnly,
           onComplete: (updated) {
             final wasAlreadyDone = _trip.currentStage >= 5;
             setState(() {
@@ -495,7 +548,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
         actions: [
           _TripStateBadge(trip: _trip),
           const SizedBox(width: 4),
-          if (_trip.currentStage >= 2 && !widget.readOnly && _canManageRr)
+          if (_trip.currentStage >= 2 && !_readOnly && _canManageRr)
             _syncing
                 ? Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -542,7 +595,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                 ],
               ),
             ),
-          if (widget.readOnly)
+          if (widget.readOnly)   // Records (completed) trips only - not shown for a cancelled trip / booking
             Container(
               width: double.infinity,
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -563,7 +616,9 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                 ],
               ),
             ),
-          if (!widget.readOnly && _skipS1ForFe && stage == 0 && _editingStage == null)
+          // Cancelled trip / booking: no stage can be filled or saved (user, 2026-11-24; the server refuses too)
+          if (_trip.status == 'cancelled' || _trip.isBookingCancelled) _cancelledNotice(),
+          if (!_readOnly && _skipS1ForFe && stage == 0 && _editingStage == null)
             Container(
               width: double.infinity,
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -588,7 +643,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
             key: ValueKey('s0_${_trip.id}_${_trip.rrTripId}_${_trip.rrSyncStatus}'),
             trip: _trip,
             onSyncDone: _fetchFreshTrip,
-            readOnly: widget.readOnly,
+            readOnly: _readOnly,
           ),
           // Per-stage sync panel (_RrPerStageSyncPanel) dropped — kept dead in
           // this file, not deleted, in case it's needed for reference later.
@@ -601,13 +656,13 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                     ? _Stage4CompleteView(
                         trip: _trip,
                         onDone: () => Navigator.of(context).pop(),
-                        readOnly: widget.readOnly,
+                        readOnly: _readOnly,
                       )
                     : _stage4Done
                         ? _Stage5Form(
                             key: ValueKey('s5_${_trip.id}_$_tripFreshness'),
                             trip: _trip,
-                            readOnly: widget.readOnly,
+                            readOnly: _readOnly,
                             onComplete: (updated) {
                               setState(() {
                                 _trip = updated;
@@ -620,7 +675,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                             ? _Stage4Form(
                                 key: ValueKey('s4_${_trip.id}_$_tripFreshness'),
                                 trip: _trip,
-                                readOnly: widget.readOnly,
+                                readOnly: _readOnly,
                                 onComplete: (updated) {
                                   setState(() {
                                     _trip = updated;
@@ -644,7 +699,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                                         key: ValueKey('s2_skip1_${_trip.id}_$_tripFreshness'),
                                         providerKey: _providerKey,
                                         trip: _trip,
-                                        readOnly: widget.readOnly,
+                                        readOnly: _readOnly,
                                       )
                                 : stage == 0
                                     ? (_trip.rrTripId == null
@@ -654,20 +709,20 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
                                             providerKey: _providerKey,
                                             trip: _trip,
                                             onEditDone: null,
-                                            readOnly: widget.readOnly,
+                                            readOnly: _readOnly,
                                           ))
                                     : stage == 1
                                         ? _Stage2Form(
                                             key: ValueKey('s2_${_trip.id}_$_tripFreshness'),
                                             providerKey: _providerKey,
                                             trip: _trip,
-                                            readOnly: widget.readOnly,
+                                            readOnly: _readOnly,
                                           )
                                         : _Stage3Form(
                                                 key: ValueKey('s3_${_trip.id}_$_tripFreshness'),
                                                 providerKey: _providerKey,
                                                 trip: _trip,
-                                                readOnly: widget.readOnly,
+                                                readOnly: _readOnly,
                                               ),
           ),
         ],
@@ -927,6 +982,10 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   bool _showDriverReassign = false;
   final _newDriverSearchCtrl = TextEditingController();
   Map<String, dynamic>? _pendingNewDriver; // {_id, name, phone} from search
+  // The Appoint New Driver box and a short pulse of its Reassign button: Save with a picked but not reassigned
+  // driver brings the user back here (user 2026-11-24) - else the new driver's papers would be saved on the old one.
+  final GlobalKey _reassignBoxKey = GlobalKey();
+  bool _pulseReassign = false;
   bool _reassigning = false;
 
   bool get _canManageRr {
@@ -1167,6 +1226,34 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     }
   }
 
+  /// A new driver is picked (his details fill the form) but Reassign was not pressed: saving now would put the new
+  /// driver's papers on the trip's old driver. Scroll back to the box, say so, and pulse the Reassign button.
+  Future<void> _pointToPendingReassign() async {
+    final l10n = AppLocalizations.of(context);
+    final name = '${_pendingNewDriver?['name'] ?? l10n.stageS1ThisDriver}';
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(l10n.stageS1ReassignPending(name), style: _inter(size: 13, color: Colors.white)),
+        backgroundColor: _error,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+      ));
+    final box = _reassignBoxKey.currentContext;
+    if (box != null) {
+      await Scrollable.ensureVisible(box, duration: const Duration(milliseconds: 450), curve: Curves.easeOutCubic,
+          alignment: 0.1);
+    }
+    for (var i = 0; i < 2; i++) {
+      if (!mounted) return;
+      setState(() => _pulseReassign = true);
+      await Future.delayed(const Duration(milliseconds: 220));
+      if (!mounted) return;
+      setState(() => _pulseReassign = false);
+      await Future.delayed(const Duration(milliseconds: 220));
+    }
+  }
+
   Future<void> _confirmReassignDriver() async {
     final newDriver = _pendingNewDriver;
     if (newDriver == null || _reassigning) return;
@@ -1301,7 +1388,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       _permitNumber.text   = d['permit_number']   as String? ?? '';
       _insuranceNumber.text = d['insurance_number'] as String? ?? '';
       _panNumber.text      = d['pan_number']      as String? ?? '';
-      _taxExpiry           = _parseDay(d['tax_declaration_expiry'] as String?);
+      _taxExpiry           = _parseLocal(d['tax_declaration_expiry'] as String?);
       _dlDoc              = _restoreFile(d, 'dl_doc');
       _dlBackDoc          = _restoreFile(d, 'dl_back_doc');
       _aadhaarDoc         = _restoreFile(d, 'aadhaar_doc');
@@ -1342,7 +1429,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       _permitNumber.text   = trip.s1PermitNumber ?? '';
       _insuranceNumber.text = trip.s1InsuranceNumber ?? '';
       _panNumber.text      = trip.s1PanNumber ?? '';
-      _taxExpiry           = _parseDay(trip.s1TaxDeclarationExpiry);
+      _taxExpiry           = _parseLocal(trip.s1TaxDeclarationExpiry);
       // File URLs are shown via _serverUrl fields — no bytes to restore
     }
   }
@@ -1388,7 +1475,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
           'permit_number':   _permitNumber.text.trim(),
           'insurance_number': _insuranceNumber.text.trim(),
           'pan_number':      _panNumber.text.trim(),
-          if (_taxExpiry != null) 'tax_declaration_expiry': _dayString(_taxExpiry!),
+          if (_taxExpiry != null) 'tax_declaration_expiry': _taxExpiry!.toUtc().toIso8601String(),
           if (_rrPrefillAttemptedFor != null) '_rr_prefill_for': _rrPrefillAttemptedFor,
           if (_rrPreviewFileIds.isNotEmpty) '_rr_preview_file_ids': _rrPreviewFileIds,
           ..._fileDraftEntry(_dlDoc,              'dl_doc'),
@@ -1505,11 +1592,9 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
     return null;
   }
 
-  static DateTime? _parseDay(String? s) =>
-      (s == null || s.length < 10) ? null : DateTime.tryParse(s.substring(0, 10));
-
-  static String _dayString(DateTime d) =>
-      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+  /// A stored date-time (UTC from the server, e.g. "2028-03-31T18:29:00+00:00") in the phone's time (India); an older
+  /// plain "YYYY-MM-DD" (a draft) as that day at midnight.
+  static DateTime? _parseLocal(String? s) => (s == null || s.isEmpty) ? null : DateTime.tryParse(s)?.toLocal();
 
   String? _validateRcNumber(String? v) {
     if (v == null || v.trim().isEmpty) return null; // optional
@@ -1619,6 +1704,10 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
   }
 
   Future<void> _submit() async {
+    if (_pendingNewDriver != null) {
+      await _pointToPendingReassign();
+      return;
+    }
     if (!_formKey.currentState!.validate()) {
       _scrollToFirstError();
       return;
@@ -1672,7 +1761,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
       'insurance_number': _insuranceNumber.text.trim(),
       if (_panNumber.text.trim().isNotEmpty) 'pan_number': _panNumber.text.trim().toUpperCase(),
       // A plain calendar date (no time, no time zone) - RR keeps it as that day
-      if (_taxExpiry != null) 'tax_declaration_expiry': _dayString(_taxExpiry!),
+      if (_taxExpiry != null) 'tax_declaration_expiry': _taxExpiry!.toUtc().toIso8601String(),
     };
 
     void _addFile(String key, ({Uint8List bytes, String name})? f) {
@@ -1817,6 +1906,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
             // Appoint New Driver — LP/RR-ops only, FE never sees this at all.
             if (_canManageRr && (widget.trip.rrDriverId?.isNotEmpty ?? false))
               Padding(
+                key: _reassignBoxKey,
                 padding: const EdgeInsets.only(bottom: 12),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1870,7 +1960,19 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                         ),
                         if (_pendingNewDriver != null) ...[
                           const SizedBox(height: 8),
-                          SizedBox(
+                          AnimatedScale(
+                            scale: _pulseReassign ? 1.06 : 1.0,
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: _pulseReassign
+                                    ? [BoxShadow(color: _primary.withValues(alpha: 0.45), blurRadius: 14, spreadRadius: 2)]
+                                    : const [],
+                              ),
+                              child: SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
                               onPressed: _reassigning ? null : _confirmReassignDriver,
@@ -1883,6 +1985,8 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
                                   : Text(l10n.stageS1ReassignTo('${_pendingNewDriver!['name'] ?? l10n.stageS1ThisDriver}'),
                                       style: _inter(size: 13, weight: FontWeight.w700, color: Colors.white)),
                             ),
+                            ),
+                          ),
                           ),
                         ],
                       ],
@@ -2095,8 +2199,7 @@ class _Stage1FormState extends ConsumerState<_Stage1Form> {
               existingUrl: widget.trip.s1TaxDeclaration, fieldKey: 'tax_decl_doc'),
             _DateTimeField(
               label: l10n.stageS1TaxValidTill,
-              value: _taxExpiry,
-              dateOnly: true,
+              value: _taxExpiry,   // date + time, like RR web (picked in India time, sent as UTC)
               showError: _taxExpiryMissing && _taxExpiry == null,
               onChanged: (dt) {
                 setState(() { _taxExpiry = dt; _taxExpiryMissing = false; });

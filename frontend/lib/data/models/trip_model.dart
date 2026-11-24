@@ -195,8 +195,11 @@ class TripModel {
   /// and no truck is booked now; 'rebooked' = booked again after a cancel (md/RR_BOOKING_CANCEL_RULES.md).
   final String? bookingStatus;
   bool get isBookingCancelled => bookingStatus == 'booking_cancelled';
-  /// The trip has had a booking or trip cancel from the app (only then is its Cancellations list loaded).
-  bool get hasCancellations => bookingStatus != null;
+  /// When RR web last changed this trip's booking (cancel / truck / driver) and the trip followed (2026-11-24).
+  final String? rrWebChangedAt;
+  /// The trip has had a booking or trip cancel from the app, or a booking change on RR web (only then is its
+  /// Cancellations list loaded).
+  bool get hasCancellations => bookingStatus != null || rrWebChangedAt != null;
 
   // ── Per-stage RR sync tracking ──
   final String? rrS1SyncStatus;
@@ -373,6 +376,7 @@ class TripModel {
     this.rrSyncedAt,
     this.movedToRecordsAt,
     this.bookingStatus,
+    this.rrWebChangedAt,
     this.rrS1SyncStatus,
     this.rrS1SyncError,
     this.rrS2SyncStatus,
@@ -555,6 +559,7 @@ class TripModel {
       rrSyncedAt:              json['rr_synced_at'] as String?,
       movedToRecordsAt:        json['moved_to_records_at'] as String?,
       bookingStatus:           json['booking_status'] as String?,
+      rrWebChangedAt:          json['rr_web_changed_at'] as String?,
       rrS1SyncStatus:          json['rr_s1_sync_status'] as String?,
       rrS1SyncError:           json['rr_s1_sync_error'] as String?,
       rrS2SyncStatus:          json['rr_s2_sync_status'] as String?,
