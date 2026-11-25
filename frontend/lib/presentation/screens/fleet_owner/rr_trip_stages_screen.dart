@@ -265,6 +265,21 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
   /// Only prompts an RR login if the org genuinely has no valid session.
   Future<void> _triggerRrSync() async {
     if (_syncing) return;
+    // Nothing is synced for a cancelled trip or a trip RR never created (the server refuses too, for every role).
+    final stop = _trip.status == 'cancelled'
+        ? AppLocalizations.of(context).stageSyncTripCancelled
+        : (_trip.rrTripId ?? '').isEmpty ? AppLocalizations.of(context).stageSyncTripNotCreated : null;
+    if (stop != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(
+          content: Text(stop, style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _error,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ));
+      return;
+    }
 
     // Retry any stalled per-stage sync (loading slip synced separately via
     // post_loading_slip; S1/S3/S4/S5 — including the loading/unloading
@@ -273,8 +288,23 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
     setState(() => _syncing = true);
     try {
       final dio = ref.read(dioProvider);
-      await runRrAction(context, ref, () => dio.post('/api/rr/sync/retry/${_trip.id}', data: {}));
+      final resp = await runRrAction(context, ref, () => dio.post('/api/rr/sync/retry/${_trip.id}', data: {}));
       if (!mounted) return;
+      final stagesSent = ((resp.data as Map?)?['synced_stages'] as List?) ?? const [];
+      final rrWebChanged = (((resp.data as Map?)?['rr_web_changes'] as List?) ?? const []).isNotEmpty;
+      if (stagesSent.isEmpty) {
+        // No stage to send yet: only RR web's changes were taken - show them, nothing to wait for.
+        await _fetchFreshTrip();
+        if (!mounted) return;
+        final l10n = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(rrWebChanged ? l10n.rrWebUpdated : l10n.stageRrSyncUpToDate,
+              style: _inter(size: 13, color: Colors.white)),
+          backgroundColor: _success,
+          duration: const Duration(seconds: 3),
+        ));
+        return;
+      }
       // sync/retry only queues a BackgroundTask — this response returns
       // before the sync actually runs against RR. Keep the AppBar spinner up
       // (the user can still freely use the rest of the screen meanwhile —
@@ -314,9 +344,13 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      // An RR web change may have been taken before the refusal (e.g. the booking is still cancelled): show it.
+      await _fetchFreshTrip();
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context).stageRrSyncFailed(e.toString().split(':').last.trim()),
+          content: Text(AppLocalizations.of(context).stageRrSyncFailed(
+                  e is DioException ? _dioErrorDetail(e, e.message ?? '') : e.toString().split(':').last.trim()),
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           duration: const Duration(seconds: 4),
@@ -548,7 +582,10 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
         actions: [
           _TripStateBadge(trip: _trip),
           const SizedBox(width: 4),
-          if (_trip.currentStage >= 2 && !_readOnly && _canManageRr)
+          // Every stage (also before Stage 2) and a booking-cancelled trip too: Sync first takes what RR web changed
+          // (cancel / re-book / driver), then sends the stages done. LP / RR-ops only (user, 2026-11-25). On a cancelled
+          // trip or one RR never created it stays, and a tap only says why nothing is synced.
+          if (_canManageRr && !widget.readOnly)
             _syncing
                 ? Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 14),

@@ -2346,6 +2346,17 @@ class AppLocalizationsHi extends AppLocalizations {
   String get stageRrSendToRr => 'RR को भेजें';
 
   @override
+  String get stageRrSyncUpToDate => 'RR वेब से सब अपडेट है';
+
+  @override
+  String get stageSyncTripCancelled =>
+      'ट्रिप रद्द है — RR वेब पर कुछ सिंक नहीं होगा';
+
+  @override
+  String get stageSyncTripNotCreated =>
+      'RR वेब पर ट्रिप नहीं बन पाई — कुछ सिंक नहीं होगा';
+
+  @override
   String get stageRrSyncComplete => 'सिंक पूरा हुआ';
 
   @override
@@ -3267,6 +3278,9 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get createTripSelectBodyType => 'वाहन का बॉडी टाइप चुनें';
+
+  @override
+  String get createTripOwnTrucksOption => 'कोई कंपनी नहीं — उसके अपने ट्रक';
 
   @override
   String get createTripSelectCompany => 'कंपनी चुनें';
@@ -6914,6 +6928,14 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get bookingRebookTruck => 'ट्रक';
+
+  @override
+  String get bookingRebookNoCompanyOwnTrucks =>
+      'RR में कोई कंपनी नहीं — नीचे उसके अपने ट्रक हैं';
+
+  @override
+  String get bookingRebookNoOwnTrucks =>
+      'इस व्यक्ति के RR में अपने कोई ट्रक नहीं हैं';
 
   @override
   String get bookingRebookNoTrucks => 'इस कंपनी के RR में कोई ट्रक नहीं हैं';

@@ -214,7 +214,9 @@ class _RebookTruckScreenState extends ConsumerState<RebookTruckScreen> {
   String? _error;
   Map<String, dynamic>? _provider;                  // {user_id, name, ...}
   List<Map<String, dynamic>> _companies = [];
-  String? _companyId;
+  String? _companyId;                               // [_ownTrucks] = no company: booked to the person himself
+  // RR web books a truck to a company or to a person with no company (participant_user_id), user 2026-11-24
+  static const _ownTrucks = '__own_trucks__';
   List<Map<String, dynamic>> _vehicles = [];
   Map<String, dynamic>? _vehicle;                   // {rr_vehicle_id, number, driver_id, driver_name}
   String? _driverId;
@@ -255,11 +257,15 @@ class _RebookTruckScreenState extends ConsumerState<RebookTruckScreen> {
       _companies = ((c?.data as Map?)?['companies'] as List? ?? []).cast<Map<String, dynamic>>();
       _companyId = null; _vehicles = []; _vehicle = null; _driverId = null; _driverName = null;
     });
+    if (_companies.isEmpty) await _pickCompany(_ownTrucks);   // no company: his own trucks at once
   }
 
   Future<void> _pickCompany(String id) async {
     setState(() { _companyId = id; _vehicles = []; _vehicle = null; _driverId = null; _driverName = null; });
-    final list = await _call(() => ref.read(rrSyncApiProvider).getCompanyVehicles(id));
+    final api = ref.read(rrSyncApiProvider);
+    final list = await _call(() => id == _ownTrucks
+        ? api.getUserVehicles(_provider!['user_id'] as String)   // his own + hired trucks, no company (as RR web)
+        : api.getCompanyVehicles(id));
     if (list != null && mounted) setState(() => _vehicles = list);
   }
 
@@ -295,7 +301,8 @@ class _RebookTruckScreenState extends ConsumerState<RebookTruckScreen> {
     final r = await _call(() => ref.read(dioProvider).post('/api/rr/rebook/${widget.trip.id}', data: {
       'rr_vehicle_id': _vehicle!['rr_vehicle_id'],
       'vehicle_number': number,
-      'transporter_rr_company_id': _companyId,
+      if (_companyId == _ownTrucks) 'transporter_rr_user_id': _provider!['user_id']
+      else 'transporter_rr_company_id': _companyId,
       'rr_driver_id': _driverId,
       'booking_amount': double.parse(_amountCtrl.text.trim()),
     }, options: Options(receiveTimeout: const Duration(seconds: 120))));
@@ -339,14 +346,17 @@ class _RebookTruckScreenState extends ConsumerState<RebookTruckScreen> {
             Text(l10n.bookingRebookCompany, style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             if (_companies.isEmpty)
-              Text(l10n.bookingRebookNoCompany, style: const TextStyle(color: _danger))
+              Text(l10n.bookingRebookNoCompanyOwnTrucks, style: const TextStyle(color: Color(0xFF5F6B7A)))
             else
               DropdownButtonFormField<String>(
                 value: _companyId,
                 isExpanded: true,
                 decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
-                items: [for (final c in _companies)
-                  DropdownMenuItem(value: c['rr_company_id'] as String, child: Text(c['name'] as String? ?? ''))],
+                items: [
+                  DropdownMenuItem(value: _ownTrucks,
+                      child: Text(l10n.createTripOwnTrucksOption, overflow: TextOverflow.ellipsis)),
+                  for (final c in _companies)
+                    DropdownMenuItem(value: c['rr_company_id'] as String, child: Text(c['name'] as String? ?? ''))],
                 onChanged: (v) { if (v != null) _pickCompany(v); },
               ),
           ],
@@ -355,7 +365,8 @@ class _RebookTruckScreenState extends ConsumerState<RebookTruckScreen> {
             Text(l10n.bookingRebookTruck, style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             if (_vehicles.isEmpty && !_busy)
-              Text(l10n.bookingRebookNoTrucks, style: const TextStyle(color: _danger))
+              Text(_companyId == _ownTrucks ? l10n.bookingRebookNoOwnTrucks : l10n.bookingRebookNoTrucks,
+                  style: const TextStyle(color: _danger))
             else
               DropdownButtonFormField<String>(
                 value: _vehicle?['rr_vehicle_id'] as String?,

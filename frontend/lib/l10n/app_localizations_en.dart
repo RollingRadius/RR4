@@ -2354,6 +2354,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get stageRrSendToRr => 'Send to RR';
 
   @override
+  String get stageRrSyncUpToDate => 'Up to date with RR web';
+
+  @override
+  String get stageSyncTripCancelled =>
+      'Trip cancelled — nothing is synced to RR web';
+
+  @override
+  String get stageSyncTripNotCreated =>
+      'Trip creation failed on RR web — nothing is synced';
+
+  @override
   String get stageRrSyncComplete => 'Sync complete';
 
   @override
@@ -3277,6 +3288,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get createTripSelectBodyType => 'Select vehicle body type';
+
+  @override
+  String get createTripOwnTrucksOption => 'No company — his own trucks';
 
   @override
   String get createTripSelectCompany => 'Select company';
@@ -6939,6 +6953,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookingRebookTruck => 'Truck';
+
+  @override
+  String get bookingRebookNoCompanyOwnTrucks =>
+      'No company in RR — his own trucks are listed below';
+
+  @override
+  String get bookingRebookNoOwnTrucks =>
+      'This person has no trucks of his own in RR';
 
   @override
   String get bookingRebookNoTrucks => 'This company has no trucks in RR';

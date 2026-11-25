@@ -147,7 +147,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
   List<Map<String, dynamic>> _vpPersonalVehicles = [];  // user's own vehicles (no company)
   List<Map<String, dynamic>> _vpCompanies = [];
   bool   _vpCompaniesLoading      = false;
-  String? _vpSelectedCompanyId;           // → transporter_rr_company_id
+  String? _vpSelectedCompanyId;           // → transporter_rr_company_id ([_kOwnTrucks] = no company)
+  // "No company - his own trucks" in the company list: the truck is booked to the PERSON (RR web's
+  // participant_user_id -> transporter_rr_user_id), as RR web allows (user 2026-11-24).
+  static const _kOwnTrucks = '__own_trucks__';
+  bool get _vpOwnerIsPerson => _vpSelectedCompanyId == null || _vpSelectedCompanyId == _kOwnTrucks;
   String? _vpSelectedCompanyName;
   List<Map<String, dynamic>> _vpVehicles  = [];  // company vehicles (fleet + market)
   bool   _vpVehiclesLoading       = false;
@@ -392,7 +396,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
       axleType: _axleType,
       numberOfWheels: _numberOfWheels,
       vpPhone: _vpPhoneCtrl.text.trim(),
-      vpCompanyId: _vpSelectedCompanyId,
+      vpCompanyId: _vpOwnerIsPerson ? null : _vpSelectedCompanyId,
       vpCompanyName: _vpSelectedCompanyName,
       vehicleId: _vpSelectedVehicleRrId,
       vehicleNumber: _vpSelectedVehicleNumber,
@@ -953,7 +957,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
           l10n.createTripValVpPhone);
       return false;
     }
-    if (_vpSelectedCompanyId == null) {
+    // A provider with companies picks one, or "No company - his own trucks"; one with no company books his own trucks.
+    if (_vpCompanies.isNotEmpty && _vpSelectedCompanyId == null) {
       _failField(1, _keyVpCompany, 'vpCompany',
           l10n.createTripValVpCompany);
       return false;
@@ -1084,7 +1089,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
     final ba = double.tryParse(_bookingAmountCtrl.text.trim());
     if (ba != null) body['booking_amount'] = ba;
     // Vehicle provider picker
-    if (_vpSelectedCompanyId     != null) body['transporter_rr_company_id'] = _vpSelectedCompanyId;
+    if (!_vpOwnerIsPerson) {
+      body['transporter_rr_company_id'] = _vpSelectedCompanyId;
+    } else if ((_vpUser?['user_id'] as String? ?? '').isNotEmpty) {
+      body['transporter_rr_user_id'] = _vpUser!['user_id'];   // the truck owner is this person (no company)
+    }
     if (_vpSelectedVehicleRrId   != null) body['rr_vehicle_id']             = _vpSelectedVehicleRrId;
     if (_vpSelectedVehicleNumber != null) body['vehicle_number']            = _vpSelectedVehicleNumber;
     if (_selectedDriverRrId      != null) body['rr_driver_id']              = _selectedDriverRrId;
@@ -2059,12 +2068,31 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                           hasError: _fieldErr['vpCompany'] == true,
                           value: _vpSelectedCompanyId,
                           hint: l10n.createTripSelectCompany,
-                          items: _vpCompanies.map((c) => DropdownMenuItem<String>(
-                            value: c['rr_company_id'] as String,
-                            child: Text(c['name'] as String? ?? '', style: _inter(size: 13, color: _onSurface)),
-                          )).toList(),
+                          items: [
+                            DropdownMenuItem<String>(
+                              value: _kOwnTrucks,
+                              child: Text(l10n.createTripOwnTrucksOption,
+                                  style: _inter(size: 13, color: _onSurface), overflow: TextOverflow.ellipsis),
+                            ),
+                            ..._vpCompanies.map((c) => DropdownMenuItem<String>(
+                              value: c['rr_company_id'] as String,
+                              child: Text(c['name'] as String? ?? '', style: _inter(size: 13, color: _onSurface)),
+                            )),
+                          ],
                           onChanged: (v) async {
                             if (v == null) return;
+                            if (v == _kOwnTrucks) {
+                              setState(() {
+                                _vpSelectedCompanyId     = _kOwnTrucks;
+                                _vpSelectedCompanyName   = null;
+                                _vpVehicles              = [];
+                                _vpSelectedVehicleRrId   = null;
+                                _vpSelectedVehicleNumber = null;
+                                _fieldErr.remove('vpCompany');
+                                _fieldErrMsg.remove('vpCompany');
+                              });
+                              return;
+                            }
                             final c = _vpCompanies.firstWhere((x) => x['rr_company_id'] == v);
                             setState(() {
                               _vpSelectedCompanyId     = v;
@@ -2091,7 +2119,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                       // vehicle never appears twice and DropdownButtonFormField's
                       // unique-value requirement is satisfied.
                       final seen = <String>{};
-                      final all = [..._vpPersonalVehicles, ..._vpVehicles].where((v) {
+                      // As RR web: a company's own + hired trucks for a company, else the person's own + hired trucks.
+                      final all = (_vpOwnerIsPerson ? _vpPersonalVehicles : _vpVehicles).where((v) {
                         final id = v['rr_vehicle_id'] as String?;
                         if (id == null || seen.contains(id)) return false;
                         seen.add(id);
@@ -2099,7 +2128,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen>
                       }).toList();
                       if (all.isEmpty) {
                         return Text(
-                          _vpSelectedCompanyId == null
+                          _vpSelectedCompanyId == null && _vpCompanies.isNotEmpty
                               ? l10n.createTripSelectCompanyFirst
                               : l10n.createTripNoVehicles,
                           style: _inter(size: 12, color: _secondary),

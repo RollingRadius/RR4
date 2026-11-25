@@ -4352,6 +4352,24 @@ abstract class AppLocalizations {
   /// **'Send to RR'**
   String get stageRrSendToRr;
 
+  /// Top-right Sync on a trip with no stage to send yet: nothing changed on RR web
+  ///
+  /// In en, this message translates to:
+  /// **'Up to date with RR web'**
+  String get stageRrSyncUpToDate;
+
+  /// No description provided for @stageSyncTripCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip cancelled — nothing is synced to RR web'**
+  String get stageSyncTripCancelled;
+
+  /// No description provided for @stageSyncTripNotCreated.
+  ///
+  /// In en, this message translates to:
+  /// **'Trip creation failed on RR web — nothing is synced'**
+  String get stageSyncTripNotCreated;
+
   /// No description provided for @stageRrSyncComplete.
   ///
   /// In en, this message translates to:
@@ -6043,6 +6061,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select vehicle body type'**
   String get createTripSelectBodyType;
+
+  /// + New Trip step 2, company list: book the truck to the provider himself (no company), as RR web
+  ///
+  /// In en, this message translates to:
+  /// **'No company — his own trucks'**
+  String get createTripOwnTrucksOption;
 
   /// No description provided for @createTripSelectCompany.
   ///
@@ -12511,6 +12535,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Truck'**
   String get bookingRebookTruck;
+
+  /// No description provided for @bookingRebookNoCompanyOwnTrucks.
+  ///
+  /// In en, this message translates to:
+  /// **'No company in RR — his own trucks are listed below'**
+  String get bookingRebookNoCompanyOwnTrucks;
+
+  /// No description provided for @bookingRebookNoOwnTrucks.
+  ///
+  /// In en, this message translates to:
+  /// **'This person has no trucks of his own in RR'**
+  String get bookingRebookNoOwnTrucks;
 
   /// No description provided for @bookingRebookNoTrucks.
   ///
