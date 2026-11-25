@@ -82,11 +82,17 @@ def plan(db):
                                    "owner": ":".join(owner) if owner else None})
                 continue
             in_rr = bool(row.rr_file_id) and row.rr_synced_sha256 == row.sha256
-            mark = stage1_sync_mark(col.column) if in_rr else None
+            rr_file_id = row.rr_file_id if in_rr else None
+            if not rr_file_id:
+                # The broken link only ever came from a pull of RR's file that was byte-for-byte the stored one, and
+                # that pull recorded RR's file id on the trip ("_rr_seen": "<file id>@<etag>"): RR holds this file.
+                seen = ((trip.rr_synced_doc_urls or {}).get("_rr_seen") or {}).get(col.column) or ""
+                rr_file_id = seen.split("@")[0] or None
+            mark = stage1_sync_mark(col.column) if rr_file_id else None
             changes.append({"trip_id": str(trip.id), "trip": trip.trip_number, "column": col.column,
                             "old": link, "new": row.url_path, "owner": ":".join(owner) if owner else "trip",
                             "mark_key": mark[0] if mark else None, "mark_attr": mark[1] if mark else None,
-                            "rr_file_id": row.rr_file_id if mark else None})
+                            "rr_file_id": rr_file_id if mark else None})
     return changes, unresolved
 
 
