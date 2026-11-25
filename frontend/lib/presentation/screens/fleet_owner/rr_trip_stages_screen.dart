@@ -350,7 +350,7 @@ class _RrTripStagesScreenState extends ConsumerState<RrTripStagesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppLocalizations.of(context).stageRrSyncFailed(
-                  e is DioException ? _dioErrorDetail(e, e.message ?? '') : e.toString().split(':').last.trim()),
+                  e is DioException ? _dioErrorDetail(e, e.message ?? '') : ref.read(apiServiceProvider).handleError(e)),
               style: _inter(size: 13, color: Colors.white)),
           backgroundColor: _error,
           duration: const Duration(seconds: 4),

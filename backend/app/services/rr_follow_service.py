@@ -17,8 +17,16 @@ from datetime import datetime, timezone
 
 import httpx
 
+from app import database
 from app.config import settings
+from app.models import trip_booking_event as ev
+from app.models.company import Organization
+from app.models.load_requirement import LoadRequirement
+from app.models.trip import Trip
+# modules, not names: rr_sync_service imports this module back, and tests patch these modules
+from app.services import driver_link_service, rr_org_token_service, rr_pull_service, rr_sync_service
 from app.services import rr_booking_service as bs
+from app.services import stage1_document_service
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +135,6 @@ async def _user_name(client, token: str, rr_user_id: str | None) -> str | None:
 
 def _cancel_linked_load(trip, db) -> None:
     if getattr(trip, "load_requirement_id", None):
-        from app.models.load_requirement import LoadRequirement
         linked = db.query(LoadRequirement).filter(LoadRequirement.id == trip.load_requirement_id,
                                                   LoadRequirement.status == "assigned").first()
         if linked:
@@ -136,9 +143,9 @@ def _cancel_linked_load(trip, db) -> None:
 
 async def apply_change(db, trip, kind: str, state: dict, client, token: str) -> None:
     """Apply one RR web change to our trip with the app's own code, write its history row, commit."""
+    # Lazy on purpose (the one exception): the API module imports rr_sync_service by name, so importing it here at
+    # load time breaks start-up whenever rr_sync_service is loaded first.
     from app.api.v1.rr_sync import _unlink_driver
-    from app.models import trip_booking_event as ev
-    from app.services.stage1_document_service import clear_driver_documents
 
     old = dict(old_rr_vehicle_id=trip.rr_vehicle_id, old_vehicle_number=trip.vehicle_number,
                old_rr_driver_id=trip.rr_driver_id, old_driver_name=trip.s1_driver_name,
@@ -188,7 +195,7 @@ async def apply_change(db, trip, kind: str, state: dict, client, token: str) -> 
         trip.rr_driver_id = new_driver
         trip.rr_dl_file_id = trip.rr_dl_back_file_id = None
         trip.rr_aadhaar_file_id = trip.rr_aadhaar_back_file_id = None
-        clear_driver_documents(trip)
+        stage1_document_service.clear_driver_documents(trip)
         relink_driver = new_driver
     else:
         return
@@ -201,8 +208,7 @@ async def apply_change(db, trip, kind: str, state: dict, client, token: str) -> 
     db.commit()
     if relink_driver:
         try:
-            from app.services.driver_link_service import link_driver_to_trip
-            await link_driver_to_trip(trip, relink_driver, token, db)
+            await driver_link_service.link_driver_to_trip(trip, relink_driver, token, db)
         except Exception:
             logger.exception(f"[RR Follow] driver link failed for {trip.trip_number}")
     logger.info(f"[RR Follow] {trip.trip_number}: followed RR web ({kind})")
@@ -211,7 +217,6 @@ async def apply_change(db, trip, kind: str, state: dict, client, token: str) -> 
 async def follow_trips(db, trips: list, client, token: str, *, claim: bool = True) -> list[tuple]:
     """Read RR for these trips and apply what RR web changed. Returns [(trip, kind)]. Never raises.
     claim=False only for a caller that already holds the trip's sync claim (the sync itself)."""
-    from app.services.rr_sync_service import _claim_trip_sync, _release_trip_sync
     applied: list[tuple] = []
     try:
         mine = [t for t in trips if followed(t)]
@@ -224,7 +229,7 @@ async def follow_trips(db, trips: list, client, token: str, *, claim: bool = Tru
             state = states.get(str(trip.rr_trip_id))
             if not what_changed(trip, state):
                 continue
-            if claim and not _claim_trip_sync(db, trip.id):
+            if claim and not rr_sync_service._claim_trip_sync(db, trip.id):
                 continue                     # a sync of this trip is running; it follows RR itself first
             try:
                 db.refresh(trip)
@@ -237,7 +242,7 @@ async def follow_trips(db, trips: list, client, token: str, *, claim: bool = Tru
                 logger.exception(f"[RR Follow] could not apply the RR web change to {trip.trip_number}")
             finally:
                 if claim:
-                    _release_trip_sync(db, trip.id)
+                    rr_sync_service._release_trip_sync(db, trip.id)
     except Exception:
         logger.exception("[RR Follow] reading RR failed - nothing changed")
         try:
@@ -246,14 +251,13 @@ async def follow_trips(db, trips: list, client, token: str, *, claim: bool = Tru
             pass
     # Then the papers and every stage field / upload RR web changed (rr_pull_service, plan section 10).
     try:
-        from app.services.rr_pull_service import pull_trips
-        for trip, _cols in await pull_trips(db, [t for t in trips if followed(t)], client, token, claim=claim):
+        for trip, _cols in await rr_pull_service.pull_trips(db, [t for t in trips if followed(t)], client, token, claim=claim):
             applied.append((trip, FIELDS_UPDATED))
     except Exception:
         logger.exception("[RR Follow] pulling RR web's field changes failed - nothing more changed")
     for trip, kind in applied:
         try:
-            from app.api.v1.rr_sync import _notify_booking_change
+            from app.api.v1.rr_sync import _notify_booking_change   # lazy on purpose, see apply_change
             title, body = _TITLES[kind]
             await _notify_booking_change(trip, title, body.format(n=trip.trip_number))
         except Exception:
@@ -263,9 +267,8 @@ async def follow_trips(db, trips: list, client, token: str, *, claim: bool = Tru
 
 async def follow_org_trips(db, org, trips: list) -> list[tuple]:
     """With the organisation's RR login (none / expired -> nothing)."""
-    from app.services.rr_org_token_service import get_org_rr_token
     try:
-        token = await get_org_rr_token(org, db)
+        token = await rr_org_token_service.get_org_rr_token(org, db)
     except Exception:
         return []
     if not token:
@@ -276,10 +279,7 @@ async def follow_org_trips(db, org, trips: list) -> list[tuple]:
 
 async def follow_all_orgs() -> int:
     """Background check: every organisation with an RR login, its open RR trips. Returns how many changes applied."""
-    from app.database import SessionLocal
-    from app.models.company import Organization
-    from app.models.trip import Trip
-    db = SessionLocal()
+    db = database.SessionLocal()
     total = 0
     try:
         for org in db.query(Organization).filter(Organization.rr_refresh_token.isnot(None)).all():

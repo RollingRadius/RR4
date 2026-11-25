@@ -166,7 +166,8 @@ def reset_trip_after_booking_cancel(trip) -> None:
             setattr(trip, c.column, None)
     for col in STAGE1_NUMBER_COLUMNS + STAGE1_RR_FILE_ID_COLUMNS + TRUCK_STAGE_COLUMNS:
         setattr(trip, col, None)
-    synced = {k: v for k, v in (trip.rr_synced_doc_urls or {}).items() if not k.startswith(STAGE1_SYNC_KEY_PREFIXES)}
+    synced = {k: v for k, v in (trip.rr_synced_doc_urls or {}).items()
+              if not k.startswith(STAGE1_SYNC_KEY_PREFIXES) and k != rr_change_marks.S1_PARTS_OK_KEY}
     stage1 = set(rr_change_marks.STAGE_COLUMNS.get(1, ()))
     changed = [c for c in synced.get(rr_change_marks.CHANGED_KEY, []) if c not in stage1]
     if changed:

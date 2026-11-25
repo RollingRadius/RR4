@@ -34,6 +34,7 @@ from app.services.rr_sync_service import (RR_DEFAULT_VEHICLE_PROVIDER, _json_hea
                                           pull_owner_documents)
 from app.services.driver_link_service import link_driver_to_trip
 from app.services.stage1_document_service import clear_driver_documents
+from app.services import rr_follow_service, rr_pull_service
 from app.utils.phone import normalize_phone
 
 logger = logging.getLogger(__name__)
@@ -573,8 +574,7 @@ async def retry_stage_sync(
     # First take what RR web changed on this trip (cancel / re-book / driver change + the papers), on EVERY stage -
     # Sync is available from Stage 0 for LP / RR-ops (user, 2026-11-25), so a re-book or a new driver made on RR web
     # reaches us even before any stage is filled, and a booking cancelled here but re-booked on RR web comes back.
-    from app.services.rr_follow_service import follow_org_trips
-    rr_web_changes = [kind for _, kind in await follow_org_trips(db, user_org.organization, [trip])]
+    rr_web_changes = [kind for _, kind in await rr_follow_service.follow_org_trips(db, user_org.organization, [trip])]
     db.refresh(trip)
 
     if trip.status == "cancelled":                       # cancelled on RR web just now (the follow above)
@@ -2566,9 +2566,8 @@ async def _notify_booking_change(trip, title: str, body: str) -> None:
 async def _pull_from_rr(trip, token: str, db: Session) -> None:
     """Best-effort: copy what RR holds for this trip's papers / fields into it (rr_pull_service). Never raises."""
     try:
-        from app.services.rr_pull_service import pull_trips
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
-            await pull_trips(db, [trip], client, token)
+            await rr_pull_service.pull_trips(db, [trip], client, token)
     except Exception:
         logger.exception(f"[RR Pull] after the booking change of {trip.trip_number}")
 
@@ -2777,12 +2776,11 @@ def _member_org(current_user: User, db: Session):
 @router.post("/refresh-trip/{trip_id}", summary="Follow RR web's changes to this trip (trip opened)")
 async def refresh_trip_from_rr(trip_id: str, db: Session = Depends(get_db),
                                current_user: User = Depends(get_current_user)):
-    from app.services.rr_follow_service import follow_org_trips
     user_org = _member_org(current_user, db)
     trip = db.query(Trip).filter(Trip.id == trip_id, Trip.organization_id == user_org.organization_id).first()
     if not trip:
         raise HTTPException(status_code=404, detail="Trip not found")
-    applied = await follow_org_trips(db, user_org.organization, [trip])
+    applied = await rr_follow_service.follow_org_trips(db, user_org.organization, [trip])
     db.refresh(trip)
     return {"changed": [kind for _, kind in applied], "trip": trip.to_dict()}
 
@@ -2790,18 +2788,17 @@ async def refresh_trip_from_rr(trip_id: str, db: Session = Depends(get_db),
 @router.post("/refresh-trips", summary="Follow RR web's changes to these trips (dashboard refresh)")
 async def refresh_trips_from_rr(body: RrRefreshTripsRequest, db: Session = Depends(get_db),
                                 current_user: User = Depends(get_current_user)):
-    from app.services.rr_follow_service import NOT_FOLLOWED_STATUSES, follow_org_trips
     user_org = _member_org(current_user, db)
     ids = [i for i in body.trip_ids if i]
     if not ids:
         return {"changed": []}
     try:
         trips = db.query(Trip).filter(Trip.id.in_(ids), Trip.organization_id == user_org.organization_id,
-                                      Trip.rr_trip_id.isnot(None), Trip.status.notin_(NOT_FOLLOWED_STATUSES)).all()
+                                      Trip.rr_trip_id.isnot(None), Trip.status.notin_(rr_follow_service.NOT_FOLLOWED_STATUSES)).all()
     except Exception:
         db.rollback()
         raise HTTPException(status_code=422, detail="Invalid trip ids")
-    applied = await follow_org_trips(db, user_org.organization, trips)
+    applied = await rr_follow_service.follow_org_trips(db, user_org.organization, trips)
     return {"changed": [{"trip_id": str(t.id), "change": kind} for t, kind in applied]}
 
 

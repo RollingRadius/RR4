@@ -64,3 +64,58 @@ def clear(trip, columns) -> None:
     else:
         marks.pop(CHANGED_KEY, None)
     trip.rr_synced_doc_urls = marks
+
+
+# ── Stage 1 is sent in parts (driver / truck / insurance / owner papers / cheque) ─────────────────────────────────────
+# One failed part (e.g. the cheque: the owner has no bank account in RR) used to keep the WHOLE stage "never synced":
+# every Stage 1 mark stayed, RR web's later changes to papers RR had accepted were never pulled, and the next sync sent
+# our older values back over them (fc11, 2026-11-25). Each part RR accepted is now recorded and its marks cleared; a
+# failed part stays pending on its own. Kept in rr_synced_doc_urls under S1_PARTS_OK_KEY (no migration).
+S1_PARTS = {
+    "driver": ("s1_driving_license_url", "s1_driving_license_back_url", "s1_aadhaar_url", "s1_aadhaar_back_url",
+               "s1_driving_license", "s1_aadhaar"),
+    "vehicle": ("s1_rc", "s1_rc_back", "s1_rc_number", "s1_pollution", "s1_puc_number", "s1_fitness",
+                "s1_fitness_number", "s1_permit", "s1_permit_number"),
+    "insurance": ("s1_insurance", "s1_insurance_number"),
+    "owner": ("s1_pan", "s1_pan_number", "s1_tax_declaration", "s1_tax_declaration_expiry"),
+    "cheque": ("s1_cancelled_cheque",),
+}
+S1_PARTS_OK_KEY = "_s1_parts_ok"
+assert set(c for cols in S1_PARTS.values() for c in cols) == set(STAGE_COLUMNS[1])
+
+
+def s1_part_of(column: str):
+    return next((p for p, cols in S1_PARTS.items() if column in cols), None)
+
+
+def s1_parts_ok(trip) -> set:
+    return set((getattr(trip, "rr_synced_doc_urls", None) or {}).get(S1_PARTS_OK_KEY) or [])
+
+
+def s1_part_synced(trip, part) -> bool:
+    """This Stage 1 part reached RR at least once (the whole stage synced, or this part did)."""
+    return getattr(trip, "rr_s1_sync_status", None) == "synced" or (part is not None and part in s1_parts_ok(trip))
+
+
+def mark_s1_parts_ok(trip, parts) -> None:
+    """RR accepted these parts: recorded, and their columns taken off the changed list."""
+    parts = set(parts)
+    if not parts:
+        return
+    clear(trip, [c for p in parts for c in S1_PARTS[p]])
+    marks = dict(getattr(trip, "rr_synced_doc_urls", None) or {})
+    marks[S1_PARTS_OK_KEY] = sorted(set(marks.get(S1_PARTS_OK_KEY) or []) | parts)
+    trip.rr_synced_doc_urls = marks
+
+
+def forget_s1_parts(trip, parts) -> None:
+    """Papers of these parts left the trip (reassign / booking cancel): their marks and "reached RR" record go too,
+    so the NEW driver's / truck's / owner's papers are pulled and sent as new."""
+    clear(trip, [c for p in parts for c in S1_PARTS[p]])
+    marks = dict(getattr(trip, "rr_synced_doc_urls", None) or {})
+    left = set(marks.get(S1_PARTS_OK_KEY) or []) - set(parts)
+    if left:
+        marks[S1_PARTS_OK_KEY] = sorted(left)
+    else:
+        marks.pop(S1_PARTS_OK_KEY, None)
+    trip.rr_synced_doc_urls = marks

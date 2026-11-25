@@ -20,6 +20,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core.rr_time import from_form
 from app.database import get_db, SessionLocal
 from app.dependencies import get_current_user
 from app.models import User, UserOrganization
@@ -1001,7 +1002,6 @@ def _check_identity_numbers(trip: "Trip", driving_license: Optional[str], aadhaa
 def _check_owner_doc_fields(pan_number: Optional[str], tax_expiry: Optional[str], *, new_pan: bool, new_tax: bool):
     """(PAN number in RR's format, tax declaration valid-till date) from the Stage 1 form, or 422.
     A new PAN photo needs its number and a new tax declaration its valid-till date (RR web needs both)."""
-    from app.core.rr_time import from_form
     pan = (pan_number or "").strip().upper() or None
     if pan and not _PAN_FORMAT.match(pan):
         raise HTTPException(status_code=422, detail="PAN number must be 10 characters like ABCDE1234F")

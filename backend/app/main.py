@@ -9,6 +9,7 @@ import uuid
 
 from app.config import settings
 from app.core.request_context import request_id_ctx
+from app.services import rr_follow_service
 
 
 class _RequestIdFilter(logging.Filter):
@@ -218,7 +219,6 @@ async def startup_event():
     from app.services import tracking_watchdog
     app.state.tracking_watchdog_task = asyncio.create_task(tracking_watchdog.run_forever())
     # Our trips follow RR web's booking changes (md/RR_TWO_WAY_SYNC_PLAN.md) - same single-worker assumption.
-    from app.services import rr_follow_service
     app.state.rr_follow_task = asyncio.create_task(rr_follow_service.run_forever())
 
 

@@ -21,10 +21,12 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.document_map import DRIVER, OWNER, UPLOAD_COLUMNS, VEHICLE
+from app.core.rr_time import to_rr
 from app.models.driver import Driver
 from app.models.document import DriverDocument, OwnerDocument, VehicleDocument
 from app.models.trip import Trip
 from app.models.vehicle import Vehicle
+from app.services import rr_change_marks
 from app.services.trip_document_service import save_trip_document
 from app.services.upload_storage import StoredUpload, fill_document_row, remove_disk_copy, replacement_entry
 
@@ -169,6 +171,9 @@ def clear_driver_documents(trip: Trip) -> None:
     for number_column in {c.number_column for c in DRIVER_COLUMNS}:
         setattr(trip, number_column, None)
     trip.rr_synced_doc_urls = synced
+    # ...and the old driver's "changed" marks and "reached RR" record: they kept the NEW driver's papers from being
+    # pulled (fc11, 2026-11-25).
+    rr_change_marks.forget_s1_parts(trip, ["driver"])
 
 
 OWNER_COLUMNS = [c for c in UPLOAD_COLUMNS if c.table == OWNER]
@@ -210,7 +215,6 @@ def link_owner_documents(db: Session, trip: Trip) -> None:
             if col.number_column and row.number:
                 synced[f"{base}::number"] = row.number
             if col.expiry_column and row.expiry_date:
-                from app.core.rr_time import to_rr
                 synced[f"{base}::expiry"] = to_rr(row.expiry_date)   # the same UTC string the sync sends
             if cache_attr:
                 setattr(trip, cache_attr, row.rr_file_id)

@@ -33,6 +33,7 @@ from app.config import settings
 from app.core.document_map import OWNER
 from app.core.rr_time import from_rr, to_rr
 from app.services import rr_change_marks
+from app.services import rr_follow_service   # a module: it imports this one back
 from app.services.stage1_document_service import (link_owner_documents, resolve_owner, save_stage1_document,
                                                   stored_owner_document)
 from app.services.stored_file_service import load_stored_file
@@ -1185,57 +1186,79 @@ async def _sync_stage1_docs(trip, client: httpx.AsyncClient, token: str, db) -> 
 
     errors: list[str] = []
     attempted = False
-    # Changed and saved -> sent; saved but not changed -> not sent (rr_change_marks). Until Stage 1 synced
-    # successfully once, everything goes as before.
-    synced_before = trip.rr_s1_sync_status == "synced"
-    send = (lambda col: rr_change_marks.should_send(trip, col, True)) if synced_before else None
+    accepted: list[str] = []          # the Stage 1 parts RR accepted in this sync (rr_change_marks.S1_PARTS)
+    # Changed and saved -> sent; saved but not changed -> not sent (rr_change_marks). Per PART (driver / truck /
+    # insurance / owner / cheque): a part that reached RR once sends only its changes, even when another part failed
+    # (fc11 2026-11-25: a failed cheque kept the whole stage "never synced", so every sync sent all our older values
+    # back over RR web's later changes).
+    def part_synced(part):
+        return rr_change_marks.s1_part_synced(trip, part)
+
+    def part_send(part):
+        return (lambda col: rr_change_marks.should_send(trip, col, True)) if part_synced(part) else None
 
     if driver_entity is not None:
         attempted = True
         ok, err = await _push_driver_identities(
             driver_entity, driver_rr_id, vehicle_rr_id, trip.transporter_rr_company_id,
-            _only_changed_items(trip, driver_doc_items(trip), synced_before), client, token, db, trip,
+            _only_changed_items(trip, driver_doc_items(trip), part_synced("driver")), client, token, db, trip,
         )
         if not ok:
             errors.append(f"Driver docs: {err}")
+        else:
+            accepted.append("driver")
     elif trip.driver_id:
         errors.append("Driver not found in RR — driver must exist in RR web first")
 
     if vehicle_entity is not None:
         attempted = True
         ok, err = await _push_identities(vehicle_entity, "vehicles", vehicle_rr_id,
-                                          _only_changed_items(trip, vehicle_doc_items(trip), synced_before),
+                                          _only_changed_items(trip, vehicle_doc_items(trip), part_synced("vehicle")),
                                           client, token, db, trip)
         if not ok:
             errors.append(f"Vehicle docs: {err}")
+        else:
+            accepted.append("vehicle")
 
+        send_ins = part_send("insurance")
         ok, err = await _push_vehicle_insurance(
             vehicle_entity, vehicle_rr_id,
-            trip.s1_insurance_number if send is None or send("s1_insurance_number") else None,
-            trip.s1_insurance if send is None or send("s1_insurance") else None,
+            trip.s1_insurance_number if send_ins is None or send_ins("s1_insurance_number") else None,
+            trip.s1_insurance if send_ins is None or send_ins("s1_insurance") else None,
             client, token, db, trip,
         )
         if not ok:
             errors.append(f"Insurance: {err}")
+        else:
+            accepted.append("insurance")
     elif trip.vehicle_id:
         errors.append("Vehicle not found in RR — vehicle must exist in RR web first")
 
     if trip.s1_pan or trip.s1_tax_declaration:
         attempted = True
-        ok, err = await _push_owner_documents(trip, client, token, db, send=send)
+        ok, err = await _push_owner_documents(trip, client, token, db, send=part_send("owner"))
         if not ok:
             errors.append(f"Owner docs: {err}")
+        else:
+            accepted.append("owner")
 
     if trip.s1_cancelled_cheque:
         attempted = True
-        if send is None or send("s1_cancelled_cheque"):
+        send_chq = part_send("cheque")
+        if send_chq is None or send_chq("s1_cancelled_cheque"):
             ok, err = await _push_owner_cheque(trip, client, token, db)
             if not ok:
                 errors.append(f"Owner cheque: {err}")
+            else:
+                accepted.append("cheque")
+        else:
+            accepted.append("cheque")   # nothing changed since RR took it
 
     if not attempted and not errors:
         return  # neither vehicle nor driver resolvable yet — nothing to do
 
+    # The parts RR accepted are recorded and their marks cleared even when another part failed.
+    rr_change_marks.mark_s1_parts_ok(trip, accepted)
     if errors:
         trip.rr_s1_sync_status = "failed"
         trip.rr_s1_sync_error = "; ".join(errors)[:800]
@@ -2223,8 +2246,7 @@ async def sync_stage(trip_id: str, stage: int) -> None:
             return
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
             # First follow what RR web changed (cancel / truck / driver) - we hold the claim (md/RR_TWO_WAY_SYNC_PLAN.md)
-            from app.services.rr_follow_service import follow_trips
-            await follow_trips(db, [trip], client, token, claim=False)
+            await rr_follow_service.follow_trips(db, [trip], client, token, claim=False)
             db.refresh(trip)
             # Never send anything for a cancelled trip / booking, or when RR's booked truck is not ours any more
             # (booking changed in RR web) - papers would land on the wrong records (md/RR_BOOKING_CANCEL_RULES.md).
@@ -2319,8 +2341,7 @@ async def sync_all_to_rr(trip_id: str, rr_token: str | None = None) -> None:
                 )
                 return
 
-            from app.services.rr_follow_service import follow_trips
-            await follow_trips(db, [trip], client, token, claim=False)
+            await rr_follow_service.follow_trips(db, [trip], client, token, claim=False)
             db.refresh(trip)
             from app.services.rr_booking_service import booking_guard
             blocked = await booking_guard(trip, client, token)

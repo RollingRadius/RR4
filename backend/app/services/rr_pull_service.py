@@ -21,10 +21,16 @@ import uuid
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
+from email.utils import parsedate_to_datetime
 from types import SimpleNamespace
 
 from app.config import settings
-from app.services import rr_change_marks
+from app.core.document_map import UPLOAD_COLUMNS
+from app.models import trip_booking_event as ev
+from app.models.document import DriverDocument, OwnerDocument, TripDocument, VehicleDocument
+# modules, not names: rr_sync_service imports this module back (through rr_follow_service), and tests patch them
+from app.services import rr_change_marks, rr_sync_service, stage1_document_service, trip_document_service
+from app.services.upload_storage import describe_upload
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +170,6 @@ def _parse_dt(v):
         d = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
     except ValueError:
         try:
-            from email.utils import parsedate_to_datetime
             d = parsedate_to_datetime(str(v))
         except Exception:
             return None
@@ -225,7 +230,11 @@ def may_take_rr(trip, column: str, stage: int, ours_filled: bool) -> bool:
     """RR's differing value may replace ours: ours not changed-and-unsent, and not filled-but-never-sent."""
     if column in rr_change_marks.changed_columns(trip):
         return False
-    if ours_filled and not stage_synced(trip, stage):
+    # Stage 1 counts per part (driver / truck / insurance / owner / cheque): a part RR accepted is "synced" even when
+    # another part of Stage 1 failed (fc11, 2026-11-25).
+    synced = (rr_change_marks.s1_part_synced(trip, rr_change_marks.s1_part_of(column)) if stage == 1
+              else stage_synced(trip, stage))
+    if ours_filled and not synced:
         return False
     return True
 
@@ -366,7 +375,6 @@ def _stored_row(db, url):
     """The stored document behind a trip column's URL (any document table), or None."""
     if not url:
         return None
-    from app.models.document import DriverDocument, OwnerDocument, TripDocument, VehicleDocument
     for model in (DriverDocument, VehicleDocument, OwnerDocument, TripDocument):
         row = db.query(model).filter(model.url_path == url).first()
         if row is not None:
@@ -377,12 +385,7 @@ def _stored_row(db, url):
 async def _store_photo(db, trip, column, stage, prefix, file_id, client, token) -> bool:
     """Download RR's file and store it as this trip column's document. False when it could not be read or it is the
     same bytes we hold."""
-    from app.services.rr_sync_service import _download_rr_file
-    from app.services.stage1_document_service import save_stage1_document
-    from app.services.trip_document_service import save_loading_slip, save_trip_document
-    from app.services.upload_storage import describe_upload
-    from app.core.document_map import UPLOAD_COLUMNS
-    got = await _download_rr_file(file_id, client, token)
+    got = await rr_sync_service._download_rr_file(file_id, client, token)
     if got is None:
         return False
     content, content_type, file_name = got
@@ -399,14 +402,14 @@ async def _store_photo(db, trip, column, stage, prefix, file_id, client, token) 
         # at THAT row's link instead - setting it after (as before) left the trip on a link stored nowhere (broken
         # photo; found in the e2e run 2026-11-25 after a reassign to a driver whose papers we already held).
         setattr(trip, column, url)
-        save_stage1_document(db, trip=trip, column=column, **kw)
+        stage1_document_service.save_stage1_document(db, trip=trip, column=column, **kw)
         _mark_in_rr(trip, column, getattr(trip, column), file_id)
     elif column == "s2_loading_slip_url":
-        save_loading_slip(db, trip=trip, doc_type="loading_slip", **kw)
+        trip_document_service.save_loading_slip(db, trip=trip, doc_type="loading_slip", **kw)
         trip.rr_loading_slip_file_id = file_id
     else:
         col = next(c for c in UPLOAD_COLUMNS if c.column == column)
-        save_trip_document(db, trip_id=trip.id, doc_type=col.doc_type, stage=stage, **kw)
+        trip_document_service.save_trip_document(db, trip_id=trip.id, doc_type=col.doc_type, stage=stage, **kw)
         setattr(trip, column, url)
     db.flush()
     return True
@@ -430,16 +433,14 @@ class _ColumnNames:
 
 def stage1_sync_mark(column: str):
     """(the sync's "already sent" key, the trip's RR file-id attribute or None) of a Stage 1 photo column, or None."""
-    from app.services.rr_sync_service import driver_doc_items, vehicle_doc_items
-    from app.services.stage1_document_service import OWNER_SYNC_MARKS
     names = _ColumnNames()
-    for it in driver_doc_items(names) + vehicle_doc_items(names):
+    for it in rr_sync_service.driver_doc_items(names) + rr_sync_service.vehicle_doc_items(names):
         for side in ("front", "back"):
             if it.get(f"{side}_url") == column:
                 return f"{it['id_name']}::{side}", it.get(f"{side}_attr")
     if column == "s1_insurance":
         return "Insurance::front", "rr_insurance_file_id"
-    return OWNER_SYNC_MARKS.get(column)
+    return stage1_document_service.OWNER_SYNC_MARKS.get(column)
 
 
 def _mark_in_rr(trip, column: str, url: str, file_id: str) -> None:
@@ -480,12 +481,9 @@ async def _pull_material_docs(db, trip, parcel: dict, etags: dict, client, token
         return False
     if not may_take_rr(trip, column, 3, bool(ours)):
         return False
-    from app.services.rr_sync_service import _download_rr_file
-    from app.services.trip_document_service import save_trip_document_list
-    from app.services.upload_storage import describe_upload
     items = []
     for fid in ids:
-        got = await _download_rr_file(fid, client, token)
+        got = await rr_sync_service._download_rr_file(fid, client, token)
         if got is None:
             return False                                     # all or nothing: keep ours when one cannot be read
         content, content_type, file_name = got
@@ -496,7 +494,7 @@ async def _pull_material_docs(db, trip, parcel: dict, etags: dict, client, token
         marks.setdefault(RR_SEEN_KEY, {})[column] = ref
         trip.rr_synced_doc_urls = marks
         return False
-    stored = save_trip_document_list(db, trip_id=trip.id, doc_type="material_doc", stage=3,
+    stored = trip_document_service.save_trip_document_list(db, trip_id=trip.id, doc_type="material_doc", stage=3,
                                      items=[(u, n, up) for u, n, up, _ in items], user=RR_WEB_ACTOR,
                                      role_key=RR_WEB_ROLE, org_id=trip.organization_id)
     for row, (_u, _n, up, fid) in zip(stored or [], items):
@@ -548,15 +546,12 @@ async def pull_trip(db, trip, records: dict, etags: dict, client, token) -> list
             pulled.append(column)
         remember_seen(trip, column, fid, etags.get(fid))
     if pulled and any(c.startswith("s1_") for c in pulled):
-        from app.services.stage1_document_service import refresh_stage1_numbers
-        refresh_stage1_numbers(db, trip)       # pulled numbers / valid-till dates reach the stored papers too
+        stage1_document_service.refresh_stage1_numbers(db, trip)       # pulled numbers / valid-till dates reach the stored papers too
     return pulled
 
 
 async def pull_trips(db, trips: list, client, token, *, claim: bool = True) -> list[tuple]:
     """Pull RR web's changes into these trips. Returns [(trip, [columns])]. Never raises."""
-    from app.models import trip_booking_event as ev
-    from app.services.rr_sync_service import _claim_trip_sync, _release_trip_sync
     done = []
     mine = [t for t in trips if t.rr_trip_id and t.status not in ("cancelled", "completed")]
     if not mine or not token:
@@ -568,7 +563,7 @@ async def pull_trips(db, trips: list, client, token, *, claim: bool = True) -> l
         return done
     etags = records.pop("_etags", {})
     for trip in mine:
-        if claim and not _claim_trip_sync(db, trip.id):
+        if claim and not rr_sync_service._claim_trip_sync(db, trip.id):
             continue
         try:
             db.refresh(trip)
@@ -588,7 +583,7 @@ async def pull_trips(db, trips: list, client, token, *, claim: bool = True) -> l
             logger.exception(f"[RR Pull] could not pull RR web's changes into {trip.trip_number}")
         finally:
             if claim:
-                _release_trip_sync(db, trip.id)
+                rr_sync_service._release_trip_sync(db, trip.id)
     return done
 
 
