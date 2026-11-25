@@ -513,6 +513,10 @@ class RrSyncRetryRequest(BaseModel):
     rr_refresh_token: str | None = None
 
 
+TRIP_CANCELLED_NO_SYNC = "Trip cancelled - nothing is synced to RR web"
+TRIP_NOT_IN_RR_NO_SYNC = "Trip creation failed on RR web - nothing is synced"
+
+
 @router.post("/sync/retry/{trip_id}", summary="Sync all completed stages of a trip to RR")
 async def retry_stage_sync(
     trip_id: str,
@@ -559,8 +563,22 @@ async def retry_stage_sync(
     if not await get_org_rr_token(user_org.organization, db):
         raise HTTPException(status_code=409, detail="RR login required — ask LP or RR Ops to sign in to RR")
 
+    # Nothing is synced for a cancelled trip, or for a trip RR never created (its creation failed): Stage 1 papers
+    # used to go to the driver / truck / owner records anyway (user, 2026-11-25). Every role is stopped here.
     if trip.status == "cancelled":
-        raise HTTPException(status_code=423, detail="This trip is cancelled - nothing is synced")
+        raise HTTPException(status_code=423, detail=TRIP_CANCELLED_NO_SYNC)
+    if not trip.rr_trip_id:
+        raise HTTPException(status_code=423, detail=TRIP_NOT_IN_RR_NO_SYNC)
+
+    # First take what RR web changed on this trip (cancel / re-book / driver change + the papers), on EVERY stage -
+    # Sync is available from Stage 0 for LP / RR-ops (user, 2026-11-25), so a re-book or a new driver made on RR web
+    # reaches us even before any stage is filled, and a booking cancelled here but re-booked on RR web comes back.
+    from app.services.rr_follow_service import follow_org_trips
+    rr_web_changes = [kind for _, kind in await follow_org_trips(db, user_org.organization, [trip])]
+    db.refresh(trip)
+
+    if trip.status == "cancelled":                       # cancelled on RR web just now (the follow above)
+        raise HTTPException(status_code=423, detail=TRIP_CANCELLED_NO_SYNC)
     if trip.booking_status == "booking_cancelled":
         raise HTTPException(status_code=423, detail="The truck booking was cancelled - book another truck first")
 
@@ -571,9 +589,10 @@ async def retry_stage_sync(
 
     return {
         "message": f"Syncing {len(stages_to_sync)} stage(s) to RR" if stages_to_sync
-                   else "No stages completed yet — nothing to sync",
+                   else "Up to date with RR web — no stage to send yet",
         "trip_id": str(trip.id),
         "synced_stages": stages_to_sync,
+        "rr_web_changes": rr_web_changes,
     }
 
 
@@ -1740,6 +1759,10 @@ async def _do_create_trip_in_rr(trip, rr_token: str, db, *, user=None, role_key:
         # ── Resolve vehicle_provider_id (prefer vehicle's own company_id) ───────
         # vehicle lookup already gave us the company — use it first
         vehicle_provider_id = rr_vehicle_company_id or trip.transporter_rr_company_id
+        if trip.transporter_rr_user_id and not trip.transporter_rr_company_id:
+            # the truck owner is a person with no company: RR's create_trip takes his user id as the provider and
+            # books with participant_user_id (as RR web) - never the truck record's own company (user, 2026-11-24)
+            vehicle_provider_id = trip.transporter_rr_user_id
         if not vehicle_provider_id and trip.transporter_user_id:
             transporter = db.query(UserModel).filter(UserModel.id == trip.transporter_user_id).first()
             if transporter and transporter.phone:
@@ -2489,7 +2512,9 @@ class RrCancelBookingRequest(BaseModel):
 class RrRebookRequest(BaseModel):
     rr_vehicle_id: str = Field(..., min_length=24, max_length=24)
     vehicle_number: str | None = Field(None, max_length=30)
-    transporter_rr_company_id: str = Field(..., min_length=24, max_length=24)   # the truck's owner company (picker)
+    transporter_rr_company_id: str | None = Field(None, min_length=24, max_length=24)   # the truck's owner company
+    # ...or the owner person with no company (RR web's participant_user_id), user 2026-11-24
+    transporter_rr_user_id: str | None = Field(None, min_length=24, max_length=24)
     rr_driver_id: str = Field(..., min_length=24, max_length=24)
     booking_amount: float = Field(..., gt=0, le=999999999)
     move_from_open_trip: bool = False
@@ -2602,7 +2627,8 @@ async def cancel_booking(trip_id: str, body: RrCancelBookingRequest, db: Session
         reason + (" [booking was already cancelled in RR web]" if already_cancelled_in_rr else ""), current_user,
         rr_booking_id=trip.rr_booking_id, old_rr_vehicle_id=trip.rr_vehicle_id, old_vehicle_number=trip.vehicle_number,
         old_rr_driver_id=trip.rr_driver_id, old_driver_name=trip.s1_driver_name,
-        old_owner_rr_company_id=trip.transporter_rr_company_id, booking_amount=trip.booking_amount)
+        old_owner_rr_company_id=trip.transporter_rr_company_id, old_owner_rr_user_id=trip.transporter_rr_user_id,
+        booking_amount=trip.booking_amount)
     _unlink_driver(trip, db)
     bs.reset_trip_after_booking_cancel(trip)
     db.add(event)
@@ -2623,6 +2649,8 @@ async def rebook_truck(trip_id: str, body: RrRebookRequest, db: Session = Depend
     user_org, trip, token = await _booking_action_trip(trip_id, current_user, db)
     if trip.booking_status != bs.BOOKING_CANCELLED:
         raise HTTPException(status_code=423, detail="Cancel the current booking first")
+    if bool(body.transporter_rr_company_id) == bool(body.transporter_rr_user_id):
+        raise HTTPException(status_code=422, detail="Choose the truck owner: a company or a person (one of them)")
     try:
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
             read_ok, offer = await bs.rr_booked_offer(client, token, trip.rr_trip_id)
@@ -2632,8 +2660,8 @@ async def rebook_truck(trip_id: str, body: RrRebookRequest, db: Session = Depend
                 raise HTTPException(status_code=423, detail="RR web already has a booked truck on this trip")
             ok, msg, _pv = await bs.book_truck_in_rr(
                 client, token, rr_trip_id=trip.rr_trip_id, rr_vehicle_id=body.rr_vehicle_id,
-                owner_rr_company_id=body.transporter_rr_company_id, rr_driver_id=body.rr_driver_id,
-                booking_amount=body.booking_amount)
+                owner_rr_company_id=body.transporter_rr_company_id, owner_rr_user_id=body.transporter_rr_user_id,
+                rr_driver_id=body.rr_driver_id, booking_amount=body.booking_amount)
             if not ok:
                 raise HTTPException(status_code=422, detail=f"RR refused: {msg}")
             booking_id = await bs.rr_booking_id(client, token, trip.rr_trip_id)
@@ -2642,11 +2670,13 @@ async def rebook_truck(trip_id: str, body: RrRebookRequest, db: Session = Depend
 
     bs.apply_rebooking(trip, rr_vehicle_id=body.rr_vehicle_id, vehicle_number=body.vehicle_number,
                        rr_driver_id=body.rr_driver_id, owner_rr_company_id=body.transporter_rr_company_id,
+                       owner_rr_user_id=body.transporter_rr_user_id,
                        booking_id=booking_id, booking_amount=body.booking_amount)
     db.add(_booking_event(
         trip, REBOOKED, None, current_user, rr_booking_id=booking_id, new_rr_vehicle_id=body.rr_vehicle_id,
         new_vehicle_number=body.vehicle_number, new_rr_driver_id=body.rr_driver_id,
-        new_owner_rr_company_id=body.transporter_rr_company_id, booking_amount=body.booking_amount))
+        new_owner_rr_company_id=body.transporter_rr_company_id, new_owner_rr_user_id=body.transporter_rr_user_id,
+        booking_amount=body.booking_amount))
     db.commit()
     # Same follow-ups as trip creation: GPS link to the new driver, and the NEW booking owner's papers from RR
     # (pull_owner_documents collects only when RR's booking owner == the trip's owner company).

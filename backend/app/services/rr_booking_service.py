@@ -52,7 +52,7 @@ TRUCK_STAGE_COLUMNS = (
     "s3_safety_gear", "s3_vehicle_reach_datetime", "s3_empty_truck_weight_kg", "s3_empty_truck_weight_unit",
 )
 BOOKING_COLUMNS = ("rr_vehicle_id", "vehicle_number", "rr_driver_id", "driver_id", "transporter_rr_company_id",
-                   "rr_booking_id")
+                   "transporter_rr_user_id", "rr_booking_id")
 
 
 # ── Checks ──────────────────────────────────────────────────────────────────────
@@ -187,7 +187,8 @@ def reset_trip_after_booking_cancel(trip) -> None:
 
 
 def apply_rebooking(trip, *, rr_vehicle_id: str, vehicle_number: str | None, rr_driver_id: str,
-                    owner_rr_company_id: str, booking_id: str | None, booking_amount) -> None:
+                    owner_rr_company_id: str | None, booking_id: str | None, booking_amount,
+                    owner_rr_user_id: str | None = None) -> None:
     """The new booking on our trip. Stage 1 starts empty (pre-filled from RR web on the Stage 1 screen) and is
     'not synced', so its first sync sends everything - to the NEW driver / truck / booking owner only. The caller
     commits, then links the driver (GPS) and collects the new owner's papers."""
@@ -195,6 +196,7 @@ def apply_rebooking(trip, *, rr_vehicle_id: str, vehicle_number: str | None, rr_
     trip.vehicle_number = vehicle_number
     trip.rr_driver_id = rr_driver_id
     trip.transporter_rr_company_id = owner_rr_company_id
+    trip.transporter_rr_user_id = None if owner_rr_company_id else owner_rr_user_id   # an owner person, no company
     trip.rr_booking_id = booking_id
     if booking_amount is not None:
         trip.booking_amount = booking_amount
@@ -213,14 +215,17 @@ async def cancel_booking_in_rr(client, token, rr_trip_id: str, reason: str) -> t
     return resp.status_code == 200, rr_message(resp)
 
 
-async def book_truck_in_rr(client, token, *, rr_trip_id: str, rr_vehicle_id: str, owner_rr_company_id: str,
-                           rr_driver_id: str, booking_amount: float) -> tuple[bool, str, str | None]:
-    """RR web's booking order (tracked 2026-11-20). Returns (booked, message, potential_vehicle_id)."""
+async def book_truck_in_rr(client, token, *, rr_trip_id: str, rr_vehicle_id: str, owner_rr_company_id: str | None,
+                           rr_driver_id: str, booking_amount: float,
+                           owner_rr_user_id: str | None = None) -> tuple[bool, str, str | None]:
+    """RR web's booking order (tracked 2026-11-20). Returns (booked, message, potential_vehicle_id). The owner is a
+    company (participant_company_id) or a person with no company (participant_user_id), as RR web books them."""
     from datetime import datetime, timezone
     base = settings.RR_API_BASE
+    participant = ({"participant_company_id": owner_rr_company_id} if owner_rr_company_id
+                   else {"participant_user_id": owner_rr_user_id})
     r = await client.post(f"{base}/v2/save_potential_vehicle_to_be_hired", headers=_hdr(token, True),
-                          json={"vehicle_id": rr_vehicle_id, "trip_id": rr_trip_id,
-                                "participant_company_id": owner_rr_company_id})
+                          json={"vehicle_id": rr_vehicle_id, "trip_id": rr_trip_id, **participant})
     pv = r.json().get("potential_vehicle_id") if r.status_code == 200 else None
     old_bid = None
     if not pv and "booking is canceled" in rr_message(r).lower():

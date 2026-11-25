@@ -212,6 +212,9 @@ class Trip(Base):
     # Set at assign-transporter time: transporter org's rr_company_id if set,
     # else Rolling Radius default (62d66794e54f47829a886a1d).
     transporter_rr_company_id = Column(String(24), nullable=True)
+    # The truck owner when he is a person with no company (RR's vehicle_owner_user_id; migration 115). Then
+    # transporter_rr_company_id is empty and RR books with participant_user_id, as RR web does.
+    transporter_rr_user_id = Column(String(24), nullable=True)
 
     # ── Consignee (Load Receiver) ─────────────────────────────────────────────────
     # Exactly one is set: org-type consignee OR individual user-type consignee
@@ -400,6 +403,7 @@ class Trip(Base):
             "driver_tracking_stopped_at": self.driver_tracking_stopped_at.isoformat() if self.driver_tracking_stopped_at else None,
             "driver_tracking_stopped_by": str(self.driver_tracking_stopped_by) if self.driver_tracking_stopped_by else None,
             "transporter_user_id": str(self.transporter_user_id) if self.transporter_user_id else None,
+            "transporter_rr_user_id": self.transporter_rr_user_id,
             # Stage 1
             "s1_driver_name": self.s1_driver_name,
             "s1_driver_phone": self.s1_driver_phone,

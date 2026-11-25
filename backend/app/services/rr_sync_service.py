@@ -797,6 +797,8 @@ async def find_vehicle_owner(trip, client: httpx.AsyncClient, token: str) -> tup
                 return None   # RR's own fallback provider: the real truck owner is unknown
     if trip.transporter_rr_company_id and trip.transporter_rr_company_id != RR_DEFAULT_VEHICLE_PROVIDER:
         return ("company", trip.transporter_rr_company_id)
+    if getattr(trip, "transporter_rr_user_id", None):
+        return ("user", trip.transporter_rr_user_id)      # an owner person with no company
     return None
 
 
@@ -2209,6 +2211,16 @@ async def sync_stage(trip_id: str, stage: int) -> None:
             return
         claimed = True
         db.refresh(trip)   # what the previous sync of this trip left (its "already sent" marks)
+        # No RR trip (its creation failed) or a cancelled trip: send nothing - Stage 1 papers used to reach the driver /
+        # truck / owner records even without an RR trip (user, 2026-11-25). For every role and every caller.
+        stop = ("Trip cancelled - nothing is synced to RR web" if trip.status == "cancelled"
+                else "Trip creation failed on RR web - nothing is synced" if not trip.rr_trip_id else None)
+        if stop:
+            setattr(trip, status_field, "failed")
+            setattr(trip, error_field, stop)
+            db.commit()
+            logger.info(f"[RR Sync Stage {stage}] Trip {trip.trip_number} not synced: {stop}")
+            return
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
             # First follow what RR web changed (cancel / truck / driver) - we hold the claim (md/RR_TWO_WAY_SYNC_PLAN.md)
             from app.services.rr_follow_service import follow_trips

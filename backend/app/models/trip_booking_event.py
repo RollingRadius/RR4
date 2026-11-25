@@ -40,11 +40,13 @@ class TripBookingEvent(Base):
     old_rr_driver_id = Column(String(24), nullable=True)
     old_driver_name = Column(String(100), nullable=True)
     old_owner_rr_company_id = Column(String(24), nullable=True)
+    old_owner_rr_user_id = Column(String(24), nullable=True)      # owner person with no company (migration 115)
 
     new_rr_vehicle_id = Column(String(24), nullable=True)
     new_vehicle_number = Column(String(30), nullable=True)
     new_rr_driver_id = Column(String(24), nullable=True)
     new_driver_name = Column(String(100), nullable=True)
     new_owner_rr_company_id = Column(String(24), nullable=True)
+    new_owner_rr_user_id = Column(String(24), nullable=True)
 
     booking_amount = Column(Numeric(12, 2), nullable=True)

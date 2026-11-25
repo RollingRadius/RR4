@@ -15,7 +15,7 @@ import uuid as _uuid_module
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -186,6 +186,8 @@ class TripCreate(BaseModel):
     # Vehicle provider — either supply the resolved RR ObjectId directly,
     # or supply transporter_phone to auto-resolve via GET /users/get_user_by_phone
     transporter_rr_company_id: Optional[str] = None
+    # ...or the truck owner when he is a PERSON with no company (RR user id; RR web books him with participant_user_id)
+    transporter_rr_user_id:    Optional[str] = Field(None, min_length=24, max_length=24)
     transporter_phone:         Optional[str] = None
     # LP offline bid / offer price for vehicle provider (used as booking_amount in RR create_trip)
     booking_amount: Optional[float] = None
@@ -531,6 +533,8 @@ async def create_trip(
         expected_freight=body.expected_freight,
         booking_amount=body.booking_amount,
         transporter_rr_company_id=body.transporter_rr_company_id or None,
+        # a company wins; the person is kept only for a truck owner with no company
+        transporter_rr_user_id=None if body.transporter_rr_company_id else (body.transporter_rr_user_id or None),
     )
     db.add(trip)
     db.commit()
@@ -559,7 +563,7 @@ async def create_trip(
     # ── Resolve vehicle_provider_id via transporter phone ─────────────────────
     # If a phone number was supplied and we don't already have the RR company ID,
     # look it up from RR now so it's ready for Stage 0 sync later.
-    if body.transporter_phone and not trip.transporter_rr_company_id and rr_token:
+    if body.transporter_phone and not trip.transporter_rr_company_id and not trip.transporter_rr_user_id and rr_token:
         import httpx
         from app.config import settings
         raw = body.transporter_phone.strip().lstrip("+")

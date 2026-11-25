@@ -395,8 +395,12 @@ async def _store_photo(db, trip, column, stage, prefix, file_id, client, token) 
     kw = dict(url_path=url, file_name=Path(url).name, upload=upload, user=RR_WEB_ACTOR, role_key=RR_WEB_ROLE,
               org_id=trip.organization_id, uploaded_via="rr_web", rr_file_id=file_id)
     if stage == 1:
-        save_stage1_document(db, trip=trip, column=column, **kw)
+        # Set before saving: when the owner's stored paper is this same file, save_stage1_document points the trip
+        # at THAT row's link instead - setting it after (as before) left the trip on a link stored nowhere (broken
+        # photo; found in the e2e run 2026-11-25 after a reassign to a driver whose papers we already held).
         setattr(trip, column, url)
+        save_stage1_document(db, trip=trip, column=column, **kw)
+        _mark_in_rr(trip, column, getattr(trip, column), file_id)
     elif column == "s2_loading_slip_url":
         save_loading_slip(db, trip=trip, doc_type="loading_slip", **kw)
         trip.rr_loading_slip_file_id = file_id
@@ -416,6 +420,41 @@ def material_ids(parcel: dict) -> list[str]:
         if fid:
             out.append(str(fid))
     return out
+
+
+class _ColumnNames:
+    """Stands in for a trip so the sync's paper lists give back column names (trip.s1_rc -> "s1_rc")."""
+    def __getattr__(self, name):
+        return name
+
+
+def stage1_sync_mark(column: str):
+    """(the sync's "already sent" key, the trip's RR file-id attribute or None) of a Stage 1 photo column, or None."""
+    from app.services.rr_sync_service import driver_doc_items, vehicle_doc_items
+    from app.services.stage1_document_service import OWNER_SYNC_MARKS
+    names = _ColumnNames()
+    for it in driver_doc_items(names) + vehicle_doc_items(names):
+        for side in ("front", "back"):
+            if it.get(f"{side}_url") == column:
+                return f"{it['id_name']}::{side}", it.get(f"{side}_attr")
+    if column == "s1_insurance":
+        return "Insurance::front", "rr_insurance_file_id"
+    return OWNER_SYNC_MARKS.get(column)
+
+
+def _mark_in_rr(trip, column: str, url: str, file_id: str) -> None:
+    """A Stage 1 photo taken from RR is what RR holds: mark it as already sent (the sync does not upload it back as a
+    new copy) and keep its RR file id (the RR document status shows it as synced) - as for collected owner papers.
+    Found in the e2e run 2026-11-24: after a reassign the new driver's pulled papers showed 'not synced'."""
+    mark = stage1_sync_mark(column)
+    if not mark:
+        return
+    key, attr = mark
+    marks = dict(trip.rr_synced_doc_urls or {})
+    marks[key] = url
+    trip.rr_synced_doc_urls = marks
+    if attr:
+        setattr(trip, attr, file_id)
 
 
 async def _pull_material_docs(db, trip, parcel: dict, etags: dict, client, token) -> bool:

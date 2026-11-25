@@ -68,7 +68,8 @@ async def read_rr_states(client: httpx.AsyncClient, token: str, rr_trip_ids: lis
             "max_results": len(chunk)})
         offers = await client.get(f"{base}/potential_vehicles", headers=_hdr(token), params={
             "where": json.dumps({"trip_id": {"$in": chunk}, "vehicle_status": "Booked"}),
-            "projection": json.dumps({"trip_id": 1, "vehicle": 1, "vehicle_owner_company_id": 1, "booking_id": 1,
+            "projection": json.dumps({"trip_id": 1, "vehicle": 1, "vehicle_owner_company_id": 1,
+                                    "vehicle_owner_user_id": 1, "booking_id": 1,
                                       "last_bid": 1, "vehicle_status": 1}),
             "max_results": len(chunk) * 2})
         if trips.status_code != 200 or offers.status_code != 200:
@@ -141,7 +142,7 @@ async def apply_change(db, trip, kind: str, state: dict, client, token: str) -> 
 
     old = dict(old_rr_vehicle_id=trip.rr_vehicle_id, old_vehicle_number=trip.vehicle_number,
                old_rr_driver_id=trip.rr_driver_id, old_driver_name=trip.s1_driver_name,
-               old_owner_rr_company_id=trip.transporter_rr_company_id)
+               old_owner_rr_company_id=trip.transporter_rr_company_id, old_owner_rr_user_id=trip.transporter_rr_user_id)
     booked_here = bool(trip.rr_vehicle_id) and trip.booking_status != bs.BOOKING_CANCELLED
     new_driver = state.get("driver")
     relink_driver = None
@@ -163,18 +164,21 @@ async def apply_change(db, trip, kind: str, state: dict, client, token: str) -> 
         offer = state["offer"]
         vehicle = str(offer.get("vehicle"))
         owner = str(offer.get("vehicle_owner_company_id") or "") or None
+        owner_user = None if owner else (str(offer.get("vehicle_owner_user_id") or "") or None)   # a person owner
         booking_id = str(offer["booking_id"]) if offer.get("booking_id") else None
         number = await _vehicle_number(client, token, vehicle)
         row = ev.TripBookingEvent(event=ev.RR_WEB_REBOOKED, rr_booking_id=booking_id, new_rr_vehicle_id=vehicle,
                                   new_vehicle_number=number, new_rr_driver_id=new_driver,
                                   new_driver_name=await _user_name(client, token, new_driver),
-                                  new_owner_rr_company_id=owner, booking_amount=offer.get("last_bid"),
+                                  new_owner_rr_company_id=owner, new_owner_rr_user_id=owner_user,
+                                  booking_amount=offer.get("last_bid"),
                                   **(old if booked_here else {}))
         if booked_here:                      # the old truck, driver and owner leave first
             _unlink_driver(trip, db)
             bs.reset_trip_after_booking_cancel(trip)
         bs.apply_rebooking(trip, rr_vehicle_id=vehicle, vehicle_number=number, rr_driver_id=new_driver,
-                           owner_rr_company_id=owner, booking_id=booking_id, booking_amount=offer.get("last_bid"))
+                           owner_rr_company_id=owner, owner_rr_user_id=owner_user, booking_id=booking_id,
+                           booking_amount=offer.get("last_bid"))
         relink_driver = new_driver
     elif kind == DRIVER_CHANGED:
         row = ev.TripBookingEvent(event=ev.RR_WEB_DRIVER_CHANGED, old_rr_driver_id=trip.rr_driver_id,
