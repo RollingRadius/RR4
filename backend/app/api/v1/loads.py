@@ -27,7 +27,7 @@ from app.models.load_requirement import LoadRequirement
 from app.models.trip import Trip
 from app.models.role import Role
 from app.services import fcm_service
-from app.config import settings
+from app.config import settings  # noqa: F401  (only the commented-out RR sync call in fulfill uses it)
 
 router = APIRouter()
 
@@ -848,11 +848,14 @@ async def fulfill_load_requirement(
     except Exception:
         pass
 
-    # RR Sync: if LP provided their RR token, create trip+parcel in RR immediately
-    if payload.rr_token and settings.RR_SYNC_ENABLED:
-        from app.services.rr_sync_service import sync_all_to_rr
-        await sync_all_to_rr(str(trip.id), payload.rr_token)
-        db.refresh(trip)  # pick up rr_trip_id / rr_parcel_id written by sync
+    # Commented out 2026-11-25 (user): the old "sync everything at once" call did nothing here - a trip made from an
+    # accepted load is not in RR yet, so sync_all_to_rr stopped at once (it never created the trip; Complete Trip does).
+    # Every live sync goes through /api/rr/sync/retry (the Sync button). REMOVE these lines if still unused after
+    # 2027-01-25 (two months).
+    # if payload.rr_token and settings.RR_SYNC_ENABLED:
+    #     from app.services.rr_sync_service import sync_all_to_rr
+    #     await sync_all_to_rr(str(trip.id), payload.rr_token)
+    #     db.refresh(trip)  # pick up rr_trip_id / rr_parcel_id written by sync
 
     return {
         "success": True,

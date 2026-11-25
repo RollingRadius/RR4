@@ -2245,9 +2245,8 @@ async def sync_stage(trip_id: str, stage: int) -> None:
             logger.info(f"[RR Sync Stage {stage}] Trip {trip.trip_number} not synced: {stop}")
             return
         async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
-            # First follow what RR web changed (cancel / truck / driver) - we hold the claim (md/RR_TWO_WAY_SYNC_PLAN.md)
-            await rr_follow_service.follow_trips(db, [trip], client, token, claim=False)
-            db.refresh(trip)
+            # RR web's changes were taken once when Sync was pressed (/api/rr/sync/retry - user 2026-11-25: one check per
+            # press, not one more per stage). The light guard below still stops a send onto a changed / cancelled booking.
             # Never send anything for a cancelled trip / booking, or when RR's booked truck is not ours any more
             # (booking changed in RR web) - papers would land on the wrong records (md/RR_BOOKING_CANCEL_RULES.md).
             from app.services.rr_booking_service import booking_guard
