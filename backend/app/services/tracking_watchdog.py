@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func
 
 from app.database import SessionLocal
+from app.services import background_leader
 from app.models.trip import Trip
 from app.models.tracking import DriverLocation
 from app.models.notification import Notification
@@ -47,13 +48,18 @@ _ALERT_ROLES = ('logistic_partner', 'lp_rr_operations')
 
 
 async def run_forever() -> None:
-    """Entry point started once from main.py's startup event."""
-    while True:
-        try:
-            await check_stale_trails()
-        except Exception:
-            logger.exception("Tracking watchdog check failed")
-        await asyncio.sleep(CHECK_INTERVAL_SECONDS)
+    """Started from main.py's startup event in every worker; only the worker holding the lock runs the checks."""
+    leader = background_leader.LeaderLock(background_leader.TRACKING_WATCHDOG_KEY, "GPS watchdog")
+    try:
+        while True:
+            if leader.is_leader():
+                try:
+                    await check_stale_trails()
+                except Exception:
+                    logger.exception("Tracking watchdog check failed")
+            await asyncio.sleep(CHECK_INTERVAL_SECONDS)
+    finally:
+        leader.release()
 
 
 async def check_stale_trails() -> None:

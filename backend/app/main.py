@@ -212,13 +212,11 @@ async def startup_event():
         logger.warning(f"Could not initialize seeding: {e}")
 
     # Trail-gone-stale watchdog for LP/RR-ops — see tracking_watchdog.py.
-    # Best-effort, same single-worker-process assumption already documented
-    # for ws_manager (rr_org_token_service.py) — running this across
-    # multiple uvicorn/gunicorn workers would duplicate-alert.
+    # Started in every worker; background_leader lets only one worker run it.
     import asyncio
     from app.services import tracking_watchdog
     app.state.tracking_watchdog_task = asyncio.create_task(tracking_watchdog.run_forever())
-    # Our trips follow RR web's booking changes (md/RR_TWO_WAY_SYNC_PLAN.md) - same single-worker assumption.
+    # Our trips follow RR web's booking changes (md/RR_TWO_WAY_SYNC_PLAN.md) - one worker runs it (background_leader).
     app.state.rr_follow_task = asyncio.create_task(rr_follow_service.run_forever())
 
 

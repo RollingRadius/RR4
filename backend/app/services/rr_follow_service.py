@@ -24,7 +24,7 @@ from app.models.company import Organization
 from app.models.load_requirement import LoadRequirement
 from app.models.trip import Trip
 # modules, not names: rr_sync_service imports this module back, and tests patch these modules
-from app.services import driver_link_service, rr_org_token_service, rr_pull_service, rr_sync_service
+from app.services import background_leader, driver_link_service, rr_org_token_service, rr_pull_service, rr_sync_service
 from app.services import rr_booking_service as bs
 from app.services import stage1_document_service
 
@@ -293,16 +293,21 @@ async def follow_all_orgs() -> int:
 
 
 async def run_forever() -> None:
-    """Started once from main.py's startup event (same single-worker assumption as tracking_watchdog)."""
+    """Started from main.py's startup event in every worker; only the worker holding the lock runs the rounds."""
     minutes = settings.RR_FOLLOW_INTERVAL_MINUTES
     if minutes <= 0 or not settings.RR_SYNC_ENABLED:
         return
+    leader = background_leader.LeaderLock(background_leader.RR_FOLLOW_KEY, "RR web check")
     await asyncio.sleep(60)
-    while True:
-        try:
-            changed = await follow_all_orgs()
-            if changed:
-                logger.info(f"[RR Follow] background check applied {changed} RR web change(s)")
-        except Exception:
-            logger.exception("[RR Follow] background check failed")
-        await asyncio.sleep(minutes * 60)
+    try:
+        while True:
+            if leader.is_leader():
+                try:
+                    changed = await follow_all_orgs()
+                    if changed:
+                        logger.info(f"[RR Follow] background check applied {changed} RR web change(s)")
+                except Exception:
+                    logger.exception("[RR Follow] background check failed")
+            await asyncio.sleep(minutes * 60)
+    finally:
+        leader.release()
