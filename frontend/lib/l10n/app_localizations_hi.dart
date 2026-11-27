@@ -7050,4 +7050,11 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get rrWebUpdated => 'RR वेब पर बदलाव हुआ - ट्रिप अपडेट हो गई';
+
+  @override
+  String get bookingRebookProviderCancelled =>
+      'RR इस ट्रिप पर इस ट्रक देने वाले को फिर से बुक नहीं कर सकता। किसी दूसरे का ट्रक चुनें।';
+
+  @override
+  String get bookingRebookCancelledTag => 'इस ट्रिप पर बुकिंग रद्द हुई';
 }

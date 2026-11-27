@@ -222,6 +222,34 @@ class _RebookTruckScreenState extends ConsumerState<RebookTruckScreen> {
   String? _driverId;
   String? _driverName;
   List<Map<String, dynamic>> _driverResults = [];
+  // Truck owners whose booking on this trip was cancelled: RR refuses all their trucks (user, 2026-11-27).
+  Set<String> _cancelledCompanies = {};
+  Set<String> _cancelledUsers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadCancelledOwners());
+  }
+
+  Future<void> _loadCancelledOwners() async {
+    try {
+      final r = await ref.read(dioProvider).get('/api/rr/cancelled-providers/${widget.trip.id}');
+      final data = Map<String, dynamic>.from(r.data as Map);
+      if (!mounted) return;
+      setState(() {
+        _cancelledCompanies = ((data['companies'] as List?) ?? []).cast<String>().toSet();
+        _cancelledUsers = ((data['users'] as List?) ?? []).cast<String>().toSet();
+      });
+    } catch (_) {
+      // Best effort: the server refuses a cancelled owner on Book anyway.
+    }
+  }
+
+  bool get _providerCancelled => _provider != null && _cancelledUsers.contains(_provider!['user_id']);
+
+  bool _ownerCancelled(String id) =>
+      id == _ownTrucks ? _providerCancelled : _cancelledCompanies.contains(id);
 
   @override
   void dispose() {
@@ -257,10 +285,11 @@ class _RebookTruckScreenState extends ConsumerState<RebookTruckScreen> {
       _companies = ((c?.data as Map?)?['companies'] as List? ?? []).cast<Map<String, dynamic>>();
       _companyId = null; _vehicles = []; _vehicle = null; _driverId = null; _driverName = null;
     });
-    if (_companies.isEmpty) await _pickCompany(_ownTrucks);   // no company: his own trucks at once
+    if (_companies.isEmpty && !_providerCancelled) await _pickCompany(_ownTrucks);   // no company: his own trucks at once
   }
 
   Future<void> _pickCompany(String id) async {
+    if (_ownerCancelled(id)) return;
     setState(() { _companyId = id; _vehicles = []; _vehicle = null; _driverId = null; _driverName = null; });
     final api = ref.read(rrSyncApiProvider);
     final list = await _call(() => id == _ownTrucks
@@ -312,6 +341,18 @@ class _RebookTruckScreenState extends ConsumerState<RebookTruckScreen> {
     }
   }
 
+  /// A company (or "own trucks") whose booking on this trip was cancelled is shown greyed out and can't be picked.
+  DropdownMenuItem<String> _ownerItem(String id, String name, AppLocalizations l10n) {
+    final cancelled = _ownerCancelled(id);
+    return DropdownMenuItem(
+      value: id,
+      enabled: !cancelled,
+      child: Text(cancelled ? '$name — ${l10n.bookingRebookCancelledTag}' : name,
+          overflow: TextOverflow.ellipsis,
+          style: cancelled ? const TextStyle(color: Color(0xFF9AA4B2)) : null),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -346,19 +387,23 @@ class _RebookTruckScreenState extends ConsumerState<RebookTruckScreen> {
             Text(l10n.bookingRebookCompany, style: const TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 6),
             if (_companies.isEmpty)
-              Text(l10n.bookingRebookNoCompanyOwnTrucks, style: const TextStyle(color: Color(0xFF5F6B7A)))
-            else
+              Text(_providerCancelled ? l10n.bookingRebookProviderCancelled : l10n.bookingRebookNoCompanyOwnTrucks,
+                  style: TextStyle(color: _providerCancelled ? _danger : const Color(0xFF5F6B7A)))
+            else ...[
               DropdownButtonFormField<String>(
                 value: _companyId,
                 isExpanded: true,
                 decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true),
                 items: [
-                  DropdownMenuItem(value: _ownTrucks,
-                      child: Text(l10n.createTripOwnTrucksOption, overflow: TextOverflow.ellipsis)),
-                  for (final c in _companies)
-                    DropdownMenuItem(value: c['rr_company_id'] as String, child: Text(c['name'] as String? ?? ''))],
+                  _ownerItem(_ownTrucks, l10n.createTripOwnTrucksOption, l10n),
+                  for (final c in _companies) _ownerItem(c['rr_company_id'] as String, c['name'] as String? ?? '', l10n)],
                 onChanged: (v) { if (v != null) _pickCompany(v); },
               ),
+              if (_providerCancelled || _companies.any((c) => _cancelledCompanies.contains(c['rr_company_id']))) ...[
+                const SizedBox(height: 6),
+                Text(l10n.bookingRebookProviderCancelled, style: const TextStyle(color: _danger, fontSize: 12)),
+              ],
+            ],
           ],
           if (_companyId != null) ...[
             const SizedBox(height: 12),

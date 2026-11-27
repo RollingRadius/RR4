@@ -7076,4 +7076,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get rrWebUpdated => 'Changed on RR web - trip updated';
+
+  @override
+  String get bookingRebookProviderCancelled =>
+      'RR can\'t book this provider again on this trip. Choose another provider\'s truck.';
+
+  @override
+  String get bookingRebookCancelledTag => 'booking cancelled on this trip';
 }

@@ -2637,12 +2637,30 @@ async def cancel_booking(trip_id: str, body: RrCancelBookingRequest, db: Session
     return {"success": True, "already_cancelled_in_rr": already_cancelled_in_rr, "trip": trip.to_dict()}
 
 
+@router.get("/cancelled-providers/{trip_id}", summary="Truck owners whose booking on this trip was cancelled")
+async def cancelled_providers(trip_id: str, db: Session = Depends(get_db),
+                              current_user: User = Depends(get_current_user)):
+    """For Book another truck: these owners (companies / persons with no company) can't be booked on the trip again;
+    RR refuses their trucks after a cancel (rr_booking_service.PROVIDER_CANCELLED_MSG)."""
+    from app.services import rr_booking_service as bs
+    _user_org, trip, token = await _booking_action_trip(trip_id, current_user, db)
+    try:
+        async with httpx.AsyncClient(verify=settings.RR_SSL_VERIFY, timeout=30) as client:
+            cancelled = await bs.cancelled_providers(client, token, trip.rr_trip_id)
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Could not reach RR server ({exc})")
+    if cancelled is None:
+        raise HTTPException(status_code=502, detail="Could not read the trip's offers from RR")
+    return cancelled
+
+
 @router.post("/rebook/{trip_id}", summary="Book another truck on the trip in RR after a cancelled booking")
 async def rebook_truck(trip_id: str, body: RrRebookRequest, db: Session = Depends(get_db),
                        current_user: User = Depends(get_current_user)):
     """RR web's booking order: truck offer -> offline price -> award -> driver on the truck's crew -> book. Our trip
     gets the new truck / driver / booking owner only after RR booked it; Stage 1 is then filled again and its first
-    sync sends everything to the NEW records."""
+    sync sends everything to the NEW records. An owner whose booking on this trip was cancelled is refused before
+    anything is sent (RR would book on the old, deleted purchase order)."""
     from app.services import rr_booking_service as bs
     from app.models.trip_booking_event import REBOOKED
     user_org, trip, token = await _booking_action_trip(trip_id, current_user, db)
@@ -2657,11 +2675,18 @@ async def rebook_truck(trip_id: str, body: RrRebookRequest, db: Session = Depend
                 raise HTTPException(status_code=502, detail="Could not read the booking from RR - nothing was changed")
             if offer is not None:
                 raise HTTPException(status_code=423, detail="RR web already has a booked truck on this trip")
+            cancelled = await bs.cancelled_providers(client, token, trip.rr_trip_id)
+            if cancelled is None:
+                raise HTTPException(status_code=502, detail="Could not read the trip's offers from RR - nothing was changed")
+            if bs.provider_cancelled(cancelled, body.transporter_rr_company_id, body.transporter_rr_user_id):
+                raise HTTPException(status_code=423, detail=bs.PROVIDER_CANCELLED_MSG)
             ok, msg, _pv = await bs.book_truck_in_rr(
                 client, token, rr_trip_id=trip.rr_trip_id, rr_vehicle_id=body.rr_vehicle_id,
                 owner_rr_company_id=body.transporter_rr_company_id, owner_rr_user_id=body.transporter_rr_user_id,
                 rr_driver_id=body.rr_driver_id, booking_amount=body.booking_amount)
             if not ok:
+                if msg == bs.PROVIDER_CANCELLED_MSG:
+                    raise HTTPException(status_code=423, detail=msg)
                 raise HTTPException(status_code=422, detail=f"RR refused: {msg}")
             booking_id = await bs.rr_booking_id(client, token, trip.rr_trip_id)
     except httpx.HTTPError as exc:

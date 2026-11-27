@@ -12745,6 +12745,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Changed on RR web - trip updated'**
   String get rrWebUpdated;
+
+  /// Book another truck: this truck owner (company or person) had a cancelled booking on this trip; RR refuses all his trucks
+  ///
+  /// In en, this message translates to:
+  /// **'RR can\'t book this provider again on this trip. Choose another provider\'s truck.'**
+  String get bookingRebookProviderCancelled;
+
+  /// Short tag after a greyed-out company / own-trucks option in Book another truck
+  ///
+  /// In en, this message translates to:
+  /// **'booking cancelled on this trip'**
+  String get bookingRebookCancelledTag;
 }
 
 class _AppLocalizationsDelegate

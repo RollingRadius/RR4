@@ -3930,5 +3930,9 @@
   "rrWebNewDriver": "New driver: {name}",
   "@rrWebNewDriver": {"placeholders": {"name": {"type": "String"}}},
   "rrWebUpdated": "Changed on RR web - trip updated",
-  "@rrWebUpdated": {"description": "Message when opening a trip pulled RR web's changes (cancel / truck / driver)"}
+  "@rrWebUpdated": {"description": "Message when opening a trip pulled RR web's changes (cancel / truck / driver)"},
+  "bookingRebookProviderCancelled": "RR can't book this provider again on this trip. Choose another provider's truck.",
+  "@bookingRebookProviderCancelled": {"description": "Book another truck: this truck owner (company or person) had a cancelled booking on this trip; RR refuses all his trucks"},
+  "bookingRebookCancelledTag": "booking cancelled on this trip",
+  "@bookingRebookCancelledTag": {"description": "Short tag after a greyed-out company / own-trucks option in Book another truck"}
 }
